@@ -7,7 +7,7 @@ version = "1.0.0-DEV"
 GTPSA = "b27dd330-f138-47c5-815b-40db9dd9b6e8"
 
 [compat]
-GTPSA = "0.6.1, 0.7"
+GTPSA = "0.6.1, 0.7, 1"
 julia = "1.9"
 
 [extras]
