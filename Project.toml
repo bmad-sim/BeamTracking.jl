@@ -11,6 +11,7 @@ ReferenceFrameRotations = "74f56ac7-18b3-5285-802d-d4bd4f104033"
 StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
 
 [compat]
+Distributions = "0.25"
 GTPSA = "1.2.0"
 ReferenceFrameRotations = "3"
 StaticArrays = "1"
