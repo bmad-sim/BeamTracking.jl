@@ -78,6 +78,21 @@ end
   M_qd_expected[5:6,5:6] = M_qf_z 
 
   test_matrix(qd, 1, M_qd_expected, beta_gamma_ref=beta_gamma_ref, species=species)
+
+  #Linear Solenoid test: 
+  L_s =1.0
+  S = 1.57
+  Bs = S * brho_ref
+  phi = S * L_s / 2
+  so = Linear.Solenoid(L = L_s, Bs = Bs)
+  M_solenoid_expected = [cos(phi)^2  sin(2*phi)/S  sin(2*phi)/2  sin(phi)^2*2/S   0.0  0.0;
+                         -sin(2*phi)*S/4  cos(phi)^2 -S/2*sin(phi)^2  sin(2*phi)/2  0.0 0.0;
+                         -sin(2*phi)/2  -2/S*sin(phi)^2 cos(phi)^2 sin(2*phi)/S  0.0 0.0;
+                         S/2*sin(phi)^2  -sin(2*phi)/2 -S/4*sin(2*phi) cos(phi)^2 0.0 0.0;
+                          0.0 0.0 0.0 0.0 1 L_s/gamma_ref^2;
+                          0.0 0.0 0.0 0.0 0.0 1]
+  
+ test_matrix(so, 3, M_solenoid_expected, beta_gamma_ref=beta_gamma_ref, species=species)
 end
 
 #include("linear.jl")
