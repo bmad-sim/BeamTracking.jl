@@ -1,5 +1,7 @@
 module BeamTracking
 using GTPSA,
+      DifferentialEquations,
+      DiffEqPhysics,
       ReferenceFrameRotations,
       StaticArrays,
       StructArrays,
@@ -16,6 +18,7 @@ export Bunch,
        
        MatrixKick,
        Linear,
+       DiffEq,
 
        sr_gamma, 
        sr_gamma_m1,
@@ -49,9 +52,11 @@ include("utils.jl")
 include("work.jl")
 
 # Modules separated:
+include("DiffEq/DiffEq.jl")
 include("MatrixKick/MatrixKick.jl") 
 include("Linear/Linear.jl")   
 include("Misc/Misc.jl")
+
 
 
 end
