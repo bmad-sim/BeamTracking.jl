@@ -1,38 +1,34 @@
 #=
 
-Bunch, Coord, and Particle type definitions. StructArrays is 
-used to handle an internal SoA layout of memory which also 
-allows us to mutate, so both the phase space Coord struct 
-(defined here) and Quaternion struct (defined in 
-ReferenceFrameRotations) can be static. 
-
-Particle struct simply goes from StructArrays SoA to AoS.
+Here we define a mutable interface using an AoS layout.
 
 =#
 
-
-# Static phase space coordinate vector
-Base.@kwdef struct Coord{T} <: FieldVector{6, T} 
-  x::T  = 0.0
+# Mutable phase space coordinate vector
+Base.@kwdef mutable struct Coord{T} <: FieldVector{6, T} 
   px::T = 0.0
-  y::T  = 0.0
   py::T = 0.0
-  z::T  = 0.0
   pz::T = 0.0
+  x::T  = 0.0
+  y::T  = 0.0
+  z::T  = 0.0
 end
 
-# Static quaternion type defined by ReferenceFrameRotation
-
-struct Bunch{T<:StructVector{<:Coord}, U<:Union{Nothing, StructVector{<:Quaternion}}}
-  species::Species
-  beta_gamma_ref::Float64
-  v::T
-  q::U
+# We will need to submit the MQuaternion PR to ReferenceFrameRotations for quaternion
+Base.@kwdef struct Particle{T, U}
+  v::Coord{T} = Coord()
+  q::U = nothing
 end
 
+Base.@kwdef struct Bunch{N, T, U}
+  species::Species                      = Species("electron")
+  particles::SVector{N, Particle{T, U}} = SA[Particle()]
+end
+
+#=
 # Initialize a Bunch with either a single particle (scalars)
 """
-    Bunch(; species::Species=Species("electron"), beta_gamma_ref=1.0, 
+    Bunch(; species::Species=Species("electron"), 
            spin::Union{Bool,Nothing}=nothing, gtpsa_map::Union{Bool,Nothing}=nothing,
            x::Union{Number,AbstractVector}=0.0, px::Union{Number,AbstractVector}=0.0, 
            y::Union{Number,AbstractVector}=0.0, py::Union{Number,AbstractVector}=0.0, 
@@ -53,7 +49,7 @@ and `[1.0, 0.0, 3.0, 0.0, 0.0, 0.0]`.
 • `spin`            -- If true, spin tracking is turned on and a quaternion for each particle is tracked
 • `gtpsa_map`       -- If true, GTPSA map tracking is used for each particle using the Descriptor defined in GTPSA.desc_current
 """
-function Bunch(; species::Species=Species("electron"), beta_gamma_ref=1.0, 
+function Bunch(; species::Species=Species("electron"), 
                 spin::Union{Bool,Nothing}=nothing, gtpsa_map::Union{Bool,Nothing}=nothing,
                 x::Union{Number,AbstractVector}=0.0, px::Union{Number,AbstractVector}=0.0, 
                 y::Union{Number,AbstractVector}=0.0, py::Union{Number,AbstractVector}=0.0, 
@@ -134,16 +130,4 @@ function Bunch(; species::Species=Species("electron"), beta_gamma_ref=1.0,
 
   return Bunch(species, Float64(beta_gamma_ref), v, q)
 end
-
-struct Particle{T,U<:Union{Nothing,Quaternion{T}}}
-  species::Species
-  beta_gamma_ref::Float64
-  v::Coord{T}
-  q::U
-end
-
-function Particle(bunch::Bunch, idx::Integer=1)
-  v = bunch.v[idx] # StructArrays handles this!
-  q = isnothing(bunch.q) ? nothing : bunch.q[idx]
-  return Particle(bunch.species, bunch.beta_gamma_ref, v, q)
-end
+=#

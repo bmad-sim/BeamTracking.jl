@@ -1,6 +1,5 @@
 using Test,
       BeamTracking,
-      Distributions,
       JET,
       BenchmarkTools,
       GTPSA

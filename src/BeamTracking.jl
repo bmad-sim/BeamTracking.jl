@@ -1,13 +1,11 @@
 module BeamTracking
-using GTPSA,
-      DifferentialEquations,
-      DiffEqPhysics,
+using SciMLBase,
+      RecursiveArrayTools,
+      NaNMath,
+      GTPSA,
       ReferenceFrameRotations,
       StaticArrays,
-      StructArrays,
-      Distributions,
-      Unitful
-
+      StructArrays
 
 include("aapc.jl")
 
@@ -41,7 +39,7 @@ export Bunch,
 
 
 
-include("types.jl")
+include("new_types.jl")
 
 # Empty tracking method to be imported by submodules 
 track!(bunch::Bunch, ::Nothing; work=nothing) = bunch
