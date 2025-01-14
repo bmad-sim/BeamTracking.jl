@@ -5,19 +5,19 @@ using GTPSA,
       StructArrays,
       Distributions,
       Unitful
+using AtomicAndPhysicalConstants
+@APCdef
 
-
-include("aapc.jl")
 
 export Bunch,       
        Coord, 
        Quaternion,
        Particle,
-       
+
        MatrixKick,
        Linear,
 
-       sr_gamma, 
+       sr_gamma,
        sr_gamma_m1,
        sr_beta,
        sr_pc,
@@ -35,9 +35,6 @@ export Bunch,
        track!
 
 
-
-
-
 include("types.jl")
 
 # Empty tracking method to be imported by submodules 
@@ -49,8 +46,8 @@ include("utils.jl")
 include("work.jl")
 
 # Modules separated:
-include("MatrixKick/MatrixKick.jl") 
-include("Linear/Linear.jl")   
+include("MatrixKick/MatrixKick.jl")
+include("Linear/Linear.jl")
 include("Misc/Misc.jl")
 
 

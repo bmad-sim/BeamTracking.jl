@@ -81,3 +81,5 @@ end
 end
 
 #include("linear.jl")
+include("element_tests.jl")
+
