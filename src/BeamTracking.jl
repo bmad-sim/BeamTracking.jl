@@ -3,21 +3,19 @@ using GTPSA,
       ReferenceFrameRotations,
       StaticArrays,
       StructArrays,
-      Distributions,
-      Unitful
+      AtomicAndPhysicalConstants
+@APCdef
 
-
-include("aapc.jl")
 
 export Bunch,       
        Coord, 
        Quaternion,
        Particle,
-       
+
        MatrixKick,
        Linear,
 
-       sr_gamma, 
+       sr_gamma,
        sr_gamma_m1,
        sr_beta,
        sr_pc,
@@ -34,9 +32,7 @@ export Bunch,
 
        track!
 
-
-
-
+import GTPSA: sincu, sinhcu
 
 include("types.jl")
 
@@ -49,8 +45,8 @@ include("utils.jl")
 include("work.jl")
 
 # Modules separated:
-include("MatrixKick/MatrixKick.jl") 
-include("Linear/Linear.jl")   
+include("MatrixKick/MatrixKick.jl")
+include("Linear/Linear.jl")
 include("Misc/Misc.jl")
 
 
