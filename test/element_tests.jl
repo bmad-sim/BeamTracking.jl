@@ -28,6 +28,16 @@ qf3 = MatrixKick.Quadrupole(L = lq3, Bn1 = +gr3)
 qd3 = MatrixKick.Quadrupole(L = lq3, Bn1 = -gr3)
 qf4 = MatrixKick.Quadrupole(L = lq4, Bn1 = +gr4)
 qd4 = MatrixKick.Quadrupole(L = lq4, Bn1 = -gr4)
+phi0_1 = 0.0
+phi0_2 = 1.2
+rfk = 2π / 0.1
+V1 = 1.e5
+V2 = 2.e5
+lrf1 = 0.0 
+lrf2 = 0.02 # m
+rf1 = MatrixKick.ThinLensRFCavity(L = lrf1, V = V1, k = rfk, phi0 = phi0_1) # 100 kV, zero length
+rf2 = MatrixKick.ThinLensRFCavity(L = lrf2, V = V2, k = rfk, phi0 = phi0_2) # 200 kV, non-zero length
+                
 
 # define beams
 # -- species
@@ -154,6 +164,9 @@ yf_qd4 =  [ 0.,  0.,                      0.,                     0.000996993885
 pyf_qd4 = [ 0.,  0.,                      0.,                    -5.012687615023454e-6,    0.0002940854775943521, -0.0002940854775943521 ]
 zf_qd4 =  [ 0.,  1.675151081511833e-8,   -1.680184012110547e-8,   1.6726365460219405e-8,  -3.78176641902771e-7, -3.78176641902771e-7 ]
 pzf_qd4 = [ 0.,  1.e-3,                  -1.e-3,                  1.e-3,                   1.e-3,                  1.e-3                 ]
+
+# beam6.qd4.final
+pze_rf2 = [72471.55089533473, 72471.5516661298, 72471.55012453966, 72471.5516661298,  72471.5516661298, 72471.5516661298]
 
 # test individual elements
 @testset "element_tests" begin
@@ -284,6 +297,27 @@ pzf_qd4 = [ 0.,  1.e-3,                  -1.e-3,                  1.e-3,        
   @test beam4.v.py ≈  pyf_qd4 (rtol=5.e-13)
   @test beam4.v.z  ≈  zf_qd4  (rtol=5.e-13)
   @test beam4.v.pz == pzf_qd4
+
+  beam5 = Bunch(species = e_minus, beta_gamma_ref = bg3,
+               x = copy(xi), px = copy(pxi), y = copy(yi), py = copy(pyi), z = copy(zi), pz = copy(pzi))
+  track!(beam5, rf1);
+  @test beam5.v.x  ==  xi  
+  @test beam5.v.px ==  pxi 
+  @test beam5.v.y  ==  yi  
+  @test beam5.v.py ==  pyi 
+  @test beam5.v.z  ==  zi  
+  expected_dpz = -chargeof(e_minus) * V1* cos.(rfk * zi .+ phi0_1)
+  @test isapprox(beam5.v.pz, pzi .+ expected_dpz; atol=1e-13)
+
+  beam6 = Bunch(species = e_minus, beta_gamma_ref = bg3,
+               x = copy(xi), px = copy(pxi), y = copy(yi), py = copy(pyi), z = copy(zi), pz = copy(pzi))
+  track!(beam6, rf2);
+  @test beam6.v.x  ==  xi  
+  @test beam6.v.px ==  pxi 
+  @test beam6.v.y  ==  yi  
+  @test beam6.v.py ==  pyi 
+  @test beam6.v.z  !=  zi  
+  @test isapprox(beam6.v.pz, pze_rf2; atol=1e-13)
 
 
 end
