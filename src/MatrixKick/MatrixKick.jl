@@ -15,6 +15,13 @@ Base.@kwdef struct Quadrupole{T}
   Bn1::T  # quadrupole gradient / (T·m^-1)
 end
 
+Base.@kwdef struct ThinLensRFCavity{T}
+  L::T    # RF-cavity length     / m
+  V::T    # Cavity voltage       / V
+  k::T    # RF wavenumber (2π/λ) / raduans·m^-1
+  phi0::T # RF phase offset      / radians
+end
+
 
 function track!(bunch::Bunch, ele::MatrixKick.Drift; work=get_work(bunch, Val{1}()))
 #=
@@ -67,7 +74,7 @@ function track!(bunch::Bunch, ele::MatrixKick.Quadrupole; work=get_work(bunch, V
   v_work = StructArray{Coord{eltype(work[1])}}((work[1], work[2], work[3], work[4], work[5], work[6]))
 
   trackQuadMx!(v_work, v, k2_num, L / 2)
-  trackQuadK!( v, v_work, bunch.beta_gamma_ref, L)
+  trackQuadK!( v, v_work, bunch.beta_gamma_ref, L) 
   trackQuadMx!(v_work, v, k2_num, L / 2)
 
   v .= v_work
@@ -149,6 +156,55 @@ function trackQuadK!(vf, vi, betgam_ref, s)
   return vf
 end # function trackQ!M::Quadrupole()
 
+
+
+"""
+function track!(bunch::Bunch, ele::MatrixKick.ThinLensRFCavity; work=get_work(bunch, Val{1}()))
+
+Apply a thin  RF cavity map in-place, where momenta (p_x, p_y, p_z)
+and rest mass are expressed in eV (treating c=1 for momentum units),
+while the longitudinal coordinate z is in meters.
+
+**Algorithm**:
+1) Half-drift by L/2 using the current momentum (which determines velocity).
+2) Kick in pz by `Δpz = q*V (eV) × `cos(k*z + phi0)`
+3) Half-drift by L/2 using the updated momentum.
+
+"""
+function track!(bunch::Bunch, ele::MatrixKick.ThinLensRFCavity; work=get_work(bunch, Val{1}()))
+  v = bunch.v
+  q = chargeof(bunch.species)
+  m = massof(bunch.species)
+  k = ele.k
+  # pleccing minus according to 4.46 in manual
+  dE = -q * ele.V # energy gain/loss in eV 
+  L = ele.L
+
+  @FastGTPSA! begin
+     # total momentum p [eV]
+  #------------------------------------------------------
+  # Step 1: Half-drift using old momentum
+  #------------------------------------------------------
+  @. work[1] = sqrt(v.px^2 + v.py^2 + v.pz^2 + m^2)
+  @. work[1] = ifelse(work[1] > 0.0, work[1], 1.0)
+  @. v.z += 0.5 * L * v.pz/work[1]
+
+  #------------------------------------------------------
+  # Step 2: RF momentum kick in pz
+  #------------------------------------------------------
+  @. v.pz += dE * cos(k*v.z + ele.phi0)
+
+  #------------------------------------------------------
+  # Step 3: Half-drift using updated momentum
+  #------------------------------------------------------
+  @. work[1] = sqrt(v.px^2 + v.py^2 + v.pz^2 + m^2)
+  @. work[1] = ifelse(work[1] > 0.0, work[1], 1.0)
+  @. v.z += 0.5 * L * v.pz / work[1]
+
+  end
+  # Spin unchanged
+  return bunch
+end
 
 end # module MatrixKick
 
