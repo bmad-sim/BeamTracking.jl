@@ -185,9 +185,10 @@ function track!(bunch::Bunch, ele::MatrixKick.ThinLensRFCavity; work=get_work(bu
   #------------------------------------------------------
   # Step 1: Half-drift using old momentum
   #------------------------------------------------------
-  @. work[1] = sqrt(v.px^2 + v.py^2 + v.pz^2 + m^2)
+  # @. work[1] = sqrt(v.px^2 + v.py^2 + v.pz^2 + m^2)
+  @. work[1] = sqrt((1.0 + v.pz)^2 - (v.px^2 + v.py^2))  # P_s
   @. work[1] = ifelse(work[1] > 0.0, work[1], 1.0)
-  @. v.z += 0.5 * L * v.pz/work[1]
+  @. v.z += 0.5 * L * v.pz /  work[1] 
 
   #------------------------------------------------------
   # Step 2: RF momentum kick in pz
@@ -197,9 +198,9 @@ function track!(bunch::Bunch, ele::MatrixKick.ThinLensRFCavity; work=get_work(bu
   #------------------------------------------------------
   # Step 3: Half-drift using updated momentum
   #------------------------------------------------------
-  @. work[1] = sqrt(v.px^2 + v.py^2 + v.pz^2 + m^2)
+  @. work[1] = sqrt((1.0 + v.pz)^2 - (v.px^2 + v.py^2))  # P_s
   @. work[1] = ifelse(work[1] > 0.0, work[1], 1.0)
-  @. v.z += 0.5 * L * v.pz / work[1]
+  @. v.z += 0.5 * L * v.pz /  work[1] 
 
   end
   # Spin unchanged
