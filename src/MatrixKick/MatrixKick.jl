@@ -53,6 +53,38 @@ reference and design values.
 end # function track!(::Bunch, ::Drift)
 
 
+function trackDrift!(vf, vi, bg_ref, s, work)
+#=
+Drift helper function.
+=#
+  tilde_m    = 1 / bg_ref
+  gamsqr_ref = 1 + bg_ref^2
+  beta_ref   = bg_ref / sqrt(gamsqr_ref)
+
+  @FastGTPSA! begin
+  @. work[1] = sqrt((1.0 + vi.pz)^2 - (vi.px^2 + vi.py^2))  # P_s
+  @. vf.x  .= vi.x + vi.px * L / work[1]
+  @. vf.y  .= vi.y + vi.py * L / work[1]
+  #@. vf.z  .= vi.z - ( (1.0 + v.pz) * L
+  #                   * (1. / work[1] - 1. / (beta_ref * sqrt((1.0 + v.pz)^2 + tilde_m^2))) )
+  # high-precision computation of z-final
+  @. vf.z  .= vi.z - ( (1.0 + vi.pz) * L
+                     * ((vi.px^2 + vi.py^2) - vi.pz * (2 + vi.pz) / gamsqr_ref)
+                     / ( beta_ref * sqrt((1.0 + vi.pz)^2 + tilde_m^2) * work[1]
+                         * (beta_ref * sqrt((1.0 + vi.pz)^2 + tilde_m^2) + work[1])
+                       )
+                   )
+  @. vf.px .= vi.px
+  @. vf.py .= vi.py
+  @. vf.pz .= vi.pz
+  end
+
+  # spin unchanged
+
+  return vf
+end # function trackDrift!(vf, vi, bg_ref, s)
+
+
 
 # This integrator uses the so-called Matrix-Kick-Matrix method to implement
 # an integrator accurate though second-order in the integration step-size.
