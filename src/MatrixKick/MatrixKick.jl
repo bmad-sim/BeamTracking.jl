@@ -10,6 +10,14 @@ Base.@kwdef struct Drift{T}
   L::T  # drift length / m
 end
 
+Base.@kwdef struct SBend{T}
+  L::T   # arc length / m
+  B0::T  # magnet field strength / T
+  h::T   # coordinate system curvature / m^-1
+  e1::T  # entrance edge angle / rad
+  e2::T  # exit edge angle / rad
+end
+
 Base.@kwdef struct Quadrupole{T}
   L::T    # quadrupole length / m
   Bn1::T  # quadrupole gradient / (T·m^-1)
@@ -148,6 +156,54 @@ function trackQuadK!(vf, vi, betgam_ref, s)
 
   return vf
 end # function trackQ!M::Quadrupole()
+
+
+
+function track!(bunch::Bunch, ele::MatrixKick.SBend; work=get_work(bunch, Val{1}()))
+#=
+This function implements exact symplectic tracking through a
+sector bend, derived using the Hamiltonian (25.9) given in the
+BMad manual. As a consequence of using that Hamiltonian, the
+reference value of βγ must be that of a particle with the
+design energy.  Should we wish to change that, we shall need
+to carry both reference and design values.
+=#
+  La = ele.L
+  B0 = ele.B0
+  hc = ele.h
+  e1 = ele.e1
+  e2 = ele.e2
+
+  v = bunch.v
+
+  tilde_m    = 1 / bunch.beta_gamma_ref
+  gamsqr_ref = 1 + bunch.beta_gamma_ref^2
+  beta_ref   = bunch.beta_gamma_ref / sqrt(gamsqr_ref)
+
+  rho = Brho0 / B0
+  ang = hc * La
+  c1 = cos(ang)
+  s1 = sin(ang)
+
+  @FastGTPSA! begin
+  @. work[1] = sqrt((1.0 + v.pz)^2 - (v.px^2 + v.py^2))  # P_s
+  @. work[2] = sqrt((1.0 + v.pz)^2 - v.py^2)             # P_α
+  @. work[3] = (1.0 + hc * x) / (hc * rho)               # scaled (1 + h x)
+  @. work[4] = work[1] - work[3]                         # Px'/h
+  @. work[5] = ang + asin(v.px / work[2]) - asin((v.px * c1 + work[4] * s1) / work[2])  # α + φ1 - φ2
+  # high-precision computation of x-final
+  @. v.x = (v.x * c1 - La * sin(ang / 2) * sincu(ang / 2)
+            + rho * (v.px + ((v.px^2 + (work[1] + work[4]) * work[3]) * s1 - 2v.px * work[4] * c1)
+                            / (sqrt(work[2]^2 - (v.px * c1 + work[4] * s1)^2) + work[1] * c1)) * s1)
+  @. v.px = v.px * c1 + work[4] * s1
+  @. v.y = v.y + rho * v.py * work[5]
+  @. v.z = (v.z - rho * (1.0 + v.pz) * work[5]
+               + (1.0 + v.pz) * La / (beta_ref * sqrt(1.0 / beta_ref^2 + (2 + v.pz) * v.pz)))
+
+  # Spin unchanged
+
+  return bunch
+end # function track!(::Bunch, ::Drift)
 
 
 end # module MatrixKick
