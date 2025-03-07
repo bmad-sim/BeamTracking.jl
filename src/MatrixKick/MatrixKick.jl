@@ -159,7 +159,7 @@ end # function trackQ!M::Quadrupole()
 
 
 
-function track!(bunch::Bunch, ele::MatrixKick.SBend; work=get_work(bunch, Val{1}()))
+function track!(bunch::Bunch, ele::MatrixKick.SBend; work=get_work(bunch, Val{5}()))
 #=
 This function implements exact symplectic tracking through a
 sector bend, derived using the Hamiltonian (25.9) given in the
@@ -176,9 +176,7 @@ to carry both reference and design values.
 
   v = bunch.v
 
-  tilde_m    = 1 / bunch.beta_gamma_ref
-  gamsqr_ref = 1 + bunch.beta_gamma_ref^2
-  beta_ref   = bunch.beta_gamma_ref / sqrt(gamsqr_ref)
+  beta_ref = bunch.beta_gamma_ref / sqrt(1.0 + bunch.beta_gamma_ref^2)
 
   rho = Brho0 / B0
   ang = hc * La
@@ -199,6 +197,7 @@ to carry both reference and design values.
   @. v.y = v.y + rho * v.py * work[5]
   @. v.z = (v.z - rho * (1.0 + v.pz) * work[5]
                + (1.0 + v.pz) * La / (beta_ref * sqrt(1.0 / beta_ref^2 + (2 + v.pz) * v.pz)))
+  end
 
   # Spin unchanged
 
