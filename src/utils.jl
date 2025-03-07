@@ -148,10 +148,17 @@ function sincu(z::Number)
 end
 
 """
+<<<<<<< HEAD
     sinhcu(z)
 
 ## Description
 Compute the hyperbolic sinc function, ``\\operatorname{sinhcu}(z) = \\operatorname{sinh}(z) / z``,
+=======
+    sinch(z)
+
+## Description
+Compute the hyperbolic sinc function, ``\\operatorname{sinch}(z) = \\operatorname{sinh}(z) / z``,
+>>>>>>> cb6bf09e7b78c6344574de7a9e63b12cc8bf3bf7
 with a correct treatment of the removable singularity at the origin.
 
 ### Implementation
