@@ -168,17 +168,18 @@ reference value of βγ must be that of a particle with the
 design energy.  Should we wish to change that, we shall need
 to carry both reference and design values.
 =#
-  La = ele.L
-  B0 = ele.B0
-  hc = ele.h
-  e1 = ele.e1
-  e2 = ele.e2
+  La = ele.L   # arc length
+  B0 = ele.B0  # magnet field strength
+  hc = ele.h   # coordinate frame curvature
+  e1 = ele.e1  # entrance face angle
+  e2 = ele.e2  # exit face angle
 
   v = bunch.v
 
   beta_ref = bunch.beta_gamma_ref / sqrt(1.0 + bunch.beta_gamma_ref^2)
+  brho0 = brho(massof(bunch.species), bunch.beta_gamma_ref, chargeof(bunch.species))
 
-  rho = Brho0 / B0
+  rho = brho0 / B0
   ang = hc * La
   c1 = cos(ang)
   s1 = sin(ang)
@@ -186,7 +187,7 @@ to carry both reference and design values.
   @FastGTPSA! begin
   @. work[1] = sqrt((1.0 + v.pz)^2 - (v.px^2 + v.py^2))  # P_s
   @. work[2] = sqrt((1.0 + v.pz)^2 - v.py^2)             # P_α
-  @. work[3] = (1.0 + hc * x) / (hc * rho)               # scaled (1 + h x)
+  @. work[3] = (1.0 + hc * v.x) / (hc * rho)             # scaled (1 + h x)
   @. work[4] = work[1] - work[3]                         # Px'/h
   @. work[5] = ang + asin(v.px / work[2]) - asin((v.px * c1 + work[4] * s1) / work[2])  # α + φ1 - φ2
   # high-precision computation of x-final
