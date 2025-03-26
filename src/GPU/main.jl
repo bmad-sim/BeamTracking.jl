@@ -1,11 +1,14 @@
 import Pkg
-Pkg.activate("/home/obeznosov/.julia/dev/BeamTracking")
+Pkg.activate("$(ENV["HOME"])/.julia/dev/BeamTracking")
 using BeamTracking
 using KernelAbstractions
+
 using CUDA
 using CUDA.CUDAKernels
-const backend = CUDABackend()
-CUDA.allowscalar(false)
+if CUDA.functional()
+  const backend = CUDABackend()
+  CUDA.allowscalar(false)
+end
 include("element.jl")
 include("MatrixKick_GPUext.jl")
 
@@ -101,7 +104,9 @@ function track!(i, x, y, z, px, py, pz,
 end
 
 function main()
-    CUDA.versioninfo()
+    if CUDA.functional()
+      CUDA.versioninfo()
+    end
 
     NCells = 160
     NParticles = 1024 * 10 * 6
