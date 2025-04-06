@@ -21,6 +21,7 @@ Base.@kwdef struct Coord{T} <: FieldVector{6, T}
   pz::T = 0.0
 end
 
+
 # Static quaternion type defined by ReferenceFrameRotatio
 
 struct Bunch{T<:StructVector{<:Coord}, U<:Union{Nothing, StructVector{<:Quaternion}}}
