@@ -37,7 +37,7 @@ function _track_linear!(
   end
 
   if isnothing(bm) || length(bm.bdict) == 0 # Drift
-    launch!(LinearTracking.linear_drift!, v, v0, nothing, L, gamma_0)
+    launch!(LinearTracking.linear_drift!, v, v0, nothing, L, L/gamma_0^2)
   else
     if length(bm.bdict) > 1 || !haskey(bm.bdict, 2)
       error("Currently only quadrupole tracking is supported")
