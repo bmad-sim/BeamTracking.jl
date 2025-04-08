@@ -1,8 +1,126 @@
 #=
 
-Utility functions needed for tracking.
+Utility functions and "fake" APC. These will be moved to 
+AcceleratorSimUtils.jl in the end.
 
 =#
+
+#  Math =======================================================================
+# u corresponds to unnormalized
+
+# sinc/sincu is zero when the real part is Inf and imag is finite
+isinf_real(x::Real) = isinf(x)
+isinf_real(x::Number) = isinf(real(x)) && isfinite(imag(x))
+
+# sinhc/sinhcu is zero when the imag part is Inf and real is finite
+isinf_imag(x::Real) = false
+isinf_imag(x::Number) = isfinite(real(x)) && isinf(imag(x))
+
+# sincu copied from Boost library and correct limit behavior added
+# https://www.boost.org/doc/libs/1_87_1/boost/math/special_functions/sinc.hpp
+"""
+    sincu(x)
+
+Compute the unnormalized sinc function ``\\operatorname{sincu}(x) = \\sin(x) / (x)`` 
+with accuracy near the origin.
+"""
+sincu(x) = _sinc(float(x))
+function _sinc(x::Union{T,Complex{T}}) where {T}
+    if isinf_real(x)
+        return zero(x)
+    end
+
+    nrm = Base.Math.fastabs(x)
+    if nrm >= 3.3*sqrt(sqrt(eps(T)))
+        return sin(x)/x
+    else
+        # |x| < (eps*120)^(1/4)
+        return 1 - x*x/6
+    end
+end
+
+# sinhcu copied from Boost library and correct limit behavior added
+# https://www.boost.org/doc/libs/1_87_1/boost/math/special_functions/sinhc.hpp
+
+"""
+    sinhcu(x)
+
+Compute the unnormalized sinhc function ``\\operatorname{sinhcu}(x) = \\sinh(x) / (x)`` 
+with accuracy accuracy near the origin.
+"""
+sinhcu(x) = _sinhcu(float(x))
+function _sinhcu(x::Union{T,Complex{T}}) where {T}
+    taylor_0_bound = eps(T)
+    taylor_2_bound = sqrt(taylor_0_bound)
+    taylor_n_bound = sqrt(taylor_2_bound)
+
+    if isinf_imag(x) 
+        return zero(x)
+    end
+    
+    nrm = Base.Math.fastabs(x)
+
+    if nrm >= taylor_n_bound || isnan(nrm)
+        return sinh(x)/x
+    else
+        # approximation by taylor series in x at 0 up to order 0
+        res = one(x)
+        if nrm >= taylor_0_bound
+            x2 = x*x
+            # approximation by taylor series in x at 0 up to order 2
+            res += x2/6
+            if nrm >= taylor_2_bound
+                # approximation by taylor series in x at 0 up to order 4
+                res += (x2*x2)/120
+            end
+        end
+        return res
+    end
+end
+
+# Fake APC ====================================================================
+const Q = 1.602176634e-19 # C
+const C_LIGHT = 2.99792458e8 # m/s
+const M_ELECTRON = 0.51099895069 # eV/c^2
+const M_PROTON = 9.3827208943e8 # eV/c^2
+
+struct Species
+  name::String
+  mass::Float64   # in eV/c^2
+  charge::Float64 # in Coulomb
+end
+
+const ELECTRON = Species("electron", M_ELECTRON,-Q)
+const POSITRON = Species("positron", M_ELECTRON,Q)
+
+const PROTON = Species("proton", M_PROTON,Q)
+const ANTIPROTON = Species("antiproton", M_PROTON,-Q)
+
+
+function Species(name)
+  if name == "electron"
+    return ELECTRON
+  elseif name == "positron"
+    return POSITRON
+  elseif name == "proton"
+    return PROTON
+  elseif name == "ANTIPROTON"
+    return ANTIPROTON
+  else
+    error("BeamTracking.jl's fake APC does not support species $name")
+  end
+end
+
+massof(s::Species) = s.mass
+chargeof(s::Species) = s.charge
+
+# Particle energy conversions =============================================================
+calc_Brho(species::Species, E) = @FastGTPSA sqrt(E^2-species.mass^2)/C_LIGHT
+calc_E(species::Species, Brho) = @FastGTPSA sqrt((Brho*C_LIGHT)^2 + species.mass^2)
+calc_gamma(species::Species, Brho) = @FastGTPSA sqrt((Brho*C_LIGHT/species.mass)^2+1)
+
+
+#=
 
 
 """
@@ -166,3 +284,30 @@ function sinhcu(z::Number)
   end
 end
 
+"""
+    get_work(bunch::Bunch, ::Val{N}) where N -> work
+
+Returns a tuple of `N` arrays of type `eltype(Bunch.v.x)` and 
+length `length(Bunch.v.x)` which may be used as temporaries.
+
+### Arguments
+- `bunch`     -- Bunch to extract types and number of particles from
+- `::Val{N}` -- Number of `N` temporary arrays desired
+"""
+function get_work(bunch::Bunch, ::Val{N}) where {N}
+  sample = first(bunch.v.x)
+  T = typeof(sample)
+  N_particle = length(bunch.v.x)
+
+  # Instead of using zeros, we do this to ensure 
+  # same GTPSA descriptor if T isa TPS.
+  return ntuple(Val{N}()) do t
+    r = Vector{T}(undef, N_particle)
+    for idx in eachindex(r)
+      r[idx] = zero(sample)
+    end
+    r
+  end
+end
+
+=#

@@ -1,53 +1,36 @@
 module BeamTracking
 using GTPSA,
       ReferenceFrameRotations,
-      StaticArrays,
-      StructArrays,
-      AtomicAndPhysicalConstants
-@APCdef
-
-
-export Bunch,       
-       Coord, 
-       Quaternion,
-       Particle,
-
-       MatrixKick,
-       Linear,
-
-       sr_gamma,
-       sr_gamma_m1,
-       sr_beta,
-       sr_pc,
-       sr_ekin,
-       sr_etot,
-       brho,
-
-       chargeof,
-       massof,
-       Species,
-
-       sincu,
-       sinhcu,
-
-       track!
+      StaticArrays, 
+      SIMD,
+      VectorizationBase,
+      Polyester
 
 import GTPSA: sincu, sinhcu
+import Base: setproperty!
 
-include("types.jl")
-
-# Empty tracking method to be imported by submodules 
-track!(bunch::Bunch, ::Nothing; work=nothing) = bunch
-
-# --------------------------------------------------
+export Bunch, Species, ParticleView, ELECTRON, POSITRON, PROTON, ANTIPROTON, sincu, sinhcu
+export LinearTracking, Linear
+export ExactTracking, Exact
+export track!
 
 include("utils.jl")
-include("work.jl")
+include("kernel.jl")
+include("types.jl")
+
+include("modules/ExactTracking.jl") #; TRACKING_METHOD(::ExactTracking) = Exact
+include("modules/LinearTracking.jl") #; TRACKING_METHOD(::LinearTracking) = Linear
+
+# Empty tracking method to be imported+implemented by package extensions
+function track! end
+
+function MAX_TEMPS end
+# --------------------------------------------------
+
 
 # Modules separated:
-include("MatrixKick/MatrixKick.jl")
-include("Linear/Linear.jl")
-include("Misc/Misc.jl")
+#include("MatrixKick/MatrixKick.jl")
+#include("Linear/Linear.jl")
 
 
 end

@@ -1,6 +1,5 @@
 using Test,
       BeamTracking,
-      Beamlines,
       JET,
       BenchmarkTools,
       GTPSA
@@ -9,36 +8,28 @@ BenchmarkTools.DEFAULT_PARAMETERS.gctrial = false
 BenchmarkTools.DEFAULT_PARAMETERS.evals = 2
   
 # Soon we generalize this to test_map...
-function test_matrix(kernel, M_expected, args...; type_stable=true, no_allocs=true, tol=1e-14, GTPSA_order=1)
-  if any(t->t isa TPS, args)
-    d = GTPSA.getdesc(args[findfirst(t->t isa TPS, args)])
-  else
-    d = Descriptor(6, GTPSA_order)
-  end
+function test_matrix(ele, n_work, M_expected; type_stable=true, no_allocs=true, tol=1e-14, 
+                                              beta_gamma_ref=1.0, species=Species("electron"))
+    
+  GTPSA.desc_current = Descriptor(6, 1) # 6 variables, order 1
+  bunch = Bunch(beta_gamma_ref=beta_gamma_ref, species=species, gtpsa_map=true) 
+  work = BeamTracking.get_work(bunch, Val(n_work))
 
-
-  n_temps = BeamTracking.MAX_TEMPS(parentmodule(kernel).TRACKING_METHOD())
-  v0 = transpose(@vars(d))
-  v = zero(v0)
-  work = zeros(eltype(v), 1, n_temps)
-
-  BeamTracking.launch!(kernel, v, v0, work, args...)
+  track!(bunch, ele, work=work)
+  p = Particle(bunch, 1)
 
   # 1) Correctness
-  @test norm(GTPSA.jacobian(v)[1:6,1:6] - scalar.(M_expected)) < tol 
+  @test norm(GTPSA.jacobian(p.v) - M_expected) < tol 
   # 2) Type stability
   if type_stable
-  @test_opt BeamTracking.launch!(kernel, v, v0, work, args...)
+    @test_opt track!(bunch, ele, work=work)
   end
   # 3) No Allocations
   if no_allocs
-  @test @ballocated(BeamTracking.launch!($kernel, $v, $v0, $work, $args...)) == 0 
+    @test @ballocated(track!($bunch, $ele, work=$work)) == 0 
   end
 end
 
-include("LinearTracking.jl")
-
-#=
 @testset "BeamTracking.jl" begin
   # Linear tests -----------------------  
   beta_gamma_ref = 1.0
@@ -279,4 +270,3 @@ include("LinearTracking.jl")
     end
 #include("linear.jl")
 include("element_tests.jl")
-=#
