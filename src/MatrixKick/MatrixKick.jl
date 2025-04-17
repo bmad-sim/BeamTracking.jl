@@ -16,6 +16,10 @@ Base.@kwdef struct Quadrupole{T}
 end
 
 
+#
+# ===============  D R I F T  ===============
+#
+
 function track!(bunch::Bunch, ele::MatrixKick.Drift; work=get_work(bunch, Val{1}()))
 #=
 This function implements symplectic tracking through a drift,
@@ -53,6 +57,9 @@ reference and design values.
 end # function track!(::Bunch, ::Drift)
 
 
+#
+# ===============  Q U A D R U P O L E  ===============
+#
 
 # This integrator uses the so-called Matrix-Kick-Matrix method to implement
 # an integrator accurate though second-order in the integration step-size.
@@ -147,7 +154,117 @@ function trackQuadK!(vf, vi, betgam_ref, s)
   @. vf.pz = vi.pz
 
   return vf
-end # function trackQ!M::Quadrupole()
+end # function trackQ!::Quadrupole()
+
+
+#
+# ===============  M U L T I P O L E  ===============
+#
+
+function binom(m::Integer, x, y)
+  """
+  This function computes the real and imaginary parts of
+  (x + i y)^m. One can use these components to compute,
+  among other things, the multipole kick induced by two-
+  dimensional multipole magnets.
+  """
+  if m == 0
+    return [ 1.0, 0.0 ]
+  end
+  ar = x
+  ai = y
+  mm = m
+  while mm > 1
+    mm -= 1
+    t  = x * ar - y * ai
+    ai = y * ar + x * ai
+    ar = t
+  end
+  return [ ar, ai ]
+end # function binom
+
+
+function dxy_multipoleAz(bm, am, mm, x, y)
+  """
+  This function uses a Horner-like scheme (see Shachinger and
+  Talman [SSC-52]) to compute the transverse derivatives of Az
+  for a pure multipole magnet. The algorithm takes advantage
+  takes advantage of the complex representation of the vector
+  potential Av in form
+   - Re{ Σ_m (bm + i am) (x + i y)^m / m }.
+  This method supposedly has good numerical properties, though
+  I've yet to see a proof of that.
+
+  NB: This function IGNORES the m = 1 (dipole) components of
+  both bm and am. Moreover, it should *not* include an m = 2
+  (quadrupole) component unless this function is used for a
+  thin-lens (zero-length) element. In the latter case, set
+  bm and am to the integrated strengths.
+
+  Arguments
+  ---------
+  bm:   vector of normal multipole strengths
+  am:   vector of skew multipole strengths
+        NB: Here the m-th component of bm (am) denotes the
+          normal (skew) component of the m-th multipole.
+          E.g., bm[2] denotes the normal quadrupole strength.
+  mm:   maximum order, also length of both bm and am
+  x, y: transverse particle coordinates
+  """
+  ar = bm[m] * x - am[m] * y
+  ai = bm[m] * y + am[m] * x
+  while m > 2,
+    m -= 1
+    t  = (bm[m] * x - am[m] * y) + (ar * x - ai * y)
+    ai = (bm[m] * y + am[m] * x) + (ar * y + ai * x)
+    ar = t
+  end
+  return [ -ar, ai ]
+end # function dxy_multipoleAz
+
+function mpole_kick(m::Integer, bm, am, x, y, s)
+  binoms = binom(m, x, y) * s
+  dpx = [-bm, am] · binoms
+  dpy = [+am, bm] · binoms
+  return [ dpx, dpy ]
+end
+
+"""
+    mpole_kick!(vf::StructArray, vi::StructArray, k2_num::Float64, s::Float64)
+
+Apply a multipole kick to particles.
+"""
+function trackMpoleK!(vf, vi, m::Integer, knm, ksm, s)
+
+
+  @. vf.x  = vi.x
+  @. vf.y  = vi.y
+  @. vf.z  = vi.z
+  @. vf.px = vi.px + s * dpx
+  @. vf.py = vi.py + s * dpy
+  @. vf.pz = vi.pz
+
+  return vf
+end # function trackMpoleK!::Multipole
+
+
+"""
+This integrator uses Drift-Kick-Drift to track a beam through
+a multipole magnet.
+"""
+function track!(bunch::Bunch, ele::MatrixKick.Multipole; work=get_work(bunch, Val{6}()))
+  L = ele.L
+
+  v = bunch.v
+  v_work = StructArray{Coord{eltype(work[1])}}((work[1], work[2], work[3], work[4], work[5], work[6]))
+
+  drift!(v_work, v, k2_num, L / 2)
+  mpole_kick!( v, v_work, bunch.beta_gamma_ref, L)
+  drift!(v_work, v, k2_num, L / 2)
+
+  v .= v_work
+  return bunch
+end # function track!(::Bunch, ::Multipole)
 
 
 end # module MatrixKick
