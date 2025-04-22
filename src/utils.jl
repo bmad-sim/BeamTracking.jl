@@ -199,6 +199,7 @@ For a particle with a given rest energy and relativistic parameter
 
 DTA: Need to handle energy units other than ``\\mathrm{eV}``..
 """
+
 function brho(e_rest, beta_gamma, ne = 1)
   return (sr_pc(e_rest, beta_gamma) / (ne * C_LIGHT))
 end

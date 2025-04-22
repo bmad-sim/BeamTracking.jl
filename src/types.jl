@@ -1,3 +1,4 @@
+
 abstract type MemoryLayout end
 struct AoS <: MemoryLayout end
 struct SoA <: MemoryLayout end

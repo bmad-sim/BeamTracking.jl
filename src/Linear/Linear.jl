@@ -9,33 +9,36 @@ export track!
     struct Linear.Drift{T}
   
 ## Fields
-• `L` -- Drift length / m \\
+• `L` -- Drift L / m \\
 """
 Base.@kwdef struct Drift{T}
-  L::T  # drift length / m
+  L::T  # drift L / m
 end
 
 """
     struct Linear.Quadrupole{T}
 
 ## Fields
-• `L`  -- Quadrupole length / m \\
+• `L`  -- Quadrupole L / m \\
 • `Bn1` -- Quadrupole gradient / (T·m^-1)
 """
 Base.@kwdef struct Quadrupole{T}
-  L::T   # quadrupole length / m
+  L::T   # quadrupole L / m
   Bn1::T  # quadrupole gradient / (T·m^-1)
 end
 
+"""
+    struct Linear.Combined{T}
 
-Base.@kwdef struct SBend{T}
-  L::T   # arc length / m
-  B0::T  # field strength / T
-  g::T   # coordinate system curvature through element / m^-1
-  e1::T  # edge 1 angle / rad
-  e2::T  # edge 2 angle / rad
-end
-
+## Fields
+• L::T   # arc L / m
+• B0::T  # field strength / T
+• Bn1::T  # Quadrupole gradient / (T·m^-1)
+• g::T   # coordinate system curvature through element / m^-1
+• e1::T  # edge 1 angle / rad
+• e2::T  # edge 2 angle / rad
+## Fields
+"""
 Base.@kwdef struct Combined{T}
   L::T 
   B0::T 
@@ -50,7 +53,9 @@ Base.@kwdef struct Solenoid{T}
   Bs::T
 end
 
-
+"""
+function track!(bunch::Bunch, ele::Linear.Drift; work=get_work(bunch, Val{0}()))
+"""
 function track!(bunch::Bunch, ele::Linear.Drift; work=get_work(bunch, Val{0}()))
   L = ele.L
   v = bunch.v
@@ -64,11 +69,13 @@ function track!(bunch::Bunch, ele::Linear.Drift; work=get_work(bunch, Val{0}()))
   end
 
   # Spin unchanged
-  
+
   return bunch
 end
 
-
+"""
+Routine to linearly track through a Quadrupole
+"""
 function track!(bunch::Bunch, ele::Linear.Quadrupole; work=get_work(bunch, Val{1}()))
   v = bunch.v
   L = ele.L
@@ -91,10 +98,10 @@ function track!(bunch::Bunch, ele::Linear.Quadrupole; work=get_work(bunch, Val{1
     kL = k*L
     sx  = sinh(kL)
     cx  = cosh(kL)
-    sxc = sinhcu(kL)
+    sxc = BeamTracking.sinhcu(kL)
     sy  = sin(kL)
     cy  = cos(kL)
-    syc = sincu(kL)
+    syc = BeamTracking.sincu(kL)
     sgn = -1
   end
 
@@ -109,67 +116,140 @@ function track!(bunch::Bunch, ele::Linear.Quadrupole; work=get_work(bunch, Val{1
   @. v.py     = sgn*k*sy*v.y + cy*v.py
   @. v.y      = 0+work[1] 
 
-  @. v.z      = v.z + L/gamma_ref^2*v.pz
+  @. v.z      = v.z + L/gamma_ref^2 * v.pz
   end 
 
   return bunch
 end 
 
+
 """
-Routine to linearly tracking through a Sector Magnet
+Routine to linearly track through a Combined Magnet
 """
-function track!(beamf::Bunch, ele::Linear.SBend, beami::Bunch)
-  @assert !(beamf === beami) "Aliasing beamf === beami not allowed!"
-  zi = beami.vec
-  zf = beamf.vec
+function track!(bunch::Bunch, ele::Linear.Combined; work=get_work(bunch, Val{1}()))
+  v = bunch.v
   L = ele.L
-  q = chargeof(beami.species)
+  e1 = ele.e1
+  e2 = ele.e2
+  g = ele.g
 
-  #curvature of B field
-  k = ele.B0 / brho(massof(beami.species),beami.beta_gamma_ref,q)
-  kl = k * L
-
-
-  @FastGTPSA! begin
-  @. zf.x  = zi.x * cos(kl) +  zi.px * sin(kl) / k + zi.pz * (1 - cos(kl)) / k
-  @. zf.px = -zi.x * k * sin(kl) + zi.px * cos(kl) + zi.pz * sin(kl)
-  @. zf.y = zi.y + zi.py * L
-  @. zf.py = zi.py
-  @. zf.z = -zi.x * sin(kl) + zi.px * (cos(kl) - 1) / k + zi.z + zi.pz * (sin(kl) - kl) / k
-  @. zf.pz = zi.pz
-  end 
-end 
-
-
-"""
-Routine to linearly tracking through a Combined Magnet
-"""
-function track!(beamf::Bunch, ele::Linear.Combined, beami::Bunch)
-  @assert !(beamf === beami) "Aliasing beamf === beami not allowed!"
-  zi = beami.vec
-  zf = beamf.vec
-  L = ele.L
+  gamma_ref = sr_gamma(bunch.beta_gamma_ref)
+  br = brho(massof(bunch.species),bunch.beta_gamma_ref,chargeof(bunch.species))
   
-  brho = brho(massof(beami.species),beami.beta_gamma_ref,q)
-  ka = ele.B0 / brho #curvature
-  k1 =  ele.Bn1 / brho #quad strength
+  gtot = ele.B0 / br #curvature of B field
+  k1 =  ele.Bn1 / br #quad strength 
+  kx = k1 + g * gtot
+  
 
-  K = ka^2 + k1
+  if k1 >= 0
+    wy = sqrt(k1)
+    wyL = wy * L 
+    cy  = cosh(wyL)
+    syc = sinhcu(wyL) * L
+    sgny = 1
+  else
+    wy = sqrt(-k1)
+    wyL = wy * L 
+    cy  = cos(wyL)
+    syc = sincu(wyL) * L 
+    sgny = - 1
+  end
 
-  sqk1 = sqrt(abs(k1)) 
-  sqK = sqrt(abs(K))
+  if kx >= 0 
+    wx = sqrt(kx)
+    wxL = wx * L 
+    cx  = cos(wxL)
+    sxc = sincu(wxL) * L 
+    sgnx = - 1
+  else
+    wx = sqrt(-kx)
+    wxL = wx * L 
+    cx  = cosh(wxL)
+    sxc = sinhcu(wxL) * L
+    sgnx = 1
+  end
 
-  Kl = sqK * L
-  kl  = sqk1 * L
+  if abs(kx)<1e-10
+    z2 = g * L * L / 2
+  else 
+    z2 = sgnx * g * (1 - cx) / (wx * wx)
+  end
+   
+  
+  x_c = (g - gtot)/kx
+  dx_c = g/kx
+
+  dom_x = - wx /2
+  dom_xx = -1/2
+  
+  dc_x = sgnx * sxc * wx * dom_x * L
+  ds_x = (cx * L - sxc) * dom_xx
+  dcs_x = cx * ds_x + dc_x * sxc
+
+  z0  = -g * x_c * L
+  z1  = -g * sxc
+  z11 = sgnx * wx * wx * (L - cx * sxc) / 4
+  z12 = -sgnx * wx * wx * sxc * sxc / 2
+
+
+  ht_x1 = gtot * tan(e1)
+  ht_y1 = - ht_x1
+
+
+  ht_x2 = gtot * tan(e2)
+  ht_y2 = - ht_x2
 
   @FastGTPSA! begin
-  @. zf.x  = zi.x * cos(Kl) +  zi.px * sin(Kl) / sqK + zi.pz * (1 - cos(Kl)) * ka / K
-  @. zf.px = - zi.x * sqK * sin(Kl) + zi.px * cos(Kl) + zi.pz * sin(Kl) * ka / sqK
-  @. zf.y =  zi.y * cosh(kl) + zi.py * sinh(kl) / sqk
-  @. zf.py = zi.y * sqK * sinh(kl) + zi.py * cosh(kl)
-  @. zf.z = - zi.x * sin(Kl) * ka / sqK + zi.px * (cos(Kl)-1) * ka / K + zi.z + zi.pz * (sin(Kl) / sqK - l) *  ka^2 / K
-  @. zf.pz = zi.pz
+    # edge 1 
+    @. v.py = ht_y1 * v.y + v.py
+    # body
+    @. work[1] = cy * v.y + syc * v.py
+    @. v.py = sgny * wy * wy * syc * v.y + cy * v.py # (ht_y1 * cy * v.y + ht_y2 * work[1]) #together as if I tracked both at the end?
+    @. v.y = 0 + work[1]
+    # edge 2
+    @. v.py = ht_y2 * v.y + v.py
+
+    #edge 1
+    @. v.px = ht_x1 * v.x + v.px
+    #body
+    @. v.z = (z1 - x_c * 2 * z11) * v.x + (z2 - x_c * z12) * v.px + v.z + (- dx_c * (z1 - x_c * 2 * z11) - g * L * dx_c + x_c * g * ds_x - (z11 + sgnx * wx * wx * dcs_x / 4) * x_c * x_c + L/gamma_ref^2) * v.pz
+    @. work[1] = cx * v.x + sxc * v.px + (dx_c * (1 - cx) - dc_x * x_c) * v.pz #new x
+    @. v.px = sgnx * wx * wx * sxc * v.x + cx * v.px - sgnx * wx * (2 * dom_x * sxc * x_c + wx * sxc * x_c + wx * ds_x * x_c + dx_c * wx * sxc) * v.pz 
+    @. v.x = work[1]
+    #edge 2
+    @. v.px = ht_x2 * v.x + v.px
   end 
-end 
+  return Bunch
+end
+
+"""
+Routine to linearly track through a Solenoid
+"""
+function track!(bunch::Bunch, ele::Linear.Solenoid; work=get_work(bunch,Val{3}()))
+  v = bunch.v
+  L = ele.L
+  S = ele.Bs / brho(massof(bunch.species),bunch.beta_gamma_ref,chargeof(bunch.species))
+  gamma_ref = sr_gamma(bunch.beta_gamma_ref)
+  phi = S * L / 2
+
+  co = cos(phi)
+  si = sin(phi)
+  si2 = sin(2*phi)
+
+  @FastGTPSA!  begin
+  @. work[1] = co^2 * v.x + si2 / S * v.px + si2 / 2 * v.y + si^2 * 2 / S * v.py #new x
+  @. work[2] = - si2 * S / 4 * v.x + co^2 * v.px - si^2 * S / 2 * v.y + si2 / 2 * v.py #new px 
+  @. work[3] = - si2 / 2 * v.x - si^2 * 2 / S * v.px + co^2 * v.y + si2 / S * v.py
+  @. v.py = si^2 * S / 2 * v.x - si2 / 2 * v.px - si2 * S / 4 * v.y + co^2 * v.py 
+
+  @. v.x = 0 + work[1]
+  @. v.px = 0 + work[2]
+  @. v.y = 0 + work[3]
+  @. v.z  = v.z + L/gamma_ref^2 * v.pz
+  end
+
+  return bunch
+end
+
 
 end
