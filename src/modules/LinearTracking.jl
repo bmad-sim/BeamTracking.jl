@@ -180,4 +180,76 @@ function linear_bend_matrices(K0, L, gamma_0, e1=nothing, e2=nothing)
   return mx, my, r56, d, t
 end
 
+function linear_combined_matrices(K0, g, K1, L, gamma_0, e1=nothing, e2=nothing)
+
+    wy = sqrt(abs(K1))
+    wyL = wy * L
+
+    if K1 >= 0
+      cy  = cosh(wyL)
+      syc = sinhcu(wyL) * L
+      sgny = 1
+    else
+      cy  = cos(wyL)
+      syc = sincu(wyL) * L 
+      sgny = - 1
+    end
+
+    kx = K1 + g * K0 
+    wx = sqrt(abs(kx))
+    wxL = wx * L 
+    if kx >= 0
+      cx  = cos(wxL)
+      sxc = sincu(wxL) * L 
+      sgnx = - 1
+    else
+      cx  = cosh(wxL)
+      sxc = sinhcu(wxL) * L
+      sgnx = 1
+    end
+    
+    if abs(kx)<1e-10
+      z2 = g * L * L / 2
+    else 
+      z2 = sgnx * g * (1 - cx) / (wx * wx)
+    end
+
+    x_c = (g - K0)/kx
+    dx_c = g/kx
+
+    dom_x = - wx /2
+    dom_xx = -1/2
+  
+    dc_x = sgnx * sxc * wx * dom_x * L
+    ds_x = (cx * L - sxc) * dom_xx
+    dcs_x = cx * ds_x + dc_x * sxc
+
+    z1  = -g * sxc
+    z11 = sgnx * wx * wx * (L - cx * sxc) / 4
+    z12 = -sgnx * wx * wx * sxc * sxc / 2
+   
+
+    mx = SA[cx  sxc; sgnx*abs(kx)*sxc  cx]
+    my = SA[cy  syc; sgny*abs(K1)*syc  cy]
+    r56 = (- dx_c * (z1 - x_c * 2 * z11) - g * L * dx_c + x_c * g * ds_x - (z11 + sgnx * abs(kx) * dcs_x / 4) * x_c * x_c + L/gamma_0^2) 
+    d = SA[(dx_c * (1 - cx) - dc_x * x_c), -sgnx * wx * (2 * dom_x * sxc * x_c + wx * sxc * x_c + wx * ds_x * x_c + dx_c * wx * sxc), 0, 0]
+    t = SA[z1 - x_c * 2 * z11, z2 - x_c * z12, 0, 0]
+  
+    if !isnothing(e1) && e1 != 0
+      me1 = K0*tan(e1)
+      mx = mx*SA[1 0; me1  1]
+      my = my*SA[1 0;-me1  1]
+      t = SA[t[1]+me1*t[2], t[2], 0, 0]
+    end
+  
+    if !isnothing(e2) && e2 != 0
+      me2 = K0*tan(e2)
+      mx = SA[1 0; me2  1]*mx
+      my = SA[1 0;-me2 1]*my
+      d = SA[d[1], me2*d[1]+d[2], 0, 0]
+    end
+  
+    return mx, my, r56, d, t
+  end
+  
 end
