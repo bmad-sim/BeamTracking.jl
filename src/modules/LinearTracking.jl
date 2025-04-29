@@ -180,7 +180,7 @@ function linear_bend_matrices(K0, L, gamma_0, e1=nothing, e2=nothing)
   return mx, my, r56, d, t
 end
 
-function linear_combined_matrices(K0, g, K1, L, gamma_0, e1=nothing, e2=nothing)
+function linear_combined_matrices(K0, L, gamma_0; g=K0, K1=0.0, e1=nothing, e2=nothing)
 
     wy = sqrt(abs(K1))
     wyL = wy * L
