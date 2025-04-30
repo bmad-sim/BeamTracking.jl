@@ -247,14 +247,14 @@ function linear_dipole_matrices(K0, L, gamma_0; g=nothing, K1=nothing, e1=nothin
       end
     else # dg
         wy = sqrt(abs(K1))
-        wyL = sqrt(abs(K1))
+        wyL = wy * L 
         if K1 >= 0
           cy  = cosh(wyL)
           syc = sinhcu(wyL) * L
           sgny = 1
         else
           cy  = cos(wyL)
-          syc = sincu(wyL) * L 
+          syc = sincu(wyL) * L
           sgny = - 1
         end
 
