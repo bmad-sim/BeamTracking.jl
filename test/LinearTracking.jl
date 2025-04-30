@@ -48,7 +48,7 @@
                     0.0000000000000000E+00  0.0000000000000000E+00  0.0000000000000000E+00  0.0000000000000000E+00  0.0000000000000000E+00  0.1000000000000000E+01]
 
     M = zeros(6,6)
-    mx, my, r56, d, t = LinearTracking.linear_combined_matrices(K0, L, gamma_0)
+    mx, my, r56, d, t = LinearTracking.linear_dipole_matrices(K0, L, gamma_0)
     M[1:2, 1:2] = mx
     M[3:4, 3:4] = my
     M[5, 5] = 1.0
@@ -70,7 +70,7 @@
                       0.0000000000000000E+00  0.0000000000000000E+00 -0.1554907888474444E+00  0.1108497533216086E+01  0.0000000000000000E+00  0.0000000000000000E+00
                       0.6748934931787792E+00  0.9928997816884232E+00  0.0000000000000000E+00  0.0000000000000000E+00  0.1000000000000000E+01 -0.1788540168527052E+00
                       0.0000000000000000E+00  0.0000000000000000E+00  0.0000000000000000E+00  0.0000000000000000E+00  0.0000000000000000E+00  0.1000000000000000E+01]
-    mx, my, r56, d, t = LinearTracking.linear_combined_matrices(K0, L, gamma_0, e1=e1, e2=e2)
+    mx, my, r56, d, t = LinearTracking.linear_dipole_matrices(K0, L, gamma_0, e1=e1, e2=e2)
     M[1:2, 1:2] = mx
     M[3:4, 3:4] = my
     M[5, 5] = 1.0
@@ -98,7 +98,7 @@
        0.0000000000000000E+00  0.0000000000000000E+00  0.0000000000000000E+00  0.0000000000000000E+00  0.0000000000000000E+00  0.1000000000000000E+01
     ]
 
-    mx, my, r56, d, t = LinearTracking.linear_combined_matrices(K0, L, gamma_0, g=g, K1=K1)
+    mx, my, r56, d, t = LinearTracking.linear_dipole_matrices(K0, L, gamma_0, g=g, K1=K1)
 
     M[1:2, 1:2] = mx
     M[3:4, 3:4] = my
@@ -122,7 +122,7 @@
 
     ]
 
-    mx, my, r56, d, t = LinearTracking.linear_combined_matrices(K0, L, gamma_0, g=g, K1=K1)
+    mx, my, r56, d, t = LinearTracking.linear_dipole_matrices(K0, L, gamma_0, g=g, K1=K1)
     M[1:2, 1:2] = mx
     M[3:4, 3:4] = my
     M[5, 5] = 1.0
@@ -148,7 +148,7 @@
      
      
     ]
-    mx, my, r56, d, t = LinearTracking.linear_combined_matrices(K0, L, gamma_0, g=g, K1=K1)
+    mx, my, r56, d, t = LinearTracking.linear_dipole_matrices(K0, L, gamma_0, g=g, K1=K1)
     M[1:2, 1:2] = mx
     M[3:4, 3:4] = my
     M[5, 5] = 1.0
@@ -170,7 +170,7 @@
     ]
 
     
-    mx, my, r56, d, t = LinearTracking.linear_combined_matrices(K0, L, gamma_0,g=g, K1=K1)
+    mx, my, r56, d, t = LinearTracking.linear_dipole_matrices(K0, L, gamma_0,g=g, K1=K1)
     M[1:2, 1:2] = mx
     M[3:4, 3:4] = my
     M[5, 5] = 1.0
@@ -195,7 +195,7 @@
       -2.5287154574651055e-01    -1.2630823977784383e-01    0.00000000     0.00000000     1.00000000     4.8939468394148861e-01
       0.00000000     0.00000000     0.00000000              0.00000000     0.00000000     1.00000000
     ]
-    mx, my, r56, d, t = LinearTracking.linear_combined_matrices(K0, L, gamma_0, g=g, K1=K1, e1=e1, e2=e2)
+    mx, my, r56, d, t = LinearTracking.linear_dipole_matrices(K0, L, gamma_0, g=g, K1=K1, e1=e1, e2=e2)
     M[1:2, 1:2] = mx
     M[3:4, 3:4] = my
     M[5, 5] = 1.0
@@ -211,7 +211,7 @@
     K1 = 0.25
     e1 = 0.01
     e2 = 0.9
-    mx, my, r56, d, t = LinearTracking.linear_combined_matrices(K0, L, gamma_0, g=g, K1=K1, e1=e1, e2=e2)
+    mx, my, r56, d, t = LinearTracking.linear_dipole_matrices(K0, L, gamma_0, g=g, K1=K1, e1=e1, e2=e2)
     M_expected= [
       0.8799797694908450E+00  0.9588510772084049E+00  0.0000000000000000E+00  0.0000000000000000E+00  0.0000000000000000E+00  0.1198563846510506E+00
       0.3970969468791577E-01  0.1179658577978163E+01  0.0000000000000000E+00  0.0000000000000000E+00  0.0000000000000000E+00  0.2760093759621979E-01
@@ -237,7 +237,7 @@
     K1 = 1e-12
     e1 = 0.01
     e2 = 0.9
-    mx, my, r56, d, t = LinearTracking.linear_combined_matrices(K0, L, gamma_0, g=g, K1=K1, e1=e1, e2=e2)
+    mx, my, r56, d, t = LinearTracking.linear_dipole_matrices(K0, L, gamma_0, g=g, K1=K1, e1=e1, e2=e2)
     M_expected= [
       0.1000000000002300E+01  0.1000000000000000E+01  0.0000000000000000E+00  0.0000000000000000E+00  0.0000000000000000E+00  0.1150000000000000E-09
       0.2921364667067252E-09  0.1000000000289836E+01  0.0000000000000000E+00  0.0000000000000000E+00  0.0000000000000000E+00  0.1100000033331186E-11
