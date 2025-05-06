@@ -89,16 +89,21 @@ function linear_universal!(
     if L == 0
       error("Thin bend not supported yet")
     end
-    if any(t -> t == 0 || t > 1, keys(bmultipoleparams.bdict))
-      error("Combined function bend tracking not implemented yet")
+    if any(t -> t == 0 || t > 2, keys(bmultipoleparams.bdict)) 
+      error("Linear tracking does not support combined bend tracking with order > 2")
     end
 
     K0 = get_thick_strength(bmultipoleparams.bdict[1], L, bunch.Brho_ref)
-
-    if !(K0 ≈ bendparams.g)
-      error("Linear tracking requires BendParams.g ≈ BMultipoleParams.K0")
+    if !haskey(bmultipoleparams.bdict, 2)
+      if !(K0 ≈ bendparams.g) 
+        error("Linear tracking requires BendParams.g ≈ BMultipoleParams.K0 for pure bend")
+      end
+      K1 = nothing
+    else
+      K1 = get_thick_strength(bmultipoleparams.bdict[2], L, bunch.Brho_ref) 
     end
-    mx, my, r56, d, t = LinearTracking.linear_bend_matrices(K0, L, gamma_0, bendparams.e1, bendparams.e2)
+
+    mx, my, r56, d, t = LinearTracking.linear_dipole_matrices(K0, L, gamma_0; g=bendparams.g, K1=K1, e1=bendparams.e1, e2=bendparams.e2)
     runkernel!(LinearTracking.linear_coast_uncoupled!, i, v, work, mx, my, r56, d, t)
   elseif haskey(bmultipoleparams.bdict, 2) # Quadrupole
     if isactive(bendparams)

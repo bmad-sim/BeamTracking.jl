@@ -183,7 +183,7 @@ end
 
 function linear_dipole_matrices(K0, L, gamma_0; g=nothing, K1=nothing, e1=nothing, e2=nothing)
 
-    if isnothing(g) || g == K0
+    if isnothing(g) || g ≈ K0
       if !isnothing(K1) && K1 != 0
         wy = sqrt(abs(K1))
         wyL = wy * L
@@ -234,7 +234,7 @@ function linear_dipole_matrices(K0, L, gamma_0; g=nothing, K1=nothing, e1=nothin
         r56 = (-dx_c * z1 - K0 * L * dx_c + L/gamma_0^2) 
         d = SA[dx_c * (1 - cx), -sgnx * wx * (dx_c * wx * sxc), 0, 0]
         t = SA[z1, z2, 0, 0]
-      else #no K1, pure bend
+      else #no K1, pure bend, require dg = 0 
         theta = K0*L
         s, c = sincos(theta)
         cc = (sincu(theta/2)^2)/2
