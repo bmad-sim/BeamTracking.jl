@@ -34,7 +34,7 @@ jobs:
         with:
           node-version: 18.x
       - name: Install MyST Markdown
-        run: npm install -g mystmd
+        run: pip install myst-parser
       - name: Install sphinx-build
         run: pip install sphinx
       - name: Build HTML Assets
