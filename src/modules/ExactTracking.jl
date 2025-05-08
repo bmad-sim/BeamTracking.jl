@@ -53,4 +53,75 @@ end
   return v
 end
 
+@inline function patch!(i, v, work, dx, dy, dz, y_rot, x_rot, z_rot)
+  @inbounds begin @FastGTPSA! begin
+    work[i,1] = 1 + v[i,PZI]  # rel_p
+    work[i,2] = sqrt(work[i,1]^2 - v[i,PXI]^2 - v[i,PYI]^2)  # pz
+    
+    # Apply rotations only if needed
+    if x_rot != 0 || y_rot != 0 || z_rot != 0
+      work[i,3] = cos(z_rot)
+      work[i,4] = sin(z_rot)
+      work[i,5] = cos(x_rot)
+      work[i,6] = sin(x_rot)
+      work[i,7] = cos(y_rot)
+      work[i,8] = sin(y_rot)
+      
+      work[i,9] = v[i,XI] - dx
+      work[i,10] = v[i,YI] - dy
+      
+      # Transform position vector [x - dx, y - dy, -dz]
+      work[i,11] = (work[i,7]*work[i,3])*work[i,9] + 
+                   (work[i,7]*work[i,4])*work[i,10] + 
+                   (-work[i,8])*(-dz)
+                   
+      work[i,12] = (work[i,6]*work[i,8]*work[i,3] - work[i,5]*work[i,4])*work[i,9] + 
+                   (work[i,6]*work[i,8]*work[i,4] + work[i,5]*work[i,3])*work[i,10] + 
+                   (work[i,6]*work[i,7])*(-dz)
+                   
+      work[i,13] = (work[i,5]*work[i,8]*work[i,3] + work[i,6]*work[i,4])*work[i,9] + 
+                   (work[i,5]*work[i,8]*work[i,4] - work[i,6]*work[i,3])*work[i,10] + 
+                   (work[i,5]*work[i,7])*(-dz)
+      
+      work[i,14] = v[i,PXI]
+      work[i,15] = v[i,PYI]
+      
+      # Transform momentum vector [px, py, pz]
+      v[i,PXI] = (work[i,7]*work[i,3])*work[i,14] + 
+                 (work[i,7]*work[i,4])*work[i,15] + 
+                 (-work[i,8])*work[i,2]
+                 
+      v[i,PYI] = (work[i,6]*work[i,8]*work[i,3] - work[i,5]*work[i,4])*work[i,14] + 
+                 (work[i,6]*work[i,8]*work[i,4] + work[i,5]*work[i,3])*work[i,15] + 
+                 (work[i,6]*work[i,7])*work[i,2]
+                 
+      work[i,16] = (work[i,5]*work[i,8]*work[i,3] + work[i,6]*work[i,4])*work[i,14] + 
+                   (work[i,5]*work[i,8]*work[i,4] - work[i,6]*work[i,3])*work[i,15] + 
+                   (work[i,5]*work[i,7])*work[i,2]
+      
+      v[i,XI] = work[i,11]
+      v[i,YI] = work[i,12]
+      
+      work[i,17] = (work[i,5]*work[i,8]*work[i,3] + work[i,6]*work[i,4])*dx + 
+                   (work[i,5]*work[i,8]*work[i,4] - work[i,6]*work[i,3])*dy + 
+                   (work[i,5]*work[i,7])*dz
+
+      # Drift to face
+      v[i,XI] -= work[i,13] * v[i,PXI] / work[i,16]
+      v[i,YI] -= work[i,13] * v[i,PYI] / work[i,16]
+      v[i,ZI] += work[i,13] * work[i,1] / work[i,16] + work[i,17]
+    else
+      # No rotation case
+      v[i,XI] -= dx
+      v[i,YI] -= dy
+      
+      # Drift to face
+      v[i,XI] += dz * v[i,PXI] / work[i,2]
+      v[i,YI] += dz * v[i,PYI] / work[i,2]
+      v[i,ZI] -= dz * work[i,1] / work[i,2] + work[i,17]
+    end
+  end end
+  
+  return v
+end
 end
