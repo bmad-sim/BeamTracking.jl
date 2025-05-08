@@ -186,3 +186,50 @@
     test_matrix(LinearTracking.linear_6D!, Ms, Mt)
   end
 end
+
+@testset "ExactTracking" begin
+  @testset "Utility functions" begin
+    dx_rot = 0.1
+    dy_rot = -0.1
+    dz_rot = 0.2
+
+    W = [cos(dy_rot) 0 sin(dy_rot); 0 1 0; -sin(dy_rot) 0 cos(dy_rot)] *
+        [1 0 0; 0 cos(dx_rot) sin(dx_rot); 0 -sin(dx_rot) cos(dx_rot)] *
+        [cos(dz_rot) -sin(dz_rot) 0; sin(dz_rot) cos(dz_rot) 0; 0 0 1]
+
+    # Test w_matrix function
+    @test all(ExactTracking.w_matrix(dx_rot, dy_rot, dz_rot) .== W)
+
+    Winv = [cos(dz_rot) sin(dz_rot) 0; -sin(dz_rot) cos(dz_rot) 0; 0 0 1] *
+           [1 0 0; 0 cos(dx_rot) -sin(dx_rot); 0 sin(dx_rot) cos(dx_rot)] *
+           [cos(dy_rot) 0 -sin(dy_rot); 0 1 0; sin(dy_rot) 0 cos(dy_rot)]
+
+    # Test w_inv_matrix function
+    @test all(ExactTracking.w_inv_matrix(dx_rot, dy_rot, dz_rot) .== Winv)
+    
+  end
+
+  @testset "Kernels" begin
+    M_bmad = [
+      3.38490760    26.34428306    -3.33066368   -25.92210987     0.00000000     0.00000000   ;
+      0.00000000     0.47514038     0.00000000     0.18263816     0.00000000     0.86074672   ;
+      0.98502907     7.66634948    -2.56259201   -19.94431085     0.00000000     0.00000000   ;
+      0.00000000    -0.61755160     0.00000000    -0.62760918     0.00000000     0.47406406   ;
+     -3.38051501   -26.31009611     4.08169062    31.76725214     1.00000000    -0.00375828   ;
+      0.00000000     0.00000000     0.00000000     0.00000000     0.00000000     1.00000000   ]
+  
+    function patch(::Type{T}) where {T}
+      dx = T(1)
+      dy = T(2)
+      dz = T(3)
+      winv = ExactTracking.w_inv_matrix(T(4),T(5),T(6))
+      return dx, dy, dz, winv
+    end
+  
+    # Scalar args
+    dx, dy, dz, winv = patch(Float64)
+    test_matrix(ExactTracking.patch!, M_bmad, 10e6, 510998.95, dx,dy,dz,winv; tol=1e-7)
+  
+  end 
+  
+end
