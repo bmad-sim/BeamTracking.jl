@@ -90,7 +90,7 @@ function linear_universal!(
       error("Thin bend not supported yet")
     end
     if any(t -> t == 0 || t > 2, keys(bmultipoleparams.bdict)) 
-      error("Linear tracking does not support combined bend tracking with order > 2")
+      error("Linear tracking does not support bend tracking including any other multipole except a quadrupole")
     end
 
     K0 = get_thick_strength(bmultipoleparams.bdict[1], L, bunch.Brho_ref)
@@ -105,6 +105,7 @@ function linear_universal!(
 
     mx, my, r56, d, t = LinearTracking.linear_dipole_matrices(K0, L, gamma_0; g=bendparams.g, K1=K1, e1=bendparams.e1, e2=bendparams.e2)
     runkernel!(LinearTracking.linear_coast_uncoupled!, i, v, work, mx, my, r56, d, t)
+
   elseif haskey(bmultipoleparams.bdict, 2) # Quadrupole
     if isactive(bendparams)
       error("For Linear combined function magnet tracking, both the K0 multipole and BendParams must be set")
