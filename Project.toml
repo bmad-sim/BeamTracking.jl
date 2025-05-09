@@ -5,6 +5,7 @@ version = "0.1.0"
 
 [deps]
 GTPSA = "b27dd330-f138-47c5-815b-40db9dd9b6e8"
+JACC = "0979c8fe-16a4-4796-9b82-89a9f10403ea"
 ReferenceFrameRotations = "74f56ac7-18b3-5285-802d-d4bd4f104033"
 SIMD = "fdea26ae-647d-5447-a871-4b548cad5224"
 StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
@@ -19,6 +20,7 @@ BeamTrackingBeamlinesExt = "Beamlines"
 [compat]
 Beamlines = "0.2.1"
 GTPSA = "1.4.2"
+JACC = "0.4.0"
 ReferenceFrameRotations = "3"
 SIMD = "3.7.1"
 StaticArrays = "1"

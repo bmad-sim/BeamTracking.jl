@@ -29,47 +29,41 @@ ALWAYS be the following:
 """
 @inline function launch!(
   f!::F, 
-  v::A,
-  work, 
+  idxs,
   args...; 
-  simd_lane_width=0, # autovectorize by default #floor(Int, REGISTER_SIZE/sizeof(eltype(A))),
-  multithread_threshold=Threads.nthreads() > 1 ? 1750*Threads.nthreads() : typemax(Int),
-) where {F<:Function,A}
-  N_particle = size(v, 1)
-  if A <: SIMD.FastContiguousArray && eltype(A) <: SIMD.ScalarTypes && simd_lane_width != 0 # do SIMD
+  simd::Val{simd_lane_width}=Val{0}(), # autovectorize by default #floor(Int, REGISTER_SIZE/sizeof(eltype(A))),
+  multithread_threshold=0 #Threads.nthreads() > 1 ? 1750*Threads.nthreads() : typemax(Int),
+) where {F<:Function,simd_lane_width}
+  n = length(idxs)
+  if idxs isa AbstractUnitRange && first(idxs) == 1 && simd_lane_width != 0 # do explicit SIMD
     lane = VecRange{simd_lane_width}(0)
-    rmn = rem(N_particle, simd_lane_width)
-    N_SIMD = N_particle - rmn
-    if N_particle >= multithread_threshold
-      Threads.@threads for i in 1:simd_lane_width:N_SIMD
-        @assert last(i) <= N_particle "Out of bounds!"  # Use last because VecRange SIMD
-        f!(lane+i, v, work, args...)
+    rmn = rem(n, simd_lane_width)
+    N_SIMD = n - rmn
+    if n >= multithread_threshold
+      Threads.@threads for i in range(start=1, stop=N_SIMD, step=simd_lane_width)
+        f!(lane+i, args...)
       end
     else
-      for i in 1:simd_lane_width:N_SIMD
-        @assert last(i) <= N_particle "Out of bounds!"  # Use last because VecRange SIMD
-        f!(lane+i, v, work, args...)
+      for i in range(start=1, stop=N_SIMD, step=simd_lane_width)
+        f!(lane+i, args...)
       end
     end
     # Do the remainder
-    for i in N_SIMD+1:N_particle
-      @assert last(i) <= N_particle "Out of bounds!"
-      f!(i, v, work, args...)
+    for i in N_SIMD+1:n
+      f!(i, args...)
     end
   else
-    if N_particle >= multithread_threshold
-      Threads.@threads for i in 1:N_particle
-        @assert last(i) <= N_particle "Out of bounds!"
-        f!(i, v, work, args...)
+    if n >= multithread_threshold
+      Threads.@threads for i in idxs
+        f!(i, args...)
       end
     else
-      @simd for i in 1:N_particle
-        @assert last(i) <= N_particle "Out of bounds!"
-        f!(i, v, work, args...)
+      @simd for i in idxs
+        f!(i, args...)
       end
     end
   end
-  return v
+  return nothing
 end
 
 # collective effects
@@ -78,10 +72,14 @@ end
 # particle and does stuff with it
 
 # Call launch!
-@inline runkernel!(f!::F, i::Nothing, v, work, args...) where {F} = launch!(f!, v, work, args...)
+@inline runkernel!(f!::F, idxs::AbstractArray, args...) where {F} = 
+# JACC.parallel_for(last(idxs), f!, args...) 
+#launch!(f!, idxs, args...)
+#
+#
 
 # Call kernel directly
-@inline runkernel!(f!::F, i, v, work, args...) where {F} = f!(i, v, work, args...)
+@inline runkernel!(f!::F, i::Integer, args...) where {F} = f!(i, args...)
 
 
 #=

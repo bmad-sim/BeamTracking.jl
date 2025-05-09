@@ -3,7 +3,8 @@ using GTPSA,
       ReferenceFrameRotations,
       StaticArrays, 
       SIMD,
-      VectorizationBase
+      VectorizationBase,
+      JACC
       
 import GTPSA: sincu, sinhcu
 import Base: setproperty!
