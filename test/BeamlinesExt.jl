@@ -22,10 +22,10 @@
     @test GTPSA.jacobian(b0.v) ≈ M_ESR
 
     #combined
-    ring = Beamline([SBend(K0 = 0.24, g = 0.25, K1 = 0.25, L = 1.0, e1 = 0.5, e2 = 0.2)], Brho_ref = -0.0017045090263411496)
+    ring2 = Beamline([SBend(K0 = 0.24, g = 0.25, K1 = 0.25, L = 1.0, e1 = 0.5, e2 = 0.2)], Brho_ref = -0.0017045090263411496)
     b0 = Bunch(collect(transpose(@vars(d))), Brho_ref=-0.0017045090263411496)
-    foreach(t -> t.tracking_method = Linear(), ring.line)
-    track!(b0, ring)
+    foreach(t -> t.tracking_method = Linear(), ring2.line)
+    track!(b0, ring2)
     M_combined = [
       0.9734056928978285E+00  0.9491282811321522E+00  0.0000000000000000E+00  0.0000000000000000E+00  0.0000000000000000E+00  0.1170583759019584E+00
       -0.1355634359386695E+00  0.8951384971554924E+00  0.0000000000000000E+00  0.0000000000000000E+00  0.0000000000000000E+00  0.2434778344045677E+00
@@ -36,8 +36,8 @@
     ]
     @test GTPSA.jacobian(b0.v) ≈  M_combined
 
-    bblring = BitsBeamline(ring, store_normalized=true)
-    b0 = Bunch(collect(transpose(@vars(d))), Brho_ref=ring.Brho_ref)
+    bblring = BitsBeamline(ring2, store_normalized=true)
+    b0 = Bunch(collect(transpose(@vars(d))), Brho_ref=ring2.Brho_ref)
     track!(b0, bblring)
     @test GTPSA.jacobian(b0.v) ≈ M_combined
 
