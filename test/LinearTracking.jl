@@ -226,10 +226,21 @@ end
       return dx, dy, dz, winv
     end
   
-    # Scalar args
+    # Scalar jacobian
     dx, dy, dz, winv = patch(Float64)
-    test_matrix(ExactTracking.patch!, M_bmad, 10e6, 510998.95, dx,dy,dz,winv; tol=1e-7)
+    test_matrix(ExactTracking.patch!, M_bmad, 10e6,510998.95,dx,dy,dz,winv; tol=1e-7)
+
+    # GTPSA jacobian
+    dx, dy, dz, winv = patch(TPS64{D})
+    test_matrix(ExactTracking.patch!, M_bmad, 10e6,510998.95,dx,dy,dz,winv; tol=1e-7)
   
+    # GTPSA map comparison
+    include("bmad_maps/patch.jl")
+    dx, dy, dz, winv = patch(TPS64{d_z})
+    v = transpose(@vars(d_z))
+    v = ExactTracking.patch!(1, v, zeros(eltype(v),1,9), 10e6,510998.95,dx,dy,dz,winv)
+    @test all( norm(v - transpose(v_z)) < 2e-10 )
+    
   end 
   
 end

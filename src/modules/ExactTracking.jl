@@ -10,7 +10,7 @@ struct Exact end
 MAX_TEMPS(::Exact) = 9
 
 module ExactTracking
-using ..GTPSA, ..BeamTracking, ..StaticArrays
+using ..GTPSA, ..BeamTracking, ..StaticArrays, ..ReferenceFrameRotations
 using ..BeamTracking: XI, PXI, YI, PYI, ZI, PZI
 const TRACKING_METHOD = Exact
 
@@ -110,27 +110,11 @@ end
 
 # Rotation matrix
 function w_matrix(x_rot, y_rot, z_rot)
-  c_phi = cos(x_rot)
-  s_phi = sin(x_rot)
-  c_the = cos(y_rot)
-  s_the = sin(y_rot)
-  c_psi = cos(z_rot)
-  s_psi = sin(z_rot)
-  return [ c_the*c_psi-s_the*s_phi*s_psi  -c_the*s_psi-s_the*s_phi*c_psi  s_the*c_phi;
-           c_phi*s_psi                     c_phi * c_psi                  s_phi      ;
-          -s_the*c_psi-c_the*s_phi*s_psi   s_the*s_psi-c_the*s_phi*c_psi  c_the*c_phi]
+  return ReferenceFrameRotations.angle_to_rot(-z_rot, x_rot, -y_rot, :ZXY)
 end
 
 # Inverse rotation matrix
 function w_inv_matrix(x_rot, y_rot, z_rot)
-  c_phi = cos(x_rot)
-  s_phi = sin(x_rot)
-  c_the = cos(y_rot)
-  s_the = sin(y_rot)
-  c_psi = cos(z_rot)
-  s_psi = sin(z_rot)
-  return [ c_the*c_psi-s_the*s_phi*s_psi  c_phi*s_psi -s_the*c_psi-c_the*s_phi*s_psi;
-          -c_the*s_psi-s_the*s_phi*c_psi  c_phi*c_psi  s_the*s_psi-c_the*s_phi*c_psi;
-           s_the*c_phi                    s_phi        c_the*c_phi                  ]
+  return ReferenceFrameRotations.angle_to_rot(y_rot, -x_rot, z_rot, :YXZ)
 end
 end
