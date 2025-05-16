@@ -1,3 +1,9 @@
+"""
+    BeamTracking
+
+A high-performance particle beam tracking package for accelerator physics simulations.
+Provides both linear and exact tracking methods with optimized memory layouts and parallel processing.
+"""
 module BeamTracking
 using GTPSA,
       ReferenceFrameRotations,

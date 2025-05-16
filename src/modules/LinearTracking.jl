@@ -1,11 +1,15 @@
-#=
+"""
+    LinearTracking
 
-Linear tracking methods expanded around "zero orbit".
+Module implementing linear particle tracking methods.
 
-=#
-# Define the Linear tracking method, and number of rows in the work matrix 
-# (equal to number of temporaries needed for a single particle)
+This module provides functions for linear particle tracking through elements,
+including drifts, quadrupoles, solenoids, and bends, using first-order approximations.
+"""
+
+# Define the Linear tracking method
 struct Linear end
+# Number of temporaries needed for a single particle (number of columns in work matrix)
 MAX_TEMPS(::Linear) = 5
 
 module LinearTracking
@@ -13,8 +17,18 @@ using ..GTPSA, ..BeamTracking, ..StaticArrays, ..KernelAbstractions
 using ..BeamTracking: XI, PXI, YI, PYI, ZI, PZI, @makekernel
 const TRACKING_METHOD = Linear
 
-# Maybe get rid of inline here and put in function-wise launch! ?
-# Drift kernel
+"""
+    linear_drift!(i, v, work, L, r56)
+
+Track a particle through a drift space using linear approximation.
+
+# Arguments
+- `i`: Particle index
+- `v`: Coordinate matrix
+- `work`: Work matrix
+- `L`: Drift length
+- `r56`: Longitudinal dispersion
+"""
 @makekernel function linear_drift!(i, v, work, L, r56)
   @inbounds begin @FastGTPSA! begin
     v[i,XI] += v[i,PXI] * L
@@ -33,11 +47,26 @@ end
 [ t[1:2]  t[3:4]  1   r56   ]
 
 =#
+"""
+    linear_coast_uncoupled!(i, v, work, mx, my, r56, d, t)
+
+Track a particle through an uncoupled element
+
+# Arguments
+- `i`: Particle index
+- `v`: Coordinate matrix
+- `work`: Work matrix
+- `mx`: 2x2 horizontal transfer matrix
+- `my`: 2x2 vertical transfer matrix
+- `r56`: Momentum compaction term
+- `d`: Dispersion vector (optional)
+- `t`: Path length terms (optional)
+"""
 @makekernel function linear_coast_uncoupled!(i, v, work, mx::AbstractMatrix, my::AbstractMatrix, r56, d::Union{AbstractArray,Nothing}, t::Union{AbstractArray,Nothing})
-  #@assert size(work, 2) >= 1 && size(work, 1) >= size(v, 1) "Size of work matrix must be at least ($(size(v, 1)), 1) for linear_coast_uncoupled!"
-  #@assert size(mx) == (2,2) "Size of matrix mx must be (2,2) for linear_coast_uncoupled!. Received $(size(mx))"
-  #@assert size(my) == (2,2) "Size of matrix my must be (2,2) for linear_coast_uncoupled!. Received $(size(my))"
-  #@assert isnothing(d) || length(d) == 4 "The dispersion vector d must be either `nothing` or of length 4 for linear_coast_uncoupled!. Received $d"
+  ##@assert size(work, 2) >= 1 && size(work, 1) >= size(v, 1) "Size of work matrix must be at least ($(size(v, 1)), 1) for linear_coast_uncoupled!"
+  ##@assert size(mx) == (2,2) "Size of matrix mx must be (2,2) for linear_coast_uncoupled!. Received $(size(mx))"
+  ##@assert size(my) == (2,2) "Size of matrix my must be (2,2) for linear_coast_uncoupled!. Received $(size(my))"
+  ##@assert isnothing(d) || length(d) == 4 "The dispersion vector d must be either `nothing` or of length 4 for linear_coast_uncoupled!. Received $d"
   if !isnothing(t)
     @inbounds begin @FastGTPSA! begin
       v[i,ZI] += t[XI] * v[i,XI] + t[PXI] * v[i,PXI] + t[YI] * v[i,YI] + t[PYI] * v[i,PYI]
@@ -63,6 +92,20 @@ end
   return v
 end
 
+"""
+    linear_coast!(i, v, work, mxy, r56, d, t)
+
+Track a particle through a coupled element
+
+# Arguments
+- `i`: Particle index
+- `v`: Coordinate matrix
+- `work`: Work matrix
+- `mxy`: 4x4 coupled transfer matrix
+- `r56`: Momentum compaction term
+- `d`: Dispersion vector (optional)
+- `t`: Path length terms (optional)
+"""
 @makekernel function linear_coast!(i, v, work, mxy::AbstractMatrix, r56, d::Union{AbstractArray,Nothing}, t::Union{AbstractArray,Nothing})
   #@assert size(work, 2) >= 3 && size(work, 1) >= size(v, 1) "Size of work matrix must be at least ($(size(v, 1)), 3) for linear_coast!"
   #@assert size(mxy) == (4,4) "Size of matrix mxy must be (4,4) for linear_coast!. Received $(size(mxy))"
@@ -93,9 +136,24 @@ end
   return v
 end
 
+"""
+    linear_6D!(i, v, work, m)
+
+Track a particle using a full 6D transfer matrix.
+
+# Arguments
+- `i`: Particle index
+- `v`: Coordinate matrix
+- `work`: Work matrix (must be at least size (N_particle, 5))
+- `m`: 6x6 transfer matrix
+
+# Notes
+- Handles full 6D coupled motion
+- Uses work matrix for temporary calculations
+"""
 @makekernel function linear_6D!(i, v, work, m::AbstractMatrix)
-  #@assert size(work, 2) >= 5 && size(work, 1) >= size(v, 1) "Size of work matrix must be at least ($(size(v, 1)), 5) for linear_6D!"
-  #@assert size(m) == (6,6) "Size of matrix m must be (6,6) for linear_6D!. Received $(size(m))"
+  ##@assert size(work, 2) >= 5 && size(work, 1) >= size(v, 1) "Size of work matrix must be at least ($(size(v, 1)), 5) for linear_6D!"
+  ##@assert size(m) == (6,6) "Size of matrix m must be (6,6) for linear_6D!. Received $(size(m))"
   @inbounds begin @FastGTPSA! begin
     work[i,1]= v[i,XI]
     work[i,2]= v[i,PXI]
@@ -112,6 +170,18 @@ end
 end
 
 # Utility functions to create a linear matrix
+"""
+    linear_quad_matrices(K1, L)
+
+Generate transfer matrices for a thick quadrupole.
+
+# Arguments
+- `K1`: Quadrupole strength, focusing and defocusing matrices based on K1 sign
+- `L`: Quadrupole length
+
+# Returns
+- `mx, my`: Horizontal and vertical transfer matrices
+"""
 function linear_quad_matrices(K1, L)
   sqrtk = sqrt(abs(K1))
   w = sqrtk*L
@@ -129,6 +199,17 @@ function linear_quad_matrices(K1, L)
   end
 end
 
+"""
+    linear_thin_quad_matrices(K1L)
+
+Generate transfer matrices for a thin quadrupole.
+
+# Arguments
+- `K1L`: Integrated quadrupole strength
+
+# Returns
+- `mx, my`: Horizontal and vertical transfer matrices
+"""
 function linear_thin_quad_matrices(K1L)
   mx = SA[1     0;
           -K1L  1]
@@ -138,7 +219,21 @@ function linear_thin_quad_matrices(K1L)
   return mx, my
 end 
 
-# From the Bmad manual "Solenoid Tracking" section, linearized
+"""
+    linear_solenoid_matrix(Ks, L)
+
+Generate transfer matrix for a solenoid.
+
+# Arguments
+- `Ks`: Solenoid strength
+- `L`: Solenoid length
+
+# Returns
+- 4x4 transfer matrix for coupled horizontal and vertical motion
+
+# Notes
+- Based on Bmad manual "Solenoid Tracking" section
+"""
 function linear_solenoid_matrix(Ks, L)
   s, c = sincos(Ks*L)
 
@@ -149,6 +244,24 @@ function linear_solenoid_matrix(Ks, L)
 end
 
 
+"""
+    linear_bend_matrices(K0, L, gamma_0, e1, e2)
+
+Generate transfer matrices for a bending magnet.
+
+# Arguments
+- `K0`: Bending strength
+- `L`: Bend length
+- `gamma_0`: Reference gamma
+- `e1`: Entrance edge angle (optional)
+- `e2`: Exit edge angle (optional)
+
+# Returns
+- `mx, my`: Horizontal and vertical transfer matrices
+- `r56`: Momentum compaction term
+- `d`: Dispersion vector
+- `t`: Path length terms
+"""
 function linear_bend_matrices(K0, L, gamma_0, e1=nothing, e2=nothing)
   theta = K0*L
   s, c = sincos(theta)
