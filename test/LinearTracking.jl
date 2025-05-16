@@ -239,7 +239,7 @@ end
     dx, dy, dz, winv = patch(TPS64{d_z})
     v = transpose(@vars(d_z))
     v = ExactTracking.patch!(1, v, zeros(eltype(v),1,9), 10e6,510998.95,dx,dy,dz,winv)
-    @test all( norm(v - transpose(v_z)) < 2e-10 )
+    @test all( norm(v - transpose(v_z)) < 1e-10 )
     
   end 
   
