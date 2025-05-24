@@ -110,6 +110,7 @@ end
 
 
 include("linear.jl")
+include("exact.jl")
 
 
 end

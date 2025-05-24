@@ -30,4 +30,5 @@ function test_matrix(kernel, M_expected, args...; type_stable=VERSION >= v"1.11"
 end
 
 include("LinearTracking.jl")
+include("ExactTracking.jl")
 include("BeamlinesExt.jl")
