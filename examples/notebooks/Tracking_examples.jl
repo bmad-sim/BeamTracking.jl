@@ -5,7 +5,7 @@ using Markdown
 using InteractiveUtils
 
 # ╔═╡ e4c10317-3276-4a7a-a270-06c03ab6edd5
-using BeamTracking, Beamlines, BenchmarkTools, Plots, LaTeXStrings, Unitful, PhysicalConstants
+using BeamTracking, Beamlines, BenchmarkTools, Plots, LaTeXStrings, Unitful, PhysicalConstants, Random
 
 # ╔═╡ 1c785b23-60c1-4f22-9056-b9896082b52c
 begin
@@ -53,6 +53,8 @@ md"""Contruct a particle bunch and track it trough ESR"""
 # ╔═╡ 6a084ffd-4f22-4df9-b81f-e347522c0779
 begin
 # Construct a bunch:
+Random.seed!(357357)
+	
 N_particle = 100
 b0 = Bunch(N_particle)
 
@@ -87,12 +89,16 @@ plot(
 md"""For performance and storage optimization, espessialy on GPU's it is recommended to use a bits representation of a lattice. Ignore a warning message for now, it simply states that there is a way make things even faster."""
 
 # ╔═╡ cca8aa2f-fbfe-4189-be63-3a53ed0824c9
+# ╠═╡ disabled = true
+#=╠═╡
 begin
 	bitsring = BitsBeamline(ring)
 	track!(b0, bitsring)
 end
+  ╠═╡ =#
 
 # ╔═╡ cdd63014-8bd7-4bc8-b000-9ba54bd97f11
+#=╠═╡
 begin
 	using GTPSA
 	# GTPSA map:
@@ -103,6 +109,7 @@ begin
 	track!(b0_tpsa, ring)
 	track!(b0_tpsa, bitsring)
 end
+  ╠═╡ =#
 
 # ╔═╡ ec3a3159-ca83-4773-b503-9b31032fdfff
 md"""Another usefull package is GTPSA.jl. Let's use it to create a map"""
@@ -117,6 +124,7 @@ GTPSA = "b27dd330-f138-47c5-815b-40db9dd9b6e8"
 LaTeXStrings = "b964fa9f-0449-5b57-a5c2-d3ea65f4040f"
 PhysicalConstants = "5ad8b20f-a522-5ce9-bfc9-ddf1d5bda6ab"
 Plots = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
+Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
 Unitful = "1986cc42-f94f-5a68-af5c-568840ba703d"
 
 [compat]
@@ -136,7 +144,7 @@ PLUTO_MANIFEST_TOML_CONTENTS = """
 
 julia_version = "1.11.5"
 manifest_format = "2.0"
-project_hash = "559f772a926270691d018758cb7e491b6f0634da"
+project_hash = "b2ad30206e9c93c2533c3b14ff91d8ff6386ea74"
 
 [[deps.Accessors]]
 deps = ["CompositionsBase", "ConstructionBase", "Dates", "InverseFunctions", "MacroTools"]
