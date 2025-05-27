@@ -2,7 +2,7 @@ module BeamTrackingBeamlinesExt
 using Beamlines, BeamTracking, GTPSA, StaticArrays, KernelAbstractions
 using Beamlines: isactive, BitsLineElement
 using BeamTracking: soaview, get_N_particle, calc_gamma, launch!, runkernel!, @makekernel
-import BeamTracking: track!, MAX_TEMPS
+import BeamTracking: track!, MAX_TEMPS, C_LIGHT, chargeof, massof
 
 # Specify a MAX_TEMPS for SciBmadStandard
 MAX_TEMPS(::SciBmadStandard) = 1
@@ -110,6 +110,7 @@ end
 
 
 include("linear.jl")
+include("exact.jl")
 
 
 end

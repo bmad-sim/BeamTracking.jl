@@ -105,11 +105,11 @@ struct Species
   charge::Float64 # in Coulomb
 end
 
-const ELECTRON = Species("electron", M_ELECTRON,-Q)
-const POSITRON = Species("positron", M_ELECTRON,Q)
+const ELECTRON = Species("electron", M_ELECTRON,-1)
+const POSITRON = Species("positron", M_ELECTRON,1)
 
-const PROTON = Species("proton", M_PROTON,Q)
-const ANTIPROTON = Species("antiproton", M_PROTON,-Q)
+const PROTON = Species("proton", M_PROTON,1)
+const ANTIPROTON = Species("antiproton", M_PROTON,-1)
 
 
 function Species(name)
