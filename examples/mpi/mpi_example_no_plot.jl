@@ -28,7 +28,6 @@ end
 
 rank_indices = offset+1 : offset+block_size
 block_size = Int(rank_indices[end] - rank_indices[1])
-println("Rank $rank has indices $rank_indices")
 
 # collect number of particles on each rank
 counts = MPI.Gather(block_size, root, comm)
@@ -75,22 +74,6 @@ if rank != root
 	exit(0)
 end
 MPI.Finalize()
-
-
-# decompress states vector
-b0v = reshape(result_data, 6, :)'
-
-
-# plot dim vs. momentum
-plot(
-	scatter(b0v[:,1], b0v[:,2], label ="", xlabel = L"x", ylabel = L"p_x", markersize = 1),
-	scatter(b0v[:,3], b0v[:,4], label ="", xlabel = L"y", ylabel = L"p_y", markersize = 1),
-	scatter(b0v[:,5], b0v[:,6], label ="", xlabel = L"z", ylabel = L"p_z",
-	markersize = 1),
-	layout=(1,3), size=(600,300)
-)
-
-savefig("mpi_example_plot.png")
 
 elapsed_time = end_time - start_time
 
