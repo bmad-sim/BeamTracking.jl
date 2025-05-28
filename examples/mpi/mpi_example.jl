@@ -4,7 +4,9 @@ using BeamTracking, Beamlines, MPI, BenchmarkTools, Plots, LaTeXStrings, Unitful
 include("../../test/lattices/esr.jl") # Beamline symbol is "ring"
 # Currently only Linear tracking is supported, enable it for each element
 foreach(t -> t.tracking_method = Linear(), ring.line)
-n_particles = 1000
+n_particles = parse(Int, ARGS[1])
+
+start_time = time()
 
 MPI.Init()
 comm = MPI.COMM_WORLD
@@ -66,8 +68,6 @@ end
 # collect data from ranks
 MPI.Gatherv!(flattened_v, recv_buffer, 0, comm)
 
-MPI.Finalize()
-
 # exit non-root ranks
 if rank != root
 	exit(0)
@@ -87,4 +87,13 @@ plot(
 
 savefig("mpi_example_plot.png")
 
+MPI.Finalize()
+
+end_time = time()
+
+elapsed_time = end_time - start_time
+
+println("Run time: $elapsed_time seconds")
+
 exit(0)
+
