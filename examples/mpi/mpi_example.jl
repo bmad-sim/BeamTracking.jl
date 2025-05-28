@@ -1,4 +1,8 @@
-using BeamTracking, Beamlines, MPI, BenchmarkTools, Plots, LaTeXStrings, Unitful,
+cd(@__DIR__)
+import Pkg; Pkg.activate("../../")
+include("../../src/BeamTracking.jl")
+
+using .BeamTracking, Beamlines, MPI, BenchmarkTools, Plots, LaTeXStrings, Unitful,
  PhysicalConstants, Random
 # Read in the Electron Storage Ring of the Electron-Ion Collider
 include("../../test/lattices/esr.jl") # Beamline symbol is "ring"
