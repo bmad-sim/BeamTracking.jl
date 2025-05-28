@@ -6,8 +6,6 @@ include("../../test/lattices/esr.jl") # Beamline symbol is "ring"
 foreach(t -> t.tracking_method = Linear(), ring.line)
 n_particles = parse(Int, ARGS[1])
 
-
-
 MPI.Init()
 comm = MPI.COMM_WORLD
 rank = MPI.Comm_rank(comm)
@@ -71,13 +69,14 @@ end
 
 # collect data from ranks
 MPI.Gatherv!(flattened_v, recv_buffer, 0, comm)
+end_time = time()
 
 # exit non-root ranks
 if rank != root
 	exit(0)
 end
 MPI.Finalize()
-end_time = time()
+
 
 # decompress states vector
 b0v = reshape(result_data, 6, :)'
