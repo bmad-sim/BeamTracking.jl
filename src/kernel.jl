@@ -7,6 +7,118 @@ const PYI = 4
 const ZI  = 5
 const PZI = 6
 
+@kwdef struct KernelCall{K,A}
+  kernel::K = blank_kernel!
+  args::A   = ()
+end
+
+@kwdef struct KernelChain{K1<:KernelCall,K2<:KernelCall,K3<:KernelCall,K4<:KernelCall,K5<:KernelCall}
+  k1::K1 = KernelCall()
+  k2::K2 = KernelCall()
+  k3::K3 = KernelCall()
+  k4::K4 = KernelCall()
+  k5::K5 = KernelCall()
+end
+
+function push(kc, kcall)
+  if kc.k1.kernel == blank_kernel!
+    return @reset kc.k1 = kcall
+  elseif kc.k2.kernel == blank_kernel!
+    return @reset kc.k2 = kcall
+  elseif kc.k3.kernel == blank_kernel!
+    return @reset kc.k3 = kcall
+  elseif kc.k4.kernel == blank_kernel!
+    return @reset kc.k4 = kcall
+  elseif kc.k5.kernel == blank_kernel!
+    return @reset kc.k5 = kcall
+  else
+    error("Maximum allowed length of KernelChain (5) exceeded!")
+  end
+end
+
+@kernel function generic_kernel!(v, kc::KernelChain)
+  i = @index(Global, Linear)
+  @inline kernel_chain!(i, v, kc)
+end
+
+@inline function kernel_chain!(i, v, kc::KernelChain)
+  (kc.k1.kernel)(i, v, kc.k1.args...)
+  (kc.k2.kernel)(i, v, kc.k2.args...)
+  (kc.k3.kernel)(i, v, kc.k3.args...)
+  (kc.k4.kernel)(i, v, kc.k4.args...)
+  (kc.k5.kernel)(i, v, kc.k5.args...)
+  return nothing
+end
+
+blank_kernel!(args...) = nothing
+
+
+@inline function launch!(
+  kc::KernelChain,
+  v::V;
+  groupsize::Union{Nothing,Integer}=nothing, #backend isa CPU ? floor(Int,REGISTER_SIZE/sizeof(eltype(v))) : 256 
+  multithread_threshold::Integer=Threads.nthreads() > 1 ? 1750*Threads.nthreads() : typemax(Int),
+  use_KA::Bool=!(get_backend(v) isa CPU && isnothing(groupsize)),
+  use_explicit_SIMD::Bool=false
+) where {V}
+  if use_KA && use_explicit_SIMD
+    error("Cannot use both KernelAbstractions (KA) and explicit SIMD")
+  end
+  N_particle = size(v, 1)
+  backend = get_backend(v)
+  if !use_KA && backend isa GPU
+    error("For GPU parallelized kernel launching, KernelAbstractions (KA) must be used")
+  end
+
+  if !use_KA
+    if use_explicit_SIMD && V <: SIMD.FastContiguousArray && eltype(V) <: SIMD.ScalarTypes && VectorizationBase.pick_vector_width(eltype(V)) > 1 # do SIMD
+      simd_lane_width = VectorizationBase.pick_vector_width(eltype(V))
+      lane = VecRange{Int(simd_lane_width)}(0)
+      rmn = rem(N_particle, simd_lane_width)
+      N_SIMD = N_particle - rmn
+      if N_particle >= multithread_threshold
+        Threads.@threads for i in 1:simd_lane_width:N_SIMD
+          @assert last(i) <= N_particle "Out of bounds!"  # Use last because VecRange SIMD
+          kernel_chain!(lane+i, v, kc)
+        end
+      else
+        for i in 1:simd_lane_width:N_SIMD
+          @assert last(i) <= N_particle "Out of bounds!"  # Use last because VecRange SIMD
+          kernel_chain!(lane+i, v, kc)
+        end
+      end
+      # Do the remainder
+      for i in N_SIMD+1:N_particle
+        @assert last(i) <= N_particle "Out of bounds!"
+        kernel_chain!(i, v, kc)
+      end
+    else
+      if N_particle >= multithread_threshold
+        Threads.@threads for i in 1:N_particle
+          @assert last(i) <= N_particle "Out of bounds!"
+          kernel_chain!(i, v, kc)
+        end
+      else
+        @simd for i in 1:N_particle
+          @assert last(i) <= N_particle "Out of bounds!"
+          kernel_chain!(i, v, kc)
+        end
+      end
+    end
+  else
+    if isnothing(groupsize)
+      kernel! = generic_kernel!(backend)
+    else
+      kernel! = generic_kernel!(backend, groupsize)
+    end
+    kernel!(v, kc; ndrange=N_particle)
+    KernelAbstractions.synchronize(backend)
+  end
+  return v
+end
+
+
+
 # Generic function to launch a kernel on the bunch coordinates matrix
 # Matrix v should ALWAYS be in SoA whether for real or as a view via tranpose(v)
 
@@ -100,12 +212,33 @@ end
 
 # Call launch!
 @inline runkernel!(f!::F, i::Nothing, v, args...; kwargs...) where {F} =launch!(f!, v, args...; kwargs...)
+@inline runkernel!(kc::KernelChain, i::Nothing, v; kwargs...) =  launch!(kc, v; kwargs...)
 
 # Call kernel directly
 @inline runkernel!(f!::F, i, v, args...; kwargs...) where {F} = f!(i, v, args...)
 
 
-macro makekernel(fcn)
+function check_kwargs(mac, kwargs...)
+  valid_kwargs = [:(fastgtpsa)=>Bool, :(inbounds)=>Bool]
+  for k in kwargs
+    if Meta.isexpr(k, :(=))
+      pk = Pair(k.args...)
+      idx = findfirst(t->t==pk[1], map(t->t[1], valid_kwargs))
+      if isnothing(idx)
+        error("Unrecognized input to @$(mac) macro: $(pk[1])")
+      elseif typeof(pk[2]) != valid_kwargs[idx][2]
+        error("Type for keyword argument `$(pk[1])` must be `$(valid_kwargs[idx][2])`")
+      end
+    else
+      error("Unrecognized input to @$(mac) macro: $k")
+    end
+  end
+end
+
+macro makekernel(args...)
+  kwargs = args[1:length(args)-1]
+  fcn = last(args)
+
   fcn.head == :function || error("@makekernel must wrap a function definition")
   body = esc(fcn.args[2])
   signature = fcn.args[1].args
@@ -139,15 +272,92 @@ macro makekernel(fcn)
     end
   end
 
-  return quote
-    @kernel function $(fcn_name)($v, $work, $(const_args...))
-      $(stripped_args[1]) = @index(Global, Linear)
-      $(fcn_name)($(stripped_args...))
-    end
   
-    @inline function $(fcn_name)($(args...))
-        $(body)
+  check_kwargs(:makekernel, kwargs...)
+  kwargnames = map(t->t[1], map(t->Pair(t.args...), kwargs))
+  kwargvals = map(t->t[2],map(t->Pair(t.args...), kwargs))
+
+  idx_fastgtpsa = findfirst(t->t==:fastgtpsa, kwargnames)
+  idx_inbounds = findfirst(t->t==:inbounds, kwargnames)
+
+  if isnothing(idx_fastgtpsa) || !kwargvals[idx_fastgtpsa] # no fastgtpsa
+    if isnothing(idx_inbounds) || kwargvals[idx_inbounds] # inbounds
+      return quote
+        @kernel function $(fcn_name)($v, $work, $(const_args...))
+          $(stripped_args[1]) = @index(Global, Linear)
+          $(fcn_name)($(stripped_args...))
+        end
+      
+        @inline function $(fcn_name)($(args...))
+          @inbounds begin
+            $(body)
+          end
+        end
+      end
+    else # no inbounds
+      return quote
+        @kernel function $(fcn_name)($v, $work, $(const_args...))
+          $(stripped_args[1]) = @index(Global, Linear)
+          $(fcn_name)($(stripped_args...))
+        end
+      
+        @inline function $(fcn_name)($(args...))
+          $(body)
+        end
+      end
     end
+  else # fastgtpsa
+    if isnothing(idx_inbounds) || kwargvals[idx_inbounds] # inbounds
+      return quote
+        @kernel function $(fcn_name)($v, $work, $(const_args...))
+          $(stripped_args[1]) = @index(Global, Linear)
+          $(fcn_name)($(stripped_args...))
+        end
+      
+        @inline function $(fcn_name)($(args...))
+          @inbounds begin @FastGTPSA! begin
+            $(body)
+          end end
+        end
+      end
+    else # no inbounds
+      return quote
+        @kernel function $(fcn_name)($v, $work, $(const_args...))
+          $(stripped_args[1]) = @index(Global, Linear)
+          $(fcn_name)($(stripped_args...))
+        end
+      
+        @inline function $(fcn_name)($(args...))
+          @FastGTPSA! begin
+            $(body)
+          end 
+        end
+      end
+
+    end
+  end
+
+end
+
+
+macro localvars(work, vars_and_block...)
+  vars = vars_and_block[1:end-1]
+  block = last(vars_and_block)
+  all(t->t isa Symbol, vars) || error("Invalid input for @localvars")
+  block = MacroTools.postwalk(esc(block)) do x
+    for i in 1:length(vars)
+      if x == vars[i]
+        worki = MacroTools.postwalk(work) do x
+          if x == :_
+            return :($i)
+          else
+            return x
+          end
+        end
+        return :($(worki))
+      end
+    end
+    return x
   end
 end
 

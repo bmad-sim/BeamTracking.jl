@@ -3,7 +3,9 @@ using GTPSA,
       ReferenceFrameRotations,
       StaticArrays, 
       SIMD,
-      VectorizationBase
+      VectorizationBase,
+      MacroTools,
+      Accessors
 
 using KernelAbstractions
       
