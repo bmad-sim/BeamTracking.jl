@@ -39,9 +39,8 @@ end
 Random.seed!(rank)
 bunch = Bunch(block_size)
 # Track the bunch through the ESR
-track!(bunch, ring)
+# track!(bunch, ring)
 # Also can track! individual elements
-track!(bunch, ring.line[1])
 track!(bunch, ring; outer_particle_loop=true)
 
 """
