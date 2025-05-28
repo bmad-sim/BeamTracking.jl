@@ -6,13 +6,17 @@ include("../../test/lattices/esr.jl") # Beamline symbol is "ring"
 foreach(t -> t.tracking_method = Linear(), ring.line)
 n_particles = parse(Int, ARGS[1])
 
-start_time = time()
+
 
 MPI.Init()
 comm = MPI.COMM_WORLD
 rank = MPI.Comm_rank(comm)
 comm_size = MPI.Comm_size(comm)
 root = 0
+
+if rank == 0
+	start_time = time()
+end
 
 # block distribution
 block_size, block_remainder = divrem(n_particles, comm_size)
@@ -72,9 +76,12 @@ MPI.Gatherv!(flattened_v, recv_buffer, 0, comm)
 if rank != root
 	exit(0)
 end
+MPI.Finalize()
+end_time = time()
 
 # decompress states vector
 b0v = reshape(result_data, 6, :)'
+
 
 # plot dim vs. momentum
 plot(
@@ -86,10 +93,6 @@ plot(
 )
 
 savefig("mpi_example_plot.png")
-
-MPI.Finalize()
-
-end_time = time()
 
 elapsed_time = end_time - start_time
 
