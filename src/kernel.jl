@@ -36,31 +36,32 @@ function push(kc, kcall)
   end
 end
 
-@kernel function generic_kernel!(v, kc::KernelChain)
+# KA does not like Vararg
+@kernel function generic_kernel!(kc::KernelChain, com_args)
   i = @index(Global, Linear)
-  @inline kernel_chain!(i, v, kc)
+  @inline generic_kernel!(i, kc, com_args...)
 end
 
-@inline function kernel_chain!(i, v, kc::KernelChain)
-  (kc.k1.kernel)(i, v, kc.k1.args...)
-  (kc.k2.kernel)(i, v, kc.k2.args...)
-  (kc.k3.kernel)(i, v, kc.k3.args...)
-  (kc.k4.kernel)(i, v, kc.k4.args...)
-  (kc.k5.kernel)(i, v, kc.k5.args...)
+@inline function generic_kernel!(i, kc::KernelChain, com_args...)
+  (kc.k1.kernel)(i, com_args..., kc.k1.args...)
+  (kc.k2.kernel)(i, com_args..., kc.k2.args...)
+  (kc.k3.kernel)(i, com_args..., kc.k3.args...)
+  (kc.k4.kernel)(i, com_args..., kc.k4.args...)
+  (kc.k5.kernel)(i, com_args..., kc.k5.args...)
   return nothing
 end
 
 blank_kernel!(args...) = nothing
 
-
 @inline function launch!(
   kc::KernelChain,
-  v::V;
+  com_args::Vararg{V};
   groupsize::Union{Nothing,Integer}=nothing, #backend isa CPU ? floor(Int,REGISTER_SIZE/sizeof(eltype(v))) : 256 
   multithread_threshold::Integer=Threads.nthreads() > 1 ? 1750*Threads.nthreads() : typemax(Int),
-  use_KA::Bool=!(get_backend(v) isa CPU && isnothing(groupsize)),
+  use_KA::Bool=!(get_backend(first(com_args)) isa CPU && isnothing(groupsize)),
   use_explicit_SIMD::Bool=false
 ) where {V}
+  v = first(com_args)
   if use_KA && use_explicit_SIMD
     error("Cannot use both KernelAbstractions (KA) and explicit SIMD")
   end
@@ -79,29 +80,29 @@ blank_kernel!(args...) = nothing
       if N_particle >= multithread_threshold
         Threads.@threads for i in 1:simd_lane_width:N_SIMD
           @assert last(i) <= N_particle "Out of bounds!"  # Use last because VecRange SIMD
-          kernel_chain!(lane+i, v, kc)
+          generic_kernel!(lane+i, kc, com_args...)
         end
       else
         for i in 1:simd_lane_width:N_SIMD
           @assert last(i) <= N_particle "Out of bounds!"  # Use last because VecRange SIMD
-          kernel_chain!(lane+i, v, kc)
+          generic_kernel!(lane+i, kc, com_args...)
         end
       end
       # Do the remainder
       for i in N_SIMD+1:N_particle
         @assert last(i) <= N_particle "Out of bounds!"
-        kernel_chain!(i, v, kc)
+        generic_kernel!(i, kc, com_args...)
       end
     else
       if N_particle >= multithread_threshold
         Threads.@threads for i in 1:N_particle
           @assert last(i) <= N_particle "Out of bounds!"
-          kernel_chain!(i, v, kc)
+          generic_kernel!(i, kc, com_args...)
         end
       else
         @simd for i in 1:N_particle
           @assert last(i) <= N_particle "Out of bounds!"
-          kernel_chain!(i, v, kc)
+          generic_kernel!(i, kc, com_args...)
         end
       end
     end
@@ -111,7 +112,7 @@ blank_kernel!(args...) = nothing
     else
       kernel! = generic_kernel!(backend, groupsize)
     end
-    kernel!(v, kc; ndrange=N_particle)
+    kernel!(kc, com_args; ndrange=N_particle)
     KernelAbstractions.synchronize(backend)
   end
   return v
@@ -122,6 +123,7 @@ end
 # Generic function to launch a kernel on the bunch coordinates matrix
 # Matrix v should ALWAYS be in SoA whether for real or as a view via tranpose(v)
 
+#=
 """
     launch!(f!::F, v, v0, work, args...; simd_lane_width, multithread_threshold)
 
@@ -204,19 +206,18 @@ ALWAYS be the following:
   end
   return v
 end
-
+=#
 # collective effects
 # each threads corresponds to many particles
 # go through each element, each thread loops through each 
 # particle and does stuff with it
 
 # Call launch!
-@inline runkernel!(f!::F, i::Nothing, v, args...; kwargs...) where {F} =launch!(f!, v, args...; kwargs...)
-@inline runkernel!(kc::KernelChain, i::Nothing, v; kwargs...) =  launch!(kc, v; kwargs...)
+#@inline runkernel!(f!::F, i::Nothing, v, args...; kwargs...) where {F} =launch!(f!, v, args...; kwargs...)
+@inline runkernels!(i::Nothing, kc::KernelChain, com_args...; kwargs...) =  launch!(kc, com_args...; kwargs...)
 
-# Call kernel directly
-@inline runkernel!(f!::F, i, v, args...; kwargs...) where {F} = f!(i, v, args...)
-
+# Call kernels directly
+@inline runkernels!(i, kc::KernelChain, com_args...; kwargs...) = generic_kernel!(i, kc, com_args...)
 
 function check_kwargs(mac, kwargs...)
   valid_kwargs = [:(fastgtpsa)=>Bool, :(inbounds)=>Bool]
