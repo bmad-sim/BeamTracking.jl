@@ -39,7 +39,7 @@ end
 Random.seed!(rank)
 bunch = Bunch(block_size)
 # Track the bunch through the ESR
-track!(bunch, ring)
+track!(bunch, ring, use_KA=true)
 # Also can track! individual elements
 # track!(bunch, ring; outer_particle_loop=true)
 
@@ -97,4 +97,3 @@ elapsed_time = end_time - start_time
 println("Run time: $elapsed_time seconds")
 
 exit(0)
-

@@ -97,6 +97,9 @@ begin
 end
   ╠═╡ =#
 
+# ╔═╡ ec3a3159-ca83-4773-b503-9b31032fdfff
+md"""Another usefull package is GTPSA.jl. Let's use it to create a map"""
+
 # ╔═╡ cdd63014-8bd7-4bc8-b000-9ba54bd97f11
 #=╠═╡
 begin
@@ -110,9 +113,6 @@ begin
 	track!(b0_tpsa, bitsring)
 end
   ╠═╡ =#
-
-# ╔═╡ ec3a3159-ca83-4773-b503-9b31032fdfff
-md"""Another usefull package is GTPSA.jl. Let's use it to create a map"""
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
