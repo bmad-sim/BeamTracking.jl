@@ -1,7 +1,16 @@
 module BeamTrackingBeamlinesExt
-using Beamlines, BeamTracking, GTPSA, StaticArrays, KernelAbstractions, Accessors
+using Beamlines, BeamTracking, GTPSA, StaticArrays, KernelAbstractions
 using Beamlines: isactive, BitsLineElement
-using BeamTracking: soaview, get_N_particle, calc_gamma, launch!, runkernels!, @makekernel, KernelChain, KernelCall
+using BeamTracking: soaview, 
+                    get_N_particle, 
+                    calc_gamma, 
+                    launch!, 
+                    runkernels!, 
+                    @makekernel, 
+                    KernelChain, 
+                    KernelCall,
+                    push
+
 import BeamTracking: track!, MAX_TEMPS
 
 # Specify a MAX_TEMPS for SciBmadStandard

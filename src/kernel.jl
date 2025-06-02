@@ -12,6 +12,12 @@ const PZI = 6
   args::A   = ()
 end
 
+# In theory one can chain an entire lattice together - but that creates a giant type (N elements 
+# type parameters) and this puts enormous strain on the compiler, to the point where it is actually
+# slower (I tested it using tuples/@generated functions before )
+
+# So this KernelChain allows a balance between giant method lookup table + stress on the compiler, 
+# and some optimizations by chaining KernelCalls together
 @kwdef struct KernelChain{K1<:KernelCall,K2<:KernelCall,K3<:KernelCall,K4<:KernelCall,K5<:KernelCall}
   k1::K1 = KernelCall()
   k2::K2 = KernelCall()
@@ -37,7 +43,7 @@ function push(kc, kcall)
 end
 
 # KA does not like Vararg
-@kernel function generic_kernel!(kc::KernelChain, com_args)
+@kernel function generic_kernel!(@Const(kc::KernelChain), com_args)
   i = @index(Global, Linear)
   @inline generic_kernel!(i, kc, com_args...)
 end

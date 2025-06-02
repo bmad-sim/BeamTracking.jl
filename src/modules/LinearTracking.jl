@@ -22,7 +22,6 @@ const TRACKING_METHOD = Linear
   return v
 end
 
-
 #=
  Generic function for an uncoupled matrix with coasting plane:
 

@@ -5,6 +5,7 @@ struct SoA <: MemoryLayout end
 mutable struct Bunch{mem<:MemoryLayout,B,V,Q}
   species::Species # Species
   Brho_ref::B      # Defines normalization of phase space coordinates
+  #const alive::A   # Array of 
   const v::V       # Matrix of particle coordinates
   const q::Q       # Matrix of particle quaternions if spin else nothing 
   function Bunch{mem}(species, Brho_ref, v, q=nothing) where {mem}
