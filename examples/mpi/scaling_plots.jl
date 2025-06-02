@@ -23,12 +23,12 @@ n2_100k_work_array = [2.3870041370391846, 2.432455062866211, 2.3610990047454834,
 n4_100k_work_array = [2.5696849822998047, 2.6017680168151855, 2.8834068775177, 2.7176730632781982]
 n8_100k_work_array = [3.9740920066833496, 4.187608957290649, 4.045736074447632, 4.10685396194458]
 
-p1 = plot(threads, n2_100k_local_work, label="n=2", xlabel="Threads", ylabel="Time (s)", title="Local Work Variable, 100k Particles", legend=:topleft)
-plot!(threads, n4_100k_local_work, label="n=4")
-plot!(threads, n8_100k_local_work, label="n=8")
+p1 = plot(threads, n2_100k_local_work / 2, label="n=2", xlabel="Threads", ylabel="Time per node (s)", title="Local Work Variable, 100k Particles", legend=:topleft)
+plot!(threads, n4_100k_local_work / 4, label="n=4")
+plot!(threads, n8_100k_local_work / 8, label="n=8")
 
-p2 = plot(threads, n2_100k_work_array, label="n=2", xlabel="Threads", ylabel="Time (s)", title="Old Work Array, 100k Particles", legend=:topleft)
-plot!(threads, n4_100k_work_array, label="n=4")
-plot!(threads, n8_100k_work_array, label="n=8")
+p2 = plot(threads, n2_100k_work_array / 2, label="n=2", xlabel="Threads", ylabel="Time per node (s)", title="Old Work Array, 100k Particles", legend=:topleft)
+plot!(threads, n4_100k_work_array / 4, label="n=4")
+plot!(threads, n8_100k_work_array / 8, label="n=8")
 
 plot(p1, p2, layout=(1,2), size=(1000, 500), margin=10Plots.mm)
