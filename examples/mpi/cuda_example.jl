@@ -13,12 +13,13 @@ n_particles = 10000000 #parse(Int, ARGS[1])
 
 start_time = time()
 
-v_gpu = CUDA.zeros(Float64, 6, block_size) 
+v_gpu = CUDA.zeros(Float64, n_particles, 6) 
 bunch = Bunch(v_gpu)
+
 # Track the bunch through the ESR
-@time begin
-	track!(bunch, ring)
-end
+#@time begin
+#	track!(bunch, ring)
+#end
 
 
-exit(0)
+#exit(0)
