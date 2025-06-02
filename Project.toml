@@ -4,15 +4,13 @@ authors = ["mattsignorelli <mgs255@cornell.edu> and contributors"]
 version = "0.1.0"
 
 [deps]
+Beamlines = "5bb90b03-0719-46b8-8ce4-1ef3afd3cd4b"
 GTPSA = "b27dd330-f138-47c5-815b-40db9dd9b6e8"
 KernelAbstractions = "63c18a36-062a-441e-b654-da1e3ab1ce7c"
 ReferenceFrameRotations = "74f56ac7-18b3-5285-802d-d4bd4f104033"
 SIMD = "fdea26ae-647d-5447-a871-4b548cad5224"
 StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
 VectorizationBase = "3d5dd08c-fd9d-11e8-17fa-ed2836048c2f"
-
-[weakdeps]
-Beamlines = "5bb90b03-0719-46b8-8ce4-1ef3afd3cd4b"
 
 [extensions]
 BeamTrackingBeamlinesExt = "Beamlines"

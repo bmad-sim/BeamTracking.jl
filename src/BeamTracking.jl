@@ -3,7 +3,8 @@ using GTPSA,
       ReferenceFrameRotations,
       StaticArrays, 
       SIMD,
-      VectorizationBase
+      VectorizationBase,
+      Beamlines
 
 using KernelAbstractions
       

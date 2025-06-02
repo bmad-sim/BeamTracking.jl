@@ -1,9 +1,11 @@
 using Pkg
+push!(LOAD_PATH, "~/repos/BeamTracking.jl")
 Pkg.activate(joinpath(@__DIR__, "../.."))
 Pkg.instantiate()
 
 using BeamTracking, Beamlines, MPI, BenchmarkTools, Plots, LaTeXStrings, Unitful,
  PhysicalConstants, Random
+
 # Read in the Electron Storage Ring of the Electron-Ion Collider
 include("../../test/lattices/esr.jl") # Beamline symbol is "ring"
 # Currently only Linear tracking is supported, enable it for each element
