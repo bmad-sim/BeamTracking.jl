@@ -15,8 +15,6 @@ export LinearTracking, Linear
 export ExactTracking, Exact
 export track!
 
-println("im local beamtracking")
-
 include("utils.jl")
 include("kernel.jl")
 include("types.jl")
