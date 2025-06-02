@@ -19,7 +19,7 @@ comm_size = MPI.Comm_size(comm)
 root = 0
 
 if rank == 0
-	start_time = time()
+	@time begin
 end
 
 # block distribution
@@ -74,8 +74,7 @@ end
 
 # collect data from ranks
 MPI.Gatherv!(flattened_v, recv_buffer, 0, comm)
-end_time = time()
-
+end
 # exit non-root ranks
 if rank != root
 	exit(0)
@@ -97,9 +96,5 @@ MPI.Finalize()
 # )
 
 # savefig("mpi_example_plot.png")
-
-elapsed_time = end_time - start_time
-
-println("Run time: $elapsed_time seconds")
 
 exit(0)
