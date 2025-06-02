@@ -42,7 +42,8 @@ if rank == root
 end
 
 Random.seed!(rank)
-bunch = Bunch(block_size)
+v_gpu = CUDA.zeros(Float64, 6, block_size) 
+bunch = Bunch(v_gpu)
 # Track the bunch through the ESR
 track!(bunch, ring)
 # Also can track! individual elements
