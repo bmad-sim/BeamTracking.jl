@@ -9,14 +9,14 @@ using BeamTracking, Beamlines, Random, CUDA
 include("../../test/lattices/esr.jl") # Beamline symbol is "ring"
 # Currently only Linear tracking is supported, enable it for each element
 foreach(t -> t.tracking_method = Linear(), ring.line)
-n_particles = 10000000 #parse(Int, ARGS[1])
+n_particles = 10000 #parse(Int, ARGS[1])
 bitsring = BitsBeamline(ring)
 CUDA.@profile begin
     CUDA.@time begin
-
+    work = CuArray{Float64}(undef, (n_particles, 1))
     v_gpu = CUDA.zeros(Float64, n_particles, 6)
     bunch = Bunch(v_gpu)
-    track!(bunch, bitsring)
+    track!(bunch, bitsring; work)
     end
 end
 # Track the bunch through the ESR
