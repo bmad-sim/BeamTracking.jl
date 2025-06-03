@@ -1,11 +1,5 @@
-using Pkg
-push!(LOAD_PATH, "~/repos/BeamTracking.jl")
-Pkg.activate(joinpath(@__DIR__, "../.."))
-Pkg.instantiate()
-
 using BeamTracking, Beamlines, MPI, BenchmarkTools, Plots, LaTeXStrings, Unitful,
  PhysicalConstants, Random
-
 # Read in the Electron Storage Ring of the Electron-Ion Collider
 include("../../test/lattices/esr.jl") # Beamline symbol is "ring"
 # Currently only Linear tracking is supported, enable it for each element
@@ -19,7 +13,7 @@ comm_size = MPI.Comm_size(comm)
 root = 0
 
 if rank == 0
-	@time begin
+	start_time = time()
 end
 
 # block distribution
@@ -74,7 +68,8 @@ end
 
 # collect data from ranks
 MPI.Gatherv!(flattened_v, recv_buffer, 0, comm)
-end
+end_time = time()
+
 # exit non-root ranks
 if rank != root
 	exit(0)
@@ -96,5 +91,9 @@ MPI.Finalize()
 # )
 
 # savefig("mpi_example_plot.png")
+
+elapsed_time = end_time - start_time
+
+println("Run time: $elapsed_time seconds")
 
 exit(0)
