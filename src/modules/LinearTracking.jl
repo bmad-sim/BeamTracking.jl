@@ -15,7 +15,7 @@ const TRACKING_METHOD = Linear
 
 # Maybe get rid of inline here and put in function-wise launch! ?
 # Drift kernel
-@makekernel function linear_drift!(i, v, work, L, r56)
+@makekernel function linear_drift!(i, v, L, r56)
   @inbounds begin @FastGTPSA! begin
     v[i,XI] += v[i,PXI] * L
     v[i,YI] += v[i,PYI] * L
@@ -33,7 +33,7 @@ end
 [ t[1:2]  t[3:4]  1   r56   ]
 
 =#
-@makekernel function linear_coast_uncoupled!(i, v, work, mx::AbstractMatrix, my::AbstractMatrix, r56, d::Union{AbstractArray,Nothing}, t::Union{AbstractArray,Nothing})
+@makekernel function linear_coast_uncoupled!(i, v, mx::AbstractMatrix, my::AbstractMatrix, r56, d::Union{AbstractArray,Nothing}, t::Union{AbstractArray,Nothing})
   #@assert size(work, 2) >= 1 && size(work, 1) >= size(v, 1) "Size of work matrix must be at least ($(size(v, 1)), 1) for linear_coast_uncoupled!"
   #@assert size(mx) == (2,2) "Size of matrix mx must be (2,2) for linear_coast_uncoupled!. Received $(size(mx))"
   #@assert size(my) == (2,2) "Size of matrix my must be (2,2) for linear_coast_uncoupled!. Received $(size(my))"
@@ -63,7 +63,7 @@ end
   return v
 end
 
-@makekernel function linear_coast!(i, v, work, mxy::AbstractMatrix, r56, d::Union{AbstractArray,Nothing}, t::Union{AbstractArray,Nothing})
+@makekernel function linear_coast!(i, v, mxy::AbstractMatrix, r56, d::Union{AbstractArray,Nothing}, t::Union{AbstractArray,Nothing})
   #@assert size(work, 2) >= 3 && size(work, 1) >= size(v, 1) "Size of work matrix must be at least ($(size(v, 1)), 3) for linear_coast!"
   #@assert size(mxy) == (4,4) "Size of matrix mxy must be (4,4) for linear_coast!. Received $(size(mxy))"
   #@assert isnothing(d) || length(d) == 4 "The dispersion vector d must be either `nothing` or of length 4 for linear_coast!. Received $d"
@@ -93,7 +93,7 @@ end
   return v
 end
 
-@makekernel function linear_6D!(i, v, work, m::AbstractMatrix)
+@makekernel function linear_6D!(i, v, m::AbstractMatrix)
   #@assert size(work, 2) >= 5 && size(work, 1) >= size(v, 1) "Size of work matrix must be at least ($(size(v, 1)), 5) for linear_6D!"
   #@assert size(m) == (6,6) "Size of matrix m must be (6,6) for linear_6D!. Received $(size(m))"
   w1= v[i,XI]

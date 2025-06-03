@@ -15,7 +15,7 @@ function track!(
   work=zeros(eltype(bunch.v), get_N_particle(bunch), MAX_TEMPS(ele.tracking_method)),
   kwargs...
 )
-  @noinline _track!(nothing, soaview(bunch), work, bunch, ele, ele.tracking_method; kwargs...)
+  @noinline _track!(nothing, soaview(bunch), bunch, ele, ele.tracking_method; kwargs...)
   return bunch
 end
 
@@ -24,10 +24,10 @@ end
 # Would also allow you to do mix of outer and inner loop too, doing a sub-bunch of 
 # particles in parallel
 
-@makekernel function outer_track!(i, v, work, bunch, bl::Beamline)
+@makekernel function outer_track!(i, v, bunch, bl::Beamline)
   for j in 1:length(bl.line)
     @inbounds ele = bl.line[j]
-    @noinline _track!(i, v, work, bunch, ele, ele.tracking_method)
+    @noinline _track!(i, v, bunch, ele, ele.tracking_method)
   end
 end
 
@@ -46,10 +46,10 @@ function track!(
 
   if !outer_particle_loop
     for ele in bl.line
-      track!(bunch, ele; work=work, kwargs...)
+      track!(bunch, ele; kwargs...)
     end
   else
-    launch!(outer_track!, soaview(bunch), work, bunch, bl; kwargs...)
+    launch!(outer_track!, soaview(bunch), bunch, bl; kwargs...)
   end
 
   return bunch
