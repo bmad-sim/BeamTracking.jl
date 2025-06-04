@@ -101,6 +101,8 @@ function linear_universal!(
 
     K0 = get_thick_strength(bmultipoleparams.bdict[1], L, bunch.Brho_ref)
 
+    print(K0, " ", bendparams.g)
+
     if !(K0 ≈ bendparams.g)
       error("Linear tracking requires BendParams.g ≈ BMultipoleParams.K0")
     end
