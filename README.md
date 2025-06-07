@@ -18,4 +18,3 @@ In your `~/.julia/dev/` directory, you will now see the directory `BeamTracking`
 
 See the [development documentation](https://bmad-sim.github.io/BeamTracking.jl/dev/) for more details.
 
-
