@@ -9,8 +9,8 @@ Beamlines.get_tracking_method_extras(::Linear) = SA[]
 # Step 1: Unpack the element ---------------------------------------------
 function _track!(
   i,
-  v,
-  work,
+  com_args,
+  kc::Tuple,
   bunch::Bunch,
   ele::Union{LineElement,BitsLineElement}, 
   ::Linear;
@@ -23,8 +23,8 @@ function _track!(
   L = ele.L
 
   # Function barrier
-  linear_universal!(i, v, work, bunch, L, bm, bp, ma; kwargs...)
-end
+  return linear_universal!(i, com_args, kc, bunch, L, bm, bp, ma; kwargs...)
+end 
 
 @inline function get_thick_strength(bm, L, Brho_ref)
   s = bm.strength
@@ -54,8 +54,8 @@ end
 # Step 2: Push particles through -----------------------------------------
 function linear_universal!(
   i, 
-  v, 
-  work,
+  com_args,
+  kc,
   bunch,
   L, 
   bmultipoleparams, 
@@ -63,13 +63,12 @@ function linear_universal!(
   alignmentparams;
   kwargs...
 ) 
-  kc = KernelChain()
   gamma_0 = calc_gamma(bunch.species, bunch.Brho_ref)
   if !isactive(bmultipoleparams) # Drift
     if isactive(bendparams)
       error("Linear tracking requires BendParams.g == BMultipoleParams.K0")
     end
-    kc = push(kc, KernelCall(LinearTracking.linear_drift!, (L, L/gamma_0^2)))
+    kc = push(kc, i, com_args, KernelCall(LinearTracking.linear_drift!, (L, L/gamma_0^2)))
   elseif haskey(bmultipoleparams.bdict, 0) # Solenoid
     if any(t -> t >= 1, keys(bmultipoleparams.bdict))
       error("Linear tracking does not support combined solenoid + other multipole magnets")
@@ -84,7 +83,7 @@ function linear_universal!(
     Ks = get_thick_strength(bmultipoleparams.bdict[0], L, bunch.Brho_ref)
 
     mxy = LinearTracking.linear_solenoid_matrix(Ks, L)
-    kc = push(kc, KernelCall(LinearTracking.linear_coast!, (mxy, L/gamma_0^2, nothing, nothing)))
+    kc = push(kc, i, com_args, KernelCall(LinearTracking.linear_coast!, (mxy, L/gamma_0^2, nothing, nothing)))
   elseif haskey(bmultipoleparams.bdict, 1) # Bend
     if !isactive(bendparams)
       error("Linear tracking requires BendParams.g ≈ BMultipoleParams.K0")
@@ -102,7 +101,7 @@ function linear_universal!(
       error("Linear tracking requires BendParams.g ≈ BMultipoleParams.K0")
     end
     mx, my, r56, d, t = LinearTracking.linear_bend_matrices(K0, L, gamma_0, bendparams.e1, bendparams.e2)
-    kc = push(kc, KernelCall(LinearTracking.linear_coast_uncoupled!, (mx, my, r56, d, t)))
+    kc = push(kc, i, com_args, KernelCall(LinearTracking.linear_coast_uncoupled!, (mx, my, r56, d, t)))
   elseif haskey(bmultipoleparams.bdict, 2) # Quadrupole
     if isactive(bendparams)
       error("For Linear combined function magnet tracking, both the K0 multipole and BendParams must be set")
@@ -114,12 +113,10 @@ function linear_universal!(
       K1 = get_thick_strength(bmultipoleparams.bdict[2], L, bunch.Brho_ref)
       mx, my = LinearTracking.linear_quad_matrices(K1, L)
     end
-    kc = push(kc, KernelCall(LinearTracking.linear_coast_uncoupled!, (mx, my, L/gamma_0^2, nothing, nothing)))
+    kc = push(kc, i, com_args, KernelCall(LinearTracking.linear_coast_uncoupled!, (mx, my, L/gamma_0^2, nothing, nothing)))
   else # Drift for higher-order multipoles
-    kc = push(kc, KernelCall(LinearTracking.linear_drift!, (L, L/gamma_0^2)))
+    kc = push(kc, i, com_args, KernelCall(LinearTracking.linear_drift!, (L, L/gamma_0^2)))
   end
-
-  runkernels!(nothing, kc, v, work; kwargs...)
-
-  return v
+  runkernels!(i, com_args, kc; kwargs...)
+  return nothing
 end

@@ -7,26 +7,39 @@ const PYI = 4
 const ZI  = 5
 const PZI = 6
 
+# This is here in case kernel chain needs to be run 
+# but is not fully filled. It does nothing
+blank_kernel!(args...) = nothing
+
 @kwdef struct KernelCall{K,A}
   kernel::K = blank_kernel!
   args::A   = ()
 end
 
-# In theory one can chain an entire lattice together - but that creates a giant type (N elements 
-# type parameters) and this puts enormous strain on the compiler, to the point where it is actually
-# slower (I tested it using tuples/@generated functions before )
-
-# So this KernelChain allows a balance between giant method lookup table + stress on the compiler, 
-# and some optimizations by chaining KernelCalls together
-@kwdef struct KernelChain{K1<:KernelCall,K2<:KernelCall,K3<:KernelCall,K4<:KernelCall,K5<:KernelCall}
-  k1::K1 = KernelCall()
-  k2::K2 = KernelCall()
-  k3::K3 = KernelCall()
-  k4::K4 = KernelCall()
-  k5::K5 = KernelCall()
+@unroll function _push(kc::Tuple, kcall)
+  i = 0
+  @unroll for kcalli in kc
+    i += 1
+    if kcalli.kernel == blank_kernel!
+      return @reset kc[i] = kcall
+    end
+  end
+  error("Unable to push KernelCall to kernel chain: kernel chain is full")
 end
 
-function push(kc, kcall)
+function push(kc::Tuple, i, com_args, kcall::KernelCall; kwargs...)
+  kc = @inline _push(kc, kcall)
+  if last(kc).kernel != blank_kernel! # Then we are full, launch!
+    runkernels!(i, com_args, kc; kwargs...)
+    return kernel_chain(Val{length(kc)}()) #ntuple(t->KernelCall(), Val{length(kc)}())
+  else
+    return kc
+  end
+end
+
+kernel_chain(::Val{N}) where {N} = ntuple(t->KernelCall(), Val{N}())
+
+#=
   if kc.k1.kernel == blank_kernel!
     return @reset kc.k1 = kcall
   elseif kc.k2.kernel == blank_kernel!
@@ -41,33 +54,30 @@ function push(kc, kcall)
     error("Maximum allowed length of KernelChain (5) exceeded!")
   end
 end
-
+=#
 # KA does not like Vararg
-@kernel function generic_kernel!(@Const(kc::KernelChain), com_args)
+@kernel function generic_kernel!(com_args, @Const(kc))
   i = @index(Global, Linear)
-  @inline generic_kernel!(i, kc, com_args...)
+  @inline _generic_kernel!(i, com_args, kc)
 end
 
-@inline function generic_kernel!(i, kc::KernelChain, com_args...)
-  (kc.k1.kernel)(i, com_args..., kc.k1.args...)
-  (kc.k2.kernel)(i, com_args..., kc.k2.args...)
-  (kc.k3.kernel)(i, com_args..., kc.k3.args...)
-  (kc.k4.kernel)(i, com_args..., kc.k4.args...)
-  (kc.k5.kernel)(i, com_args..., kc.k5.args...)
+@unroll function _generic_kernel!(i, com_args, kc)
+  @unroll for kcall in kc
+    (kcall.kernel)(i, com_args..., kcall.args...)
+  end
   return nothing
 end
 
-blank_kernel!(args...) = nothing
-
 @inline function launch!(
-  kc::KernelChain,
-  com_args::Vararg{V};
+  com_args, # common arguments across all KernelCalls (e.g. v, q, work, alive)
+  kc::Tuple;
   groupsize::Union{Nothing,Integer}=nothing, #backend isa CPU ? floor(Int,REGISTER_SIZE/sizeof(eltype(v))) : 256 
   multithread_threshold::Integer=Threads.nthreads() > 1 ? 1750*Threads.nthreads() : typemax(Int),
   use_KA::Bool=!(get_backend(first(com_args)) isa CPU && isnothing(groupsize)),
   use_explicit_SIMD::Bool=false
-) where {V}
+)
   v = first(com_args)
+  V = typeof(v)
   if use_KA && use_explicit_SIMD
     error("Cannot use both KernelAbstractions (KA) and explicit SIMD")
   end
@@ -86,29 +96,29 @@ blank_kernel!(args...) = nothing
       if N_particle >= multithread_threshold
         Threads.@threads for i in 1:simd_lane_width:N_SIMD
           @assert last(i) <= N_particle "Out of bounds!"  # Use last because VecRange SIMD
-          generic_kernel!(lane+i, kc, com_args...)
+          _generic_kernel!(lane+i, com_args, kc)
         end
       else
         for i in 1:simd_lane_width:N_SIMD
           @assert last(i) <= N_particle "Out of bounds!"  # Use last because VecRange SIMD
-          generic_kernel!(lane+i, kc, com_args...)
+          _generic_kernel!(lane+i, com_args, kc)
         end
       end
       # Do the remainder
       for i in N_SIMD+1:N_particle
         @assert last(i) <= N_particle "Out of bounds!"
-        generic_kernel!(i, kc, com_args...)
+        _generic_kernel!(i, com_args, kc)
       end
     else
       if N_particle >= multithread_threshold
         Threads.@threads for i in 1:N_particle
           @assert last(i) <= N_particle "Out of bounds!"
-          generic_kernel!(i, kc, com_args...)
+          _generic_kernel!(i, com_args, kc)
         end
       else
         @simd for i in 1:N_particle
           @assert last(i) <= N_particle "Out of bounds!"
-          generic_kernel!(i, kc, com_args...)
+          _generic_kernel!(i, com_args, kc)
         end
       end
     end
@@ -118,7 +128,7 @@ blank_kernel!(args...) = nothing
     else
       kernel! = generic_kernel!(backend, groupsize)
     end
-    kernel!(kc, com_args; ndrange=N_particle)
+    kernel!(com_args, kc; ndrange=N_particle)
     KernelAbstractions.synchronize(backend)
   end
   return v
@@ -220,10 +230,10 @@ end
 
 # Call launch!
 #@inline runkernel!(f!::F, i::Nothing, v, args...; kwargs...) where {F} =launch!(f!, v, args...; kwargs...)
-@inline runkernels!(i::Nothing, kc::KernelChain, com_args...; kwargs...) =  launch!(kc, com_args...; kwargs...)
+@inline runkernels!(i::Nothing, com_args, kc::Tuple; kwargs...) =  launch!(com_args, kc; kwargs...)
 
 # Call kernels directly
-@inline runkernels!(i, kc::KernelChain, com_args...; kwargs...) = generic_kernel!(i, kc, com_args...)
+@inline runkernels!(i, com_args, kc::Tuple; kwargs...) = generic_kernel!(i, com_args, kc)
 
 function check_kwargs(mac, kwargs...)
   valid_kwargs = [:(fastgtpsa)=>Bool, :(inbounds)=>Bool]
@@ -290,10 +300,10 @@ macro makekernel(args...)
   if isnothing(idx_fastgtpsa) || !kwargvals[idx_fastgtpsa] # no fastgtpsa
     if isnothing(idx_inbounds) || kwargvals[idx_inbounds] # inbounds
       return quote
-        @kernel function $(fcn_name)($v, $work, $(const_args...))
+        #=@kernel function $(fcn_name)($v, $work, $(const_args...))
           $(stripped_args[1]) = @index(Global, Linear)
           $(fcn_name)($(stripped_args...))
-        end
+        end=#
       
         @inline function $(fcn_name)($(args...))
           @inbounds begin
@@ -303,10 +313,10 @@ macro makekernel(args...)
       end
     else # no inbounds
       return quote
-        @kernel function $(fcn_name)($v, $work, $(const_args...))
+        #=@kernel function $(fcn_name)($v, $work, $(const_args...))
           $(stripped_args[1]) = @index(Global, Linear)
           $(fcn_name)($(stripped_args...))
-        end
+        end=#
       
         @inline function $(fcn_name)($(args...))
           $(body)
@@ -316,10 +326,10 @@ macro makekernel(args...)
   else # fastgtpsa
     if isnothing(idx_inbounds) || kwargvals[idx_inbounds] # inbounds
       return quote
-        @kernel function $(fcn_name)($v, $work, $(const_args...))
+        #=@kernel function $(fcn_name)($v, $work, $(const_args...))
           $(stripped_args[1]) = @index(Global, Linear)
           $(fcn_name)($(stripped_args...))
-        end
+        end=#
       
         @inline function $(fcn_name)($(args...))
           @inbounds begin @FastGTPSA! begin
@@ -329,10 +339,10 @@ macro makekernel(args...)
       end
     else # no inbounds
       return quote
-        @kernel function $(fcn_name)($v, $work, $(const_args...))
+        #=@kernel function $(fcn_name)($v, $work, $(const_args...))
           $(stripped_args[1]) = @index(Global, Linear)
           $(fcn_name)($(stripped_args...))
-        end
+        end=#
       
         @inline function $(fcn_name)($(args...))
           @FastGTPSA! begin

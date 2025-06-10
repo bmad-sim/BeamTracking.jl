@@ -7,9 +7,10 @@ using BeamTracking: soaview,
                     launch!, 
                     runkernels!, 
                     @makekernel, 
-                    KernelChain, 
                     KernelCall,
-                    push
+                    kernel_chain,
+                    push,
+                    unpack
 
 import BeamTracking: track!, MAX_TEMPS
 
@@ -22,9 +23,13 @@ function track!(
   bunch::Bunch, 
   ele::LineElement; 
   work=zeros(eltype(bunch.v), get_N_particle(bunch), MAX_TEMPS(ele.tracking_method)),
+  kc=kernel_chain(Val{5}()),
   kwargs...
 )
-  @noinline _track!(nothing, soaview(bunch), work, bunch, ele, ele.tracking_method; kwargs...)
+  check_Brho(ele.Brho_ref, bunch::Bunch)
+  com_args = (unpack(bunch)..., work)
+  @noinline _track!(nothing, com_args, kc, bunch, ele, ele.tracking_method; kwargs...)
+  #runkernels!(nothing, com_args, kc; kwargs...)
   return bunch
 end
 

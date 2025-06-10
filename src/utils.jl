@@ -119,7 +119,7 @@ function Species(name)
     return POSITRON
   elseif name == "proton"
     return PROTON
-  elseif name == "ANTIPROTON"
+  elseif name == "antiproton"
     return ANTIPROTON
   else
     error("BeamTracking.jl's fake APC does not support species $name")
