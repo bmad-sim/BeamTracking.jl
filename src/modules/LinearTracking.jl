@@ -152,34 +152,6 @@ function linear_solenoid_matrix(Ks, L)
 end
 
 
-function linear_bend_matrices(K0, L, gamma_0, e1=nothing, e2=nothing)
-  theta = K0*L
-  s, c = sincos(theta)
-  cc = (sincu(theta/2)^2)/2
-  sc = sincu(theta)
-  mx = SA[c  L*sc; -K0*s  c]
-  my = SA[1  L; 0 1]
-  r56 = L*(1/gamma_0^2 - theta^2*sincuc(theta))
-  d = SA[theta*L*cc, theta*sc, 0, 0]
-  t = SA[-theta*sc,  -theta*L*cc, 0, 0]
-
-  if !isnothing(e1) && e1 != 0
-    me1 = K0*tan(e1)
-    mx = mx*SA[1 0; me1  1]
-    my = my*SA[1 0; -me1 1]
-    t = SA[t[1]+me1*t[2], t[2], 0, 0]
-  end
-
-  if !isnothing(e2) && e2 != 0
-    me2 = K0*tan(e2)
-    mx = SA[1 0; me2  1]*mx
-    my = SA[1 0; -me2 1]*my
-    d = SA[d[1], me2*d[1]+d[2], 0, 0]
-  end
-
-  return mx, my, r56, d, t
-end
-
 
 function linear_dipole_matrices(K0, L, gamma_0; g=nothing, K1=nothing, e1=nothing, e2=nothing)
 
