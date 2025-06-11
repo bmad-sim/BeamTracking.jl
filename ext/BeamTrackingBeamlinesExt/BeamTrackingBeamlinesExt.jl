@@ -1,8 +1,8 @@
 module BeamTrackingBeamlinesExt
-using Beamlines, BeamTracking, GTPSA, StaticArrays
+using Beamlines, BeamTracking, GTPSA, StaticArrays, KernelAbstractions
 using Beamlines: isactive, BitsLineElement
-using BeamTracking: soaview, get_N_particle, calc_gamma, launch!, runkernel!
-import BeamTracking: track!, MAX_TEMPS
+using BeamTracking: soaview, get_N_particle, calc_gamma, calc_p0c, launch!, runkernel!, @makekernel
+import BeamTracking: track!, MAX_TEMPS, C_LIGHT, chargeof, massof
 
 # Specify a MAX_TEMPS for SciBmadStandard
 MAX_TEMPS(::SciBmadStandard) = 1
@@ -13,8 +13,10 @@ function track!(
   bunch::Bunch, 
   ele::LineElement; 
   work=zeros(eltype(bunch.v), get_N_particle(bunch), MAX_TEMPS(ele.tracking_method)),
+  kwargs...
 )
-  return _track!(nothing, soaview(bunch), work, bunch, ele, ele.tracking_method)
+  @noinline _track!(nothing, soaview(bunch), work, bunch, ele, ele.tracking_method; kwargs...)
+  return bunch
 end
 
 # Indicies array instead of nothing
@@ -22,7 +24,7 @@ end
 # Would also allow you to do mix of outer and inner loop too, doing a sub-bunch of 
 # particles in parallel
 
-@inline function outer_track!(i, v, work, bunch, bl::Beamline)
+@makekernel function outer_track!(i, v, work, bunch, bl::Beamline)
   for j in 1:length(bl.line)
     @inbounds ele = bl.line[j]
     @noinline _track!(i, v, work, bunch, ele, ele.tracking_method)
@@ -33,7 +35,8 @@ function track!(
   bunch::Bunch, 
   bl::Beamline; 
   work=get_work(bunch, bl), 
-  outer_particle_loop::Bool=false
+  outer_particle_loop::Bool=false,
+  kwargs...
 )
   if length(bl.line) == 0
     return bunch
@@ -43,10 +46,10 @@ function track!(
 
   if !outer_particle_loop
     for ele in bl.line
-      track!(bunch, ele; work=work)
+      track!(bunch, ele; work=work, kwargs...)
     end
   else
-    launch!(outer_track!, soaview(bunch), work, bunch, bl)
+    launch!(outer_track!, soaview(bunch), work, bunch, bl; kwargs...)
   end
 
   return bunch
@@ -107,6 +110,7 @@ end
 
 
 include("linear.jl")
+include("exact.jl")
 
 
 end

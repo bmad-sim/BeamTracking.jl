@@ -62,10 +62,14 @@ function linear_universal!(
   bendparams, 
   alignmentparams;
   kwargs...
+  #=
+  groupsize::Union{Nothing,Integer}=nothing, #backend isa CPU ? floor(Int,REGISTER_SIZE/sizeof(eltype(v))) : 256 
+  multithread_threshold::Integer=0,
+  use_KA::Bool=!(get_backend(v) isa CPU && isnothing(groupsize)),
+  use_explicit_SIMD::Bool=false
+  =#
 ) 
-
   gamma_0 = calc_gamma(bunch.species, bunch.Brho_ref)
-
 
   if isactive(bendparams) #geometric bend
     if haskey(bmultipoleparams.bdict, 0) 

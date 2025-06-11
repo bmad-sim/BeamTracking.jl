@@ -1,7 +1,20 @@
 # BeamTracking
 
-Documentation for [BeamTracking](https://github.com/bmad-sim/BeamTracking.jl).
+Documentation for the BeamTracking.jl package.
 
+
+```{toctree}
+:maxdepth: 1
+:caption: Submodules
+
+linear.md
+matrixkick.md
+misc.md
 ```
-123
+
+```{toctree}
+:maxdepth: 1
+:caption: Developer's Guide
+
+devel.md
 ```
