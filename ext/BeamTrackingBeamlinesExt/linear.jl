@@ -11,6 +11,7 @@ function _track!(
   i,
   v,
   work,
+  kc,
   bunch::Bunch,
   ele::Union{LineElement,BitsLineElement}, 
   ::Linear;
@@ -23,7 +24,7 @@ function _track!(
   L = ele.L
 
   # Function barrier
-  linear_universal!(i, v, work, bunch, L, bm, bp, ma; kwargs...)
+  return linear_universal!(i, v, work, kc, bunch, L, bm, bp, ma; kwargs...)
 end
 
 @inline function get_thick_strength(bm, L, Brho_ref)
@@ -56,6 +57,7 @@ function linear_universal!(
   i, 
   v, 
   work,
+  kc,
   bunch,
   L, 
   bmultipoleparams, 
@@ -69,13 +71,12 @@ function linear_universal!(
   use_explicit_SIMD::Bool=false
   =#
 ) 
-  kc = KernelChain()
   gamma_0 = calc_gamma(bunch.species, bunch.Brho_ref)
   if !isactive(bmultipoleparams) # Drift
     if isactive(bendparams)
       error("Linear tracking requires BendParams.g == BMultipoleParams.K0")
     end
-    kc = BeamTracking.push(kc, KernelCall(LinearTracking.linear_drift!, (work, L, L/gamma_0^2)))
+    kc = BeamTracking.push(kc, i, v, KernelCall(LinearTracking.linear_drift!, (work, L, L/gamma_0^2)); kwargs...)
     #runkernel!(LinearTracking.linear_drift!, i, v, work, L, L/gamma_0^2; kwargs...)
   elseif haskey(bmultipoleparams.bdict, 0) # Solenoid
     if any(t -> t >= 1, keys(bmultipoleparams.bdict))
@@ -91,7 +92,7 @@ function linear_universal!(
     Ks = get_thick_strength(bmultipoleparams.bdict[0], L, bunch.Brho_ref)
 
     mxy = LinearTracking.linear_solenoid_matrix(Ks, L)
-    kc = BeamTracking.push(kc, KernelCall(LinearTracking.linear_coast!, (work, mxy, L/gamma_0^2, nothing, nothing)))
+    kc = BeamTracking.push(kc, i, v, KernelCall(LinearTracking.linear_coast!, (work, mxy, L/gamma_0^2, nothing, nothing)); kwargs...)
     #runkernel!(LinearTracking.linear_coast!, i, v, work, mxy, L/gamma_0^2, nothing, nothing; kwargs...)
   elseif haskey(bmultipoleparams.bdict, 1) # Bend
     if !isactive(bendparams)
@@ -110,7 +111,7 @@ function linear_universal!(
       error("Linear tracking requires BendParams.g ≈ BMultipoleParams.K0")
     end
     mx, my, r56, d, t = LinearTracking.linear_bend_matrices(K0, L, gamma_0, bendparams.e1, bendparams.e2)
-    kc = BeamTracking.push(kc, KernelCall(LinearTracking.linear_coast_uncoupled!, (work, mx, my, r56, d, t)))
+    kc = BeamTracking.push(kc, i, v, KernelCall(LinearTracking.linear_coast_uncoupled!, (work, mx, my, r56, d, t)); kwargs...)
     #runkernel!(LinearTracking.linear_coast_uncoupled!, i, v, work, mx, my, r56, d, t; kwargs...)
   elseif haskey(bmultipoleparams.bdict, 2) # Quadrupole
     if isactive(bendparams)
@@ -123,14 +124,16 @@ function linear_universal!(
       K1 = get_thick_strength(bmultipoleparams.bdict[2], L, bunch.Brho_ref)
       mx, my = LinearTracking.linear_quad_matrices(K1, L)
     end
-    kc = BeamTracking.push(kc, KernelCall(LinearTracking.linear_coast_uncoupled!, (work, mx, my, L/gamma_0^2, nothing, nothing)))
+    kc = BeamTracking.push(kc, i, v, KernelCall(LinearTracking.linear_coast_uncoupled!, (work, mx, my, L/gamma_0^2, nothing, nothing)); kwargs...)
     #runkernel!(LinearTracking.linear_coast_uncoupled!, i, v, work, mx, my, L/gamma_0^2, nothing, nothing; kwargs...)
   else # Drift for higher-order multipoles
-    kc = BeamTracking.push(kc, KernelCall(LinearTracking.linear_drift!, (work, L, L/gamma_0^2)))
+    kc = BeamTracking.push(kc, i, v, KernelCall(LinearTracking.linear_drift!, (work, L, L/gamma_0^2)); kwargs...)
     #runkernel!(LinearTracking.linear_drift!, i, v, work, L, L/gamma_0^2; kwargs...)
   end
   #@show kc
-  runkernel!(kc, nothing, v; kwargs...)
-
-  return v
+  return kc 
+  #=
+  runkernels!(i, v, kc; kwargs...)
+  return nothing
+  =#
 end

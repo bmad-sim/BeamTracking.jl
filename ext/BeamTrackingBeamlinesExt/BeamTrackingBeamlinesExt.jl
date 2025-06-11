@@ -1,7 +1,7 @@
 module BeamTrackingBeamlinesExt
 using Beamlines, BeamTracking, GTPSA, StaticArrays, KernelAbstractions, Accessors
 using Beamlines: isactive, BitsLineElement
-using BeamTracking: soaview, get_N_particle, calc_gamma, launch!, runkernel!, @makekernel, KernelChain, KernelCall
+using BeamTracking: soaview, get_N_particle, calc_gamma, launch!, runkernels!, @makekernel, KernelChain, KernelCall
 import BeamTracking: track!, MAX_TEMPS
 
 # Specify a MAX_TEMPS for SciBmadStandard
@@ -15,7 +15,10 @@ function track!(
   work=zeros(eltype(bunch.v), get_N_particle(bunch), MAX_TEMPS(ele.tracking_method)),
   kwargs...
 )
-  @noinline _track!(nothing, soaview(bunch), work, bunch, ele, ele.tracking_method; kwargs...)
+  v = soaview(bunch)
+  kc = KernelChain()
+  kc = @noinline _track!(nothing, v, work, kc, bunch, ele, ele.tracking_method; kwargs...)
+  @noinline runkernels!(nothing, v, kc; kwargs...)
   return bunch
 end
 
@@ -24,7 +27,7 @@ end
 # Would also allow you to do mix of outer and inner loop too, doing a sub-bunch of 
 # particles in parallel
 
-@makekernel function outer_track!(i, v, work, bunch, bl::Beamline)
+function outer_track!(i, v, work, bunch, bl::Beamline)
   for j in 1:length(bl.line)
     @inbounds ele = bl.line[j]
     @noinline _track!(i, v, work, bunch, ele, ele.tracking_method)
@@ -44,10 +47,18 @@ function track!(
 
   check_Brho(bl.Brho_ref, bunch)
 
+  v = soaview(bunch)
+
   if !outer_particle_loop
-    for ele in bl.line
-      track!(bunch, ele; work=work, kwargs...)
+    for i in 1:5:length(bl.line)
+      kc = KernelChain()
+      for j in 0:min(4,length(bl.line)-i)
+        ele = bl.line[i+j]
+        kc = @noinline _track!(nothing, v, work, kc, bunch, ele, ele.tracking_method; kwargs...)
+      end
+      @noinline runkernels!(nothing, v, kc; kwargs...)
     end
+    #@noinline runkernels!(nothing, v, kc; kwargs...)
   else
     launch!(outer_track!, soaview(bunch), work, bunch, bl; kwargs...)
   end

@@ -5,7 +5,8 @@ using GTPSA,
       SIMD,
       VectorizationBase,
       MacroTools,
-      Accessors
+      Accessors,
+      EnumX
 
 using KernelAbstractions
       

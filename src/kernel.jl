@@ -7,6 +7,10 @@ const PYI = 4
 const ZI  = 5
 const PZI = 6
 
+# This is here in case kernel chain needs to be run 
+# but is not fully filled. It does nothing
+blank_kernel!(args...) = nothing
+
 @kwdef struct KernelCall{K,A}
   kernel::K = blank_kernel!
   args::A   = ()
@@ -20,7 +24,7 @@ end
   k5::K5 = KernelCall()
 end
 
-function push(kc, kcall)
+@inline function push(kc, i, v, kcall; kwargs...)
   if kc.k1.kernel == blank_kernel!
     return @reset kc.k1 = kcall
   elseif kc.k2.kernel == blank_kernel!
@@ -32,35 +36,36 @@ function push(kc, kcall)
   elseif kc.k5.kernel == blank_kernel!
     return @reset kc.k5 = kcall
   else
+    #runkernels!(i, v, kc; kwargs...)
+    #return KernelChain()
     error("Maximum allowed length of KernelChain (5) exceeded!")
   end
 end
 
-@kernel function generic_kernel!(v, kc::KernelChain)
+@kernel function generic_kernel!(com_args, @Const(kc))
   i = @index(Global, Linear)
-  @inline kernel_chain!(i, v, kc)
+  @inline _kernel_chain!(i, com_args, kc)
 end
 
-@inline function kernel_chain!(i, v, kc::KernelChain)
-  (kc.k1.kernel)(i, v, kc.k1.args...)
-  (kc.k2.kernel)(i, v, kc.k2.args...)
-  (kc.k3.kernel)(i, v, kc.k3.args...)
-  (kc.k4.kernel)(i, v, kc.k4.args...)
-  (kc.k5.kernel)(i, v, kc.k5.args...)
+@inline function _kernel_chain!(i, com_args, kc)
+  (kc.k1.kernel)(i, com_args..., kc.k1.args...)
+  (kc.k2.kernel)(i, com_args..., kc.k2.args...)
+  (kc.k3.kernel)(i, com_args..., kc.k3.args...)
+  (kc.k4.kernel)(i, com_args..., kc.k4.args...)
+  (kc.k5.kernel)(i, com_args..., kc.k5.args...)
   return nothing
 end
 
-blank_kernel!(args...) = nothing
-
-
 @inline function launch!(
-  kc::KernelChain,
-  v::V;
+  com_args, # common arguments across all KernelCalls (e.g. v, q, work, alive)
+  kc;
   groupsize::Union{Nothing,Integer}=nothing, #backend isa CPU ? floor(Int,REGISTER_SIZE/sizeof(eltype(v))) : 256 
   multithread_threshold::Integer=Threads.nthreads() > 1 ? 1750*Threads.nthreads() : typemax(Int),
-  use_KA::Bool=!(get_backend(v) isa CPU && isnothing(groupsize)),
+  use_KA::Bool=!(get_backend(first(com_args)) isa CPU && isnothing(groupsize)),
   use_explicit_SIMD::Bool=false
-) where {V}
+)
+  v = first(com_args)
+  V = typeof(v)
   if use_KA && use_explicit_SIMD
     error("Cannot use both KernelAbstractions (KA) and explicit SIMD")
   end
@@ -79,29 +84,29 @@ blank_kernel!(args...) = nothing
       if N_particle >= multithread_threshold
         Threads.@threads for i in 1:simd_lane_width:N_SIMD
           @assert last(i) <= N_particle "Out of bounds!"  # Use last because VecRange SIMD
-          kernel_chain!(lane+i, v, kc)
+          _kernel_chain!(lane+i, com_args, kc)
         end
       else
         for i in 1:simd_lane_width:N_SIMD
           @assert last(i) <= N_particle "Out of bounds!"  # Use last because VecRange SIMD
-          kernel_chain!(lane+i, v, kc)
+          _kernel_chain!(lane+i, com_args, kc)
         end
       end
       # Do the remainder
       for i in N_SIMD+1:N_particle
         @assert last(i) <= N_particle "Out of bounds!"
-        kernel_chain!(i, v, kc)
+        _kernel_chain!(i, com_args, kc)
       end
     else
       if N_particle >= multithread_threshold
         Threads.@threads for i in 1:N_particle
           @assert last(i) <= N_particle "Out of bounds!"
-          kernel_chain!(i, v, kc)
+          _kernel_chain!(i, com_args, kc)
         end
       else
         @simd for i in 1:N_particle
           @assert last(i) <= N_particle "Out of bounds!"
-          kernel_chain!(i, v, kc)
+          _kernel_chain!(i, com_args, kc)
         end
       end
     end
@@ -111,14 +116,14 @@ blank_kernel!(args...) = nothing
     else
       kernel! = generic_kernel!(backend, groupsize)
     end
-    kernel!(v, kc; ndrange=N_particle)
+    kernel!(com_args, kc; ndrange=N_particle)
     KernelAbstractions.synchronize(backend)
   end
   return v
 end
 
 
-
+#=
 # Generic function to launch a kernel on the bunch coordinates matrix
 # Matrix v should ALWAYS be in SoA whether for real or as a view via tranpose(v)
 
@@ -204,6 +209,7 @@ ALWAYS be the following:
   end
   return v
 end
+=#
 
 # collective effects
 # each threads corresponds to many particles
@@ -211,12 +217,17 @@ end
 # particle and does stuff with it
 
 # Call launch!
+#=
 @inline runkernel!(f!::F, i::Nothing, v, args...; kwargs...) where {F} =launch!(f!, v, args...; kwargs...)
-@inline runkernel!(kc::KernelChain, i::Nothing, v; kwargs...) =  launch!(kc, v; kwargs...)
+@inline runkernel!(kc::KernelChain, i::Nothing, v; kwargs...) =  launch!((v,), kc; kwargs...)
 
 # Call kernel directly
 @inline runkernel!(f!::F, i, v, args...; kwargs...) where {F} = f!(i, v, args...)
+=#
+@inline runkernels!(i::Nothing, com_args, kc; kwargs...) =  launch!((com_args,), kc; kwargs...)
 
+# Call kernels directly
+@inline runkernels!(i, com_args, kc; kwargs...) = generic_kernel!(i, com_args, kc)
 
 function check_kwargs(mac, kwargs...)
   valid_kwargs = [:(fastgtpsa)=>Bool, :(inbounds)=>Bool]
