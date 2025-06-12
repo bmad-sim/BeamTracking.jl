@@ -106,7 +106,7 @@ function linear_universal!(
       end
       Ks = get_thick_strength(bmultipoleparams.bdict[0], L, bunch.Brho_ref)
       mxy = LinearTracking.linear_solenoid_matrix(Ks, L)
-      runkernel!(LinearTracking.linear_coast!, i, v, work, mxy, L/gamma_0^2; kwargs...)
+      runkernel!(LinearTracking.linear_coast!, i, v, work, mxy, L/gamma_0^2, nothing, nothing; kwargs...)
     elseif haskey(bmultipoleparams.bdict, 1) # Bend
       if L == 0
         error("Thin bend not supported yet")
@@ -130,7 +130,7 @@ function linear_universal!(
         K1 = get_thick_strength(bmultipoleparams.bdict[2], L, bunch.Brho_ref)
         mx, my = LinearTracking.linear_quad_matrices(K1, L)
       end
-      runkernel!(LinearTracking.linear_coast_uncoupled!, i, v, work, mx, my, L/gamma_0^2; kwargs...)
+      runkernel!(LinearTracking.linear_coast_uncoupled!, i, v, work, mx, my, L/gamma_0^2, nothing, nothing; kwargs...)
     else # Drift for higher-order multipoles
       runkernel!(LinearTracking.linear_drift!, i, v, work, L, L/gamma_0^2; kwargs...)
     end 
