@@ -24,8 +24,6 @@ include("utils.jl")
 include("types.jl")
 include("kernel.jl")
 
-
-
 include("modules/ExactTracking.jl") #; TRACKING_METHOD(::ExactTracking) = Exact
 include("modules/LinearTracking.jl") #; TRACKING_METHOD(::LinearTracking) = Linear
 
