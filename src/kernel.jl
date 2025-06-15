@@ -53,19 +53,22 @@ end
 # Matrix v should ALWAYS be in SoA whether for real or as a view via tranpose(v)
 
 @inline function launch!(
-  b::BunchView{S,V},
+  b::BunchView,
   kc::KernelChain;
   groupsize::Union{Nothing,Integer}=nothing, #backend isa CPU ? floor(Int,REGISTER_SIZE/sizeof(eltype(v))) : 256 
-  multithread_threshold::Integer=Threads.nthreads() > 1 ? 1750*Threads.nthreads() : typemax(Int),
+  #multithread_threshold::Integer=Threads.nthreads() > 1 ? 1750*Threads.nthreads() : typemax(Int),
   use_KA::Bool=true, #!(get_backend(b.v) isa CPU && isnothing(groupsize)),
-  use_explicit_SIMD::Bool=false #!use_KA # Default to use explicit SIMD on CPU
-) where {S,V}
+  #use_explicit_SIMD::Bool=false #!use_KA # Default to use explicit SIMD on CPU
+)
   v = b.v
-  if use_KA && use_explicit_SIMD
-    error("Cannot use both KernelAbstractions (KA) and explicit SIMD")
-  end
+
   N_particle = size(v, 1)
   backend = get_backend(v)
+  #=
+    if use_KA && use_explicit_SIMD
+    error("Cannot use both KernelAbstractions (KA) and explicit SIMD")
+  end
+  
   if !use_KA && backend isa GPU
     error("For GPU parallelized kernel launching, KernelAbstractions (KA) must be used")
   end
@@ -105,7 +108,7 @@ end
         end
       end
     end
-  else
+  else=#
     if isnothing(groupsize)
       kernel! = generic_kernel!(backend)
     else
@@ -113,7 +116,7 @@ end
     end
     kernel!(b, kc; ndrange=N_particle)
     KernelAbstractions.synchronize(backend)
-  end
+  #end
   return v
 end
 

@@ -1,27 +1,30 @@
-# Step 1: Unpack the element ---------------------------------------------
-function _track!(
-  i,
-  b::BunchView,
-  bunch::Bunch,
-  ele::Union{LineElement,BitsLineElement}, 
-  tm;
-  kwargs...
-)
-  # Unpack the line element (type unstable)
-  L = ele.L
-  ap = ele.AlignmentParams
-  bp = ele.BendParams
-  bm = ele.BMultipoleParams
-  pp = ele.PatchParams
-
-  # Function barrier
-  universal!(i, b, tm, bunch, L, ap, bp, bm, pp; kwargs...)
+function track_chain(bl::Beamline, bunch::Bunch)
+  kc = ()
+  for ele in bl.line
+    kci = track_chain(ele, bunch)
+    kci = kci[1:findfirst(t->t.kernel == BeamTracking.blank_kernel!)-1]
+    kc = (kc..., kci...)
+  end
+  return kc
 end
 
-# Step 2: Push particles through -----------------------------------------
-function universal!(
-  i, 
-  b,
+function track_chain(ele::Union{LineElement,BitsLineElement}, bunch::Bunch, tm=nothing)
+  # Unpack the line element (type unstable)
+  if isnothing(tm)
+    tm = ele.tracking_method
+  end
+  L = ele.L
+  alignmentparams = ele.AlignmentParams
+  bendparams = ele.BendParams
+  bmultipoleparams = ele.BMultipoleParams
+  #BitsLineElement does not have PatchParams yet
+  patchparams = ele isa BitsLineElement ? nothing : ele.PatchParams
+
+  # Function barrier:
+  return _track_chain(tm, bunch, L, alignmentparams, bendparams, bmultipoleparams, patchparams)
+end
+
+function _track_chain(
   tm,
   bunch,
   L, 
@@ -30,8 +33,8 @@ function universal!(
   bmultipoleparams,
   patchparams;
   kwargs...
-) 
-  kc = KernelChain(Val{1}())
+)
+  kc = KernelChain(Val{1}())  
   if isactive(alignmentparams)
     if isactive(patchparams)
       error("Tracking through a LineElement containing both PatchParams and AlignmentParams is undefined")
@@ -132,9 +135,7 @@ function universal!(
   if isactive(alignmentparams)
     kc = push(kc, @inline(misalign(tm, bunch, alignmentparams, false)))
   end
-
-  runkernels!(i, b, kc; kwargs...)
-  return nothing
+  return kc
 end
 
 # === Coordinate system transformations === #
