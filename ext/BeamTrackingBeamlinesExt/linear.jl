@@ -6,123 +6,127 @@ end
 Beamlines.get_tracking_method_extras(::Linear) = SA[]
 
 
-# Step 1: Unpack the element ---------------------------------------------
-function _track!(
-  i,
-  v,
-  work,
-  bunch::Bunch,
-  ele::Union{LineElement,BitsLineElement}, 
-  ::Linear;
-  kwargs...
-)
-  # Unpack the line element
-  ma = ele.AlignmentParams
-  bm = ele.BMultipoleParams
-  bp = ele.BendParams
-  L = ele.L
-
-  # Function barrier
-  linear_universal!(i, v, work, bunch, L, bm, bp, ma; kwargs...)
+# =========== STRAIGHT ELEMENTS ============= #
+# === Thin elements === #
+# Only thin element currently supported is thin quadrupole
+@inline function thin_pure_bdipole(tm::Linear, bunch, bm1)
+  # Sophia: this a thin (0 length) corrector coil
+  # In Fortran Bmad is g == 0 but dgL != 0. 
+  # In SciBmad this is g == 0 but K0L != 0.
+  error("Undefined for tracking method $tm")
 end
 
-@inline function get_thick_strength(bm, L, Brho_ref)
-  s = bm.strength
-  if !bm.normalized
-    s /= Brho_ref
+@inline function thin_bdipole(tm::Linear, bunch, bdict)
+  if haskey(bdict, 2)
+    # Sophia: this is a thin corrector coil with a quadrupole term
+    # In Fortran Bmad is g == 0 but dgL != 0 and K1L != 0
+    # In SciBmad this is g == 0 but K0L != 0 and K1L != 0
+    error("Undefined for tracking method $tm")
+  else # ignore higher order multipoles
+    return thin_pure_bdipole(tm, bunch, bdict[1])
   end
-  if bm.integrated
-    if L == 0
-      error("LineElement length is zero; cannot computed non-integrated strength")
-    end
-    s /= L
-  end
-  return s
 end
 
-@inline function get_thin_strength(bm, L, Brho_ref)
-  s = bm.strength
-  if !bm.normalized
-    s /= Brho_ref
-  end
-  if !bm.integrated
-    s *= L
-  end
-  return s
+@inline function thin_pure_bquadrupole(tm::Linear, bunch, bm2)
+  K1L = get_thin_strength(bm2, 0, bunch.Brho_ref)
+  mx, my = LinearTracking.linear_thin_quad_matrices(K1L)
+  return KernelCall(LinearTracking.linear_coast_uncoupled!, (mx, my, 0, nothing, nothing))
 end
 
-# Step 2: Push particles through -----------------------------------------
-function linear_universal!(
-  i, 
-  v, 
-  work,
-  bunch,
-  L, 
-  bmultipoleparams, 
-  bendparams, 
-  alignmentparams;
-  kwargs...
-  #=
-  groupsize::Union{Nothing,Integer}=nothing, #backend isa CPU ? floor(Int,REGISTER_SIZE/sizeof(eltype(v))) : 256 
-  multithread_threshold::Integer=0,
-  use_KA::Bool=!(get_backend(v) isa CPU && isnothing(groupsize)),
-  use_explicit_SIMD::Bool=false
-  =#
-) 
+# Ignore higher order multipoles with quadrupole: 
+@inline thin_bquadrupole(tm::Linear, bunch, bdict) = thick_pure_bquadrupole(tm, bunch, bdict[2])
+
+# Ignore higher order multipoles: do nothing for thin case (0 length)
+@inline thin_pure_bmultipole(tm::Linear, bunch, bmn) = KernelCall()
+@inline thin_bmultipole(tm::Linear, bunch, bdict) = KernelCall()
+
+
+# === Thick elements === #
+@inline function drift(tm::Linear, bunch, L)
   gamma_0 = calc_gamma(bunch.species, bunch.Brho_ref)
-  if !isactive(bmultipoleparams) # Drift
-    if isactive(bendparams)
-      error("Linear tracking requires BendParams.g == BMultipoleParams.K0")
-    end
-    runkernel!(LinearTracking.linear_drift!, i, v, work, L, L/gamma_0^2; kwargs...)
-  elseif haskey(bmultipoleparams.bdict, 0) # Solenoid
-    if any(t -> t >= 1, keys(bmultipoleparams.bdict))
-      error("Linear tracking does not support combined solenoid + other multipole magnets")
-    end
-    if isactive(bendparams)
-      error("Linear tracking does not currently support solenoid with bending")
-    end
-    if L == 0
-      error("Thin solenoid not supported yet")
-    end
-
-    Ks = get_thick_strength(bmultipoleparams.bdict[0], L, bunch.Brho_ref)
-
-    mxy = LinearTracking.linear_solenoid_matrix(Ks, L)
-    runkernel!(LinearTracking.linear_coast!, i, v, work, mxy, L/gamma_0^2, nothing, nothing; kwargs...)
-  elseif haskey(bmultipoleparams.bdict, 1) # Bend
-    if !isactive(bendparams)
-      error("Linear tracking requires BendParams.g ≈ BMultipoleParams.K0")
-    end
-    if L == 0
-      error("Thin bend not supported yet")
-    end
-    if any(t -> t == 0 || t > 1, keys(bmultipoleparams.bdict))
-      error("Combined function bend tracking not implemented yet")
-    end
-
-    K0 = get_thick_strength(bmultipoleparams.bdict[1], L, bunch.Brho_ref)
-
-    if !(K0 ≈ bendparams.g)
-      error("Linear tracking requires BendParams.g ≈ BMultipoleParams.K0")
-    end
-    mx, my, r56, d, t = LinearTracking.linear_bend_matrices(K0, L, gamma_0, bendparams.e1, bendparams.e2)
-    runkernel!(LinearTracking.linear_coast_uncoupled!, i, v, work, mx, my, r56, d, t; kwargs...)
-  elseif haskey(bmultipoleparams.bdict, 2) # Quadrupole
-    if isactive(bendparams)
-      error("For Linear combined function magnet tracking, both the K0 multipole and BendParams must be set")
-    end
-    if L == 0
-      K1L = get_thin_strength(bmultipoleparams.bdict[2], L, bunch.Brho_ref)
-      mx, my = LinearTracking.linear_thin_quad_matrices(K1L)
-    else
-      K1 = get_thick_strength(bmultipoleparams.bdict[2], L, bunch.Brho_ref)
-      mx, my = LinearTracking.linear_quad_matrices(K1, L)
-    end
-    runkernel!(LinearTracking.linear_coast_uncoupled!, i, v, work, mx, my, L/gamma_0^2, nothing, nothing; kwargs...)
-  else # Drift for higher-order multipoles
-    runkernel!(LinearTracking.linear_drift!, i, v, work, L, L/gamma_0^2; kwargs...)
-  end
-
-  return v
+  return KernelCall(LinearTracking.linear_drift!, (L, L/gamma_0^2))
 end
+
+@inline function thick_pure_bsolenoid(tm::Linear, bunch, bm0, L) 
+  gamma_0 = calc_gamma(bunch.species, bunch.Brho_ref)
+  Ks = get_thick_strength(bm0, L, bunch.Brho_ref)
+  mxy = LinearTracking.linear_solenoid_matrix(Ks, L)
+  return KernelCall(LinearTracking.linear_coast!, (mxy, L/gamma_0^2, nothing, nothing))
+end
+
+@inline function thick_pure_bdipole(tm::Linear, bunch, bm1, L)
+  # Sophia: this a thick corrector coil
+  # In Fortran Bmad is g == 0 but dg != 0. 
+  # In SciBmad this is g == 0 but K0 != 0.
+  error("Undefined for tracking method $tm")
+end
+
+@inline function thick_bdipole(tm::Linear, bunch, bdict, L)
+  if haskey(bdict, 2)
+    # Sophia: this is a thick corrector coil with a quadrupole term
+    # In Fortran Bmad is g == 0 but dg != 0 and K1 != 0
+    # In SciBmad this is g == 0 but K0 != 0 and K1 != 0
+    error("Undefined for tracking method $tm")
+  else # ignore higher order multipoles
+    return thick_pure_bdipole(tm, bunch, bdict[1], L)
+  end
+end
+
+@inline function thick_pure_bquadrupole(tm::Linear, bunch, bm2, L)
+  gamma_0 = calc_gamma(bunch.species, bunch.Brho_ref)
+  K1 = get_thick_strength(bm2, L, bunch.Brho_ref)
+  mx, my = LinearTracking.linear_quad_matrices(K1, L)
+  return KernelCall(LinearTracking.linear_coast_uncoupled!, (mx, my, L/gamma_0^2, nothing, nothing))
+end
+
+# Ignore higher order multipoles with quadrupole:
+@inline thick_bquadrupole(tm::Linear, bunch, bdict, L) = thick_pure_bquadrupole(tm, bunch, bdict[2], L)
+
+# Ignore higher order multipoles: drift
+@inline thick_pure_bmultipole(tm::Linear, bunch, bmn, L) = drift(tm, bunch, L)
+@inline thick_bmultipole(tm::Linear, bunch, bdict, L) = drift(tm, bunch, L)
+
+# =========== BENDING ELEMENTS ============= #
+# Again, "bend" means coordinate system bends, nothing wrt the field.
+# SciBmad likely will not support "thin" bends
+
+@inline function thick_bend_no_field(tm::Linear, bunch, bendparams, L)
+  # Sophia: this has NO FIELD!
+  # In Fortran Bmad it is like setting dg == -g
+  error("Undefined for tracking method $tm")
+end
+
+@inline function thick_bend_pure_bdipole(tm::Linear, bunch, bendparams, bm1, L)     
+  gamma_0 = calc_gamma(bunch.species, bunch.Brho_ref)
+  K0 = get_thick_strength(bm1, L, bunch.Brho_ref)
+  mx, my, r56, d, t = LinearTracking.linear_bend_matrices(K0, L, gamma_0, bendparams.e1, bendparams.e2)
+  if !(K0 ≈ bendparams.g)
+    # Sophia - you will be able to remove this because your code handles this
+    error("Linear tracking currently only supports BendParams.g ≈ BMultipoleParams.K0")
+  end
+  return KernelCall(LinearTracking.linear_coast_uncoupled!, (mx, my, r56, d, t))
+end
+
+@inline function thick_bend_bdipole(tm::Linear, bunch, bendparams, bdict, L)   
+  if haskey(bdict, 2)
+    # Sophia: this is a thick combined function magnet
+    # In Fortran Bmad is g != 0, dg != 0, K1 != 0
+    # In SciBmad this is g != 0, K0 != 0, K1 != 0
+    error("Undefined for tracking method $tm")
+  else # ignore higher order multipoles
+    return thick_bend_pure_bdipole(tm, bunch, bendparams, bdict[1], L)
+  end
+end
+
+@inline function thick_bend_pure_bquadrupole(tm::Linear, bunch, bendparams, bm2, L) 
+  # Sophia: this is a quadrupole with a g, I think your code should be able to handle this
+  # In Fortran Bmad it would be like dg == -g, K1 != 0.
+  error("Undefined for tracking method $tm")
+end
+
+# Ignore higher order multipoles:
+@inline thick_bend_bquadrupole(tm::Linear, bunch, bendparams, bdict, L) = thick_bend_pure_bquadrupole(tm, bunch, bendparams, bdict[2], L)
+
+# Ignore higher order multipoles: treat like bend no field
+@inline thick_bend_pure_bmultipole(tm::Linear, bunch, bendparams, bmn, L) = thick_bend_no_field(tm, bunch, bendparams, L)
+@inline thick_bend_bmultipole(tm::Linear, bunch, bendparams, bdict, L) = thick_bend_no_field(tm, bunch, bendparams, L)
