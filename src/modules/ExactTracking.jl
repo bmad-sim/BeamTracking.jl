@@ -4,7 +4,7 @@
 Module implementing exact particle tracking through drifts and handling of misalignments.
 """
 
-=#
+#
 # Define the Exact tracking method, and number of columns in the work matrix
 # (equal to number of temporaries needed for a single particle)
 struct Exact end
