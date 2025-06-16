@@ -3,7 +3,11 @@
 [![Stable](https://img.shields.io/badge/docs-stable-blue.svg)](https://bmad-sim.github.io/BeamTracking.jl/)
 [![Build Status](https://github.com/bmad-sim/BeamTracking.jl/actions/workflows/CI.yml/badge.svg?branch=main)](https://github.com/bmad-sim/BeamTracking.jl/actions/workflows/CI.yml?query=branch%3Amain)
 
-This package provides universally polymorphic and fully portable, parallelizable routines for simulating charged particle beams both on the CPU and, using [`KernelAbstractions.jl`](https://github.com/JuliaGPU/KernelAbstractions.jl), various GPU backends including NVIDIA CUDA, Apple Metal, Intel oneAPI, and AMD ROCm.
+A high-performance charged particle beam tracking package that provides tracking methods for accelerator physics simulations. Features include:
+
+- Universal polymorphism and portability across CPU and GPU backends (NVIDIA CUDA, Apple Metal, Intel oneAPI, AMD ROCm)
+- Parallel processing with SIMD, multi-threading, and [`KernelAbstractions.jl`](https://github.com/JuliaGPU/KernelAbstractions.jl)
+- Extensive collection of tracking methods
 
 To develop this package:
 
@@ -18,4 +22,7 @@ In your `~/.julia/dev/` directory, you will now see the directory `BeamTracking`
 
 See the [development documentation](https://bmad-sim.github.io/BeamTracking.jl/dev/) for more details.
 
+## Tracking Methods
 
+1. **Linear Tracking** (`src/modules/LinearTracking.jl`)
+2. **Exact Tracking** (`src/modules/ExactTracking.jl`)

@@ -1,3 +1,10 @@
+"""
+    MemoryLayout
+
+Abstract type for memory layout strategies. Two implementations are provided:
+- `AoS`: Array of Structures
+- `SoA`: Structure of Arrays
+"""
 abstract type MemoryLayout end
 struct AoS <: MemoryLayout end
 struct SoA <: MemoryLayout end
