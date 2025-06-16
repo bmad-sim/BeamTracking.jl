@@ -1,21 +1,15 @@
+struct Linear end
+
 """
     LinearTracking
 
-Module implementing linear particle tracking methods.
-
-This module provides functions for linear particle tracking through elements,
-including drifts, quadrupoles, solenoids, and bends, using first-order approximations.
+Module implementing linear particle tracking methods expanded around "zero orbit".
 """
-
-# Define the Linear tracking method
-struct Linear end
-
 module LinearTracking
 using ..GTPSA, ..BeamTracking, ..StaticArrays, ..KernelAbstractions
 using ..BeamTracking: XI, PXI, YI, PYI, ZI, PZI, @makekernel, BunchView
 const TRACKING_METHOD = Linear
 
-# Maybe get rid of inline here and put in function-wise launch! ?
 # Drift kernel
 @makekernel fastgtpsa=true function linear_drift!(i, b::BunchView, L, r56)
   v = b.v
@@ -30,11 +24,22 @@ end
 [ mx      0       0   d[1:2]]
 [ 0       my      0   d[3:4]]
 [ t[1:2]  t[3:4]  1   r56   ]
-
-
-
 =#
 
+"""
+    linear_coast_uncoupled!(i, b::BunchView, mx::StaticMatrix{2,2}, my::StaticMatrix{2,2}, r56, d::Union{StaticVector{4},Nothing}, t::Union{StaticVector{4},Nothing})
+
+Linear tracking of a particle through an uncoupled matrix with coasting plane.
+
+# Arguments
+- `i`: Particle index
+- `b`: Bunch view
+- `mx`: Horizontal transfer matrix
+- `my`: Vertical transfer matrix
+- `r56`: Momentum compaction term
+- `d`: Dispersion vector
+- `t`: Path length terms
+"""
 @makekernel fastgtpsa=true function linear_coast_uncoupled!(i, b::BunchView, mx::StaticMatrix{2,2}, my::StaticMatrix{2,2}, r56, d::Union{StaticVector{4},Nothing}, t::Union{StaticVector{4},Nothing})
   v = b.v
   if !isnothing(t)
@@ -55,6 +60,19 @@ end
   end
 end
 
+"""
+    linear_coast!(i, b::BunchView, mxy::StaticMatrix{4,4}, r56, d::Union{StaticVector{4},Nothing}, t::Union{StaticVector{4},Nothing})
+
+Linear tracking of a particle through a coupled matrix with coasting plane.
+
+# Arguments
+- `i`: Particle index
+- `b`: Bunch view
+- `mxy`: Transfer matrix
+- `r56`: Momentum compaction term
+- `d`: Dispersion vector
+- `t`: Path length terms
+"""
 @makekernel fastgtpsa=true function linear_coast!(i, b::BunchView, mxy::StaticMatrix{4,4}, r56, d::Union{StaticVector{4},Nothing}, t::Union{StaticVector{4},Nothing})
   v = b.v
   if !isnothing(t)

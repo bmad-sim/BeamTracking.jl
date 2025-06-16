@@ -47,12 +47,6 @@ Adapt.@adapt_structure BunchView
 
 # Index particle i coordinate x as (i,1) , px as (i,2), etc
 soaview(bunch::Bunch{A}) where {A} = A == AoS ? transpose(bunch.v) : bunch.v
-
-"""
-    aosview(bunch::Bunch{A}) where {A}
-
-Get an Array of Structures view of the particle coordinates.
-"""
 aosview(bunch::Bunch{A}) where {A} = A == AoS ? bunch.v : transpose(bunch.v)
 
 soaviewq(bunch::Bunch{A}) where {A} = (A == SoA || isnothing(bunch.q)) ? bunch.q : transpose(bunch.q)
