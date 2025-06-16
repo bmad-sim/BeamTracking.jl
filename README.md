@@ -22,9 +22,7 @@ In your `~/.julia/dev/` directory, you will now see the directory `BeamTracking`
 
 See the [development documentation](https://bmad-sim.github.io/BeamTracking.jl/dev/) for more details.
 
-## Core Components
-
-### Tracking Methods
+## Tracking Methods
 
 1. **Linear Tracking** (`src/modules/LinearTracking.jl`)
 2. **Exact Tracking** (`src/modules/ExactTracking.jl`)
