@@ -447,7 +447,7 @@ function w_inv_matrix(x_rot, y_rot, z_rot)
 end
 
 function drift_params(species::Species, Brho)
-  beta_gamma_0 = BeamTracking.calc_beta_gammma(species, Brho)
+  beta_gamma_0 = BeamTracking.calc_beta_gamma(species, Brho)
   tilde_m = 1/beta_gamma_0
   gamsqr_0 = @FastGTPSA 1+beta_gamma_0^2
   beta_0 = @FastGTPSA beta_gamma_0/sqrt(gamsqr_0)
