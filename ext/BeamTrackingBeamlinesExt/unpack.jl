@@ -32,7 +32,7 @@ function universal!(
   patchparams;
   kwargs...
 ) 
-  kc = KernelChain(Val{1}())
+  kc = KernelChain(Val{3}())
   if isactive(alignmentparams)
     if isactive(patchparams)
       error("Tracking through a LineElement containing both PatchParams and AlignmentParams is undefined")
@@ -64,6 +64,7 @@ function universal!(
           kc = push(kc, @inline(bend_bsolenoid(tm, bunch, bendparams, bdict, L)))
         end
       elseif haskey(bdict, 1) # Bend-dipole
+        kc = (bendparams.e1 ≈ 0) ? kc : push(kc, @inline(bend_fringe(tm, bunch, bendparams, bdict[1], L, true)))
         if n_multipoles == 1
           # Pure bend-dipole
           kc = push(kc, @inline(bend_pure_bdipole(tm, bunch, bendparams, bdict[1], L)))
@@ -71,7 +72,8 @@ function universal!(
           # Bend-dipole with other multipoles of order > 1
           kc = push(kc, @inline(bend_bdipole(tm, bunch, bendparams, bdict, L)))
         end
-      elseif haskey(bdict, 2) # Bend-quadrupole
+        kc = (bendparams.e2 ≈ 0) ? kc : push(kc, @inline(bend_fringe(tm, bunch, bendparams, bdict[1], L, false)))
+        elseif haskey(bdict, 2) # Bend-quadrupole
         if n_multipoles == 1
           # Pure bend-quadrupole
           kc = push(kc, @inline(bend_pure_bquadrupole(tm, bunch, bendparams, bdict[2], L)))
@@ -214,3 +216,5 @@ end
 @inline bend_pure_bmultipole(tm, bunch, bendparams, bmn, L)  = L ≈ 0 ? thin_bend_pure_bmultipole(tm, bunch, bendparams, bmn)  : thick_bend_pure_bmultipole(tm, bunch, bendparams, bmn, L)                   
 @inline bend_bmultipole(tm, bunch, bendparams, bdict, L)     = L ≈ 0 ? thin_bend_bmultipole(tm, bunch, bendparams, bdict)     : thick_bend_bmultipole(tm, bunch, bendparams, bdict, L)                      
 
+# === Fringe fields === #
+@inline bend_fringe(tm, bunch, bendparams, bm1, L, upstream) = drift(tm, bunch, L)
