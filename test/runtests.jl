@@ -114,6 +114,7 @@ function test_map(
       @test coeffs_approx_equal(v_expected, v, tol)
     end
 
+    TESTTESTTEST
   =#
 end
 
