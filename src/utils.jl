@@ -103,13 +103,14 @@ struct Species
   name::String
   mass::Float64   # in eV/c^2
   charge::Float64 # in Coulomb
+  anomalous_moment::Float64 # dimensionless, e.g. 0.002 for electron, 1.79285 for proton
 end
 
-const ELECTRON = Species("electron", M_ELECTRON,-1)
-const POSITRON = Species("positron", M_ELECTRON,1)
+const ELECTRON = Species("electron", M_ELECTRON,-1, 0.00115965218)
+const POSITRON = Species("positron", M_ELECTRON, 1, 0.00115965218)
 
-const PROTON = Species("proton", M_PROTON,1)
-const ANTIPROTON = Species("antiproton", M_PROTON,-1)
+const PROTON = Species("proton", M_PROTON, 1, 1.79284734465)
+const ANTIPROTON = Species("antiproton", M_PROTON,-1, 1.79284734465)
 
 
 function Species(name)
@@ -128,11 +129,13 @@ end
 
 massof(s::Species) = s.mass
 chargeof(s::Species) = s.charge
+anomalous_moment_of(s::Species) = s.anomalous_moment
 
 # Particle energy conversions =============================================================
 calc_Brho(species::Species, E) = @FastGTPSA sqrt(E^2-massof(species)^2)/C_LIGHT/chargeof(species)
 calc_E(species::Species, Brho) = @FastGTPSA sqrt((Brho*C_LIGHT*chargeof(species))^2 + massof(species)^2)
 calc_gamma(species::Species, Brho) = @FastGTPSA sqrt((Brho*C_LIGHT/massof(species))^2+1)
+calc_gamma(species::Species, Brho, δ) = @FastGTPSA sqrt((calc_p0c(species,Brho)*(1+δ))^2/massof(species)^2+1)
 
 calc_p0c(species::Species, Brho) = @FastGTPSA Brho*C_LIGHT*chargeof(species)
 calc_beta_gammma(species::Species, Brho) = @FastGTPSA Brho*chargeof(species)*C_LIGHT/massof(species)
