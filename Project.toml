@@ -1,13 +1,19 @@
 name = "BeamTracking"
 uuid = "8ef5c10a-4ca3-437f-8af5-b84d8af36df0"
 authors = ["mattsignorelli <mgs255@cornell.edu> and contributors"]
-version = "0.1.0"
+version = "0.2.0"
 
 [deps]
+Accessors = "7d9f7c33-5ae7-4f3b-8dc6-eff91059b697"
+Adapt = "79e6a3ab-5dfb-504d-930d-738a2a938a0e"
+EnumX = "4e289a0a-7415-4d19-859d-a7e5c4648b56"
 GTPSA = "b27dd330-f138-47c5-815b-40db9dd9b6e8"
+KernelAbstractions = "63c18a36-062a-441e-b654-da1e3ab1ce7c"
+MacroTools = "1914dd2f-81c6-5fcd-8719-6d5c9610ff09"
 ReferenceFrameRotations = "74f56ac7-18b3-5285-802d-d4bd4f104033"
 SIMD = "fdea26ae-647d-5447-a871-4b548cad5224"
 StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
+Unrolled = "9602ed7d-8fef-5bc8-8597-8f21381861e8"
 VectorizationBase = "3d5dd08c-fd9d-11e8-17fa-ed2836048c2f"
 
 [weakdeps]
@@ -17,11 +23,17 @@ Beamlines = "5bb90b03-0719-46b8-8ce4-1ef3afd3cd4b"
 BeamTrackingBeamlinesExt = "Beamlines"
 
 [compat]
-Beamlines = "0.2.1"
-GTPSA = "1.4.2"
+Accessors = "0.1.42"
+Adapt = "4.3.0"
+Beamlines = "0.2.2"
+EnumX = "1.0.5"
+GTPSA = "1.4.7"
+KernelAbstractions = "0.9.35"
+MacroTools = "0.5.16"
 ReferenceFrameRotations = "3"
 SIMD = "3.7.1"
 StaticArrays = "1"
+Unrolled = "0.1.5"
 VectorizationBase = "0.21.71"
 julia = "1.9"
 
@@ -31,7 +43,8 @@ BenchmarkTools = "6e4b80f9-dd63-53aa-95a3-0cdb28fa8baf"
 Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
 GTPSA = "b27dd330-f138-47c5-815b-40db9dd9b6e8"
 JET = "c3a54625-cd67-489e-a8e7-0a5a0ff4e31b"
+StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [targets]
-test = ["Test", "Distributions", "JET", "GTPSA", "BenchmarkTools", "Beamlines"]
+test = ["Test", "Distributions", "JET", "GTPSA", "BenchmarkTools", "Beamlines", "StaticArrays"]

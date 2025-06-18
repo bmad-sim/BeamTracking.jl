@@ -1,89 +1,208 @@
 
 const REGISTER_SIZE = VectorizationBase.register_size()
-const XI  = 1
-const PXI = 2
-const YI  = 3
-const PYI = 4
-const ZI  = 5
-const PZI = 6
 
+# This is here in case kernel chain needs to be run 
+# but is not fully filled. It does nothing
+blank_kernel!(args...) = nothing
+
+@kwdef struct KernelCall{K,A}
+  kernel::K = blank_kernel!
+  args::A   = ()
+end
+
+# Alias
+const KernelChain = Tuple{Vararg{<:KernelCall}}
+
+@unroll function push(kc::KernelChain, kcall)
+  i = 0
+  @unroll for kcalli in kc
+    i += 1
+    if kcalli.kernel == blank_kernel!
+      return @reset kc[i] = kcall
+    end
+  end
+  error("Unable to push KernelCall to kernel chain: kernel chain is full")
+end
+
+KernelChain(::Val{N}) where {N} = ntuple(t->KernelCall(), Val{N}())
+KernelChain(N::Integer) = ntuple(t->KernelCall(), Val{N}())
+
+@unroll function check_args(kc::KernelChain)
+  @unroll for kcalli in kc
+    check_args(kcalli)
+  end
+  return true
+end
+
+check_args(kcalli) = true
+
+# KA does not like Vararg
+@kernel function generic_kernel!(b::BunchView, @Const(kc::KernelChain))
+  i = @index(Global, Linear)
+  @inline _generic_kernel!(i, b, kc)
+end
+
+@unroll function _generic_kernel!(i, b::BunchView, kc::KernelChain)
+  @unroll for kcall in kc
+    (kcall.kernel)(i, b, kcall.args...)
+  end
+  return nothing
+end
 
 # Generic function to launch a kernel on the bunch coordinates matrix
 # Matrix v should ALWAYS be in SoA whether for real or as a view via tranpose(v)
 
-"""
-    launch!(f!::F, v, v0, work, args...; simd_lane_width, multithread_threshold)
-
-General purpose function to launch a kernel `f!`. The syntax for a kernel `f!` must 
-ALWAYS be the following:
-
-## Arguments
-- `i`       -- Particle index
-- `v`       -- Input/output matrix as an SoA or SoA view ALWAYS! (use transpose if AoS)
-- `work`    -- A Vector of temporary vectors (columns of v) to run the kernel `f!`
-- `args...` -- Any further arguments to run the kernel
-
-## Keyword Arguments
-- `simd_lane_width`       -- The number of SIMD lanes to use. Default is `REGISTER_SIZE/sizeof(eltype(A))`
-- `multithread_threshold` -- Number of particles at which multithreading is used. Default is `1e6``
-"""
 @inline function launch!(
-  f!::F, 
-  v::A,
-  work, 
-  args...; 
-  simd_lane_width=0, # autovectorize by default #floor(Int, REGISTER_SIZE/sizeof(eltype(A))),
-  multithread_threshold=Threads.nthreads() > 1 ? 1750*Threads.nthreads() : typemax(Int),
-) where {F<:Function,A}
+  b::BunchView{S,V},
+  kc::KernelChain;
+  groupsize::Union{Nothing,Integer}=nothing, #backend isa CPU ? floor(Int,REGISTER_SIZE/sizeof(eltype(v))) : 256 
+  multithread_threshold::Integer=Threads.nthreads() > 1 ? 1750*Threads.nthreads() : typemax(Int),
+  use_KA::Bool=true, #!(get_backend(b.v) isa CPU && isnothing(groupsize)),
+  use_explicit_SIMD::Bool=!use_KA # Default to use explicit SIMD on CPU
+) where {S,V}
+  v = b.v
   N_particle = size(v, 1)
-  if A <: SIMD.FastContiguousArray && eltype(A) <: SIMD.ScalarTypes && simd_lane_width != 0 # do SIMD
-    lane = VecRange{simd_lane_width}(0)
-    rmn = rem(N_particle, simd_lane_width)
-    N_SIMD = N_particle - rmn
-    if N_particle >= multithread_threshold
-      Threads.@threads for i in 1:simd_lane_width:N_SIMD
-        @assert last(i) <= N_particle "Out of bounds!"  # Use last because VecRange SIMD
-        f!(lane+i, v, work, args...)
+  backend = get_backend(v)
+  if use_KA && use_explicit_SIMD
+    error("Cannot use both KernelAbstractions (KA) and explicit SIMD")
+  end
+  
+  if !use_KA && backend isa GPU
+    error("For GPU parallelized kernel launching, KernelAbstractions (KA) must be used")
+  end
+
+  if !use_KA
+    if use_explicit_SIMD && V <: SIMD.FastContiguousArray && eltype(V) <: SIMD.ScalarTypes && VectorizationBase.pick_vector_width(eltype(V)) > 1 # do SIMD
+      simd_lane_width = VectorizationBase.pick_vector_width(eltype(V))
+      lane = VecRange{Int(simd_lane_width)}(0)
+      rmn = rem(N_particle, simd_lane_width)
+      N_SIMD = N_particle - rmn
+      if N_particle >= multithread_threshold
+        Threads.@threads for i in 1:simd_lane_width:N_SIMD
+          @assert last(i) <= N_particle "Out of bounds!"  # Use last because VecRange SIMD
+          _generic_kernel!(lane+i, b, kc)
+        end
+      else
+        for i in 1:simd_lane_width:N_SIMD
+          @assert last(i) <= N_particle "Out of bounds!"  # Use last because VecRange SIMD
+          _generic_kernel!(lane+i, b, kc)
+        end
+      end
+      # Do the remainder
+      for i in N_SIMD+1:N_particle
+        @assert last(i) <= N_particle "Out of bounds!"
+        _generic_kernel!(i, b, kc)
       end
     else
-      for i in 1:simd_lane_width:N_SIMD
-        @assert last(i) <= N_particle "Out of bounds!"  # Use last because VecRange SIMD
-        f!(lane+i, v, work, args...)
+      if N_particle >= multithread_threshold
+        Threads.@threads for i in 1:N_particle
+          @assert last(i) <= N_particle "Out of bounds!"
+          _generic_kernel!(i, b, kc)
+        end
+      else
+        @simd for i in 1:N_particle
+          @assert last(i) <= N_particle "Out of bounds!"
+          _generic_kernel!(i, b, kc)
+        end
       end
-    end
-    # Do the remainder
-    for i in N_SIMD+1:N_particle
-      @assert last(i) <= N_particle "Out of bounds!"
-      f!(i, v, work, args...)
     end
   else
-    if N_particle >= multithread_threshold
-      Threads.@threads for i in 1:N_particle
-        @assert last(i) <= N_particle "Out of bounds!"
-        f!(i, v, work, args...)
-      end
+    if isnothing(groupsize)
+      kernel! = generic_kernel!(backend)
     else
-      @simd for i in 1:N_particle
-        @assert last(i) <= N_particle "Out of bounds!"
-        f!(i, v, work, args...)
-      end
+      kernel! = generic_kernel!(backend, groupsize)
     end
+    kernel!(b, kc; ndrange=N_particle)
+    KernelAbstractions.synchronize(backend)
   end
   return v
 end
 
-# collective effects
-# each threads corresponds to many particles
-# go through each element, each thread loops through each 
-# particle and does stuff with it
+# Call kernels directly
+@inline runkernels!(i::Nothing, b::BunchView, kc::KernelChain; kwargs...) =  launch!(b, kc; kwargs...)
+@inline runkernels!(i, b::BunchView, kc::KernelChain; kwargs...) = _generic_kernel!(i, b, kc)
 
-# Call launch!
-@inline runkernel!(f!::F, i::Nothing, v, work, args...) where {F} = launch!(f!, v, work, args...)
+function check_kwargs(mac, kwargs...)
+  valid_kwargs = [:(fastgtpsa)=>Bool, :(inbounds)=>Bool]
+  for k in kwargs
+    if Meta.isexpr(k, :(=))
+      pk = Pair(k.args...)
+      idx = findfirst(t->t==pk[1], map(t->t[1], valid_kwargs))
+      if isnothing(idx)
+        error("Unrecognized input to @$(mac) macro: $(pk[1])")
+      elseif typeof(pk[2]) != valid_kwargs[idx][2]
+        error("Type for keyword argument `$(pk[1])` must be `$(valid_kwargs[idx][2])`")
+      end
+    else
+      error("Unrecognized input to @$(mac) macro: $k")
+    end
+  end
+end
 
-# Call kernel directly
-@inline runkernel!(f!::F, i, v, work, args...) where {F} = f!(i, v, work, args...)
+# Also allow launch! on single KernelCalls
+@inline launch!(b::BunchView, kcall::KernelCall; kwargs...) = launch!(b, (kcall,); kwargs...)
 
+macro makekernel(args...)
+  kwargs = args[1:length(args)-1]
+  fcn = last(args)
 
+  fcn.head == :function || error("@makekernel must wrap a function definition")
+  body = esc(fcn.args[2])
+  signature = fcn.args[1].args
+
+  fcn_name = esc(signature[1])
+  args = esc.(signature[2:end])
+
+  # Check if function body contains a return:
+  MacroTools.postwalk(body) do x
+    !(@capture(x, return _)) || error("Return statement not permitted in a kernel function $(signature[1])")
+  end
+
+  check_kwargs(:makekernel, kwargs...)
+  kwargnames = map(t->t[1], map(t->Pair(t.args...), kwargs))
+  kwargvals = map(t->t[2],map(t->Pair(t.args...), kwargs))
+
+  idx_fastgtpsa = findfirst(t->t==:fastgtpsa, kwargnames)
+  idx_inbounds = findfirst(t->t==:inbounds, kwargnames)
+
+   if isnothing(idx_fastgtpsa) || !kwargvals[idx_fastgtpsa] # no fastgtpsa
+    if isnothing(idx_inbounds) || kwargvals[idx_inbounds] # inbounds
+      return quote
+        @inline function $(fcn_name)($(args...))
+          @inbounds begin
+            $(body)
+          end
+        end
+      end
+    else # no inbounds
+      return quote
+        @inline function $(fcn_name)($(args...))
+          $(body)
+        end
+      end
+    end
+  else # fastgtpsa
+    if isnothing(idx_inbounds) || kwargvals[idx_inbounds] # inbounds
+      return quote
+        @inline function $(fcn_name)($(args...))
+          @inbounds begin @FastGTPSA begin
+            $(body)
+          end end
+        end
+      end
+    else # no inbounds
+      return quote
+        @inline function $(fcn_name)($(args...))
+          @FastGTPSA begin
+            $(body)
+          end 
+        end
+      end
+
+    end
+  end
+
+end
 #=
 
 for particle in particles
