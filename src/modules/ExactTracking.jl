@@ -261,8 +261,8 @@ DTA: Add thin dipole kick.
   jm -= 1
   while 2 <= m
     m -= 1
-    tmp_knl_tot = knl_tot * v[i,XI] - ksl_tot * v[i,YI]
-    ksl_tot     = knl_tot * v[i,YI] + ksl_tot * v[i,XI]
+    tmp_knl_tot = (knl_tot * v[i,XI] - ksl_tot * v[i,YI]) / m
+    ksl_tot     = (knl_tot * v[i,YI] + ksl_tot * v[i,XI]) / m
     knl_tot = tmp_knl_tot
     if 0 < jm && m == ms[jm]
       knl_tot += knl[jm]
@@ -322,7 +322,7 @@ Lr: element arc length
 @makekernel fastgtpsa=true function exact_sbend!(i, b::BunchView, beta_0, brho_0, hc, b0, e1, e2, Lr)
   v = b.v
 
-  rho = brho0 / b0
+  rho = brho_0 / b0
   ang = hc * Lr
   c1 = cos(ang)
   s1 = sin(ang)
