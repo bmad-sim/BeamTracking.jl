@@ -93,6 +93,25 @@ function sincuc(x)
   return y
 end
 
+function quat_mult!(q1::StaticVector{4}, q2::AbstractVector{<:Number})
+  # In-place quaternion multiplication: q2 := q1 * q2
+  w1, x1, y1, z1 = q1
+  w2, x2, y2, z2 = q2
+  q2[1] = w1*w2 - x1*x2 - y1*y2 - z1*z2
+  q2[2] = w1*x2 + x1*w2 + y1*z2 - z1*y2
+  q2[3] = w1*y2 - x1*z2 + y1*w2 + z1*x2
+  q2[4] = w1*z2 + x1*y2 - y1*x2 + z1*w2
+end
+
+function quat_mult!(q1::StaticVector{4}, q2::AbstractMatrix{<:Number})
+  w1, x1, y1, z1 = q1
+  w2, x2, y2, z2 = q2[1,1], q2[1,2], q2[1,3], q2[1,4]
+  q2[1,1] = w1*w2 - x1*x2 - y1*y2 - z1*z2
+  q2[1,2] = w1*x2 + x1*w2 + y1*z2 - z1*y2
+  q2[1,3] = w1*y2 - x1*z2 + y1*w2 + z1*x2
+  q2[1,4] = w1*z2 + x1*y2 - y1*x2 + z1*w2
+end
+
 # Fake APC ====================================================================
 const Q = 1.602176634e-19 # C
 const C_LIGHT = 2.99792458e8 # m/s
@@ -103,7 +122,7 @@ struct Species
   name::String
   mass::Float64   # in eV/c^2
   charge::Float64 # in Coulomb
-  anomalous_moment::Float64 # dimensionless, e.g. 0.002 for electron, 1.79285 for proton
+  anomalous_magnetic_moment::Float64 # dimensionless, e.g. 0.001 for electron, 1.79285 for proton
 end
 
 const ELECTRON = Species("electron", M_ELECTRON,-1, 0.00115965218)
@@ -129,7 +148,7 @@ end
 
 massof(s::Species) = s.mass
 chargeof(s::Species) = s.charge
-anomalous_moment_of(s::Species) = s.anomalous_moment
+anomalous_moment_of(s::Species) = s.anomalous_magnetic_moment
 
 # Particle energy conversions =============================================================
 calc_Brho(species::Species, E) = @FastGTPSA sqrt(E^2-massof(species)^2)/C_LIGHT/chargeof(species)
