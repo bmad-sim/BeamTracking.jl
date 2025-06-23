@@ -714,7 +714,23 @@ pzf_mn1 = [ 0.,  1.e-3,                  -1.e-3,                  1.e-3,        
     @test v[:,BeamTracking.PYI] ≈  pyf_sb4 (rtol=5.e-13)
     @test v[:,BeamTracking.PZI] == pzf_sb4
     =#
-  end
+    bmadstd_exact_bend =  
+              [ 0.8773527130168902E+00  0.4793669072377229E+00 0.0000000000000000E+00 0.0000000000000000E+00 0.0000000000000000E+00  0.1225248770305213E+00
+               -0.4799049641428075E+00  0.8775825618903755E+00 0.0000000000000000E+00 0.0000000000000000E+00 0.0000000000000000E+00  0.4794255386042034E+00
+                0.0000000000000000E+00  0.0000000000000000E+00 0.1000000000000000E+01 0.4999794461108593E+00 0.0000000000000000E+00  0.0000000000000000E+00
+                0.0000000000000000E+00  0.0000000000000000E+00 0.0000000000000000E+00 0.1000000000000000E+01 0.0000000000000000E+00  0.0000000000000000E+00
+               -0.4794255937019158E+00 -0.1222950422117283E+00 0.0000000000000000E+00 0.0000000000000000E+00 0.1000000000000000E+01 -0.1925165307287538E-01
+                0.0000000000000000E+00  0.0000000000000000E+00 0.0000000000000000E+00 0.0000000000000000E+00 0.0000000000000000E+00  0.1000000000000000E+01   ]
+    g = 1
+    L = 0.5
+    theta = g * L 
+    K0 = 1.001
+    p0c = 10E6
+    tilde_m = ELECTRON.mass/p0c
+    beta_0 = 1/sqrt(1 + tilde_m^2)
+    test_matrix(bmadstd_exact_bend, KernelCall(ExactTracking.exact_bend!, (theta, g, K0, tilde_m, beta_0, L)))
+    
+    end
 
   @testset "Utility functions" begin
     dx_rot = -0.1
@@ -775,6 +791,18 @@ pzf_mn1 = [ 0.,  1.e-3,                  -1.e-3,                  1.e-3,        
         beta_0 = 1/sqrt(1 + tilde_m^2)
         return beta_0, gamsqr_0, tilde_m, L
     end
+
+    function bend_args(::Type{T}) where {T}
+        L = T(0.5)
+        g = T(1)
+        K0 = T(1.000)
+        p0c = T(10e6)
+        theta = g * L
+        mc2 = T(ELECTRON.mass)
+        tilde_m = mc2/p0c
+        beta_0 = 1/sqrt(1 + tilde_m^2)
+        return theta, g, K0, tilde_m, beta_0, L
+    end
     
     function solenoid_args(::Type{T}) where {T}
         L = T(1)
@@ -792,6 +820,7 @@ pzf_mn1 = [ 0.,  1.e-3,                  -1.e-3,                  1.e-3,        
     test_map("bmad_maps/patch_norot.jl", KernelCall(ExactTracking.patch!, patch_norot_args(Float64));                     tol=1e-9 )
     test_map("bmad_maps/drift.jl",       KernelCall(ExactTracking.ExactTracking.exact_drift!, drift_args(Float64));       tol=5e-10)
     test_map("bmad_maps/solenoid.jl",    KernelCall(ExactTracking.ExactTracking.exact_solenoid!, solenoid_args(Float64)); tol=5e-10)
+    #test_map("bmad_maps/exact_bend.jl",  KernelCall(ExactTracking.ExactTracking.exact_bend!, bend_args(Float64));         tol=1e-5)
 
     # GTPSA parameters
     test_map("bmad_maps/patch.jl",       KernelCall(ExactTracking.patch!, patch_args(TPS64{D10}));                           tol=5e-10)
