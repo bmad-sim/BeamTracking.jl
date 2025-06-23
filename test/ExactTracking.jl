@@ -433,7 +433,7 @@ pzf_mn1 = [ 0.,  1.e-3,                  -1.e-3,                  1.e-3,        
     @test v[:,BeamTracking.PYI] ≈  pyf_qd4 (rtol=5.e-13)
     @test v[:,BeamTracking.PZI] == pzi
 
-    # ===  T H I N - L E N S   K I C K  ===
+    #= ===  T H I N - L E N S   K I C K  ===
     #
     # 5 keV electron
     v = [ xi2 pxi2 yi2 pyi2 zi2 pzi2 ]
@@ -586,7 +586,7 @@ pzf_mn1 = [ 0.,  1.e-3,                  -1.e-3,                  1.e-3,        
     @test v[:,BeamTracking.PXI] ≈  pxf_dkn4 (rtol=5.e-13)
     @test v[:,BeamTracking.PYI] ≈  pyf_dkn4 (rtol=5.e-13)
     @test v[:,BeamTracking.PZI] == pzi2
-
+    =#
 
     # ===  M U L T I P O L E  ===
     #

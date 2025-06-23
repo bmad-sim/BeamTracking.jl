@@ -18,10 +18,10 @@ end
     if !isnothing(b.q)
         # Constants
         rel_p = 1 + v[i,PZI]
-        γ0 = sqrt(gamsqr_0)
-        χ = 1 + G * γ0
-        ξ = G * (γ0 - 1)
-        ι = 2 * γ0 - 1
+        γ = sqrt(1 + (rel_p / tilde_m)^2)
+        χ = 1 + G * γ
+        ξ = G * (γ - 1)
+        ι = 2 * γ - 1
 
         # Compute effective longitudinal momentum
         pr = sqrt(rel_p^2 - (v[i,PXI] + v[i,YI]*Ks/2)^2 - (v[i,PYI] - v[i,XI]*Ks/2)^2)
@@ -77,13 +77,14 @@ end
 end
 
 # SBend
-@makekernel fastgtpsa=true function magnus_sbend!(i, b::BunchView, g, K0, γ0, G, L)
+@makekernel fastgtpsa=true function magnus_sbend!(i, b::BunchView, g, K0, γ0, beta_gamma_0, G, L)
     
     if !isnothing(b.q)
         v = b.v
         rel_p = 1 + v[i,PZI]
-        χ = 1 + G * γ0
-        ξ = G * (γ0 - 1)
+        γ = sqrt(1 + (beta_gamma_0 * rel_p)^2)
+        χ = 1 + G * γ
+        ξ = G * (γ - 1)
         kx = g * K0
 
         ωx = sqrt(abs(kx)/rel_p)
@@ -162,12 +163,13 @@ end
 end
 
 # Quadrupole
-@makekernel fastgtpsa=true function magnus_quadrupole!(i, b::BunchView, K1, γ0, G, L)
+@makekernel fastgtpsa=true function magnus_quadrupole!(i, b::BunchView, K1, beta_gamma_0, gamsqr_0, gamma_0, beta_0, G, L)
     if !isnothing(b.q)
         v = b.v
         rel_p = 1 + v[i,PZI]
-        χ = 1 + G * γ0
-        ξ = G * (γ0 - 1)
+        γ = sqrt(1 + (beta_gamma_0 * rel_p)^2)
+        χ = 1 + G * γ
+        ξ = G * (γ - 1)
         k1_norm = K1 / rel_p 
         ω = sqrt(abs(k1_norm))
         s = sin(ω*L)
@@ -225,7 +227,7 @@ end
     end
 
     # Update coordinates
-    ExactTracking.quadrupole_matrix!(i, b::BunchView, K1, L)
+    ExactTracking.quadrupole_matrix!(i, b::BunchView, K1, beta_gamma_0, gamsqr_0, gamma_0, beta_0, L)
 end
 
 # Sextupole
@@ -241,9 +243,9 @@ end
     if !isnothing(b.q)
         v = b.v
         rel_p = 1 + v[i,PZI]
-        γ0 = sqrt(gamsqr_0)
-        χ = 1 + G * γ0
-        ξ = G * (γ0 - 1)
+        γ = sqrt(1 + (rel_p / tilde_m)^2)
+        χ = 1 + G * γ
+        ξ = G * (γ - 1)
         pl = sqrt(rel_p^2 - v[i,PXI]^2 - v[i,PYI]^2)
 
         # Common terms for reuse
@@ -259,27 +261,27 @@ end
         Y  = v[i,YI]
 
         # A
-        term_a1 = L2 * (-3PXI^2 * Py + Py^3)
-        term_a2 = 3L * pl * (2PXI * Py * X + Y * (Px^2 - Py^2))
-        term_a3 = 3pl2 * (2PXI * X * Y + Py * (X^2 - Y^2))
+        term_a1 = L2 * (-3Px^2 * Py + Py^3)
+        term_a2 = 3L * pl * (2Px * Py * X + Y * (Px^2 - Py^2))
+        term_a3 = 3pl2 * (2Px * X * Y + Py * (X^2 - Y^2))
         term_a4 = rel_p2 * χ * (L * Py * (2L * Px + 3pl * X) + 3pl * (L * Px + 2pl * X) * Y)
 
         A = Px * ξ * (term_a1 - term_a2 - term_a3) + term_a4
         A *= K2 * L / (12.0 * pl3 * rel_p2)
 
         # B
-        term_b1 = L2 * (-3PXI^2 * Py + Py^3)
-        term_b2 = 3L * pl * (2PXI * Py * X + Y * (Px^2 - Py^2))
-        term_b3 = 3pl2 * (2PXI * X * Y + Py * (X^2 - Y^2))
+        term_b1 = L2 * (-3Px^2 * Py + Py^3)
+        term_b2 = 3L * pl * (2Px * Py * X + Y * (Px^2 - Py^2))
+        term_b3 = 3pl2 * (2Px * X * Y + Py * (X^2 - Y^2))
         term_b4 = rel_p2 * χ * (L2 * (Px^2 - Py^2) + 3pl2 * (X^2 - Y^2) + 3L * pl * (Px * X - Py * Y))
 
         B = Py * ξ * (term_b1 - term_b2 - term_b3) + term_b4
         B *= K2 * L / (12.0 * pl3 * rel_p2)
 
         # CC
-        term_c1 = L2 * (-3PXI^2 * Py + Py^3)
-        term_c2 = 3L * pl * (2PXI * Py * X + Y * (Px^2 - Py^2))
-        term_c3 = 3pl2 * (2PXI * X * Y + Py * (X^2 - Y^2))
+        term_c1 = L2 * (-3Px^2 * Py + Py^3)
+        term_c2 = 3L * pl * (2Px * Py * X + Y * (Px^2 - Py^2))
+        term_c3 = 3pl2 * (2Px * X * Y + Py * (X^2 - Y^2))
 
         CC = (term_c1 - term_c2 - term_c3) * K2 * L * ξ / (12.0 * pl2 * rel_p2)
 

@@ -99,15 +99,14 @@ k2_num:  g / Bρ0 = g / (p0 / q)
          and (signed) reference magnetic rigidity.
 s: element length
 """
-@makekernel fastgtpsa=true function quadrupole_matrix!(i, b::BunchView, k2_num, s)
+@makekernel fastgtpsa=true function quadrupole_matrix!(i, b::BunchView, k2_num, beta_gamma_0, gamsqr_0, gamma_0, beta_0, s)
   v = b.v
 
-  sgn = sign(k2_num)
   focus = k2_num >= 0  # horizontally focusing for positive particles
-
-  xp = v[i,PXI] / (1 + v[i,PZI])  # x'
-  yp = v[i,PYI] / (1 + v[i,PZI])  # y'
-  sqrtks = sqrt(abs(k2_num / (1 + v[i,PZI]))) * s  # |κ|s
+  rel_p = 1 + v[i,PZI]
+  xp = v[i,PXI] / rel_p  # x'
+  yp = v[i,PYI] / rel_p  # y'
+  sqrtks = sqrt(abs(k2_num) / rel_p) * s  # |κ|s
   cx = focus ? cos(sqrtks) : cosh(sqrtks)
   cy = focus ? cosh(sqrtks) : cos(sqrtks)
   sx = focus ? sincu(sqrtks) : sinhcu(sqrtks)
@@ -117,15 +116,23 @@ s: element length
   v[i,PYI] = v[i,PYI] * cy + k2_num * s * v[i,YI] * sy
   v[i,ZI]  = (v[i,ZI] - (s / 4) * (  xp^2 * (1 + sx * cx)
                                     + yp^2 * (1 + sy * cy)
-                                    + k2_num / (1 + v[i,PZI])
+                                    + k2_num / rel_p
                                         * ( v[i,XI]^2 * (1 - sx * cx)
-                                          - v[i,YI]^2 * (1 - sy * cy) )
+                                          - v[i,YI]^2 * (1 - sy * cy) 
+                                          - 2 * s * ( v[i,XI] * xp * sx^2
+                                                    - v[i,YI] * yp * sy^2 ))
                                   )
-                      + sgn * ( v[i,XI] * xp * (sqrtks * sx)^2
-                              - v[i,YI] * yp * (sqrtks * sy)^2 ) / 2
               )
   v[i,XI]  = v[i,XI] * cx + xp * s * sx
   v[i,YI]  = v[i,YI] * cy + yp * s * sy
+
+  # beta != beta_0 correction
+  if (beta_0^2 * v[i,PZI]^2 / gamma_0 < 3e-7)
+    f = beta_0^2 * (2 * beta_0^2 - 1 / 2 / gamsqr_0)
+    v[i,ZI] += s * v[i,PZI] * (1 - 3 * (v[i,PZI] * beta_0^2) / 2 + v[i,PZI]^2 * f) / gamsqr_0
+  else
+    v[i,ZI] += s * ( gamma_0 * rel_p / sqrt(1 + (beta_gamma_0 * rel_p)^2) - 1 )
+  end
 end # function quadrupole_matrix!()
 
 
@@ -447,7 +454,7 @@ function w_inv_matrix(x_rot, y_rot, z_rot)
 end
 
 function drift_params(species::Species, Brho)
-  beta_gamma_0 = BeamTracking.calc_beta_gammma(species, Brho)
+  beta_gamma_0 = BeamTracking.calc_beta_gamma(species, Brho)
   tilde_m = 1/beta_gamma_0
   gamsqr_0 = @FastGTPSA 1+beta_gamma_0^2
   beta_0 = @FastGTPSA beta_gamma_0/sqrt(gamsqr_0)

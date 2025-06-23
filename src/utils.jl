@@ -93,7 +93,7 @@ function sincuc(x)
   return y
 end
 
-function quat_mult!(q1::StaticVector{4}, q2::AbstractVector{<:Number})
+function quat_mult!(q1, q2)
   # In-place quaternion multiplication: q2 := q1 * q2
   w1, x1, y1, z1 = q1
   w2, x2, y2, z2 = q2
@@ -103,13 +103,10 @@ function quat_mult!(q1::StaticVector{4}, q2::AbstractVector{<:Number})
   q2[4] = w1*z2 + x1*y2 - y1*x2 + z1*w2
 end
 
-function quat_mult!(q1::StaticVector{4}, q2::AbstractMatrix{<:Number})
-  w1, x1, y1, z1 = q1
-  w2, x2, y2, z2 = q2[1,1], q2[1,2], q2[1,3], q2[1,4]
-  q2[1,1] = w1*w2 - x1*x2 - y1*y2 - z1*z2
-  q2[1,2] = w1*x2 + x1*w2 + y1*z2 - z1*y2
-  q2[1,3] = w1*y2 - x1*z2 + y1*w2 + z1*x2
-  q2[1,4] = w1*z2 + x1*y2 - y1*x2 + z1*w2
+function quat_inv(q)
+  w, x, y, z = q
+  norm_sq = w^2 + x^2 + y^2 + z^2
+  return ([w, -x, -y, -z] ./ norm_sq)
 end
 
 # Fake APC ====================================================================
@@ -125,11 +122,11 @@ struct Species
   anomalous_magnetic_moment::Float64 # dimensionless, e.g. 0.001 for electron, 1.79285 for proton
 end
 
-const ELECTRON = Species("electron", M_ELECTRON,-1, 0.00115965218)
-const POSITRON = Species("positron", M_ELECTRON, 1, 0.00115965218)
+const ELECTRON = Species("electron", M_ELECTRON,-1, 0.00115965218059)
+const POSITRON = Species("positron", M_ELECTRON, 1, 0.00115965218059)
 
-const PROTON = Species("proton", M_PROTON, 1, 1.79284734465)
-const ANTIPROTON = Species("antiproton", M_PROTON,-1, 1.79284734465)
+const PROTON = Species("proton", M_PROTON, 1, 1.79284734463)
+const ANTIPROTON = Species("antiproton", M_PROTON,-1, 1.79284734463)
 
 
 function Species(name)
@@ -152,12 +149,12 @@ anomalous_moment_of(s::Species) = s.anomalous_magnetic_moment
 
 # Particle energy conversions =============================================================
 calc_Brho(species::Species, E) = @FastGTPSA sqrt(E^2-massof(species)^2)/C_LIGHT/chargeof(species)
-calc_E(species::Species, Brho) = @FastGTPSA sqrt((Brho*C_LIGHT*chargeof(species))^2 + massof(species)^2)
-calc_gamma(species::Species, Brho) = @FastGTPSA sqrt((Brho*C_LIGHT/massof(species))^2+1)
+calc_E(species::Species, Brho) = @FastGTPSA sqrt(calc_p0c(species,Brho)^2 + massof(species)^2)
+calc_gamma(species::Species, Brho) = @FastGTPSA sqrt((calc_p0c(species,Brho)/massof(species))^2+1)
 calc_gamma(species::Species, Brho, δ) = @FastGTPSA sqrt((calc_p0c(species,Brho)*(1+δ))^2/massof(species)^2+1)
 
 calc_p0c(species::Species, Brho) = @FastGTPSA Brho*C_LIGHT*chargeof(species)
-calc_beta_gammma(species::Species, Brho) = @FastGTPSA Brho*chargeof(species)*C_LIGHT/massof(species)
+calc_beta_gamma(species::Species, Brho) = @FastGTPSA calc_p0c(species,Brho)/massof(species)
 
 
 
