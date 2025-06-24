@@ -163,10 +163,10 @@ end
 end
 
 # Quadrupole
-@makekernel fastgtpsa=true function magnus_quadrupole!(i, b::BunchView, K1, beta_gamma_0, gamsqr_0, gamma_0, beta_0, G, L)
+@makekernel fastgtpsa=true function magnus_quadrupole!(i, b::BunchView, K1, beta_gamma_0, tilde_m, G, L)
+    v = b.v
+    rel_p = 1 + v[i,PZI]
     if !isnothing(b.q)
-        v = b.v
-        rel_p = 1 + v[i,PZI]
         γ = sqrt(1 + (beta_gamma_0 * rel_p)^2)
         χ = 1 + G * γ
         ξ = G * (γ - 1)
@@ -227,7 +227,10 @@ end
     end
 
     # Update coordinates
-    ExactTracking.quadrupole_matrix!(i, b::BunchView, K1, beta_gamma_0, gamsqr_0, gamma_0, beta_0, L)
+    ExactTracking.quadrupole_matrix!(i, b::BunchView, K1, L)
+    # beta != beta_0 correction
+    rel_e = sqrt(rel_p^2 + tilde_m^2)
+    v[i,ZI] += L * ( tilde_m^2 * v[i,PZI] * (2 + v[i,PZI]) / ( rel_e * ( rel_p * sqrt(1 + tilde_m^2) + rel_e ) ) )
 end
 
 # Sextupole
