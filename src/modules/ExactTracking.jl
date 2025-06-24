@@ -61,141 +61,6 @@ L: element length
 end # function exact_drift!()
 
 
-#
-# ===============  Q U A D R U P O L E  ===============
-#
-"""
-mkm_quadrupole!()
-
-This integrator uses Matrix-Kick-Matrix to implement a quadrupole
-integrator accurate though second-order in the integration step-size.
-
-Arguments
-—————————
-beta_0:   β_0 = (βγ)_0 / √(γ_0^2)
-gamsqr_0: γ_0^2 = 1 + (βγ)_0^2
-tilde_m:  1 / (βγ)_0  # mc^2 / p0·c
-k2_num:   g / Bρ0 = g / (p0 / q)
-          where g and Bρ0 respectively denote the quadrupole gradient
-          and (signed) reference magnetic rigidity.
-L: element length
-"""
-@makekernel fastgtpsa=true function mkm_quadrupole!(i, b::BunchView, beta_0, gamsqr_0, tilde_m, k2_num, L)
-  quadrupole_matrix!(i, b::BunchView, k2_num, L / 2)
-  quadrupole_kick!(  i, b::BunchView, beta_0, gamsqr_0, tilde_m, L)
-  quadrupole_matrix!(i, b::BunchView, k2_num, L / 2)
-end # function mkm_quadrupole!()
-
-
-"""
-quadrupole_matrix!()
-
-Track "matrix part" of quadrupole.
-
-Arguments
-—————————
-k2_num:  g / Bρ0 = g / (p0 / q)
-         where g and Bρ0 respectively denote the quadrupole gradient
-         and (signed) reference magnetic rigidity.
-s: element length
-"""
-@makekernel fastgtpsa=true function quadrupole_matrix!(i, b::BunchView, k2_num, s)
-  v = b.v
-
-  sgn = sign(k2_num)
-  focus = k2_num >= 0  # horizontally focusing for positive particles
-
-  xp = v[i,PXI] / (1 + v[i,PZI])  # x'
-  yp = v[i,PYI] / (1 + v[i,PZI])  # y'
-  sqrtks = sqrt(abs(k2_num / (1 + v[i,PZI]))) * s  # |κ|s
-  cx = focus ? cos(sqrtks) : cosh(sqrtks)
-  cy = focus ? cosh(sqrtks) : cos(sqrtks)
-  sx = focus ? sincu(sqrtks) : sinhcu(sqrtks)
-  sy = focus ? sinhcu(sqrtks) : sincu(sqrtks)
-
-  v[i,PXI] = v[i,PXI] * cx - k2_num * s * v[i,XI] * sx
-  v[i,PYI] = v[i,PYI] * cy + k2_num * s * v[i,YI] * sy
-  v[i,ZI]  = (v[i,ZI] - (s / 4) * (  xp^2 * (1 + sx * cx)
-                                    + yp^2 * (1 + sy * cy)
-                                    + k2_num / (1 + v[i,PZI])
-                                        * ( v[i,XI]^2 * (1 - sx * cx)
-                                          - v[i,YI]^2 * (1 - sy * cy) )
-                                  )
-                      + sgn * ( v[i,XI] * xp * (sqrtks * sx)^2
-                              - v[i,YI] * yp * (sqrtks * sy)^2 ) / 2
-              )
-  v[i,XI]  = v[i,XI] * cx + xp * s * sx
-  v[i,YI]  = v[i,YI] * cy + yp * s * sy
-end # function quadrupole_matrix!()
-
-
-"""
-quadrupole_kick!()
-
-Track "remaining part" of quadrupole —— a position kick.
-
-### Note re implementation:
-A common factor that appears in the expressions for `zf.x` and `zf.y`
-originally included a factor with the generic form ``1 - \\sqrt{1 - A}``,
-which suffers a loss of precision when ``|A| \\ll 1``. To combat that
-problem, we rewrite it in the form ``A / (1 + \\sqrt{1-A})``---more
-complicated, yes, but far more accurate.
-
-Arguments
-—————————
-beta_0:   β_0 = (βγ)_0 / √(γ_0^2)
-gamsqr_0: γ_0^2 = 1 + (βγ)_0^2
-tilde_m:  1 / (βγ)_0  # mc^2 / p0·c
-s: element length
-"""
-@makekernel fastgtpsa=true function quadrupole_kick!(i, b::BunchView, beta_0, gamsqr_0, tilde_m, s)
-  v = b.v
-  rP0 = 1 + v[i,PZI]              # reduced total momentum,  P/P0 = 1 + δ
-  sqrPt = v[i,PXI]^2 + v[i,PYI]^2   # (transverse momentum)^2, P⟂^2 = (Px^2 + Py^2) / P0^2
-  Ps = sqrt(rP0^2 - sqrPt)          # longitudinal momentum,   Ps = √[(1 + δ)^2 - P⟂^2]
-  v[i,XI] = v[i,XI] + s * v[i,PXI] / rP0 * sqrPt / (Ps * (rP0 + Ps))
-  v[i,YI] = v[i,YI] + s * v[i,PYI] / rP0 * sqrPt / (Ps * (rP0 + Ps))
-  v[i,ZI] = v[i,ZI] - s * ( rP0
-                              * (sqrPt - v[i,PZI] * (2 + v[i,PZI]) / gamsqr_0)
-                                / ( beta_0 * sqrt(rP0^2 + tilde_m^2) * Ps
-                                    * (beta_0 * sqrt(rP0^2 + tilde_m^2) + Ps)
-                                  )
-                            - sqrPt / (2 * rP0^2)
-                          )
-end # function quadrupole_kick!()
-
-
-#
-# ===============  M U L T I P O L E  ===============
-#
-"""
-dkd_multipole()
-
-This integrator uses Drift-Kick-Drift to track a beam through
-a straight, finite-length multipole magnet. The method is
-accurate through second order in the step size. The vectors
-kn and ks contain the normal and skew multipole strengths,
-starting with the dipole component. (For example, b[3] denotes
-the normal sextupole strength in Tesla/m^2.) The argument ns
-denotes the number of slices.
-
-Arguments
-—————————
-beta_0:   β_0 = (βγ)_0 / √(γ_0^2)
-gamsqr_0: γ_0^2 = 1 + (βγ)_0^2
-tilde_m:  1 / (βγ)_0  # mc^2 / p0·c
-mm: vector of m values for non-zero multipole coefficients
-kn: vector of normal multipole strengths scaled by Bρ0
-ks: vector of skew multipole strengths scaled by Bρ0
-L:  element length
-"""
-@makekernel fastgtpsa=true function dkd_multipole!(i, b::BunchView, beta_0, gamsqr_0, tilde_m, mm, kn, ks, L)
-  exact_drift!(   i, b, beta_0, gamsqr_0, tilde_m, L / 2)
-  multipole_kick!(i, b, mm, kn * L, ks * L)
-  exact_drift!(   i, b, beta_0, gamsqr_0, tilde_m, L / 2)
-end # function dkd_multipole!()
-
-
 """
     multipole_kick!(i, b, ms, knl, ksl)
 
@@ -216,7 +81,7 @@ DTA: Ordering matters!
 DTA: Add thin dipole kick.
 
 ### Arguments
- - ms:  vector of m values for non-zero multipole coefficients
+ - ms:  vector of m values for multipole coefficients
  - knl: vector of normal integrated multipole strengths
  - ksl: vector of skew integrated multipole strengths
 
@@ -261,8 +126,8 @@ DTA: Add thin dipole kick.
   jm -= 1
   while 2 <= m
     m -= 1
-    tmp_knl_tot = knl_tot * v[i,XI] - ksl_tot * v[i,YI]
-    ksl_tot     = knl_tot * v[i,YI] + ksl_tot * v[i,XI]
+    tmp_knl_tot = (knl_tot * v[i,XI] - ksl_tot * v[i,YI]) / m
+    ksl_tot     = (knl_tot * v[i,YI] + ksl_tot * v[i,XI]) / m
     knl_tot = tmp_knl_tot
     if 0 < jm && m == ms[jm]
       knl_tot += knl[jm]
@@ -304,7 +169,7 @@ end # function multipole_kick!()
 """
 This function implements exact symplectic tracking through a
 sector bend, derived using the Hamiltonian (25.9) given in the
-BMad manual. As a consequence of using that Hamiltonian, the
+Bmad manual. As a consequence of using that Hamiltonian, the
 reference value of βγ must be that of a particle with the
 design energy.  Should we wish to change that, we shall need
 to carry both reference and design values.
@@ -322,7 +187,7 @@ Lr: element arc length
 @makekernel fastgtpsa=true function exact_sbend!(i, b::BunchView, beta_0, brho_0, hc, b0, e1, e2, Lr)
   v = b.v
 
-  rho = brho0 / b0
+  rho = brho_0 / b0
   ang = hc * Lr
   c1 = cos(ang)
   s1 = sin(ang)
@@ -337,7 +202,7 @@ Lr: element arc length
              + rho * (v[i,PXI] + ((v[i,PXI]^2 + (P_s + Pxpph) * s1phx) * s1 - 2v[i,PXI] * Pxpph * c1)
                              / (sqrt(P_alpha^2 - (v[i,PXI] * c1 + Pxpph * s1)^2) + P_s * c1)) * s1)
   v[i,PXI] = v[i,PXI] * c1 + Pxpph * s1
-  v[i,YI] = v[i,YI] + rho * v.py * ang_eff
+  v[i,YI] = v[i,YI] + rho * v[i,PYI] * ang_eff
   # high-precision computation of z-final
   v[i,ZI] = (v[i,ZI] - rho * (1 + v[i,PZI]) * ang_eff
                + (1 + v[i,PZI]) * Lr / (beta_0 * sqrt(1 / beta_0^2 + (2 + v[i,PZI]) * v[i,PZI])))
@@ -365,6 +230,7 @@ end # function exact_sbend!()
   v[i,YI] = s * (v[i,PYI] / ks - x_0 / 2) + cp * y_0 / 2 - cm * px_0 / ks
   v[i,PYI]  = ks * cm * x_0 / 4 - s * (px_0 / 2 + ks * y_0 / 4) + cp * v[i,PYI] / 2
 end
+
 
 @makekernel fastgtpsa=true function patch!(i, b::BunchView, tilde_m, dt, dx, dy, dz, winv::Union{StaticMatrix{3,3},Nothing}, L)
   # Temporary momentum [1+δp, ps_0]

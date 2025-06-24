@@ -120,6 +120,7 @@ end
 include("unpack.jl")
 include("linear.jl")
 include("exact.jl")
+include("integration.jl")
 
 
 end

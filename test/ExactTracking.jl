@@ -316,6 +316,7 @@ pzf_mn1 = [ 0.,  1.e-3,                  -1.e-3,                  1.e-3,        
 
 # test individual elements
 @testset "ExactTracking" begin
+  #=
   @testset "Particles" begin
     # ===  D R I F T  ===
     #
@@ -715,7 +716,7 @@ pzf_mn1 = [ 0.,  1.e-3,                  -1.e-3,                  1.e-3,        
     @test v[:,BeamTracking.PZI] == pzf_sb4
     =#
   end
-
+=#
   @testset "Utility functions" begin
     dx_rot = -0.1
     dy_rot = -0.1

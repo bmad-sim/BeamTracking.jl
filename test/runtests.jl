@@ -121,7 +121,7 @@ end
 function coeffs_approx_equal(v_expected, v_calculated, ϵ)
   n = GTPSA.numcoefs(v_expected[1])
   all_ok = true
-  for i in 1:6
+  for i in 1:length(v_expected)
       for j in 0:n-1
           c1, c2 = v_expected[i][j], v_calculated[i][j]
           if abs(c1 - c2) > max(ϵ, ϵ * (abs(c1) + abs(c2)))
