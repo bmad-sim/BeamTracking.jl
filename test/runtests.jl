@@ -4,7 +4,8 @@ using Test,
       JET,
       BenchmarkTools,
       GTPSA,
-      StaticArrays
+      StaticArrays,
+      OrdinaryDiffEq
 
 using BeamTracking: BunchView, KernelCall
 BenchmarkTools.DEFAULT_PARAMETERS.gctrial = false
@@ -143,3 +144,4 @@ end
 include("LinearTracking.jl")
 include("ExactTracking.jl")
 include("BeamlinesExt.jl")
+include("FieldTracking.jl")
