@@ -12,11 +12,12 @@ function _track!(
   ap = ele.AlignmentParams
   bp = ele.BendParams
   bm = ele.BMultipoleParams
+  rfp= ele.RFParams
   # bc BitsLineElement does not support PatchParams yet
   pp = ele isa BitsLineElement ? nothing : ele.PatchParams
 
   # Function barrier
-  universal!(i, b, tm, bunch, L, ap, bp, bm, pp; kwargs...)
+  universal!(i, b, tm, bunch, L, ap, bp, bm, rfp, pp; kwargs...)
 end
 
 # Step 2: Push particles through -----------------------------------------
@@ -29,6 +30,7 @@ function universal!(
   alignmentparams, 
   bendparams,
   bmultipoleparams,
+  rfparams,
   patchparams;
   kwargs...
 ) 
@@ -126,6 +128,9 @@ function universal!(
         kc = push(kc, @inline(bmultipole(tm, bunch, bdict, L)))
       end
     end
+  elseif isactive(rfparams) # RF cavity
+    # RF cavity
+    kc = push(kc, @inline(cavity(tm, bunch, rfparams, L)))
   elseif !(L ≈ 0)
     kc = push(kc, @inline(drift(tm, bunch, L)))
   end
@@ -164,6 +169,7 @@ end
 @inline thick_pure_bmultipole(tm, bunch, bmn, L)  = error("Undefined for tracking method $tm")
 @inline thick_bmultipole(tm, bunch, bdict, L)     = error("Undefined for tracking method $tm")
 
+@inline cavity(tm, bunch, rfparams, L) = error("Undefined for tracking method $tm")
 
 # === Elements with curving coordinate system "bend" === #
 # "Bend" means ONLY a coordinate system curvature through the element.

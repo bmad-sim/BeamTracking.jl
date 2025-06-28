@@ -758,12 +758,13 @@ pzf_mn1 = [ 0.,  1.e-3,                  -1.e-3,                  1.e-3,        
         tilde_m = mc2/p0c
         gamsqr_0 = 1 + 1/tilde_m^2
         beta_0 = 1/sqrt(1 + tilde_m^2)
+        winv = @SArray T[1 0 0; 0 1 0; 0 0 1]
         dt = T(4e-9)
         dx = T(1)
         dy = T(2)
         dz = T(3)
         L = dz
-        return tilde_m, dt, dx, dy, dz, nothing, L
+        return tilde_m, dt, dx, dy, dz, winv, L
     end
 
     function drift_args(::Type{T}) where {T}

@@ -6,6 +6,32 @@ using ..BeamTracking: XI, PXI, YI, PYI, ZI, PZI, @makekernel, BunchView, quat_mu
 const TRACKING_METHOD = BmadStandard
 
 
+@makekernel fastgtpsa=true function bmad_cavity!(i, b::BunchView, V, wave_number, φ0, β0, gamsqr_0, tilde_m, p0c, L)
+  v = b.v
+  z = v[i, ZI]
+  # ============= Kick - Drift - Kick scheme =============
+  # First kick
+  rel_p = 1 + v[i, PZI]
+  φ = φ0 - 2π * wave_number * z * sqrt(rel_p^2 + tilde_m^2) / (rel_p * sqrt(1 + tilde_m^2))
+  dE = V * sin(φ) / 2
+  dE_rel = dE / p0c
+  S = sqrt(rel_p^2 + tilde_m^2)
+  Δ = (2S + dE_rel) * dE_rel
+  v[i, PZI] += Δ / (rel_p + sqrt(rel_p^2 + Δ^2))
+
+  # Drift
+  ExactTracking.exact_drift!(i, b::BunchView, β0, gamsqr_0, tilde_m, L)
+
+  # Second kick
+  rel_p = 1 + v[i, PZI]
+  φ += 2π * wave_number * (v[i, ZI] - z) * sqrt(rel_p^2 + tilde_m^2) / (rel_p * sqrt(1 + tilde_m^2))
+  dE = V * sin(φ) / 2
+  dE_rel = dE / p0c
+  S = sqrt(rel_p^2 + tilde_m^2)
+  Δ = (2S + dE_rel) * dE_rel
+  v[i, PZI] += Δ / (rel_p + sqrt(rel_p^2 + Δ^2))
+end
+
 # Drift - no spin rotation
 @makekernel fastgtpsa=true function magnus_drift!(i, b::BunchView, β0, gamsqr_0, tilde_m, L)
     ExactTracking.exact_drift!(i, b::BunchView, β0, gamsqr_0, tilde_m, L)
@@ -77,12 +103,12 @@ end
 end
 
 # SBend
-@makekernel fastgtpsa=true function magnus_sbend!(i, b::BunchView, g, K0, γ0, beta_gamma_0, G, L)
+@makekernel fastgtpsa=true function magnus_sbend!(i, b::BunchView, g, K0, γ0, βγ0, G, L)
     
     if !isnothing(b.q)
         v = b.v
         rel_p = 1 + v[i,PZI]
-        γ = sqrt(1 + (beta_gamma_0 * rel_p)^2)
+        γ = sqrt(1 + (βγ0 * rel_p)^2)
         χ = 1 + G * γ
         ξ = G * (γ - 1)
         kx = g * K0
@@ -147,7 +173,7 @@ end
             B += σ * g * K0^2 * v[i, PYI]^2 * ξ^2 / (4.0 * rel_p^4 * pry)
             B += -0.5 * g * L
 
-            # cc: z-plane spin rotation
+            # CC: z-plane spin rotation
             CC = -K0 * v[i, PYI] * ξ * (L + g * sx * xd + g * L * xc + (τx * (cx - 1) * g * v[i, PXI] / (rel_p * ωx^2))) / (2 * rel_p^2)
             CC += -σ * g * K0^2 * v[i, PYI] * ξ * υ / (4.0 * rel_p^4 * pry^2)
         end
@@ -158,16 +184,15 @@ end
     end
 
     # Update coordinates
-    mx, my, r56, d, t = LinearTracking.linear_bend_matrices(K0, L, γ0)
-    LinearTracking.linear_coast_uncoupled!(i, b::BunchView, mx, my, r56, d, t)
+    ExactTracking.exact_bend!(i, b::BunchView, g * L, g, K0, 1/βγ0, βγ0/γ0, L)
 end
 
 # Quadrupole
-@makekernel fastgtpsa=true function magnus_quadrupole!(i, b::BunchView, K1, beta_gamma_0, tilde_m, G, L)
+@makekernel fastgtpsa=true function magnus_quadrupole!(i, b::BunchView, K1, βγ0, tilde_m, G, L)
     v = b.v
     rel_p = 1 + v[i,PZI]
     if !isnothing(b.q)
-        γ = sqrt(1 + (beta_gamma_0 * rel_p)^2)
+        γ = sqrt(1 + (βγ0 * rel_p)^2)
         χ = 1 + G * γ
         ξ = G * (γ - 1)
         k1_norm = K1 / rel_p 
@@ -245,26 +270,31 @@ end
 
   
   arg = ωx * L
-  sx = (arg < 1e-6) * (1 - sign(kx) * arg^2 / 6) * L +
-       (arg >=1e-6) * ((kx > 0) * sin(arg) + 
-                       (kx < 0) * sinh(arg)) / ωx 
-
-  cx = (arg < 1e-6) * (1 - sign(kx) * arg^2 / 2 + cos(arg)) * L +
-       (arg >=1e-6) * ((kx > 0) * cos(arg) + 
-                       (kx < 0) * cosh(arg))
-  
-  z2  = (arg < 1e-6) * (g * L^2 / (2 * rel_p)) + 
-        (arg >= 1e-6) * (-sign(kx) * g * (1 - cx) / (rel_p * ωx^2))
-
+  if arg < 1e-6
+    sx = (1 - sign(kx) * arg^2 / 6) * L      # s_x
+    cx = 1 - sign(kx) * arg^2 / 2            # c_x
+    z2 = g * L^2 / (2 * rel_p)                        # z2
+  elseif kx > 0
+    sx = sin(arg) / ωx                        # s_x
+    cx = cos(arg)                               # c_x
+    z2 = -sign(kx) * g * (1 - cx) / (rel_p * ωx^2)# z2
+  else
+    sx = sinh(arg) / ωx                       # s_x
+    cx = cosh(arg)                              # c_x
+    z2 = -sign(kx) * g * (1 - cx) / (rel_p * ωx^2)# z2
+  end
 
   arg = ωy * L
-  sy = (arg < 1e-6) * (1 + sign(k1) * arg^2 / 6) * L +
-       (arg >=1e-6) * ((k1 < 0) * sin(arg) + 
-                       (k1 > 0) * sinh(arg)) / ωy 
-
-  cy = (arg < 1e-6) * (1 + sign(k1) * arg^2 / 2 * L +
-       (arg >=1e-6) * ((k1 < 0) * cos(arg) + 
-                       (k1 > 0) * cosh(arg)))
+  if arg < 1e-6
+    sy = (1 + sign(k1) * arg^2 / 6) * L            # s_y
+    cy = 1 + sign(k1) * arg^2 / 2                  # c_y
+  elseif k1 < 0
+    sy = sin(arg) / ωy                             # s_y
+    cy = cos(arg)                                    # c_y
+  else
+    sy = sinh(arg) / ωy                            # s_y
+    cy = cosh(arg)                                   # c_y
+  end
 
   x0  = v[i,  XI] 
   px0 = v[i, PXI]
@@ -579,6 +609,7 @@ end
     quat_mult!(@SVector[-cos(ζ), A*sc, B*sc, CC*sc], b.q)
   end
 
+  x0 -= xc
 
   # Update transverse
   v[i,  XI] = cx * x0 + sx * px0 * inv_rel_p + xc

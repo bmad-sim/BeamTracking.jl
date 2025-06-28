@@ -343,6 +343,44 @@ Lr: element arc length
                + (1 + v[i,PZI]) * Lr / (beta_0 * sqrt(1 / beta_0^2 + (2 + v[i,PZI]) * v[i,PZI])))
 end # function exact_sbend!()
 
+"""
+    exact_bend!(i, b::BunchView, theta, g, k0, tilde_m, beta_0, L)
+
+Tracks a particle through a sector bend via exact tracking. (no edge angles)
+
+#Arguments
+- 'theta'    -- 'g' * 'L'
+- 'g'        -- curvature
+- 'k0'       -- normalized dipole field
+- 'tilde_m'  -- mc2/p0c
+- 'beta_0'   -- p0c/E0
+- 'L'        -- length
+"""
+@inline function exact_bend!(i, b::BunchView, theta, g, k0, tilde_m, beta_0, L)
+  v = b.v
+  rel_p = 1 + v[i,PZI]
+  pt = sqrt(rel_p^2 - v[i,PYI]^2) #pt
+  phi1 = theta + asin(v[i,PXI] / pt) #phi1
+  gp = k0 / pt #gp
+  h = 1+g*v[i,XI] # 1 + g * x
+  cplus = cos(phi1) #cos(theta + phi1)
+  sinc_theta = sincu(theta) #sincu(theta)
+  alpha = 2*h*sin(phi1)*abs(L)*sinc_theta- gp*h^2*L^2*(sinc_theta)^2 #alpha
+  if abs(phi1) < π/2
+      xi = alpha/(sqrt(cplus^2 + gp*alpha) + cplus) #xi
+  else
+      xi = (sqrt(cplus^2 + gp*alpha) - cplus) / gp #xi
+  end
+  Lcv = -L*sinc_theta-sign(L)*v[i,XI]*sin(theta) #Lcv
+  thetap = 2 * (phi1 - sign(L)*atan(xi, -Lcv)) #theta_p
+  Lp = sign(L)*sqrt(Lcv^2 + xi^2) / sincu(thetap/2) #Lp
+
+  v[i,XI] = v[i,XI]*cos(theta) - g/2*L^2*(sincu(theta/2))^2 + xi
+  v[i,PXI] = pt*sin(phi1 - thetap)
+  v[i,YI] = v[i,YI] + v[i,PYI]*Lp/pt 
+  v[i,ZI] = v[i,ZI] - rel_p*Lp/pt + 
+                  abs(L)*rel_p/sqrt(tilde_m^2+rel_p^2)/beta_0
+end
 
 @makekernel fastgtpsa=true function exact_solenoid!(i, b::BunchView, ks, beta_0, gamsqr_0, tilde_m, L)
   v = b.v
@@ -366,51 +404,36 @@ end # function exact_sbend!()
   v[i,PYI]  = ks * cm * x_0 / 4 - s * (px_0 / 2 + ks * y_0 / 4) + cp * v[i,PYI] / 2
 end
 
-@makekernel fastgtpsa=true function patch!(i, b::BunchView, tilde_m, dt, dx, dy, dz, winv::Union{StaticMatrix{3,3},Nothing}, L)
+@makekernel fastgtpsa=true function patch!(i, b::BunchView, tilde_m, dt, dx, dy, dz, winv::StaticMatrix{3,3}, L)
   # Temporary momentum [1+δp, ps_0]
   v = b.v
   rel_p = 1 + v[i,PZI]                                 
   ps_0 = sqrt(rel_p^2 - v[i,PXI]^2 - v[i,PYI]^2)  
-  # Only apply rotations if needed
-  if isnothing(winv)
-    # No rotation case
-    v[i,XI] -= dx
-    v[i,YI] -= dy
+  # Translate position vector [x, y]
+  x_0 = v[i,XI] - dx                                # x_0
+  y_0 = v[i,YI] - dy                                # y_0
 
-    # Apply t_offset
-    v[i,ZI] += rel_p/sqrt(rel_p^2+tilde_m^2)*C_LIGHT*dt
+  # Temporary momentum vector [px, py]
+  px_0 = v[i,PXI]                                    # px_0
+  py_0 = v[i,PYI]                                    # py_0
 
-    # Drift to face
-    v[i,XI]   += v[i,PXI] * dz / ps_0
-    v[i,YI]   += v[i,PYI] * dz / ps_0
-    v[i,ZI]   -=  dz * rel_p / ps_0 - L*rel_p*sqrt((1+tilde_m^2)/(rel_p^2+tilde_m^2))
-  else
-    # Translate position vector [x, y]
-    x_0 = v[i,XI] - dx                                # x_0
-    y_0 = v[i,YI] - dy                                # y_0
+  # Transform position vector [x - dx, y - dy, -dz]
+  v[i,XI]   = winv[1,1]*x_0 + winv[1,2]*y_0 - winv[1,3]*dz
+  v[i,YI]   = winv[2,1]*x_0 + winv[2,2]*y_0 - winv[2,3]*dz
+  s_f       = winv[3,1]*x_0 + winv[3,2]*y_0 - winv[3,3]*dz
 
-    # Temporary momentum vector [px, py]
-    px_0 = v[i,PXI]                                    # px_0
-    py_0 = v[i,PYI]                                    # py_0
+  # Transform momentum vector [px, py, ps]
+  v[i,PXI]  = winv[1,1]*px_0 + winv[1,2]*py_0 + winv[1,3]*ps_0
+  v[i,PYI]  = winv[2,1]*px_0 + winv[2,2]*py_0 + winv[2,3]*ps_0
+  ps_f      = winv[3,1]*px_0 + winv[3,2]*py_0 + winv[3,3]*ps_0
 
-    # Transform position vector [x - dx, y - dy, -dz]
-    v[i,XI]   = winv[1,1]*x_0 + winv[1,2]*y_0 - winv[1,3]*dz
-    v[i,YI]   = winv[2,1]*x_0 + winv[2,2]*y_0 - winv[2,3]*dz
-    s_f = winv[3,1]*x_0 + winv[3,2]*y_0 - winv[3,3]*dz  # s_f
+  # Apply t_offset
+  v[i,ZI] += rel_p/sqrt(rel_p^2+tilde_m^2)*C_LIGHT*dt
 
-    # Transform momentum vector [px, py, ps]
-    v[i,PXI]  = winv[1,1]*px_0 + winv[1,2]*py_0 + winv[1,3]*ps_0
-    v[i,PYI]  = winv[2,1]*px_0 + winv[2,2]*py_0 + winv[2,3]*ps_0
-    ps_f = winv[3,1]*px_0 + winv[3,2]*py_0 + winv[3,3]*ps_0 # ps_f
-
-    # Apply t_offset
-    v[i,ZI] += rel_p/sqrt(rel_p^2+tilde_m^2)*C_LIGHT*dt
-
-    # Drift to face
-    v[i,XI] -= s_f * v[i,PXI] / ps_f
-    v[i,YI] -= s_f * v[i,PYI] / ps_f
-    v[i,ZI] += s_f * rel_p / ps_f + L*rel_p*sqrt((1+tilde_m^2)/(rel_p^2+tilde_m^2))
-  end
+  # Drift to face
+  v[i,XI] -= s_f * v[i,PXI] / ps_f
+  v[i,YI] -= s_f * v[i,PYI] / ps_f
+  v[i,ZI] += s_f * rel_p / ps_f + L*rel_p*sqrt((1+tilde_m^2)/(rel_p^2+tilde_m^2))
 end
 
 
