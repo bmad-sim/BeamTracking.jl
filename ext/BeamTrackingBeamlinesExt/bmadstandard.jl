@@ -1,6 +1,6 @@
 @inline function bend_fringe(tm::BmadStandard, bunch, bendparams, bm1, L, upstream)
   K0 = get_thick_strength(bm1, L, bunch.Brho_ref)
-  ge = upstream ? K0*tan(bendparams.e1) : K0*tan(bendparams.e2)
+  ge = upstream * K0*tan(bendparams.e1) + (1 - upstream) * K0*tan(bendparams.e2)
   return KernelCall(BmadStandardTracking.linear_dipole_hard_edge_fringe!, (ge,))
 end
 
@@ -19,4 +19,10 @@ end
   tilde_m = massof(bunch.species)/calc_p0c(bunch.species, bunch.Brho_ref)
   me2 = bendparams.e2 ≈ 0 ? 0 : K0*tan(bendparams.e2)
   return KernelCall(BmadStandardTracking.combined_func!, (L, g, K0, K1, tilde_m))
+end
+
+@inline function thick_pure_bdipole(tm::BmadStandard, bunch, bm1, L)
+  K0 = get_thick_strength(bm1, L, bunch.Brho_ref)
+  tilde_m = massof(bunch.species)/calc_p0c(bunch.species, bunch.Brho_ref)
+  return KernelCall(BmadStandardTracking.combined_func!, (L, 0, K0, 0, tilde_m))
 end

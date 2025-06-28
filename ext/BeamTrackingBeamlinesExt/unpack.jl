@@ -73,7 +73,7 @@ function universal!(
           kc = push(kc, @inline(bend_bdipole(tm, bunch, bendparams, bdict, L)))
         end
         kc = (bendparams.e2 ≈ 0) ? kc : push(kc, @inline(bend_fringe(tm, bunch, bendparams, bdict[1], L, false)))
-        elseif haskey(bdict, 2) # Bend-quadrupole
+      elseif haskey(bdict, 2) # Bend-quadrupole
         if n_multipoles == 1
           # Pure bend-quadrupole
           kc = push(kc, @inline(bend_pure_bquadrupole(tm, bunch, bendparams, bdict[2], L)))

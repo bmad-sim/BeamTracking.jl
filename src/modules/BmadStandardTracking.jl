@@ -17,10 +17,15 @@ end
   v = b.v
 
   rel_p  = 1 + v[i, PZI]                              # rel_p
+  inv_rel_p = 1 / rel_p
   k_x  = k1 + g * k0                                  # k_x
-  x_c  = (g * rel_p - k0) / k_x                       # x_c
-  om_x  = sqrt(abs(k_x) / rel_p)                      # om_x
-  om_y  = sqrt(abs(k1) / rel_p)                       # om_y
+  if k_x ≈ 0
+    x_c = 0
+  else
+    x_c  = (g * rel_p - k0) / k_x                       # x_c
+  end
+  om_x  = sqrt(abs(k_x)) * sqrt(inv_rel_p)                      # om_x
+  om_y  = sqrt(abs(k1)) * sqrt(inv_rel_p)                       # om_y
 
   arg = om_x * L
   if arg < 1e-6
@@ -56,9 +61,9 @@ end
   py_0 = v[i, PYI]                                    # py
 
   # Update transverse
-  v[i,  XI] = c_x * x_0 + s_x * px_0 / rel_p + x_c
+  v[i,  XI] = c_x * x_0 + s_x * px_0 * inv_rel_p + x_c
   v[i, PXI] = -sign(k_x) * om_x^2 * rel_p * s_x * x_0 + c_x * px_0
-  v[i,  YI] = c_y * y_0 + s_y * py_0 / rel_p
+  v[i,  YI] = c_y * y_0 + s_y * py_0 * inv_rel_p
   v[i, PYI] = sign(k1) * om_y^2 * rel_p * s_y * y_0 + c_y * py_0
 
   # Longitudinal update
