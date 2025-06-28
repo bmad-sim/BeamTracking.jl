@@ -233,6 +233,375 @@ end
     v[i,ZI] += L * ( tilde_m^2 * v[i,PZI] * (2 + v[i,PZI]) / ( rel_e * ( rel_p * sqrt(1 + tilde_m^2) + rel_e ) ) )
 end
 
+@makekernel fastgtpsa=true function magnus_combined_func!(i, b::BunchView, g, k0, k1, tilde_m, G, L)
+  v = b.v
+  rel_p  = 1 + v[i, PZI]
+  inv_rel_p = 1 / rel_p
+  kx  = k1 + g * k0
+  xc  = (g * rel_p - k0) / kx
+
+  ωx  = sqrt(abs(kx)) * sqrt(inv_rel_p)
+  ωy  = sqrt(abs(k1)) * sqrt(inv_rel_p)
+
+  
+  arg = ωx * L
+  sx = (arg < 1e-6) * (1 - sign(kx) * arg^2 / 6) * L +
+       (arg >=1e-6) * ((kx > 0) * sin(arg) + 
+                       (kx < 0) * sinh(arg)) / ωx 
+
+  cx = (arg < 1e-6) * (1 - sign(kx) * arg^2 / 2 + cos(arg)) * L +
+       (arg >=1e-6) * ((kx > 0) * cos(arg) + 
+                       (kx < 0) * cosh(arg))
+  
+  z2  = (arg < 1e-6) * (g * L^2 / (2 * rel_p)) + 
+        (arg >= 1e-6) * (-sign(kx) * g * (1 - cx) / (rel_p * ωx^2))
+
+
+  arg = ωy * L
+  sy = (arg < 1e-6) * (1 + sign(k1) * arg^2 / 6) * L +
+       (arg >=1e-6) * ((k1 < 0) * sin(arg) + 
+                       (k1 > 0) * sinh(arg)) / ωy 
+
+  cy = (arg < 1e-6) * (1 + sign(k1) * arg^2 / 2 * L +
+       (arg >=1e-6) * ((k1 < 0) * cos(arg) + 
+                       (k1 > 0) * cosh(arg)))
+
+  x0  = v[i,  XI] 
+  px0 = v[i, PXI]
+  y0  = v[i,  YI]
+  py0 = v[i, PYI]
+
+
+  if !isnothing(b.q)
+    γ = sqrt(1 + (rel_p / tilde_m)^2)
+    χ = 1 + G * γ
+    ξ = G * (γ - 1)
+    ν = 2 * (1 + G) - χ
+
+    η = ωx^2 + ωy^2
+    μ = ωx^2 - ωy^2
+
+    c = cx * cy - 1
+    xd = x0 - xc
+
+    a1 = b1 = cc1 = a2 = b2 = cc2 = 0.0
+
+    if kx > 0 && k1 > 0 
+          a1 = k0 * ξ * ωy^2 * (
+              py0 * ωx^2 * (-cy * px0 * sx - c * rel_p * xd * ωx) -
+              (cx * px0 * py0 * sy + c * px0 * rel_p * y0 + px0 * rel_p * sx * sy * y0 * ωx^2 -
+              rel_p * xd * (py0 * sx * sy + rel_p * (cy * sx - cx * sy) * y0) * ωx^3) * ωy^2
+          )
+          a1 += k1 * χ * (
+              (cy - 1) * py0 * rel_p * (1 + g * xc) * η +
+              g * py0 * (px0 * (cy * sx - cx * sy) + cx * cy * rel_p * xd + rel_p * xd * (sx * sy * ωx^2 - 1)) * ωy^2 +
+              rel_p * y0 * ωy^2 * (
+                  rel_p * sy * η +
+                  g * px0 * (sx * sy * ωy^2 - c) +
+                  g * rel_p * (sy * xc * η + cy * sx * xd * ωx^2 + cx * sy * xd * ωy^2)
+              )
+          )
+          a1 *= 0.5 / (rel_p^3 * η * ωy^2)
+
+          b1 = 2 * g * px0 * (
+              k1 * L * px0 - 2 * (cx - 1) * k0 * rel_p +
+              k1 * (rel_p * (x0 + 3 * xc) - cx * (px0 * sx + 4 * rel_p * xc) - cx^2 * rel_p * xd)
+          ) * χ
+          b1 += k0 * py0 * (L * py0 + cy * py0 * sy + (cy^2 - 1) * y0) * ν * ωx^2
+          b1 -= 2 * g * rel_p * (
+              -sx * xd * (2 * k0 * rel_p + k1 * px0 * sx + k1 * rel_p * (4 * xc + cx * xd)) * χ +
+              L * rel_p * (2 * rel_p - (2 * k0 * xc + k1 * (x0^2 - 2 * x0 * xc + 3 * xc^2)) * χ)
+          ) * ωx^2
+          b1 += 4 * k1 * rel_p * χ * (px0 * (1 - cx) + rel_p * (L * xc + sx * xd) * ωx^2)
+          b1 += k0 * ωx^2 * (
+              L * (4 + px0^2) * χ + χ * (
+                  8 * L * (rel_p - 1) + 4 * L * (rel_p - 1)^2 +
+                  cx * px0^2 * sx + (cx^2 - 1) * px0 * rel_p * xd * ωx -
+                  px0 * rel_p * sx^2 * xd * ωx^3 + rel_p^3 * (L - cx * sx) * xd^2 * ωx^4
+              )
+          )
+          b1 -= rel_p^2 * (L - cy * sy) * y0^2 * ν * ωy^2
+          b1 += py0 * y0 * ν * ((cy^2 - 1) * (rel_p - 1) + rel_p * sy^2 * ωy^2)
+          b1 /= 8 * rel_p^3 * ωx^2
+
+          cc1 = k0 * rel_p * (1 + g * xc) * (py0 * sy + (cy - 1) * rel_p * y0) * η
+          cc1 += kx * py0 * (-c * px0 + cy * rel_p * sx * xd * ωx^2)
+          cc1 += kx * (
+              px0 * py0 * sx * sy + px0 * rel_p * (cy * sx - cx * sy) * y0 +
+              rel_p * xd * (cx * py0 * sy + cx * cy * rel_p * y0 + rel_p * y0 * (sx * sy * ωx^2 - 1))
+          ) * ωy^2
+          cc1 += k1 * (
+              px0 * (
+                  py0 * (c + sx * sy * ωx^2) + rel_p * y0 * (cy * sx * ωx^2 + cx * sy * ωy^2)
+              ) +
+              rel_p * (
+                  py0 * (sy * xc * η - cy * sx * xd * ωx^3 + cx * sy * xd * ωx^3) +
+                  rel_p * y0 * ((cy - 1) * xc * η + xd * ωx^3 * (c - sx * sy * ωy^2))
+              )
+          )
+          cc1 *= -0.5 * ξ / (rel_p^3 * η)
+
+          a2 = rel_p * y0 * ωy^2 * (
+              (px0 - rel_p * (L * xc - 2 * sy * xc + sx * xd) * η) * ωx^2 +
+              cx * px0 * (η - cy * ωx^2) +
+              px0 * (-1 + 2 * sx * sy * ωx^2) * ωy^2 +
+              cx * (cy * px0 + 2 * rel_p * sy * xd * ωx^2) * ωy^2 +
+              cy * (-px0 * η + rel_p * ωx^2 * (-L * xc * η + sx * xd * μ))
+          )
+          a2 += py0 * (
+              -rel_p * xc * ωx^2 * (η - 2 * cy * η + ωx^2 + L * sy * η * ωy^2) +
+              ωy^2 * (
+                  -rel_p * ωx^2 * (x0 + xd - 2 * cx * cy * xd - sx * sy * xd * μ) +
+                  px0 * (2 * cy * sx * ωx^2 - sy * (η + cx * μ))
+              )
+          )
+          a2 *= 0.25 * k0 * kx * ξ * χ / (rel_p^4 * η * ωx^2 * ωy^2)
+
+          b2 = k0 * k1 * (L - sy) * ξ * χ * (py0^2 - rel_p^2 * y0^2 * ωy^2) / (4 * rel_p^4 * ωy^2)
+
+          cc2 = px0 * (
+              py0 * ((cx - cy - 1) * η + cx * cy * ωy^2 + ωx^2 * (2 - cx * cy + 2 * sx * sy * ωy^2)) +
+              rel_p * y0 * ωy^2 * (2 * cy * sx * ωx^2 - sy * (η + cx * μ))
+          )
+          cc2 -= rel_p * ωx^2 * (
+              L * xc * η * ((cy + 1) * py0 + rel_p * sy * y0 * ωy^2) +
+              py0 * (
+                  -2 * sy * (xc * η + cx * xd * ωy^2) + sx * xd * (η - cy * μ)
+              ) +
+              rel_p * y0 * (
+                  2 * xc * ωx^2 - 2 * cy * (xc * η + cx * xd * ωy^2) + ωy^2 * (2 * x0 - sx * sy * xd * μ)
+              )
+          )
+          cc2 *= 0.25 * k1 * kx * χ^2 / (rel_p^4 * η * ωx^2 * ωy^2)
+    elseif kx > 0 && k1 < 0
+        if abs(μ) > 1e-14
+            a1 = k0 * ξ * ωy^2 * (
+                py0 * ωx^2 * (-cy * px0 * sx - c * rel_p * xd * ωx) +
+                (cx * px0 * py0 * sy + c * px0 * rel_p * y0 + px0 * rel_p * sx * sy * y0 * ωx^2 -
+                 rel_p * xd * (py0 * sx * sy + rel_p * (cy * sx - cx * sy) * y0) * ωx^3) * ωy^2
+            )
+            a1 += k1 * χ * (
+                -((cy - 1) * py0 * rel_p * (1 + g * xc) * ωx^2) +
+                (rel_p * y0 * (-c * g * px0 + rel_p * (sy + g * sy * xc + cy * g * sx * xd) * ωx^2) +
+                 py0 * (-rel_p - cx * g * px0 * sy + cy * (rel_p + g * (rel_p - 1) * (xc + cx * xd) + g * (px0 * sx + xc + cx * xd)) -
+                        g * rel_p * (xc + xd - sx * sy * xd * ωx^2))) * ωy^2 -
+                rel_p * sy * (rel_p + g * (rel_p - 1) * (xc + cx * xd) + g * (px0 * sx + xc + cx * xd)) * y0 * ωy^4
+            )
+            a1 *= 0.5 / (rel_p^3 * μ * ωy^2)
+
+            cc1 = -k0 * rel_p * (1 + g * xc) * (py0 * sy + (cy - 1) * rel_p * y0) * μ
+            cc1 += kx * (c * px0 * py0 + px0 * (py0 * sx * sy + rel_p * (cy * sx - cx * sy) * y0) * ωy^2 +
+                       rel_p * xd * (-cy * py0 * sx * ωx^2 + (cx * py0 * sy + cx * cy * rel_p * y0 +
+                       rel_p * y0 * (-1 + sx * sy * ωx^2)) * ωy^2))
+            cc1 -= k1 * (
+                px0 * (py0 * (c + sx * sy * ωx^2) + rel_p * y0 * (cy * sx * ωx^2 - cx * sy * ωy^2)) +
+                rel_p * (
+                    py0 * ωx^2 * (-cy * sx * xd * ωx + sy * (xc + cx * xd * ωx)) - py0 * sy * xc * ωy^2 +
+                    rel_p * y0 * ((cy - 1) * xc * μ + xd * ωx^3 * (c - sx * sy * ωy^2))
+                )
+            )
+            cc1 *= 0.5 * ξ / (rel_p^3 * μ)
+
+            a2 = -rel_p * y0 * ωy^2 * (
+                (1 + cx) * (cy - 1) * px0 * ωx^2 + px0 * ((cx - 1) * (1 + cy) + 2 * sx * sy * ωx^2) * ωy^2 +
+                rel_p * ωx^2 * ((1 + cy) * L * xc - 2 * sy * xc + sx * xd - cy * sx * xd) * ωx^2 -
+                ((1 + cy) * L * xc + (1 + cy) * sx * xd - 2 * sy * (xc + cx * xd)) * ωy^2
+            )
+            a2 += py0 * (
+                -rel_p * xc * ωx^2 * μ * (-2 + 2 * cy + L * sy * ωy^2) +
+                ωy^2 * (2 * cy * (px0 * sx + cx * rel_p * xd) * ωx^2 -
+                       px0 * sy * ((1 + cx) * ωx^2 + (cx - 1) * ωy^2) +
+                       rel_p * xd * ωx^2 * (-2 + sx * sy * η))
+            )
+            a2 *= 0.25 * k0 * kx * ξ * χ / (rel_p^4 * ωx^2 * ωy^2 * μ)
+
+            cc2 = px0 * ((1 + cx) * (cy - 1) * py0 * ωx^2 + py0 * ((cx - 1) * (1 + cy) + 2 * sx * sy * ωx^2) * ωy^2 +
+                         rel_p * y0 * ωy^2 * ((2 * cy * sx - (1 + cx) * sy) * ωx^2 - (1 - cx) * sy * ωy^2))
+            cc2 -= rel_p * ωx^2 * (
+                py0 * (2 * sy * xc + (cy - 1) * sx * xd) * ωx^2 + py0 * ((1 + cy) * sx * xd - 2 * sy * (xc + cx * xd)) * ωy^2 +
+                L * xc * μ * (-((1 + cy) * py0) + rel_p * sy * y0 * ωy^2) +
+                rel_p * y0 * (2 * (cy - 1) * xc * ωx^2 +
+                              (x0 + xc - 2 * cy * xc + xd - 2 * cx * cy * xd - sx * sy * xd * ωx^2) * ωy^2 -
+                              sx * sy * xd * ωy^4)
+            )
+            cc2 *= 0.25 * k1 * kx * χ^2 / (rel_p^4 * ωx^2 * ωy^2 * μ)
+        else
+            error("μ ≈ 0 should not happen for k0 > 0 and k1 < 0")
+        end
+    elseif kx < 0 && k1 > 0
+        if abs(μ) > 1e-14
+            a1 = k0 * ξ * ωy^2 * (
+                py0 * ωx^2 * (-cy * px0 * sx - c * rel_p * xd * ωx) +
+                (cx * px0 * py0 * sy + c * px0 * rel_p * y0 - px0 * rel_p * sx * sy * y0 * ωx^2 +
+                 rel_p * xd * (py0 * sx * sy + rel_p * (cy * sx - cx * sy) * y0) * ωx^3) * ωy^2
+            )
+            a1 += k1 * χ * (
+                (cy - 1) * py0 * rel_p * (1 + g * xc) * ωx^2 +
+                (rel_p * y0 * (c * g * px0 + rel_p * (sy + g * sy * xc + cy * g * sx * xd) * ωx^2) +
+                 py0 * (rel_p - cy * (rel_p + g * px0 * sx + g * rel_p * xc + cx * g * rel_p * xd) +
+                        g * (cx * px0 * sy + rel_p * (xc + xd + sx * sy * xd * ωx^2)))) * ωy^2 -
+                rel_p * sy * (rel_p + g * px0 * sx + g * rel_p * xc + cx * g * rel_p * xd) * y0 * ωy^4
+            )
+            a1 *= 0.5 / (rel_p^3 * μ * ωy^2)
+
+            cc1 = kx * py0 * (-px0 * c - cy * rel_p * sx * xd * ωx^2)
+            cc1 += kx * (
+                px0 * py0 * sx * sy + px0 * rel_p * (cy * sx - cx * sy) * y0 +
+                rel_p * xd * (cx * py0 * sy + cx * cy * rel_p * y0 - rel_p * y0 * (1 + sx * sy * ωx^2))
+            ) * ωy^2
+            cc1 -= k0 * rel_p * (1 + g * xc) * (py0 * sy + (cy - 1) * rel_p * y0) * μ
+            cc1 += k1 * (
+                px0 * (py0 * (c - sx * sy * ωx^2) - rel_p * y0 * (cy * sx * ωx^2 - cx * sy * ωy^2)) +
+                rel_p * (
+                    py0 * ωx^2 * (cy * sx * xd * ωx - sy * (xc + cx * xd * ωx)) + py0 * sy * xc * ωy^2 +
+                    rel_p * y0 * (-(cy - 1) * xc * μ + xd * ωx^3 * (c - sx * sy * ωy^2))
+                )
+            )
+            cc1 *= 0.5 * ξ / (rel_p^3 * μ)
+
+            a2 = rel_p * y0 * ωy^2 * (
+                (1 + cx) * (cy - 1) * px0 * ωx^2 + px0 * ((cx - 1) * (1 + cy) - 2 * sx * sy * ωx^2) * ωy^2 +
+                rel_p * ωx^2 * (
+                    2 * sy * xc + (cy - 1) * sx * xd) * ωx^2 + ((1 + cy) * sx * xd - 2 * sy * (xc + cx * xd)) * ωy^2 -
+                    (1 + cy) * L * xc * μ
+            )
+            a2 += py0 * (
+                -rel_p * xc * ωx^2 * μ * (2 - 2 * cy - L * sy * ωy^2) +
+                ωy^2 * (
+                    -2 * cy * (px0 * sx + cx * rel_p * xd) * ωx^2 +
+                    px0 * sy * ((1 + cx) * ωx^2 + (cx - 1) * ωy^2) +
+                    rel_p * xd * ωx^2 * (2 + sx * sy * η)
+                )
+            )
+            a2 *= 0.25 * k0 * kx * ξ * χ / (rel_p^4 * ωx^2 * ωy^2 * μ)
+
+            cc2 = px0 * (
+                (1 + cx) * (cy - 1) * py0 * ωx^2 + ((cx - 1) * (1 + cy) * py0 + (-2 * py0 * sx * sy +
+                rel_p * (-2 * cy * sx + sy + cx * sy) * y0) * ωx^2) * ωy^2 + (-1 + cx) * rel_p * sy * y0 * ωy^4
+            )
+            cc2 += rel_p * ωx^2 * (
+                py0 * (2 * sy * xc + (cy - 1) * sx * xd) * ωx^2 + py0 * ((1 + cy) * sx * xd - 2 * sy * (xc + cx * xd)) * ωy^2 -
+                L * xc * μ * ((1 + cy) * py0 + rel_p * sy * y0 * ωy^2) +
+                rel_p * y0 * (
+                    2 * (cy - 1) * xc * ωx^2 +
+                    (x0 + xc - 2 * cy * xc + xd - 2 * cx * cy * xd + sx * sy * xd * ωx^2) * ωy^2 +
+                    sx * sy * xd * ωy^4
+                )
+            )
+            cc2 *= 0.25 * k1 * kx * χ^2 / (rel_p^4 * ωx^2 * ωy^2 * μ)
+        else
+            error("μ ≈ 0 should not happen for k0 < 0 and k1 > 0")
+        end
+    else
+        # kx < 0 && k1 < 0
+        a1 = k0 * ξ * ωy^2 * (
+            py0 * ωx^2 * (-cy * px0 * sx - c * rel_p * xd * ωx) -
+            (cx * px0 * py0 * sy + c * px0 * rel_p * y0 - px0 * rel_p * sx * sy * y0 * ωx^2 +
+             rel_p * xd * (py0 * sx * sy + rel_p * (cy * sx - cx * sy) * y0) * ωx^3) * ωy^2
+        )
+        a1 += k1 * χ * (
+            -((cy - 1) * py0 * rel_p * (1 + g * xc) * η) +
+            g * py0 * (cx * px0 * sy - cy * (px0 * sx + cx * rel_p * xd) + rel_p * xd * (1 + sx * sy * ωx^2)) * ωy^2 +
+            rel_p * y0 * ωy^2 * (
+                rel_p * sy * η + g * px0 * (c + sx * sy * ωy^2) +
+                g * rel_p * (sy * xc * η + cy * sx * xd * ωx^2 + cx * sy * xd * ωy^2)
+            )
+        )
+        a1 *= 0.5 / (rel_p^3 * η * ωy^2)
+
+        b1 = 2 * g * px0 * (
+            2 * (cx - 1) * k0 * rel_p - k1 * (L * px0 - cx * px0 * sx + x0 + (rel_p - 1) * x0) +
+            (-3 + 4 * cx) * k1 * rel_p * xc + cx^2 * k1 * rel_p * xd
+        ) * χ
+        b1 += k0 * py0 * (L * py0 + cy * py0 * sy + (cy^2 - 1) * y0) * ν * ωx^2
+        b1 -= 2 * g * rel_p * (
+            -sx * xd * (2 * k0 * rel_p + k1 * px0 * sx + k1 * rel_p * (4 * xc + cx * xd)) * χ +
+            L * rel_p * (2 * rel_p - (2 * k0 * xc + k1 * (x0^2 - 2 * x0 * xc + 3 * xc^2)) * χ)
+        ) * ωx^2
+        b1 += 4 * k1 * rel_p * χ * ((-1 + cx) * px0 + rel_p * (L * xc + sx * xd) * ωx^2)
+        b1 += k0 * ωx^2 * (
+            L * (4 + px0^2) * χ + χ * (
+                8 * L * (rel_p - 1) + 4 * L * (rel_p - 1)^2 + cx * px0^2 * sx +
+                (cx^2 - 1) * px0 * rel_p * xd * ωx + px0 * rel_p * sx^2 * xd * ωx^3 -
+                rel_p^2 * (L - cx * sx) * xd^2 * ωx^4
+            )
+        )
+        b1 += rel_p^2 * (L - cy * sy) * y0^2 * ν * ωy^2
+        b1 += py0 * y0 * ν * ((cy^2 - 1) * (rel_p - 1) - rel_p * sy^2 * ωy^2)
+        b1 /= 8 * rel_p^3 * ωx^2
+
+        cc1 = -k0 * rel_p * (1 + g * xc) * (py0 * sy + (cy - 1) * rel_p * y0) * η
+        cc1 -= kx * (
+            c * px0 * py0 + px0 * (py0 * sx * sy + rel_p * (cy * sx - cx * sy) * y0) * ωy^2 +
+            rel_p * xd * (cy * py0 * sx * ωx^2 + (cx * py0 * sy + cx * cy * rel_p * y0 -
+            rel_p * y0 * (1 + sx * sy * ωx^2)) * ωy^2)
+        )
+        cc1 += k1 * (
+            px0 * (py0 * (c - sx * sy * ωx^2) - rel_p * y0 * (cy * sx * ωx^2 + cx * sy * ωy^2)) +
+            rel_p * (
+                -py0 * sy * xc * η + py0 * (cy * sx - cx * sy) * xd * ωx^3 -
+                rel_p * y0 * ((cy - 1) * xc * η + xd * ωx^3 * (c + sx * sy * ωy^2))
+            )
+        )
+        cc1 *= 0.5 * ξ / (rel_p^3 * η)
+
+        a2 = rel_p * y0 * ωy^2 * (
+            px0 * ((1 + cx - cy) * η - cx * cy * ωx^2 + (-2 + cx * cy - 2 * sx * sy * ωx^2) * ωy^2) +
+            rel_p * ωx^2 * ((1 + cy) * L * xc * η + sx * xd * (η - cy * μ) - 2 * sy * (xc * η + cx * xd * ωy^2))
+        )
+        a2 += py0 * (
+            rel_p * xc * η * ωx^2 * (-2 + 2 * cy + L * sy * ωy^2) +
+            ωy^2 * (2 * cy * px0 * sx * ωx^2 - px0 * sy * (η + cx * μ) + rel_p * xd * ωx^2 * (2 * c - sx * sy * μ))
+        )
+        a2 *= -0.25 * k0 * kx * ξ * χ / (rel_p^4 * η * ωx^2 * ωy^2)
+
+        b2 = -k0 * k1 * (L - sy) * ξ * χ * (py0^2 + rel_p^2 * y0^2 * ωy^2) / (4 * rel_p^4 * ωy^2)
+
+        cc2 = px0 * (
+            py0 * ((1 + cx - cy) * η - cx * cy * ωx^2 + (-2 + cx * cy - 2 * sx * sy * ωx^2) * ωy^2) +
+            rel_p * y0 * ωy^2 * (-2 * cy * sx * ωx^2 + sy * (η + cx * μ))
+        )
+        cc2 += rel_p * ωx^2 * (
+            L * xc * η * ((1 + cy) * py0 - rel_p * sy * y0 * ωy^2) +
+            py0 * (sx * xd * (η - cy * ωx^2 + cy * ωy^2) - 2 * sy * (xc * η + cx * xd * ωy^2)) -
+            rel_p * y0 * (2 * (cy - 1) * xc * η + xd * ωy^2 * (2 * c - sx * sy * μ))
+        )
+        cc2 *= 0.25 * k1 * kx * χ^2 / (rel_p^4 * η * ωx^2 * ωy^2)
+    end
+
+    # Final sum
+    A = a1 + a2
+    B = b1 + b2
+    CC = cc1 + cc2
+
+    ζ = sqrt(A^2 + B^2 + CC^2)
+    sc = sincu(ζ)
+    quat_mult!(@SVector[-cos(ζ), A*sc, B*sc, CC*sc], b.q)
+  end
+
+
+  # Update transverse
+  v[i,  XI] = cx * x0 + sx * px0 * inv_rel_p + xc
+  v[i, PXI] = -sign(kx) * ωx^2 * rel_p * sx * x0 + cx * px0
+  v[i,  YI] = cy * y0 + sy * py0 * inv_rel_p
+  v[i, PYI] = sign(k1) * ωy^2 * rel_p * sy * y0 + cy * py0
+
+  # Longitudinal update
+  rel_e = sqrt(rel_p^2 + tilde_m^2)
+  v[i, ZI] += L * ( tilde_m^2 * v[i,PZI] * (2 + v[i,PZI]) / ( rel_e * ( rel_p * sqrt(1 + tilde_m^2) + rel_e ) ) )
+  v[i, ZI] += L * (rel_p * sqrt(1 + tilde_m^2) / sqrt(rel_p^2 + tilde_m^2) - 1) + 
+          (-g * xc * L) +
+          (-g * sx) * x0 +
+          z2 * px0 +
+          (-sign(kx) * ωx^2 * (L - cx * sx) / 4) * x0^2 +
+          (sign(kx) * ωx^2 * sx^2 / (2 * rel_p)) * x0 * px0 +
+          (-(L + cx * sx) / (4 * rel_p^2)) * px0^2 +
+          (sign(k1) * ωy^2 * (L - cy * sy) / 4) * y0^2 +
+          (-sign(k1) * ωy^2 * sy^2 / (2 * rel_p)) * y0 * py0 +
+          (-(L + cy * sy) / (4 * rel_p^2)) * py0^2
+end
+
+
 # Sextupole
 @makekernel fastgtpsa=true function magnus_thick_sextupole!(i, b::BunchView, K2, β0, gamsqr_0, tilde_m, G, L)
     mm = [3]

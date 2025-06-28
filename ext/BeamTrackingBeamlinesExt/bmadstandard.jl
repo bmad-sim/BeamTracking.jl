@@ -19,14 +19,17 @@ end
   return KernelCall(BmadStandardTracking.magnus_sbend!, (g, K0, γ0, beta_gamma_0, G, L))
 end
 
-#=@inline function thick_bend_bdipole(tm::BmadStandard, bunch, bendparams, bdict, L)
+@inline function thick_bend_bdipole(tm::BmadStandard, bunch, bendparams, bdict, L)
+  if any(b -> (b > 2 || b == 0), keys(bdict))
+    error("BmadStandard does not support thick combined dipoles with higher order multipoles")
+  end
   g = bendparams.g
   K0 = get_thick_strength(bdict[1], L, bunch.Brho_ref)
   K1 = get_thick_strength(bdict[2], L, bunch.Brho_ref)
   tilde_m = massof(bunch.species)/calc_p0c(bunch.species, bunch.Brho_ref)
-  me2 = bendparams.e2 ≈ 0 ? 0 : K0*tan(bendparams.e2)
-  return KernelCall(BmadStandardTracking.magnus_sbend!, (g, k0, γ0, G, L))
-end=#
+  G = anomalous_moment_of(bunch.species)
+  return KernelCall(BmadStandardTracking.magnus_combined_func!, (g, K0, K1, tilde_m, G, L))
+end
 
 @inline function thick_pure_bquadrupole(tm::BmadStandard, bunch, bm2, L)
   K1 = get_thick_strength(bm2, L, bunch.Brho_ref)
