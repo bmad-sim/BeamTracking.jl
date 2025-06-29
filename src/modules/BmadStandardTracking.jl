@@ -619,8 +619,7 @@ end
 
   # Longitudinal update
   rel_e = sqrt(rel_p^2 + tilde_m^2)
-  v[i, ZI] += L * ( tilde_m^2 * v[i,PZI] * (2 + v[i,PZI]) / ( rel_e * ( rel_p * sqrt(1 + tilde_m^2) + rel_e ) ) )
-  v[i, ZI] += L * (rel_p * sqrt(1 + tilde_m^2) / sqrt(rel_p^2 + tilde_m^2) - 1) + 
+  v[i, ZI] += L * ( tilde_m^2 * v[i,PZI] * (2 + v[i,PZI]) / ( rel_e * ( rel_p * sqrt(1 + tilde_m^2) + rel_e ) ) ) + 
           (-g * xc * L) +
           (-g * sx) * x0 +
           z2 * px0 +
@@ -635,82 +634,137 @@ end
 
 # Sextupole
 @makekernel fastgtpsa=true function magnus_thick_sextupole!(i, b::BunchView, K2, β0, gamsqr_0, tilde_m, G, L)
-    mm = [3]
-    K2N = [K2 * L/2]
-    K2S = [0]
+  mm = [3]
+  K2N = [K2 * L/2]
+  K2S = [0]
 
-    # First kick of a kick-drift-kick split
-    ExactTracking.multipole_kick!(i, b, mm, K2N, K2S)
+  # First kick of a kick-drift-kick split
+  ExactTracking.multipole_kick!(i, b, mm, K2N, K2S)
 
-    # ========== Magnus spin rotation ==========
-    if !isnothing(b.q)
-        v = b.v
-        rel_p = 1 + v[i,PZI]
-        γ = sqrt(1 + (rel_p / tilde_m)^2)
-        χ = 1 + G * γ
-        ξ = G * (γ - 1)
-        pl = sqrt(rel_p^2 - v[i,PXI]^2 - v[i,PYI]^2)
+  # ========== Magnus spin rotation ==========
+  if !isnothing(b.q)
+      v = b.v
+      rel_p = 1 + v[i,PZI]
+      γ = sqrt(1 + (rel_p / tilde_m)^2)
+      χ = 1 + G * γ
+      ξ = G * (γ - 1)
+      pl = sqrt(rel_p^2 - v[i,PXI]^2 - v[i,PYI]^2)
 
-        # Common terms for reuse
-        L2 = L^2
-        pl2 = pl^2
-        pl3 = pl^3
-        rel_p2 = rel_p^2
+      # Common terms for reuse
+      L2 = L^2
+      pl2 = pl^2
+      pl3 = pl^3
+      rel_p2 = rel_p^2
 
-        # Convenience pointers
-        Px = v[i,PXI]
-        Py = v[i,PYI]
-        X  = v[i,XI]
-        Y  = v[i,YI]
+      # Convenience pointers
+      Px = v[i,PXI]
+      Py = v[i,PYI]
+      X  = v[i,XI]
+      Y  = v[i,YI]
 
-        # A
-        term_a1 = L2 * (-3Px^2 * Py + Py^3)
-        term_a2 = 3L * pl * (2Px * Py * X + Y * (Px^2 - Py^2))
-        term_a3 = 3pl2 * (2Px * X * Y + Py * (X^2 - Y^2))
-        term_a4 = rel_p2 * χ * (L * Py * (2L * Px + 3pl * X) + 3pl * (L * Px + 2pl * X) * Y)
+      # A
+      term_a1 = L2 * (-3Px^2 * Py + Py^3)
+      term_a2 = 3L * pl * (2Px * Py * X + Y * (Px^2 - Py^2))
+      term_a3 = 3pl2 * (2Px * X * Y + Py * (X^2 - Y^2))
+      term_a4 = rel_p2 * χ * (L * Py * (2L * Px + 3pl * X) + 3pl * (L * Px + 2pl * X) * Y)
 
-        A = Px * ξ * (term_a1 - term_a2 - term_a3) + term_a4
-        A *= K2 * L / (12.0 * pl3 * rel_p2)
+      A = Px * ξ * (term_a1 - term_a2 - term_a3) + term_a4
+      A *= K2 * L / (12.0 * pl3 * rel_p2)
 
-        # B
-        term_b1 = L2 * (-3Px^2 * Py + Py^3)
-        term_b2 = 3L * pl * (2Px * Py * X + Y * (Px^2 - Py^2))
-        term_b3 = 3pl2 * (2Px * X * Y + Py * (X^2 - Y^2))
-        term_b4 = rel_p2 * χ * (L2 * (Px^2 - Py^2) + 3pl2 * (X^2 - Y^2) + 3L * pl * (Px * X - Py * Y))
+      # B
+      term_b1 = L2 * (-3Px^2 * Py + Py^3)
+      term_b2 = 3L * pl * (2Px * Py * X + Y * (Px^2 - Py^2))
+      term_b3 = 3pl2 * (2Px * X * Y + Py * (X^2 - Y^2))
+      term_b4 = rel_p2 * χ * (L2 * (Px^2 - Py^2) + 3pl2 * (X^2 - Y^2) + 3L * pl * (Px * X - Py * Y))
 
-        B = Py * ξ * (term_b1 - term_b2 - term_b3) + term_b4
-        B *= K2 * L / (12.0 * pl3 * rel_p2)
+      B = Py * ξ * (term_b1 - term_b2 - term_b3) + term_b4
+      B *= K2 * L / (12.0 * pl3 * rel_p2)
 
-        # CC
-        term_c1 = L2 * (-3Px^2 * Py + Py^3)
-        term_c2 = 3L * pl * (2Px * Py * X + Y * (Px^2 - Py^2))
-        term_c3 = 3pl2 * (2Px * X * Y + Py * (X^2 - Y^2))
+      # CC
+      term_c1 = L2 * (-3Px^2 * Py + Py^3)
+      term_c2 = 3L * pl * (2Px * Py * X + Y * (Px^2 - Py^2))
+      term_c3 = 3pl2 * (2Px * X * Y + Py * (X^2 - Y^2))
 
-        CC = (term_c1 - term_c2 - term_c3) * K2 * L * ξ / (12.0 * pl2 * rel_p2)
+      CC = (term_c1 - term_c2 - term_c3) * K2 * L * ξ / (12.0 * pl2 * rel_p2)
 
-        # Quaternion update
-        ζ = sqrt(A^2 + B^2 + CC^2)
-        sc = sincu(ζ)
-        quat_mult!(@SVector[-cos(ζ), A*sc, B*sc, CC*sc], b.q)
-    end
-    # ========== End of Magnus spin rotation ==========
+      # Quaternion update
+      ζ = sqrt(A^2 + B^2 + CC^2)
+      sc = sincu(ζ)
+      quat_mult!(@SVector[-cos(ζ), A*sc, B*sc, CC*sc], b.q)
+  end
+  # ========== End of Magnus spin rotation ==========
 
-    # Drift and second kick of a kick-drift-kick split
-    ExactTracking.exact_drift!(   i, b, β0, gamsqr_0, tilde_m, L)
-    ExactTracking.multipole_kick!(i, b, mm, K2N, K2S)
+  # Drift and second kick of a kick-drift-kick split
+  ExactTracking.exact_drift!(   i, b, β0, gamsqr_0, tilde_m, L)
+  ExactTracking.multipole_kick!(i, b, mm, K2N, K2S)
 end
 
 
 # Octupole
 @makekernel fastgtpsa=true function thick_octupole!(i, b::BunchView, K3N, K3S, β0, gamsqr_0, tilde_m, L)
-    mm = [4]
-    K3N = [K3N * L/2]
-    K3S = [K3S * L/2]
+  mm = [4]
+  K3N = [K3N * L/2]
+  K3S = [K3S * L/2]
 
-    # Kick-drift-kick split
-    ExactTracking.multipole_kick!(i, b, mm, K3N, K3S)
-    ExactTracking.exact_drift!(   i, b, β0, gamsqr_0, tilde_m, L)
-    ExactTracking.multipole_kick!(i, b, mm, K3N, K3S)
+  # Kick-drift-kick split
+  ExactTracking.multipole_kick!(i, b, mm, K3N, K3S)
+  ExactTracking.exact_drift!(   i, b, β0, gamsqr_0, tilde_m, L)
+  ExactTracking.multipole_kick!(i, b, mm, K3N, K3S)
+end
+
+@makekernel fastgtpsa=true function hwang_edge!(i, b::BunchView, e, k0, k1, upstream)
+  cos_e = cos(e); 
+  sin_e = sin(e); 
+  tan_e = sin_e / cos_e; 
+  sec_e = 1 / cos_e
+  gt = k0 * tan_e
+  t2 = tan_e * tan_e
+  gt2 = k0 * t2
+  gs2 = k0 * sec_e^2
+  k1_tane = k1 * tan_e
+
+  s = 2 * upstream - 1
+
+  v = b.v
+  v1_2 = v[i, XI] * v[i, XI]
+  v3_2 = v[i, YI] * v[i, YI]
+  e_factor = 1 / (1 + v[i, PZI])
+  fg_factor = 0
+
+  dx  = s * (-gt2 * v[i, XI]^2 + gs2 * v[i, YI]^2) * e_factor / 2
+
+  dpx = e_factor * (s * gt2 * (v[i, XI] * v[i, PXI] - v[i, YI] * v[i, PYI]) + 
+        k1_tane * (v1_2 - v3_2) + k0 * gt * (
+            0.5 * upstream * (1 + 2 * t2) * v3_2 
+          + 0.25 * (s - 1) * t2 * (v1_2 + v3_2)
+        )
+      )
+
+  dy  = s * gt2 * v[i, XI] * v[i, YI] * e_factor
+
+#=
+  if upstream
+    dpx = (gt * g_tot * (1 + 2 * tan_e^2) * v[i, YI]^2 / 2 + gt2 * (v[i, XI] * v[i, PXI] - v[i, YI] * v[i, PYI]) + k1_tane * (v[i, XI]^2 - v[i, YI]^2)) * e_factor
+    dpy = (fg_factor * v[i, YI] - gt2 * v[i, XI] * v[i, PYI] - (k0 + gt2) * v[i, PXI] * v[i, YI] - 2 * k1_tane * v[i, XI] * v[i, YI]) * e_factor
+  else
+    dpx = (gt2 * (v[i, YI] * v[i, PYI] - v[i, XI] * v[i, PXI]) + k1_tane * (v[i, XI]^2 - v[i, YI]^2) - gt * gt2 * (v[i, XI]^2 + v[i, YI]^2) / 2) * e_factor
+    dpy = (fg_factor * v[i, YI] + gt2 * v[i, XI] * v[i, PYI] + (k0 + gt2) * v[i, PXI] * v[i, YI] + (- 2 * k1_tane + gt * gs2) * v[i, XI] * v[i, YI]) * e_factor
+  end
+=#
+
+  dpy = (fg_factor * v[i, YI] - s * (gt2 * v[i, XI] * v[i, PYI] + (k0 + gt2) * v[i, PXI] * v[i, YI]) + ((1 - upstream) * gt * gs2 - 2 * k1_tane) * v[i, XI] * v[i, YI]) * e_factor
+
+
+  dz = e_factor^2 * 0.5 * (v[i, YI]^2 * fg_factor +
+            v[i, XI]^3 * (4.0 * k1_tane - gt * gt2) / 6.0 + 0.5 * v[i, XI]*v[i, YI]^2 * (-4.0 * k1_tane + gt * gs2) +
+            s * ((v[i, XI]^2*v[i, PXI] - 2.0 * v[i, XI]*v[i, YI]*v[i, PYI]) * gt2 - v[i, PXI]*v[i, YI]^2 * gs2))
+
+
+  v[i, PXI] += dpx + gt * v[i, XI]
+  v[i, PYI] += dpy - gt * v[i, YI]
+  v[i,  XI] += dx
+  v[i,  YI] += dy
+  v[i,  ZI] += dz
 end
 
 end

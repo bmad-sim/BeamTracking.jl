@@ -31,19 +31,19 @@ end
 
 @inline function thick_pure_bdipole(tm::BmadStandard, bunch, bm1, L)
   K0 = get_thick_strength(bm1, L, bunch.Brho_ref)
-  beta_gamma_0 = calc_beta_gamma(bunch.species, bunch.Brho_ref)
-  γ0 = sqrt(1 + beta_gamma_0^2)
+  βγ0 = calc_beta_gamma(bunch.species, bunch.Brho_ref)
+  γ0 = sqrt(1 + βγ0^2)
   G = anomalous_moment_of(bunch.species)
-  return KernelCall(BmadStandardTracking.magnus_sbend!, (0, K0, γ0, beta_gamma_0, G, L))
+  return KernelCall(BmadStandardTracking.magnus_sbend!, (0, K0, γ0, βγ0, G, L))
 end
 
 @inline function thick_bend_pure_bdipole(tm::BmadStandard, bunch, bendparams, bm1, L)
   g = bendparams.g
   K0 = get_thick_strength(bm1, L, bunch.Brho_ref)
-  beta_gamma_0 = calc_beta_gamma(bunch.species, bunch.Brho_ref)
-  γ0 = sqrt(1 + beta_gamma_0^2)
+  βγ0 = calc_beta_gamma(bunch.species, bunch.Brho_ref)
+  γ0 = sqrt(1 + βγ0^2)
   G = anomalous_moment_of(bunch.species)
-  return KernelCall(BmadStandardTracking.magnus_sbend!, (g, K0, γ0, beta_gamma_0, G, L))
+  return KernelCall(BmadStandardTracking.magnus_sbend!, (g, K0, γ0, βγ0, G, L))
 end
 
 @inline function thick_bdipole(tm::BmadStandard, bunch, bendparams, bdict, L)
@@ -67,6 +67,19 @@ end
   tilde_m = massof(bunch.species)/calc_p0c(bunch.species, bunch.Brho_ref)
   G = anomalous_moment_of(bunch.species)
   return KernelCall(BmadStandardTracking.magnus_combined_func!, (g, K0, K1, tilde_m, G, L))
+end
+
+@inline function bend_fringe(tm::BmadStandard, bunch, bendparams, bm1, L, upstream)
+  K0 = get_thick_strength(bm1, L, bunch.Brho_ref)
+  e = upstream * bendparams.e1 + (1 - upstream) * bendparams.e2
+  return KernelCall(BmadStandardTracking.hwang_edge!, (e, K0, 0, upstream))
+end
+
+@inline function bend_fringe(tm::BmadStandard, bunch, bendparams, bm1, bm2, L, upstream)
+  K0 = get_thick_strength(bm1, L, bunch.Brho_ref)
+  K1 = get_thick_strength(bm2, L, bunch.Brho_ref)
+  e = upstream * bendparams.e1 + (1 - upstream) * bendparams.e2
+  return KernelCall(BmadStandardTracking.hwang_edge!, (e, K0, K1, upstream))
 end
 
 @inline function thick_pure_bquadrupole(tm::BmadStandard, bunch, bm2, L)
