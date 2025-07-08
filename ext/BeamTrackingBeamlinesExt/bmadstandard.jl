@@ -17,6 +17,19 @@ end
   return KernelCall(ExactTracking.patch!, (tilde_m, patchparams.dt, patchparams.dx, patchparams.dy, patchparams.dz, winv, L))
 end
 
+@inline function misalign(tm::BmadStandard, bunch, ap, in)
+  tilde_m = massof(bunch.species)/calc_p0c(bunch.species, bunch.Brho_ref)
+  sign = 2*in - 1
+  dx = sign * ap.x_offset
+  dy = sign * ap.y_offset
+  dz = sign * ap.z_offset
+  if ap.x_rot != 0 || ap.y_rot != 0 || ap.tilt != 0
+    @warn "Rotational misalignments are ignored (currently not supported)"
+  end
+  winv = @SMatrix [1.0 0 0; 0 1.0 0; 0 0 1.0]
+  return KernelCall(ExactTracking.patch!, (tilde_m, 0, dx, dy, dz, winv, 0))
+end
+
 @inline function drift(tm::BmadStandard, bunch, L)
   tilde_m, gamsqr_0, β0 = ExactTracking.drift_params(bunch.species, bunch.Brho_ref)
   return KernelCall(BmadStandardTracking.magnus_drift!, (β0, gamsqr_0, tilde_m, L))
