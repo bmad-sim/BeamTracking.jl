@@ -356,7 +356,6 @@ zf_mn4  = [ 0., 3.140908277834687e-8, -3.1503450227072763e-8, 3.140908186274627e
 #xf_sb1  = [ 0.,  0.,                      0.,                     4.4834792779340600e-3,  4.5356143287504990e-3, -4.5356143287504990e-3 ]
 #pxf_sb1 = [ 0.,  0.,                      0.,                     1.1607821136240948e-1,  1.1776162121669208e-1, -1.1776162121669208e-1 ]
 #yf_sb1  = [ 0.,  0.,                      0.,                     1.2400905948673489e-4,  1.3427609296030678e-4, -1.3427609296030678e-4 ]
-#pyf_sb1 = [ 0.,  0.,                      0.,                    -2.8691666098954356e-2, -2.8653744321335432e-2,  2.8653744321335432e-2 ]
 #zf_sb1  = [ 0.,  4.903428155019947e-5,   -4.903711865613486e-5,  -4.8701323139842656e-5, -5.1605970700562340e-5, -5.1605970700562340e-5 ]
 
 
@@ -716,49 +715,49 @@ zf_mn4  = [ 0., 3.140908277834687e-8, -3.1503450227072763e-8, 3.140908186274627e
     @test v[:,BeamTracking.PYI] ≈  pyf_mn4 (rtol=5.e-13)
     @test v[:,BeamTracking.PZI] == pzi2
 
-#=
+
     # ===  S B E N D  ===
     #
     # 5 keV electron
-    v = [ xi2 pxi2 yi2 pyi2 zi2 pzi2 ]
-    BeamTracking.launch!(BunchView(Bunch(v)), KernelCall(ExactTracking.exact_sbend!, (β1, Bρ1, hc1, b_1, ee1, ex1, la1)))
-    @test v[:,BeamTracking.XI]  ≈  xf_sb1  (rtol=5.e-13)
-    @test v[:,BeamTracking.YI]  ≈  yf_sb1  (rtol=5.e-13)
-    @test v[:,BeamTracking.ZI]  ≈  zf_sb1  (rtol=5.e-13)
-    @test v[:,BeamTracking.PXI] ≈  pxf_sb1 (rtol=5.e-13)
-    @test v[:,BeamTracking.PYI] ≈  pyf_sb1 (rtol=5.e-13)
-    @test v[:,BeamTracking.PZI] == pzf_sb1
+#    v = [ xi2 pxi2 yi2 pyi2 zi2 pzi2 ]
+#    BeamTracking.launch!(BunchView(Bunch(v)), KernelCall(ExactTracking.exact_sbend!, (β1, Bρ1, hc1, b_1, ee1, ex1, la1)))
+#    @test v[:,BeamTracking.XI]  ≈  xf_sb1  (rtol=5.e-13)
+#    @test v[:,BeamTracking.YI]  ≈  yf_sb1  (rtol=5.e-13)
+#    @test v[:,BeamTracking.ZI]  ≈  zf_sb1  (rtol=5.e-13)
+#    @test v[:,BeamTracking.PXI] ≈  pxf_sb1 (rtol=5.e-13)
+#    @test v[:,BeamTracking.PYI] == pyi2
+#    @test v[:,BeamTracking.PZI] == pzi2
     #
     # 1 MeV electron
-    v = [ xi2 pxi2 yi2 pyi2 zi2 pzi2 ]
-    BeamTracking.launch!(BunchView(Bunch(v)), KernelCall(ExactTracking.exact_sbend!, (β2, Bρ2, hc2, b_2, ee2, ex2, la2)))
-    @test v[:,BeamTracking.XI]  ≈  xf_sb2  (rtol=5.e-13)
-    @test v[:,BeamTracking.YI]  ≈  yf_sb2  (rtol=5.e-13)
-    @test v[:,BeamTracking.ZI]  ≈  zf_sb2  (rtol=5.e-13)
-    @test v[:,BeamTracking.PXI] ≈  pxf_sb2 (rtol=5.e-13)
-    @test v[:,BeamTracking.PYI] ≈  pyf_sb2 (rtol=5.e-13)
-    @test v[:,BeamTracking.PZI] == pzf_sb2
+#    v = [ xi2 pxi2 yi2 pyi2 zi2 pzi2 ]
+#    BeamTracking.launch!(BunchView(Bunch(v)), KernelCall(ExactTracking.exact_sbend!, (β2, Bρ2, hc2, b_2, ee2, ex2, la2)))
+#    @test v[:,BeamTracking.XI]  ≈  xf_sb2  (rtol=5.e-13)
+#    @test v[:,BeamTracking.YI]  ≈  yf_sb2  (rtol=5.e-13)
+#    @test v[:,BeamTracking.ZI]  ≈  zf_sb2  (rtol=5.e-13)
+#    @test v[:,BeamTracking.PXI] ≈  pxf_sb2 (rtol=5.e-13)
+#    @test v[:,BeamTracking.PYI] == pyi2
+#    @test v[:,BeamTracking.PZI] == pzi2
     #
     # 1 GeV electron
-    v = [ xi2 pxi2 yi2 pyi2 zi2 pzi2 ]
-    BeamTracking.launch!(BunchView(Bunch(v)), KernelCall(ExactTracking.exact_sbend!, (β3, Bρ3, hc3, b_3, ee3, ex3, la3)))
-    @test v[:,BeamTracking.XI]  ≈  xf_sb3  (rtol=5.e-13)
-    @test v[:,BeamTracking.YI]  ≈  yf_sb3  (rtol=5.e-13)
-    @test v[:,BeamTracking.ZI]  ≈  zf_sb3  (rtol=5.e-13)
-    @test v[:,BeamTracking.PXI] ≈  pxf_sb3 (rtol=5.e-13)
-    @test v[:,BeamTracking.PYI] ≈  pyf_sb3 (rtol=5.e-13)
-    @test v[:,BeamTracking.PZI] == pzf_sb3
+#    v = [ xi2 pxi2 yi2 pyi2 zi2 pzi2 ]
+#    BeamTracking.launch!(BunchView(Bunch(v)), KernelCall(ExactTracking.exact_sbend!, (β3, Bρ3, hc3, b_3, ee3, ex3, la3)))
+#    @test v[:,BeamTracking.XI]  ≈  xf_sb3  (rtol=5.e-13)
+#    @test v[:,BeamTracking.YI]  ≈  yf_sb3  (rtol=5.e-13)
+#    @test v[:,BeamTracking.ZI]  ≈  zf_sb3  (rtol=5.e-13)
+#    @test v[:,BeamTracking.PXI] ≈  pxf_sb3 (rtol=5.e-13)
+#    @test v[:,BeamTracking.PYI] == pyi2
+#    @test v[:,BeamTracking.PZI] == pzi2
     #
     # 250 GeV proton
-    v = [ xi2 pxi2 yi2 pyi2 zi2 pzi2 ]
-    BeamTracking.launch!(BunchView(Bunch(v)), KernelCall(ExactTracking.exact_sbend!, (β4, Bρ4, hc4, b_4, ee4, ex4, la4)))
-    @test v[:,BeamTracking.XI]  ≈  xf_sb4  (rtol=5.e-13)
-    @test v[:,BeamTracking.YI]  ≈  yf_sb4  (rtol=5.e-13)
-    @test v[:,BeamTracking.ZI]  ≈  zf_sb4  (rtol=5.e-13)
-    @test v[:,BeamTracking.PXI] ≈  pxf_sb4 (rtol=5.e-13)
-    @test v[:,BeamTracking.PYI] ≈  pyf_sb4 (rtol=5.e-13)
-    @test v[:,BeamTracking.PZI] == pzf_sb4
-=#
+#    v = [ xi2 pxi2 yi2 pyi2 zi2 pzi2 ]
+#    BeamTracking.launch!(BunchView(Bunch(v)), KernelCall(ExactTracking.exact_sbend!, (β4, Bρ4, hc4, b_4, ee4, ex4, la4)))
+#    @test v[:,BeamTracking.XI]  ≈  xf_sb4  (rtol=5.e-13)
+#    @test v[:,BeamTracking.YI]  ≈  yf_sb4  (rtol=5.e-13)
+#    @test v[:,BeamTracking.ZI]  ≈  zf_sb4  (rtol=5.e-13)
+#    @test v[:,BeamTracking.PXI] ≈  pxf_sb4 (rtol=5.e-13)
+#    @test v[:,BeamTracking.PYI] == pyi2
+#    @test v[:,BeamTracking.PZI] == pzi2
+
 end
 
   @testset "Utility functions" begin
