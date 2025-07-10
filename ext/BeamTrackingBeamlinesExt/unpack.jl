@@ -12,12 +12,13 @@ function _track!(
   ap = ele.AlignmentParams
   bp = ele.BendParams
   bm = ele.BMultipoleParams
-  rfp= ele.RFParams
   # bc BitsLineElement does not support PatchParams yet
+  rfp= ele isa BitsLineElement ? nothing : ele.RFParams
   pp = ele isa BitsLineElement ? nothing : ele.PatchParams
+  sp = ele isa BitsLineElement ? nothing : ele.SnakeParams
 
   # Function barrier
-  universal!(i, b, tm, bunch, L, ap, bp, bm, rfp, pp; kwargs...)
+  universal!(i, b, tm, bunch, L, ap, bp, bm, rfp, pp, sp; kwargs...)
 end
 
 # Step 2: Push particles through -----------------------------------------
@@ -31,7 +32,8 @@ function universal!(
   bendparams,
   bmultipoleparams,
   rfparams,
-  patchparams;
+  patchparams,
+  snakeparams;
   kwargs...
 ) 
   kc = KernelChain(Val{3}())
@@ -132,11 +134,15 @@ function universal!(
         kc = push(kc, @inline(bmultipole(tm, bunch, bdict, L)))
       end
     end
+  elseif !(L ≈ 0)
+    kc = push(kc, @inline(drift(tm, bunch, L)))
   elseif isactive(rfparams) # RF cavity
     # RF cavity
     kc = push(kc, @inline(cavity(tm, bunch, rfparams, L)))
-  elseif !(L ≈ 0)
-    kc = push(kc, @inline(drift(tm, bunch, L)))
+  elseif isactive(snakeparams)
+    if !isnothing(b.q)
+      kc = push(kc, @inline(thin_snake(tm, bunch, snakeparams.snake_axis, snakeparams.snake_angle)))
+    end
   end
     
   if isactive(alignmentparams)
@@ -163,6 +169,7 @@ end
 @inline thin_bquadrupole(tm, bunch, bdict)    = error("Undefined for tracking method $tm")
 @inline thin_pure_bmultipole(tm, bunch, bmn)  = error("Undefined for tracking method $tm")
 @inline thin_bmultipole(tm, bunch, bdict)     = error("Undefined for tracking method $tm")
+@inline thin_snake(tm, bunch, axis, angle) = KernelCall(BmadStandardTracking.thin_snake!, (axis, angle))
 
 @inline thick_pure_bsolenoid(tm, bunch, bm0, L)   = error("Undefined for tracking method $tm")
 @inline thick_bsolenoid(tm, bunch, bdict, L)      = error("Undefined for tracking method $tm")

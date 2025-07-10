@@ -631,6 +631,9 @@ end
           (-(L + cy * sy) / (4 * rel_p^2)) * py0^2
 end
 
+@makekernel fastgtpsa=true function thin_snake!(i, b::BunchView, axis, angle)
+    quat_mult!(SVector{4}([cos(angle/2), sin(angle/2)*axis...]), b.q)
+end
 
 # Sextupole
 @makekernel fastgtpsa=true function magnus_thick_sextupole!(i, b::BunchView, K2, β0, gamsqr_0, tilde_m, G, L)
