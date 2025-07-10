@@ -133,13 +133,13 @@ ks: vector of skew multipole strengths scaled by Bρ0
 L: element length
 """
 @makekernel fastgtpsa=true function mkm_quadrupole!(i, b::BunchView, beta_0, gamsqr_0, tilde_m, w, w_inv, k1, mm, kn, ks, L)
-  ExactTracking.multipole_kick!(i, b, mm, kn * L / 2, ks * L / 2; start = 3)
+  ExactTracking.multipole_kick!(i, b, mm, kn, ks, L / 2, 3)
   quadrupole_kick!(             i, b, beta_0, gamsqr_0, tilde_m, L / 2)
   ExactTracking.patch!(         i, b, tilde_m, 0, 0, 0, 0, w, 0)
   quadrupole_matrix!(           i, b, k1, L)
   ExactTracking.patch!(         i, b, tilde_m, 0, 0, 0, 0, w_inv, 0)
   quadrupole_kick!(             i, b, beta_0, gamsqr_0, tilde_m, L / 2)
-  ExactTracking.multipole_kick!(i, b, mm, kn * L / 2, ks * L / 2; start = 3)
+  ExactTracking.multipole_kick!(i, b, mm, kn, ks, L / 2, 3)
 end 
 
 
@@ -285,9 +285,9 @@ kn: vector of normal multipole strengths scaled by Bρ0
 sn: vector of skew multipole strengths scaled by Bρ0
 L:  element length
 """
-@makekernel fastgtpsa=true function sks_multipole!(i, b::BunchView, beta_0, gamsqr_0, tilde_m, Ksol, mm, kn, sn, L)
+@makekernel fastgtpsa=true function sks_multipole!(i, b::BunchView, beta_0, gamsqr_0, tilde_m, Ksol, mm, kn, ks, L)
   ExactTracking.exact_solenoid!(i, b, Ksol, beta_0, gamsqr_0, tilde_m, L / 2)
-  ExactTracking.multipole_kick!(i, b, mm, kn * L, sn * L)
+  ExactTracking.multipole_kick!(i, b, mm, kn, ks, L, 1)
   ExactTracking.exact_solenoid!(i, b, Ksol, beta_0, gamsqr_0, tilde_m, L / 2)
 end 
 
@@ -318,7 +318,7 @@ L:  element length
 """
 @makekernel fastgtpsa=true function dkd_multipole!(i, b::BunchView, beta_0, gamsqr_0, tilde_m, mm, kn, ks, L)
   ExactTracking.exact_drift!(   i, b, beta_0, gamsqr_0, tilde_m, L / 2)
-  ExactTracking.multipole_kick!(i, b, mm, kn * L, ks * L)
+  ExactTracking.multipole_kick!(i, b, mm, kn, ks, L, 1)
   ExactTracking.exact_drift!(   i, b, beta_0, gamsqr_0, tilde_m, L / 2)
 end
 

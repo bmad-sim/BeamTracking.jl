@@ -70,12 +70,12 @@ end # function exact_drift!()
 # ===============  M U L T I P O L E  ===============
 #
 """
-    multipole_kick!(i, b, ms, knl, ksl)
+    multipole_kick!(i, b, ms, kn, ks, L, start)
 
 Track a beam of particles through a thin-lens multipole
-having integrated normal and skew strengths listed in the
-coefficient vectors knl and ksl respectively. The vector ms
-lists the orders of the corresponding entries in knl and ksl.
+having normal and skew strengths listed in the
+coefficient vectors kn and ks respectively. The vector ms
+lists the orders of the corresponding entries in kn and ks.
 
 The algorithm used in this function takes advantage of the
 complex representation of the vector potential Az,
@@ -87,8 +87,10 @@ properties, though I've not seen a proof of that claim.
 
 ## Arguments
  - ms:  vector of m values for non-zero multipole coefficients
- - knl: vector of normal integrated multipole strengths
- - ksl: vector of skew integrated multipole strengths
+ - kn: vector of normal multipole strengths
+ - ks: vector of skew multipole strengths
+ - L: length of element (only appears to integrate strengths)
+ - start: lowest multipole order to include
 
 
      NB: Here the j-th component of knl (ksl) denotes the
@@ -99,14 +101,14 @@ properties, though I've not seen a proof of that claim.
        Moreover, and this is essential, the multipole
        coefficients must appear in ascending order.
 """
-@makekernel fastgtpsa=true function multipole_kick!(i, b::BunchView, ms, knl, ksl; start = 1)
+@makekernel fastgtpsa=true function multipole_kick!(i, b::BunchView, ms, kn, ks, L, start)
   v = b.v
 
   jm = length(ms)
   m  = ms[jm]
   add = (start <= m)
-  ar = knl[jm] * add
-  ai = ksl[jm] * add
+  ar = kn[jm] * L * add
+  ai = ks[jm] * L * add
   jm -= 1
   while 2 <= m
     m -= 1
@@ -115,8 +117,8 @@ properties, though I've not seen a proof of that claim.
     ar = t
     add = (0 < jm && m == ms[jm]) && (start <= m) # branchless
     idx = max(1, jm) # branchless trickery
-    ar += knl[idx] * add
-    ai += ksl[idx] * add
+    ar += kn[idx] * L * add
+    ai += ks[idx] * L * add
     jm -= add
   end
   v[i,PXI] -= ar

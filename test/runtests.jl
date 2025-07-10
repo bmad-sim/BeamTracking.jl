@@ -89,7 +89,7 @@ function test_map(
   end
   # 3) No scalar allocations
   if no_scalar_allocs
-    v = [0.1 0.2 0.3 0.4 0.5 0.6]
+    v = [0.1 0.2 0.3 0.4 0.5 6e16]
     @test @ballocated(BeamTracking.launch!(b, $kernel_call; use_KA=false), 
     setup=(b = BunchView(copy($state), copy($v), nothing))) == 0
   end
