@@ -432,6 +432,10 @@ end
     b.state[i] = State.Lost
     @warn "Particle lost in patch (transverse momentum too large)"
   else
+    if !isnothing(b.q)
+      quat_mult!(dcm_to_quat(winv'), b.q)
+    end
+
     ps_0 = sqrt(ps_2)  
     # Translate position vector [x, y]
     x_0 = v[i,XI] - dx                                # x_0
