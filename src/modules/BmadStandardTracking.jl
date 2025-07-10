@@ -648,49 +648,55 @@ end
       γ = sqrt(1 + (rel_p / tilde_m)^2)
       χ = 1 + G * γ
       ξ = G * (γ - 1)
-      pl = sqrt(rel_p^2 - v[i,PXI]^2 - v[i,PYI]^2)
+      pl2 = rel_p^2 - v[i,PXI]^2 - v[i,PYI]^2
+      if pl2 <= 0
+        b.state[i] = State.Lost
+        @warn "Particle lost in sextupole (transverse momentum too large)"
+      else
+        pl = sqrt(pl2)
 
-      # Common terms for reuse
-      L2 = L^2
-      pl2 = pl^2
-      pl3 = pl^3
-      rel_p2 = rel_p^2
+        # Common terms for reuse
+        L2 = L^2
+        pl2 = pl^2
+        pl3 = pl^3
+        rel_p2 = rel_p^2
 
-      # Convenience pointers
-      Px = v[i,PXI]
-      Py = v[i,PYI]
-      X  = v[i,XI]
-      Y  = v[i,YI]
+        # Convenience pointers
+        Px = v[i,PXI]
+        Py = v[i,PYI]
+        X  = v[i,XI]
+        Y  = v[i,YI]
 
-      # A
-      term_a1 = L2 * (-3Px^2 * Py + Py^3)
-      term_a2 = 3L * pl * (2Px * Py * X + Y * (Px^2 - Py^2))
-      term_a3 = 3pl2 * (2Px * X * Y + Py * (X^2 - Y^2))
-      term_a4 = rel_p2 * χ * (L * Py * (2L * Px + 3pl * X) + 3pl * (L * Px + 2pl * X) * Y)
+        # A
+        term_a1 = L2 * (-3Px^2 * Py + Py^3)
+        term_a2 = 3L * pl * (2Px * Py * X + Y * (Px^2 - Py^2))
+        term_a3 = 3pl2 * (2Px * X * Y + Py * (X^2 - Y^2))
+        term_a4 = rel_p2 * χ * (L * Py * (2L * Px + 3pl * X) + 3pl * (L * Px + 2pl * X) * Y)
 
-      A = Px * ξ * (term_a1 - term_a2 - term_a3) + term_a4
-      A *= K2 * L / (12.0 * pl3 * rel_p2)
+        A = Px * ξ * (term_a1 - term_a2 - term_a3) + term_a4
+        A *= K2 * L / (12.0 * pl3 * rel_p2)
 
-      # B
-      term_b1 = L2 * (-3Px^2 * Py + Py^3)
-      term_b2 = 3L * pl * (2Px * Py * X + Y * (Px^2 - Py^2))
-      term_b3 = 3pl2 * (2Px * X * Y + Py * (X^2 - Y^2))
-      term_b4 = rel_p2 * χ * (L2 * (Px^2 - Py^2) + 3pl2 * (X^2 - Y^2) + 3L * pl * (Px * X - Py * Y))
+        # B
+        term_b1 = L2 * (-3Px^2 * Py + Py^3)
+        term_b2 = 3L * pl * (2Px * Py * X + Y * (Px^2 - Py^2))
+        term_b3 = 3pl2 * (2Px * X * Y + Py * (X^2 - Y^2))
+        term_b4 = rel_p2 * χ * (L2 * (Px^2 - Py^2) + 3pl2 * (X^2 - Y^2) + 3L * pl * (Px * X - Py * Y))
 
-      B = Py * ξ * (term_b1 - term_b2 - term_b3) + term_b4
-      B *= K2 * L / (12.0 * pl3 * rel_p2)
+        B = Py * ξ * (term_b1 - term_b2 - term_b3) + term_b4
+        B *= K2 * L / (12.0 * pl3 * rel_p2)
 
-      # CC
-      term_c1 = L2 * (-3Px^2 * Py + Py^3)
-      term_c2 = 3L * pl * (2Px * Py * X + Y * (Px^2 - Py^2))
-      term_c3 = 3pl2 * (2Px * X * Y + Py * (X^2 - Y^2))
+        # CC
+        term_c1 = L2 * (-3Px^2 * Py + Py^3)
+        term_c2 = 3L * pl * (2Px * Py * X + Y * (Px^2 - Py^2))
+        term_c3 = 3pl2 * (2Px * X * Y + Py * (X^2 - Y^2))
 
-      CC = (term_c1 - term_c2 - term_c3) * K2 * L * ξ / (12.0 * pl2 * rel_p2)
+        CC = (term_c1 - term_c2 - term_c3) * K2 * L * ξ / (12.0 * pl2 * rel_p2)
 
-      # Quaternion update
-      ζ = sqrt(A^2 + B^2 + CC^2)
-      sc = sincu(ζ)
-      quat_mult!(@SVector[-cos(ζ), A*sc, B*sc, CC*sc], b.q)
+        # Quaternion update
+        ζ = sqrt(A^2 + B^2 + CC^2)
+        sc = sincu(ζ)
+        quat_mult!(@SVector[-cos(ζ), A*sc, B*sc, CC*sc], b.q)
+      end
   end
   # ========== End of Magnus spin rotation ==========
 
