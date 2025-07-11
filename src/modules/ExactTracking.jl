@@ -194,6 +194,50 @@ to carry both reference and design values.
                + (1 + v[i,PZI]) * Lr / (beta_0 * sqrt(1 / beta_0^2 + (2 + v[i,PZI]) * v[i,PZI])))
 end # function exact_sbend!()
 
+"""
+    exact_bend!(i, b::BunchView, theta, g, k0, tilde_m, beta_0, L)
+
+Tracks a particle through a sector bend via exact tracking. (no edge angles)
+
+#Arguments
+- 'theta'    -- 'g' * 'L'
+- 'g'        -- curvature
+- 'k0'       -- normalized dipole field
+- 'tilde_m'  -- mc2/p0c
+- 'beta_0'   -- p0c/E0
+- 'L'        -- length
+"""
+@inline function exact_bend!(i, b::BunchView, theta, g, k0, tilde_m, beta_0, L)
+  v = b.v
+  rel_p = 1 + v[i,PZI]
+  pt = sqrt(rel_p^2 - v[i,PYI]^2) #pt
+  phi1 = theta + asin(v[i,PXI] / pt) #phi1
+  gp = k0 / pt #gp
+  h = 1+g*v[i,XI] # 1 + g * x
+  cplus = cos(phi1) #cos(theta + phi1)
+  sinc_theta = sincu(theta) #sincu(theta)
+  alpha = 2*h*sin(phi1)*abs(L)*sinc_theta- gp*h^2*L^2*(sinc_theta)^2 #alpha
+  cond = cplus^2 + gp*alpha
+  #particle does not intersect the exit face
+  if cond <= 0
+    b.state[i] = State.Lost
+    return
+  end
+  if abs(phi1) < π/2
+      xi = alpha/(sqrt(cond) + cplus) #xi
+  else
+      xi = (sqrt(cond) - cplus) / gp #xi
+  end
+  Lcv = -L*sinc_theta-sign(L)*v[i,XI]*sin(theta) #Lcv
+  thetap = 2 * (phi1 - sign(L)*atan(xi, -Lcv)) #theta_p
+  Lp = sign(L)*sqrt(Lcv^2 + xi^2) / sincu(thetap/2) #Lp
+
+  v[i,XI] = v[i,XI]*cos(theta) - g/2*L^2*(sincu(theta/2))^2 + xi
+  v[i,PXI] = pt*sin(phi1 - thetap)
+  v[i,YI] = v[i,YI] + v[i,PYI]*Lp/pt 
+  v[i,ZI] = v[i,ZI] - rel_p*Lp/pt + 
+                  abs(L)*rel_p/sqrt(tilde_m^2+rel_p^2)/beta_0
+end
 
 @makekernel fastgtpsa=true function exact_solenoid!(i, b::BunchView, ks, beta_0, gamsqr_0, tilde_m, L)
   v = b.v
@@ -308,6 +352,4 @@ function drift_params(species::Species, Brho)
   return tilde_m, gamsqr_0, beta_0
 end
 
-
 end
-
