@@ -5,4 +5,6 @@
 *~
 *.swp
 .DS_Store
+*.png
 
+examples/mpi/06-scatterv.jl
