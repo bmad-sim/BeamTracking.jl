@@ -15,7 +15,7 @@ using KernelAbstractions
 import GTPSA: sincu, sinhcu
 import Base: setproperty!
 
-export Bunch, Species, State, ParticleView, ELECTRON, POSITRON, PROTON, ANTIPROTON, sincu, sinhcu, sincuc, quat_mult!, quat_inv
+export Bunch, Species, State, ParticleView, ELECTRON, POSITRON, PROTON, ANTIPROTON, sincu, sinhcu, sincuc, quat_mult!, quat_inv, TBMT_quat
 export LinearTracking, Linear
 export ExactTracking, Exact
 export BmadStandardTracking, BmadStandard

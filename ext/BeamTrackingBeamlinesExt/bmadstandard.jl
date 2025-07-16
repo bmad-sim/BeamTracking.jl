@@ -3,9 +3,9 @@
   φ0 = rfparams.phi0
   tilde_m, gamsqr_0, β0 = ExactTracking.drift_params(bunch.species, bunch.Brho_ref)
   if rfparams.harmon_master == true
-    wave_number = rfparams.frequency / rfparams.L_ring
+    wave_number = rfparams.harmonic_number / rfparams.L_ring
   else
-    wave_number = rfparams.frequency / (β0 * C_LIGHT)
+    wave_number = rfparams.rf_frequency / (β0 * C_LIGHT)
   end
   p0c = calc_p0c(bunch.species, bunch.Brho_ref)
   return KernelCall(BmadStandardTracking.bmad_cavity!, (V, wave_number, φ0, β0, gamsqr_0, tilde_m, p0c, L))
@@ -83,16 +83,22 @@ end
 end
 
 @inline function bend_fringe(tm::BmadStandard, bunch, bendparams, bm1, L, upstream)
-  K0 = get_thick_strength(bm1, L, bunch.Brho_ref)
   e = upstream * bendparams.e1 + (1 - upstream) * bendparams.e2
-  return KernelCall(BmadStandardTracking.hwang_edge!, (e, K0, 0, upstream))
+  g = bendparams.g
+  K0 = get_thick_strength(bm1, L, bunch.Brho_ref)
+  G = anomalous_moment_of(bunch.species)
+  βγ0 = calc_beta_gamma(bunch.species, bunch.Brho_ref)
+  return KernelCall(BmadStandardTracking.hwang_edge!, (e, g, K0, 0, G, βγ0, upstream))
 end
 
 @inline function bend_fringe(tm::BmadStandard, bunch, bendparams, bm1, bm2, L, upstream)
+  e = upstream * bendparams.e1 + (1 - upstream) * bendparams.e2
+  g = bendparams.g
   K0 = get_thick_strength(bm1, L, bunch.Brho_ref)
   K1 = get_thick_strength(bm2, L, bunch.Brho_ref)
-  e = upstream * bendparams.e1 + (1 - upstream) * bendparams.e2
-  return KernelCall(BmadStandardTracking.hwang_edge!, (e, K0, K1, upstream))
+  G = anomalous_moment_of(bunch.species)
+  βγ0 = calc_beta_gamma(bunch.species, bunch.Brho_ref)
+  return KernelCall(BmadStandardTracking.hwang_edge!, (e, g, K0, K1, G, βγ0, upstream))
 end
 
 @inline function thick_pure_bquadrupole(tm::BmadStandard, bunch, bm2, L)

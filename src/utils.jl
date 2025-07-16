@@ -93,14 +93,31 @@ function sincuc(x)
   return y
 end
 
-function quat_mult!(q1, q2)
+"""
+returns instantaneous T_BMT quaternion in a straight coordinate system for particle `i` in a bunch
+"""
+function TBMT_quat(G, gx, gy, γ, Bρ, B::Vector{<:Number}, bv::Matrix{<:Number}, i)
+  v = bv[i,:]
+  rel_p = 1 + v[6]
+  ps = sqrt(rel_p^2 - v[2]^2 - v[4]^2)
+  β_hat = [v[2], v[4], ps] / rel_p
+  B_para = (B' * β_hat) * β_hat
+  B_perp = B - B_para
+  # T-BMT precession in straight coordinate system
+  Ω = -((1+G*γ) * B_perp .+ (1+G) * B_para) / (Bρ * ps)
+  θ = norm(Ω)
+  Ω /= (θ + (θ==0))  # if θ==0, denominator is 1, so Ω unchanged; else Ω /= θ
+  return SVector(cos(θ/2), sin(θ/2)*Ω...)
+end
+
+function quat_mult!(q1, q2, i)
   # In-place quaternion multiplication: q2 := q1 * q2
   w1, x1, y1, z1 = q1
-  w2, x2, y2, z2 = q2
-  q2[1] = w1*w2 - x1*x2 - y1*y2 - z1*z2
-  q2[2] = w1*x2 + x1*w2 + y1*z2 - z1*y2
-  q2[3] = w1*y2 - x1*z2 + y1*w2 + z1*x2
-  q2[4] = w1*z2 + x1*y2 - y1*x2 + z1*w2
+  w2, x2, y2, z2 = q2[i,:]
+  q2[i,1] = w1*w2 - x1*x2 - y1*y2 - z1*z2
+  q2[i,2] = w1*x2 + x1*w2 + y1*z2 - z1*y2
+  q2[i,3] = w1*y2 - x1*z2 + y1*w2 + z1*x2
+  q2[i,4] = w1*z2 + x1*y2 - y1*x2 + z1*w2
 end
 
 function quat_inv(q)
@@ -114,6 +131,8 @@ const Q = 1.602176634e-19 # C
 const C_LIGHT = 2.99792458e8 # m/s
 const M_ELECTRON = 0.51099895069e6 # eV/c^2
 const M_PROTON = 9.3827208943e8 # eV/c^2
+const G_ELECTRON = 0.00115965218059
+const G_PROTON = 1.79284734463
 
 struct Species
   name::String
@@ -122,11 +141,11 @@ struct Species
   anomalous_magnetic_moment::Float64 # dimensionless, e.g. 0.001 for electron, 1.79285 for proton
 end
 
-const ELECTRON = Species("electron", M_ELECTRON,-1, 0.00115965218059)
-const POSITRON = Species("positron", M_ELECTRON, 1, 0.00115965218059)
+const ELECTRON = Species("electron", M_ELECTRON,-1, G_ELECTRON)
+const POSITRON = Species("positron", M_ELECTRON, 1, G_ELECTRON)
 
-const PROTON = Species("proton", M_PROTON, 1, 1.79284734463)
-const ANTIPROTON = Species("antiproton", M_PROTON,-1, 1.79284734463)
+const PROTON = Species("proton", M_PROTON, 1, G_PROTON)
+const ANTIPROTON = Species("antiproton", M_PROTON,-1, G_PROTON)
 
 
 function Species(name)

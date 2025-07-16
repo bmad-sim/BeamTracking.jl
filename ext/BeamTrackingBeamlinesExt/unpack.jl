@@ -134,8 +134,6 @@ function universal!(
         kc = push(kc, @inline(bmultipole(tm, bunch, bdict, L)))
       end
     end
-  elseif !(L ≈ 0)
-    kc = push(kc, @inline(drift(tm, bunch, L)))
   elseif isactive(rfparams) # RF cavity
     # RF cavity
     kc = push(kc, @inline(cavity(tm, bunch, rfparams, L)))
@@ -143,6 +141,8 @@ function universal!(
     if !isnothing(b.q)
       kc = push(kc, @inline(thin_snake(tm, bunch, snakeparams.snake_axis, snakeparams.snake_angle)))
     end
+  elseif !(L ≈ 0)
+    kc = push(kc, @inline(drift(tm, bunch, L)))
   end
     
   if isactive(alignmentparams)

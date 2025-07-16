@@ -12,24 +12,28 @@ const TRACKING_METHOD = BmadStandard
   # ============= Kick - Drift - Kick scheme =============
   # First kick
   rel_p = 1 + v[i, PZI]
-  φ = φ0 - 2π * wave_number * z * sqrt(rel_p^2 + tilde_m^2) / (rel_p * sqrt(1 + tilde_m^2))
+  φ = φ0 - 2π * wave_number * v[i, ZI] * sqrt(rel_p^2 + tilde_m^2) / (rel_p * sqrt(1 + tilde_m^2))
+  φ = mod2pi(φ) - π
   dE = V * sin(φ) / 2
-  dE_rel = dE / p0c
-  S = sqrt(rel_p^2 + tilde_m^2)
-  Δ = (2S + dE_rel) * dE_rel
-  v[i, PZI] += Δ / (rel_p + sqrt(rel_p^2 + Δ^2))
+  pc = rel_p * p0c
+  E_old = sqrt(pc^2 + (tilde_m * p0c)^2)
+  tmp = (2 * E_old * dE + dE^2) / pc^2
+  v[i, PZI] += rel_p * tmp / (1 + sqrt(1 + tmp))
+  v[i,  ZI] *= (1 + v[i, PZI]) * E_old / (rel_p * (E_old + dE))
 
   # Drift
+  z = v[i, ZI]
   ExactTracking.exact_drift!(i, b::BunchView, β0, gamsqr_0, tilde_m, L)
+  rel_p = 1 + v[i, PZI]
+  φ -= 2π * wave_number * (v[i, ZI] - z) * sqrt(rel_p^2 + tilde_m^2) / (rel_p * sqrt(1 + tilde_m^2))
 
   # Second kick
-  rel_p = 1 + v[i, PZI]
-  φ += 2π * wave_number * (v[i, ZI] - z) * sqrt(rel_p^2 + tilde_m^2) / (rel_p * sqrt(1 + tilde_m^2))
   dE = V * sin(φ) / 2
-  dE_rel = dE / p0c
-  S = sqrt(rel_p^2 + tilde_m^2)
-  Δ = (2S + dE_rel) * dE_rel
-  v[i, PZI] += Δ / (rel_p + sqrt(rel_p^2 + Δ^2))
+  pc = rel_p * p0c
+  E_old = sqrt(pc^2 + (tilde_m * p0c)^2)
+  tmp = (2 * E_old * dE + dE^2) / pc^2
+  v[i, PZI] += rel_p * tmp / (1 + sqrt(1 + tmp))
+  v[i,  ZI] *= (1 + v[i, PZI]) * E_old / (rel_p * (E_old + dE))
 end
 
 # Drift - no spin rotation
@@ -95,7 +99,7 @@ end
         # Quaternion update for spin
         ζ = sqrt(A^2 + B^2 + CC^2)
         sc = sincu(ζ)
-        quat_mult!(@SVector[-cos(ζ), A*sc, B*sc, CC*sc], b.q)
+        quat_mult!(@SVector[-cos(ζ), A*sc, B*sc, CC*sc], b.q, i)
     end
 
     # Update coordinates
@@ -180,7 +184,7 @@ end
 
         ζ = sqrt(A^2 + B^2 + CC^2)
         sc = sincu(ζ)
-        quat_mult!(@SVector[-cos(ζ), A*sc, B*sc, CC*sc], b.q)
+        quat_mult!(@SVector[-cos(ζ), A*sc, B*sc, CC*sc], b.q, i)
     end
 
     # Update coordinates
@@ -248,7 +252,7 @@ end
         # Quaternion update for spin
         ζ = sqrt(A^2 + B^2 + CC^2)
         sc = sincu(ζ)
-        quat_mult!(@SVector[-cos(ζ), A*sc, B*sc, CC*sc], b.q)
+        quat_mult!(@SVector[-cos(ζ), A*sc, B*sc, CC*sc], b.q, i)
     end
 
     # Update coordinates
@@ -317,6 +321,7 @@ end
     a1 = b1 = cc1 = a2 = b2 = cc2 = 0.0
 
     if kx > 0 && k1 > 0 
+        println("kx > 0 && k1 > 0")
           a1 = k0 * ξ * ωy^2 * (
               py0 * ωx^2 * (-cy * px0 * sx - c * rel_p * xd * ωx) -
               (cx * px0 * py0 * sy + c * px0 * rel_p * y0 + px0 * rel_p * sx * sy * y0 * ωx^2 -
@@ -332,7 +337,6 @@ end
               )
           )
           a1 *= 0.5 / (rel_p^3 * η * ωy^2)
-
           b1 = 2 * g * px0 * (
               k1 * L * px0 - 2 * (cx - 1) * k0 * rel_p +
               k1 * (rel_p * (x0 + 3 * xc) - cx * (px0 * sx + 4 * rel_p * xc) - cx^2 * rel_p * xd)
@@ -348,12 +352,10 @@ end
                   8 * L * (rel_p - 1) + 4 * L * (rel_p - 1)^2 +
                   cx * px0^2 * sx + (cx^2 - 1) * px0 * rel_p * xd * ωx -
                   px0 * rel_p * sx^2 * xd * ωx^3 + rel_p^3 * (L - cx * sx) * xd^2 * ωx^4
-              )
+              ) - rel_p^2 * (L - cy * sy) * y0^2 * ν * ωy^2 +
+              py0 * y0 * ν * ((cy^2 - 1) * (rel_p - 1) + rel_p * sy^2 * ωy^2)
           )
-          b1 -= rel_p^2 * (L - cy * sy) * y0^2 * ν * ωy^2
-          b1 += py0 * y0 * ν * ((cy^2 - 1) * (rel_p - 1) + rel_p * sy^2 * ωy^2)
           b1 /= 8 * rel_p^3 * ωx^2
-
           cc1 = k0 * rel_p * (1 + g * xc) * (py0 * sy + (cy - 1) * rel_p * y0) * η
           cc1 += kx * py0 * (-c * px0 + cy * rel_p * sx * xd * ωx^2)
           cc1 += kx * (
@@ -390,21 +392,21 @@ end
           b2 = k0 * k1 * (L - sy) * ξ * χ * (py0^2 - rel_p^2 * y0^2 * ωy^2) / (4 * rel_p^4 * ωy^2)
 
           cc2 = px0 * (
-              py0 * ((cx - cy - 1) * η + cx * cy * ωy^2 + ωx^2 * (2 - cx * cy + 2 * sx * sy * ωy^2)) +
-              rel_p * y0 * ωy^2 * (2 * cy * sx * ωx^2 - sy * (η + cx * μ))
-          )
+                py0 * ((cx - cy - 1) * η + cx * cy * ωy^2 + ωx^2 * (2 - cx * cy + 2 * sx * sy * ωy^2)) +
+                rel_p * y0 * ωy^2 * (2 * cy * sx * ωx^2 - sy * (η + cx * μ))
+            )
           cc2 -= rel_p * ωx^2 * (
-              L * xc * η * ((cy + 1) * py0 + rel_p * sy * y0 * ωy^2) +
-              py0 * (
-                  -2 * sy * (xc * η + cx * xd * ωy^2) + sx * xd * (η - cy * μ)
-              ) +
-              rel_p * y0 * (
-                  2 * xc * ωx^2 - 2 * cy * (xc * η + cx * xd * ωy^2) + ωy^2 * (2 * x0 - sx * sy * xd * μ)
-              )
-          )
+                L * xc * η * ((cy + 1) * py0 + rel_p * sy * y0 * ωy^2) +
+                py0 * (-2 * sy * (xc * η + cx * xd * ωy^2) + sx * xd * (η - cy * μ)) +
+                rel_p * y0 * (
+                    2 * xc * ωx^2 - 2 * cy * (xc * η + cx * xd * ωy^2) + ωy^2 * (2 * x0 - sx * sy * xd * μ)
+                )
+            )
           cc2 *= 0.25 * k1 * kx * χ^2 / (rel_p^4 * η * ωx^2 * ωy^2)
+    
+# ==============================================================
     elseif kx > 0 && k1 < 0
-        if abs(μ) > 1e-14
+        if abs(μ) > 1e-20
             a1 = k0 * ξ * ωy^2 * (
                 py0 * ωx^2 * (-cy * px0 * sx - c * rel_p * xd * ωx) +
                 (cx * px0 * py0 * sy + c * px0 * rel_p * y0 + px0 * rel_p * sx * sy * y0 * ωx^2 -
@@ -459,7 +461,7 @@ end
             error("μ ≈ 0 should not happen for k0 > 0 and k1 < 0")
         end
     elseif kx < 0 && k1 > 0
-        if abs(μ) > 1e-14
+        if abs(μ) > 1e-20
             a1 = k0 * ξ * ωy^2 * (
                 py0 * ωx^2 * (-cy * px0 * sx - c * rel_p * xd * ωx) +
                 (cx * px0 * py0 * sy + c * px0 * rel_p * y0 - px0 * rel_p * sx * sy * y0 * ωx^2 +
@@ -606,7 +608,7 @@ end
 
     ζ = sqrt(A^2 + B^2 + CC^2)
     sc = sincu(ζ)
-    quat_mult!(@SVector[-cos(ζ), A*sc, B*sc, CC*sc], b.q)
+    quat_mult!(@SVector[-cos(ζ), A*sc, B*sc, CC*sc], b.q, i)
   end
 
   x0 -= xc
@@ -632,7 +634,7 @@ end
 end
 
 @makekernel fastgtpsa=true function thin_snake!(i, b::BunchView, axis, angle)
-    quat_mult!(SVector{4}([cos(angle/2), sin(angle/2)*axis...]), b.q)
+    quat_mult!(SVector{4}([cos(angle/2), sin(angle/2)*axis...]), b.q, i)
 end
 
 # Sextupole
@@ -698,7 +700,7 @@ end
         # Quaternion update
         ζ = sqrt(A^2 + B^2 + CC^2)
         sc = sincu(ζ)
-        quat_mult!(@SVector[-cos(ζ), A*sc, B*sc, CC*sc], b.q)
+        quat_mult!(@SVector[-cos(ζ), A*sc, B*sc, CC*sc], b.q, i)
       end
   end
   # ========== End of Magnus spin rotation ==========
@@ -721,7 +723,7 @@ end
   ExactTracking.multipole_kick!(i, b, mm, K3N, K3S)
 end
 
-@makekernel fastgtpsa=true function hwang_edge!(i, b::BunchView, e, k0, k1, upstream)
+@makekernel fastgtpsa=true function hwang_edge!(i, b::BunchView, e, g, k0, k1, G, βγ0, upstream)
   cos_e = cos(e); 
   sin_e = sin(e); 
   tan_e = sin_e / cos_e; 
@@ -736,11 +738,12 @@ end
 
   v = b.v
   v1_2 = v[i, XI] * v[i, XI]
+  v13  = v[i, XI] * v[i, YI]
   v3_2 = v[i, YI] * v[i, YI]
   e_factor = 1 / (1 + v[i, PZI])
   fg_factor = 0
 
-  dx  = s * (-gt2 * v[i, XI]^2 + gs2 * v[i, YI]^2) * e_factor / 2
+  dx  = s * (-gt2 * v1_2 + gs2 * v3_2) * e_factor / 2
 
   dpx = e_factor * (s * gt2 * (v[i, XI] * v[i, PXI] - v[i, YI] * v[i, PYI]) + 
         k1_tane * (v1_2 - v3_2) + k0 * gt * (
@@ -749,24 +752,15 @@ end
         )
       )
 
-  dy  = s * gt2 * v[i, XI] * v[i, YI] * e_factor
+  dy  = s * gt2 * v13 * e_factor
 
-#=
-  if upstream
-    dpx = (gt * g_tot * (1 + 2 * tan_e^2) * v[i, YI]^2 / 2 + gt2 * (v[i, XI] * v[i, PXI] - v[i, YI] * v[i, PYI]) + k1_tane * (v[i, XI]^2 - v[i, YI]^2)) * e_factor
-    dpy = (fg_factor * v[i, YI] - gt2 * v[i, XI] * v[i, PYI] - (k0 + gt2) * v[i, PXI] * v[i, YI] - 2 * k1_tane * v[i, XI] * v[i, YI]) * e_factor
-  else
-    dpx = (gt2 * (v[i, YI] * v[i, PYI] - v[i, XI] * v[i, PXI]) + k1_tane * (v[i, XI]^2 - v[i, YI]^2) - gt * gt2 * (v[i, XI]^2 + v[i, YI]^2) / 2) * e_factor
-    dpy = (fg_factor * v[i, YI] + gt2 * v[i, XI] * v[i, PYI] + (k0 + gt2) * v[i, PXI] * v[i, YI] + (- 2 * k1_tane + gt * gs2) * v[i, XI] * v[i, YI]) * e_factor
-  end
-=#
-
-  dpy = (fg_factor * v[i, YI] - s * (gt2 * v[i, XI] * v[i, PYI] + (k0 + gt2) * v[i, PXI] * v[i, YI]) + ((1 - upstream) * gt * gs2 - 2 * k1_tane) * v[i, XI] * v[i, YI]) * e_factor
+  dpy = (fg_factor * v[i, YI] - s * (gt2 * v[i, XI] * v[i, PYI] + (k0 + gt2) * v[i, PXI] * v[i, YI]) 
+        + ((1 - upstream) * gt * gs2 - 2 * k1_tane) * v13) * e_factor
 
 
-  dz = e_factor^2 * 0.5 * (v[i, YI]^2 * fg_factor +
-            v[i, XI]^3 * (4.0 * k1_tane - gt * gt2) / 6.0 + 0.5 * v[i, XI]*v[i, YI]^2 * (-4.0 * k1_tane + gt * gs2) +
-            s * ((v[i, XI]^2*v[i, PXI] - 2.0 * v[i, XI]*v[i, YI]*v[i, PYI]) * gt2 - v[i, PXI]*v[i, YI]^2 * gs2))
+  dz = e_factor^2 * 0.5 * (v3_2 * fg_factor +
+            v[i, XI]^3 * (4.0 * k1_tane - gt * gt2) / 6.0 + 0.5 * v[i, XI]*v3_2 * (-4.0 * k1_tane + gt * gs2) +
+            s * ((v[i, XI]^2*v[i, PXI] - 2.0 * v13*v[i, PYI]) * gt2 - v[i, PXI]*v3_2 * gs2))
 
 
   v[i, PXI] += dpx + gt * v[i, XI]
@@ -774,6 +768,16 @@ end
   v[i,  XI] += dx
   v[i,  YI] += dy
   v[i,  ZI] += dz
+
+  # spin tracking should be symmetrized, and exit edge face e2 does not reproduce Bmad
+  if !isnothing(b.q)
+    rel_p = 1 + v[i, PZI]
+    γ = sqrt(1 + (rel_p * βγ0)^2)
+    B = k0 * [-sin_e * v[i, YI], -tan_e * v[i, XI], cos_e * v[i, YI]]
+    B -= k1 * tan_e * v[i, XI] * [v13, v1_2 - v3_2, 0.0]
+    B[3] *= s
+    quat_mult!(TBMT_quat(G, 0, 0, γ, 1, B, b.v, i), b.q, i)
+  end
 end
 
 end

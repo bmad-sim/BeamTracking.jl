@@ -433,7 +433,7 @@ end
     @warn "Particle lost in patch (transverse momentum too large)"
   else
     if !isnothing(b.q)
-      quat_mult!(dcm_to_quat(winv'), b.q)
+      quat_mult!(dcm_to_quat(winv'), b.q, i)
     end
 
     ps_0 = sqrt(ps_2)  
