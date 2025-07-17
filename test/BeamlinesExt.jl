@@ -116,14 +116,45 @@
     v_expected = read_map("bmad_maps/solenoid.jl")
     @test coeffs_approx_equal(v_expected, b0.v, 5e-10)
 
+    # Thick pure bend:
+    ele_bend = LineElement(L=0.5, g=1, Kn0 = 1.001, tracking_method=Exact())
+    b0 = Bunch(collect(transpose(@vars(D1))), Brho_ref=Brho_ref)
+    bl = Beamline([ele_bend], Brho_ref=Brho_ref)
+    track!(b0, bl)
+    M_bend = [  0.8773527130168902E+00  0.4793669072377229E+00 0.0000000000000000E+00 0.0000000000000000E+00 0.0000000000000000E+00  0.1225248770305213E+00
+               -0.4799049641428075E+00  0.8775825618903755E+00 0.0000000000000000E+00 0.0000000000000000E+00 0.0000000000000000E+00  0.4794255386042034E+00
+                0.0000000000000000E+00  0.0000000000000000E+00 0.1000000000000000E+01 0.4999794461108593E+00 0.0000000000000000E+00  0.0000000000000000E+00
+                0.0000000000000000E+00  0.0000000000000000E+00 0.0000000000000000E+00 0.1000000000000000E+01 0.0000000000000000E+00  0.0000000000000000E+00
+               -0.4794255937019158E+00 -0.1222950422117283E+00 0.0000000000000000E+00 0.0000000000000000E+00 0.1000000000000000E+01 -0.1925165307287538E-01
+                0.0000000000000000E+00  0.0000000000000000E+00 0.0000000000000000E+00 0.0000000000000000E+00 0.0000000000000000E+00  0.1000000000000000E+01   ]
+
+    @test GTPSA.jacobian(b0.v) ≈ M_bend
+
+    # Thick pure dipole:
+    ele_thick_dipole = LineElement(L=0.5, Kn0 = 0.001, tracking_method=Exact())
+    b0 = Bunch(collect(transpose(@vars(D1))), Brho_ref=Brho_ref)
+    bl = Beamline([ele_thick_dipole], Brho_ref=Brho_ref)
+    track!(b0, bl)
+    M_thick_dipole = [  0.1000000000000000E+01 0.5000000625000115E+00 0.0000000000000000E+00 0.0000000000000000E+00 0.0000000000000000E+00  0.1250000234375049E-03 
+                        0.0000000000000000E+00 0.9999999999999988E+00 0.0000000000000000E+00 0.0000000000000000E+00 0.0000000000000000E+00 -0.1355252715606880E-18  
+                        0.0000000000000000E+00 0.0000000000000000E+00 0.1000000000000000E+01 0.5000000208333357E+00 0.0000000000000000E+00  0.0000000000000000E+00  
+                        0.0000000000000000E+00 0.0000000000000000E+00 0.0000000000000000E+00 0.1000000000000000E+01 0.0000000000000000E+00  0.0000000000000000E+00   
+                        0.0000000000000000E+00 0.1250000234375048E-03 0.0000000000000000E+00 0.0000000000000000E+00 0.1000000000000000E+01  0.1302241002743759E-02   
+                        0.0000000000000000E+00 0.0000000000000000E+00 0.0000000000000000E+00 0.0000000000000000E+00 0.0000000000000000E+00  0.1000000000000000E+01  ]
+
+    @test GTPSA.jacobian(b0.v) ≈ M_thick_dipole
+
+    b0 = Bunch(collect(transpose(@vars(D1))), Brho_ref=Brho_ref)
+    ele_kick = LineElement(L=1.0, Kn0L=1.0, tracking_method=Exact())
+    track!(b0, Beamline([ele_kick],       Brho_ref=Brho_ref))
+    @test b0.state[1] == State.Lost
 
     # Errors:
-    ele_kick = LineElement(L=1.0, Kn0L=1.0, tracking_method=Exact())
+    b0 = Bunch(collect(transpose(@vars(D1))), Brho_ref=Brho_ref)
     ele_bend = LineElement(L=1.0, g=0.01, tracking_method=Exact())
     ele_patch_bend = LineElement(L=1.0, g=0.01, dy=3.0, dz_rot=0.3, tracking_method=Exact())
     ele_patch_sol = LineElement(L=1.0, Ksol=1.0, dt=1.0, tracking_method=Exact())
     ele_bend_quad = LineElement(L=1.0, g=0.01, Kn1=1.0, tracking_method=Exact())
-    @test_throws ErrorException track!(b0, Beamline([ele_kick],       Brho_ref=Brho_ref))
     @test_throws ErrorException track!(b0, Beamline([ele_bend],       Brho_ref=Brho_ref))
     @test_throws ErrorException track!(b0, Beamline([ele_patch_bend], Brho_ref=Brho_ref))
     @test_throws ErrorException track!(b0, Beamline([ele_patch_sol],  Brho_ref=Brho_ref))
