@@ -30,10 +30,10 @@ end=#
 
 @inline function thick_pure_bquadrupole(tm::BmadStandard, bunch, bm2, L)
   K1 = get_thick_strength(bm2, L, bunch.Brho_ref)
-  beta_gamma_0 = calc_beta_gamma(bunch.species, bunch.Brho_ref)
-  tilde_m = 1/beta_gamma_0
+  βγ0 = calc_beta_gamma(bunch.species, bunch.Brho_ref)
+  tilde_m = 1/βγ0
   G = anomalous_moment_of(bunch.species)
-  return KernelCall(BmadStandardTracking.magnus_quadrupole!, (K1, beta_gamma_0, tilde_m, G, L))
+  return KernelCall(BmadStandardTracking.magnus_quadrupole!, (K1, βγ0, tilde_m, G, L))
 end
 
 @inline function thick_pure_bmultipole(tm::BmadStandard, bunch, bmn, L)

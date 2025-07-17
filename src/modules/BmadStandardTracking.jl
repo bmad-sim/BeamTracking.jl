@@ -163,11 +163,11 @@ end
 end
 
 # Quadrupole
-@makekernel fastgtpsa=true function magnus_quadrupole!(i, b::BunchView, K1, beta_gamma_0, tilde_m, G, L)
+@makekernel fastgtpsa=true function magnus_quadrupole!(i, b::BunchView, K1, βγ0, tilde_m, G, L)
     v = b.v
     rel_p = 1 + v[i,PZI]
     if !isnothing(b.q)
-        γ = sqrt(1 + (beta_gamma_0 * rel_p)^2)
+        γ = sqrt(1 + (βγ0 * rel_p)^2)
         χ = 1 + G * γ
         ξ = G * (γ - 1)
         k1_norm = K1 / rel_p 
