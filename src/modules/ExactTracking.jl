@@ -8,7 +8,7 @@ struct Exact end
 
 module ExactTracking
 using ..GTPSA, ..BeamTracking, ..StaticArrays, ..ReferenceFrameRotations, ..KernelAbstractions
-using ..BeamTracking: XI, PXI, YI, PYI, ZI, PZI, @makekernel, BunchView
+using ..BeamTracking: XI, PXI, YI, PYI, ZI, PZI, @makekernel, Bunch
 using ..BeamTracking: C_LIGHT
 const TRACKING_METHOD = Exact
 
@@ -49,7 +49,7 @@ values of ``ε``.
 - `tilde_m`: particle rest energy normalized to the reference value of ``pc``
 - `L`:       element length, in meters
 """
-@makekernel fastgtpsa=true function exact_drift!(i, b::BunchView, beta_0, gamsqr_0, tilde_m, L)
+@makekernel fastgtpsa=true function exact_drift!(i, b::Bunch, beta_0, gamsqr_0, tilde_m, L)
   v = b.v
 
   P_s = sqrt((1 + v[i,PZI])^2 - (v[i,PXI]^2 + v[i,PYI]^2))
@@ -99,7 +99,7 @@ properties, though I've not seen a proof of that claim.
        Moreover, and this is essential, the multipole
        coefficients must appear in ascending order.
 """
-@makekernel fastgtpsa=true function multipole_kick!(i, b::BunchView, ms, knl, ksl, start)
+@makekernel fastgtpsa=true function multipole_kick!(i, b::Bunch, ms, knl, ksl, start)
   v = b.v
 
   jm = length(ms)
@@ -168,7 +168,7 @@ to carry both reference and design values.
 - e2:     exit face angle (+ve angle <=> toward rbend)
 - Larc:   element arc length, in meters
 """
-@makekernel fastgtpsa=true function exact_sbend!(i, b::BunchView, beta_0, brho_0, hc, b0, e1, e2, Lr)
+@makekernel fastgtpsa=true function exact_sbend!(i, b::Bunch, beta_0, brho_0, hc, b0, e1, e2, Lr)
   v = b.v
 
   rho = brho0 / b0
@@ -195,7 +195,7 @@ to carry both reference and design values.
 end # function exact_sbend!()
 
 
-@makekernel fastgtpsa=true function exact_solenoid!(i, b::BunchView, ks, beta_0, gamsqr_0, tilde_m, L)
+@makekernel fastgtpsa=true function exact_solenoid!(i, b::Bunch, ks, beta_0, gamsqr_0, tilde_m, L)
   v = b.v
 
   # Recurring variables
@@ -218,7 +218,7 @@ end # function exact_sbend!()
   v[i,PYI]  = ks * cm * x_0 / 4 - s * (px_0 / 2 + ks * y_0 / 4) + cp * v[i,PYI] / 2
 end
 
-@makekernel fastgtpsa=true function patch_offset!(i, b::BunchView, tilde_m, dx, dy, dt)
+@makekernel fastgtpsa=true function patch_offset!(i, b::Bunch, tilde_m, dx, dy, dt)
   v = b.v
   rel_p = 1 + v[i,PZI]
   v[i,XI] -= dx
@@ -226,7 +226,7 @@ end
   v[i,ZI] += rel_p/sqrt(rel_p^2+tilde_m^2)*C_LIGHT*dt
 end
 
-@makekernel fastgtpsa=true function patch_rotation!(i, b::BunchView, winv::StaticMatrix{3,3}, dz)
+@makekernel fastgtpsa=true function patch_rotation!(i, b::Bunch, winv::StaticMatrix{3,3}, dz)
   v = b.v
   ps_0 = sqrt((1 + v[i,PZI])^2 - v[i,PXI]^2 - v[i,PYI]^2)
   x_0 = v[i,XI]
@@ -240,7 +240,7 @@ end
   v[i,PYI] = winv[2,1]*px_0 + winv[2,2]*py_0 + winv[2,3]*ps_0
 end
 
-@makekernel fastgtpsa=true function patch!(i, b::BunchView, beta_0, gamsqr_0, tilde_m, dt, dx, dy, dz, winv::Union{StaticMatrix{3,3},Nothing}, L)
+@makekernel fastgtpsa=true function patch!(i, b::Bunch, beta_0, gamsqr_0, tilde_m, dt, dx, dy, dz, winv::Union{StaticMatrix{3,3},Nothing}, L)
   v = b.v
   rel_p = 1 + v[i,PZI]
   # Only apply rotations if needed

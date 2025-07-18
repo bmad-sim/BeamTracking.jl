@@ -368,7 +368,7 @@ zf_mn4  = [ 0., 3.140908277834687e-8, -3.1503450227072763e-8, 3.140908186274627e
     #
     # 5 keV electron
     v = [ xi pxi yi pyi zi pzi ]
-    BeamTracking.launch!(BunchView(Bunch(v)), KernelCall(ExactTracking.exact_drift!, (β1, γsq1, 1/βγ1, ld1)))
+    BeamTracking.launch!(Bunch(v), KernelCall(ExactTracking.exact_drift!, (β1, γsq1, 1/βγ1, ld1)))
     @test v[:,BeamTracking.XI]  ≈  xf_dr1 (rtol=5.e-13)
     @test v[:,BeamTracking.YI]  ≈  yf_dr1 (rtol=5.e-13)
     @test v[:,BeamTracking.ZI]  ≈  zf_dr1 (rtol=5.e-13)
@@ -378,7 +378,7 @@ zf_mn4  = [ 0., 3.140908277834687e-8, -3.1503450227072763e-8, 3.140908186274627e
     #
     # 1 MeV electron
     v = [ xi pxi yi pyi zi pzi ]
-    BeamTracking.launch!(BunchView(Bunch(v)), KernelCall(ExactTracking.exact_drift!, (β2, γsq2, 1/βγ2, ld2)))
+    BeamTracking.launch!(Bunch(v), KernelCall(ExactTracking.exact_drift!, (β2, γsq2, 1/βγ2, ld2)))
     @test v[:,BeamTracking.XI]  ≈  xf_dr2 (rtol=5.e-13)
     @test v[:,BeamTracking.YI]  ≈  yf_dr2 (rtol=5.e-13)
     @test v[:,BeamTracking.ZI]  ≈  zf_dr2 (rtol=5.e-13)
@@ -388,7 +388,7 @@ zf_mn4  = [ 0., 3.140908277834687e-8, -3.1503450227072763e-8, 3.140908186274627e
     #
     # 1 GeV electron
     v = [ xi pxi yi pyi zi pzi ]
-    BeamTracking.launch!(BunchView(Bunch(v)), KernelCall(ExactTracking.exact_drift!, (β3, γsq3, 1/βγ3, ld3)))
+    BeamTracking.launch!(Bunch(v), KernelCall(ExactTracking.exact_drift!, (β3, γsq3, 1/βγ3, ld3)))
     @test v[:,BeamTracking.XI]  ≈  xf_dr3 (rtol=5.e-13)
     @test v[:,BeamTracking.YI]  ≈  yf_dr3 (rtol=5.e-13)
     @test v[:,BeamTracking.ZI]  ≈  zf_dr3 (rtol=5.e-13)
@@ -398,7 +398,7 @@ zf_mn4  = [ 0., 3.140908277834687e-8, -3.1503450227072763e-8, 3.140908186274627e
     #
     # 250 GeV proton
     v = [ xi pxi yi pyi zi pzi ]
-    BeamTracking.launch!(BunchView(Bunch(v)), KernelCall(ExactTracking.exact_drift!, (β4, γsq4, 1/βγ4, ld4)))
+    BeamTracking.launch!(Bunch(v), KernelCall(ExactTracking.exact_drift!, (β4, γsq4, 1/βγ4, ld4)))
     @test v[:,BeamTracking.XI]  ≈  xf_dr4 (rtol=5.e-13)
     @test v[:,BeamTracking.YI]  ≈  yf_dr4 (rtol=5.e-13)
     @test v[:,BeamTracking.ZI]  ≈  zf_dr4 (rtol=5.e-13)
@@ -410,7 +410,7 @@ zf_mn4  = [ 0., 3.140908277834687e-8, -3.1503450227072763e-8, 3.140908186274627e
     #
     # 5 keV electron
     v = [ xi pxi yi pyi zi pzi ]
-    BeamTracking.launch!(BunchView(Bunch(v)), KernelCall(IntegrationTracking.mkm_quadrupole!, (β1, γsq1, 1/βγ1,  gr1 / Bρ1, lq1)))
+    BeamTracking.launch!(Bunch(v), KernelCall(IntegrationTracking.mkm_quadrupole!, (β1, γsq1, 1/βγ1,  gr1 / Bρ1, lq1)))
     @test v[:,BeamTracking.XI]  ≈  xf_qf1  (rtol=5.e-13)
     @test v[:,BeamTracking.YI]  ≈  yf_qf1  (rtol=5.e-13)
     @test v[:,BeamTracking.ZI]  ≈  zf_qf1  (rtol=5.e-13)
@@ -418,7 +418,7 @@ zf_mn4  = [ 0., 3.140908277834687e-8, -3.1503450227072763e-8, 3.140908186274627e
     @test v[:,BeamTracking.PYI] ≈  pyf_qf1 (rtol=5.e-13)
     @test v[:,BeamTracking.PZI] == pzi
     v = [ xi pxi yi pyi zi pzi ]
-    BeamTracking.launch!(BunchView(Bunch(v)), KernelCall(IntegrationTracking.mkm_quadrupole!, (β1, γsq1, 1/βγ1, -gr1 / Bρ1, lq1)))
+    BeamTracking.launch!(Bunch(v), KernelCall(IntegrationTracking.mkm_quadrupole!, (β1, γsq1, 1/βγ1, -gr1 / Bρ1, lq1)))
     @test v[:,BeamTracking.XI]  ≈  xf_qd1  (rtol=5.e-13)
     @test v[:,BeamTracking.YI]  ≈  yf_qd1  (rtol=5.e-13)
     @test v[:,BeamTracking.ZI]  ≈  zf_qd1  (rtol=5.e-13)
@@ -428,7 +428,7 @@ zf_mn4  = [ 0., 3.140908277834687e-8, -3.1503450227072763e-8, 3.140908186274627e
     #
     # 1 MeV electron
     v = [ xi pxi yi pyi zi pzi ]
-    BeamTracking.launch!(BunchView(Bunch(v)), KernelCall(IntegrationTracking.mkm_quadrupole!, (β2, γsq2, 1/βγ2,  gr2 / Bρ2, lq2)))
+    BeamTracking.launch!(Bunch(v), KernelCall(IntegrationTracking.mkm_quadrupole!, (β2, γsq2, 1/βγ2,  gr2 / Bρ2, lq2)))
     @test v[:,BeamTracking.XI]  ≈  xf_qf2  (rtol=5.e-13)
     @test v[:,BeamTracking.YI]  ≈  yf_qf2  (rtol=5.e-13)
     @test v[:,BeamTracking.ZI]  ≈  zf_qf2  (rtol=5.e-13)
@@ -436,7 +436,7 @@ zf_mn4  = [ 0., 3.140908277834687e-8, -3.1503450227072763e-8, 3.140908186274627e
     @test v[:,BeamTracking.PYI] ≈  pyf_qf2 (rtol=5.e-13)
     @test v[:,BeamTracking.PZI] == pzi
     v = [ xi pxi yi pyi zi pzi ]
-    BeamTracking.launch!(BunchView(Bunch(v)), KernelCall(IntegrationTracking.mkm_quadrupole!, (β2, γsq2, 1/βγ2, -gr2 / Bρ2, lq2)))
+    BeamTracking.launch!(Bunch(v), KernelCall(IntegrationTracking.mkm_quadrupole!, (β2, γsq2, 1/βγ2, -gr2 / Bρ2, lq2)))
     @test v[:,BeamTracking.XI]  ≈  xf_qd2  (rtol=5.e-13)
     @test v[:,BeamTracking.YI]  ≈  yf_qd2  (rtol=5.e-13)
     @test v[:,BeamTracking.ZI]  ≈  zf_qd2  (rtol=5.e-13)
@@ -446,7 +446,7 @@ zf_mn4  = [ 0., 3.140908277834687e-8, -3.1503450227072763e-8, 3.140908186274627e
     #
     # 1 GeV electron
     v = [ xi pxi yi pyi zi pzi ]
-    BeamTracking.launch!(BunchView(Bunch(v)), KernelCall(IntegrationTracking.mkm_quadrupole!, (β3, γsq3, 1/βγ3,  gr3 / Bρ3, lq3)))
+    BeamTracking.launch!(Bunch(v), KernelCall(IntegrationTracking.mkm_quadrupole!, (β3, γsq3, 1/βγ3,  gr3 / Bρ3, lq3)))
     @test v[:,BeamTracking.XI]  ≈  xf_qf3  (rtol=5.e-13)
     @test v[:,BeamTracking.YI]  ≈  yf_qf3  (rtol=5.e-13)
     @test v[:,BeamTracking.ZI]  ≈  zf_qf3  (rtol=5.e-13)
@@ -454,7 +454,7 @@ zf_mn4  = [ 0., 3.140908277834687e-8, -3.1503450227072763e-8, 3.140908186274627e
     @test v[:,BeamTracking.PYI] ≈  pyf_qf3 (rtol=5.e-13)
     @test v[:,BeamTracking.PZI] == pzi
     v = [ xi pxi yi pyi zi pzi ]
-    BeamTracking.launch!(BunchView(Bunch(v)), KernelCall(IntegrationTracking.mkm_quadrupole!, (β3, γsq3, 1/βγ3, -gr3 / Bρ3, lq3)))
+    BeamTracking.launch!(Bunch(v), KernelCall(IntegrationTracking.mkm_quadrupole!, (β3, γsq3, 1/βγ3, -gr3 / Bρ3, lq3)))
     @test v[:,BeamTracking.XI]  ≈  xf_qd3  (rtol=5.e-13)
     @test v[:,BeamTracking.YI]  ≈  yf_qd3  (rtol=5.e-13)
     @test v[:,BeamTracking.ZI]  ≈  zf_qd3  (rtol=5.e-13)
@@ -464,7 +464,7 @@ zf_mn4  = [ 0., 3.140908277834687e-8, -3.1503450227072763e-8, 3.140908186274627e
     #
     # 250 GeV proton
     v = [ xi pxi yi pyi zi pzi ]
-    BeamTracking.launch!(BunchView(Bunch(v)), KernelCall(IntegrationTracking.mkm_quadrupole!, (β4, γsq4, 1/βγ4,  gr4 / Bρ4, lq4)))
+    BeamTracking.launch!(Bunch(v), KernelCall(IntegrationTracking.mkm_quadrupole!, (β4, γsq4, 1/βγ4,  gr4 / Bρ4, lq4)))
     @test v[:,BeamTracking.XI]  ≈  xf_qf4  (rtol=5.e-13)
     @test v[:,BeamTracking.YI]  ≈  yf_qf4  (rtol=5.e-13)
     @test v[:,BeamTracking.ZI]  ≈  zf_qf4  (rtol=5.e-13)
@@ -472,7 +472,7 @@ zf_mn4  = [ 0., 3.140908277834687e-8, -3.1503450227072763e-8, 3.140908186274627e
     @test v[:,BeamTracking.PYI] ≈  pyf_qf4 (rtol=5.e-13)
     @test v[:,BeamTracking.PZI] == pzi
     v = [ xi pxi yi pyi zi pzi ]
-    BeamTracking.launch!(BunchView(Bunch(v)), KernelCall(IntegrationTracking.mkm_quadrupole!, (β4, γsq4, 1/βγ4, -gr4 / Bρ4, lq4)))
+    BeamTracking.launch!(Bunch(v), KernelCall(IntegrationTracking.mkm_quadrupole!, (β4, γsq4, 1/βγ4, -gr4 / Bρ4, lq4)))
     @test v[:,BeamTracking.XI]  ≈  xf_qd4  (rtol=5.e-13)
     @test v[:,BeamTracking.YI]  ≈  yf_qd4  (rtol=5.e-13)
     @test v[:,BeamTracking.ZI]  ≈  zf_qd4  (rtol=5.e-13)
@@ -486,7 +486,7 @@ zf_mn4  = [ 0., 3.140908277834687e-8, -3.1503450227072763e-8, 3.140908186274627e
     v = [ xi2 pxi2 yi2 pyi2 zi2 pzi2 ]
     kn1 = bv_k1 * cos(ra1) / Bρ1
     ks1 = bv_k1 * sin(ra1) / Bρ1
-    BeamTracking.launch!(BunchView(Bunch(v)), KernelCall(ExactTracking.multipole_kick!, (ms_k1,  kn1 * lk1,  ks1 * lk1, 1)))
+    BeamTracking.launch!(Bunch(v), KernelCall(ExactTracking.multipole_kick!, (ms_k1,  kn1 * lk1,  ks1 * lk1, 1)))
     @test v[:,BeamTracking.XI]  == xi2
     @test v[:,BeamTracking.YI]  == yi2
     @test v[:,BeamTracking.ZI]  == zi2
@@ -494,7 +494,7 @@ zf_mn4  = [ 0., 3.140908277834687e-8, -3.1503450227072763e-8, 3.140908186274627e
     @test v[:,BeamTracking.PYI] ≈  pyf_kp1 (rtol=5.e-13)
     @test v[:,BeamTracking.PZI] == pzi2
     v = [ xi2 pxi2 yi2 pyi2 zi2 pzi2 ]
-    BeamTracking.launch!(BunchView(Bunch(v)), KernelCall(ExactTracking.multipole_kick!, (ms_k1, -kn1 * lk1, -ks1 * lk1, 1)))
+    BeamTracking.launch!(Bunch(v), KernelCall(ExactTracking.multipole_kick!, (ms_k1, -kn1 * lk1, -ks1 * lk1, 1)))
     @test v[:,BeamTracking.XI]  == xi2
     @test v[:,BeamTracking.YI]  == yi2
     @test v[:,BeamTracking.ZI]  == zi2
@@ -504,7 +504,7 @@ zf_mn4  = [ 0., 3.140908277834687e-8, -3.1503450227072763e-8, 3.140908186274627e
     v = [ xi2 pxi2 yi2 pyi2 zi2 pzi2 ]
     kn1 = bv_dk1 * cos(ra1) / Bρ1
     ks1 = bv_dk1 * sin(ra1) / Bρ1
-    BeamTracking.launch!(BunchView(Bunch(v)), KernelCall(ExactTracking.multipole_kick!, (ms_dk1,  kn1 * lk1,  ks1 * lk1, 1)))
+    BeamTracking.launch!(Bunch(v), KernelCall(ExactTracking.multipole_kick!, (ms_dk1,  kn1 * lk1,  ks1 * lk1, 1)))
     @test v[:,BeamTracking.XI]  == xi2
     @test v[:,BeamTracking.YI]  == yi2
     @test v[:,BeamTracking.ZI]  == zi2
@@ -512,7 +512,7 @@ zf_mn4  = [ 0., 3.140908277834687e-8, -3.1503450227072763e-8, 3.140908186274627e
     @test v[:,BeamTracking.PYI] ≈  pyf_dkp1 (rtol=5.e-13)
     @test v[:,BeamTracking.PZI] == pzi2
     v = [ xi2 pxi2 yi2 pyi2 zi2 pzi2 ]
-    BeamTracking.launch!(BunchView(Bunch(v)), KernelCall(ExactTracking.multipole_kick!, (ms_dk1, -kn1 * lk1, -ks1 * lk1, 1)))
+    BeamTracking.launch!(Bunch(v), KernelCall(ExactTracking.multipole_kick!, (ms_dk1, -kn1 * lk1, -ks1 * lk1, 1)))
     @test v[:,BeamTracking.XI]  == xi2
     @test v[:,BeamTracking.YI]  == yi2
     @test v[:,BeamTracking.ZI]  == zi2
@@ -524,7 +524,7 @@ zf_mn4  = [ 0., 3.140908277834687e-8, -3.1503450227072763e-8, 3.140908186274627e
     v = [ xi2 pxi2 yi2 pyi2 zi2 pzi2 ]
     kn2 = bv_k2 * cos(ra2) / Bρ2
     ks2 = bv_k2 * sin(ra2) / Bρ2
-    BeamTracking.launch!(BunchView(Bunch(v)), KernelCall(ExactTracking.multipole_kick!, (ms_k2,  kn2 * lk2,  ks2 * lk2, 1)))
+    BeamTracking.launch!(Bunch(v), KernelCall(ExactTracking.multipole_kick!, (ms_k2,  kn2 * lk2,  ks2 * lk2, 1)))
     @test v[:,BeamTracking.XI]  == xi2
     @test v[:,BeamTracking.YI]  == yi2
     @test v[:,BeamTracking.ZI]  == zi2
@@ -532,7 +532,7 @@ zf_mn4  = [ 0., 3.140908277834687e-8, -3.1503450227072763e-8, 3.140908186274627e
     @test v[:,BeamTracking.PYI] ≈  pyf_kp2 (rtol=5.e-13)
     @test v[:,BeamTracking.PZI] == pzi2
     v = [ xi2 pxi2 yi2 pyi2 zi2 pzi2 ]
-    BeamTracking.launch!(BunchView(Bunch(v)), KernelCall(ExactTracking.multipole_kick!, (ms_k2, -kn2 * lk2, -ks2 * lk2, 1)))
+    BeamTracking.launch!(Bunch(v), KernelCall(ExactTracking.multipole_kick!, (ms_k2, -kn2 * lk2, -ks2 * lk2, 1)))
     @test v[:,BeamTracking.XI]  == xi2
     @test v[:,BeamTracking.YI]  == yi2
     @test v[:,BeamTracking.ZI]  == zi2
@@ -542,7 +542,7 @@ zf_mn4  = [ 0., 3.140908277834687e-8, -3.1503450227072763e-8, 3.140908186274627e
     v = [ xi2 pxi2 yi2 pyi2 zi2 pzi2 ]
     kn2 = bv_dk2 * cos(ra2) / Bρ2
     ks2 = bv_dk2 * sin(ra2) / Bρ2
-    BeamTracking.launch!(BunchView(Bunch(v)), KernelCall(ExactTracking.multipole_kick!, (ms_dk2,  kn2 * lk2,  ks2 * lk2, 1)))
+    BeamTracking.launch!(Bunch(v), KernelCall(ExactTracking.multipole_kick!, (ms_dk2,  kn2 * lk2,  ks2 * lk2, 1)))
     @test v[:,BeamTracking.XI]  == xi2
     @test v[:,BeamTracking.YI]  == yi2
     @test v[:,BeamTracking.ZI]  == zi2
@@ -550,7 +550,7 @@ zf_mn4  = [ 0., 3.140908277834687e-8, -3.1503450227072763e-8, 3.140908186274627e
     @test v[:,BeamTracking.PYI] ≈  pyf_dkp2 (rtol=5.e-13)
     @test v[:,BeamTracking.PZI] == pzi2
     v = [ xi2 pxi2 yi2 pyi2 zi2 pzi2 ]
-    BeamTracking.launch!(BunchView(Bunch(v)), KernelCall(ExactTracking.multipole_kick!, (ms_dk2, -kn2 * lk2, -ks2 * lk2, 1)))
+    BeamTracking.launch!(Bunch(v), KernelCall(ExactTracking.multipole_kick!, (ms_dk2, -kn2 * lk2, -ks2 * lk2, 1)))
     @test v[:,BeamTracking.XI]  == xi2
     @test v[:,BeamTracking.YI]  == yi2
     @test v[:,BeamTracking.ZI]  == zi2
@@ -562,7 +562,7 @@ zf_mn4  = [ 0., 3.140908277834687e-8, -3.1503450227072763e-8, 3.140908186274627e
     v = [ xi2 pxi2 yi2 pyi2 zi2 pzi2 ]
     kn3 = bv_k3 * cos(ra3) / Bρ3
     ks3 = bv_k3 * sin(ra3) / Bρ3
-    BeamTracking.launch!(BunchView(Bunch(v)), KernelCall(ExactTracking.multipole_kick!, (ms_k3,  kn3 * lk3,  ks3 * lk3, 1)))
+    BeamTracking.launch!(Bunch(v), KernelCall(ExactTracking.multipole_kick!, (ms_k3,  kn3 * lk3,  ks3 * lk3, 1)))
     @test v[:,BeamTracking.XI]  == xi2
     @test v[:,BeamTracking.YI]  == yi2
     @test v[:,BeamTracking.ZI]  == zi2
@@ -570,7 +570,7 @@ zf_mn4  = [ 0., 3.140908277834687e-8, -3.1503450227072763e-8, 3.140908186274627e
     @test v[:,BeamTracking.PYI] ≈  pyf_kp3 (rtol=5.e-13)
     @test v[:,BeamTracking.PZI] == pzi2
     v = [ xi2 pxi2 yi2 pyi2 zi2 pzi2 ]
-    BeamTracking.launch!(BunchView(Bunch(v)), KernelCall(ExactTracking.multipole_kick!, (ms_k3, -kn3 * lk3, -ks3 * lk3, 1)))
+    BeamTracking.launch!(Bunch(v), KernelCall(ExactTracking.multipole_kick!, (ms_k3, -kn3 * lk3, -ks3 * lk3, 1)))
     @test v[:,BeamTracking.XI]  == xi2
     @test v[:,BeamTracking.YI]  == yi2
     @test v[:,BeamTracking.ZI]  == zi2
@@ -580,7 +580,7 @@ zf_mn4  = [ 0., 3.140908277834687e-8, -3.1503450227072763e-8, 3.140908186274627e
     v = [ xi2 pxi2 yi2 pyi2 zi2 pzi2 ]
     kn3 = bv_dk3 * cos(ra3) / Bρ3
     ks3 = bv_dk3 * sin(ra3) / Bρ3
-    BeamTracking.launch!(BunchView(Bunch(v)), KernelCall(ExactTracking.multipole_kick!, (ms_dk3,  kn3 * lk3,  ks3 * lk3, 1)))
+    BeamTracking.launch!(Bunch(v), KernelCall(ExactTracking.multipole_kick!, (ms_dk3,  kn3 * lk3,  ks3 * lk3, 1)))
     @test v[:,BeamTracking.XI]  == xi2
     @test v[:,BeamTracking.YI]  == yi2
     @test v[:,BeamTracking.ZI]  == zi2
@@ -588,7 +588,7 @@ zf_mn4  = [ 0., 3.140908277834687e-8, -3.1503450227072763e-8, 3.140908186274627e
     @test v[:,BeamTracking.PYI] ≈  pyf_dkp3 (rtol=5.e-13)
     @test v[:,BeamTracking.PZI] == pzi2
     v = [ xi2 pxi2 yi2 pyi2 zi2 pzi2 ]
-    BeamTracking.launch!(BunchView(Bunch(v)), KernelCall(ExactTracking.multipole_kick!, (ms_dk3, -kn3 * lk3, -ks3 * lk3, 1)))
+    BeamTracking.launch!(Bunch(v), KernelCall(ExactTracking.multipole_kick!, (ms_dk3, -kn3 * lk3, -ks3 * lk3, 1)))
     @test v[:,BeamTracking.XI]  == xi2
     @test v[:,BeamTracking.YI]  == yi2
     @test v[:,BeamTracking.ZI]  == zi2
@@ -600,7 +600,7 @@ zf_mn4  = [ 0., 3.140908277834687e-8, -3.1503450227072763e-8, 3.140908186274627e
     v = [ xi2 pxi2 yi2 pyi2 zi2 pzi2 ]
     kn4 = bv_k4 * cos(ra4) / Bρ4
     ks4 = bv_k4 * sin(ra4) / Bρ4
-    BeamTracking.launch!(BunchView(Bunch(v)), KernelCall(ExactTracking.multipole_kick!, (ms_k4,  kn4 * lk4,  ks4 * lk4, 1)))
+    BeamTracking.launch!(Bunch(v), KernelCall(ExactTracking.multipole_kick!, (ms_k4,  kn4 * lk4,  ks4 * lk4, 1)))
     @test v[:,BeamTracking.XI]  == xi2
     @test v[:,BeamTracking.YI]  == yi2
     @test v[:,BeamTracking.ZI]  == zi2
@@ -608,7 +608,7 @@ zf_mn4  = [ 0., 3.140908277834687e-8, -3.1503450227072763e-8, 3.140908186274627e
     @test v[:,BeamTracking.PYI] ≈  pyf_kp4 (rtol=5.e-13)
     @test v[:,BeamTracking.PZI] == pzi2
     v = [ xi2 pxi2 yi2 pyi2 zi2 pzi2 ]
-    BeamTracking.launch!(BunchView(Bunch(v)), KernelCall(ExactTracking.multipole_kick!, (ms_k4, -kn4 * lk4, -ks4 * lk4, 1)))
+    BeamTracking.launch!(Bunch(v), KernelCall(ExactTracking.multipole_kick!, (ms_k4, -kn4 * lk4, -ks4 * lk4, 1)))
     @test v[:,BeamTracking.XI]  == xi2
     @test v[:,BeamTracking.YI]  == yi2
     @test v[:,BeamTracking.ZI]  == zi2
@@ -618,7 +618,7 @@ zf_mn4  = [ 0., 3.140908277834687e-8, -3.1503450227072763e-8, 3.140908186274627e
     v = [ xi2 pxi2 yi2 pyi2 zi2 pzi2 ]
     kn4 = bv_dk4 * cos(ra4) / Bρ4
     ks4 = bv_dk4 * sin(ra4) / Bρ4
-    BeamTracking.launch!(BunchView(Bunch(v)), KernelCall(ExactTracking.multipole_kick!, (ms_dk4,  kn4 * lk4,  ks4 * lk4, 1)))
+    BeamTracking.launch!(Bunch(v), KernelCall(ExactTracking.multipole_kick!, (ms_dk4,  kn4 * lk4,  ks4 * lk4, 1)))
     @test v[:,BeamTracking.XI]  == xi2
     @test v[:,BeamTracking.YI]  == yi2
     @test v[:,BeamTracking.ZI]  == zi2
@@ -626,7 +626,7 @@ zf_mn4  = [ 0., 3.140908277834687e-8, -3.1503450227072763e-8, 3.140908186274627e
     @test v[:,BeamTracking.PYI] ≈  pyf_dkp4 (rtol=5.e-13)
     @test v[:,BeamTracking.PZI] == pzi2
     v = [ xi2 pxi2 yi2 pyi2 zi2 pzi2 ]
-    BeamTracking.launch!(BunchView(Bunch(v)), KernelCall(ExactTracking.multipole_kick!, (ms_dk4, -kn4 * lk4, -ks4 * lk4, 1)))
+    BeamTracking.launch!(Bunch(v), KernelCall(ExactTracking.multipole_kick!, (ms_dk4, -kn4 * lk4, -ks4 * lk4, 1)))
     @test v[:,BeamTracking.XI]  == xi2
     @test v[:,BeamTracking.YI]  == yi2
     @test v[:,BeamTracking.ZI]  == zi2
@@ -640,7 +640,7 @@ zf_mn4  = [ 0., 3.140908277834687e-8, -3.1503450227072763e-8, 3.140908186274627e
     v = [ xi2 pxi2 yi2 pyi2 zi2 pzi2 ]
     kn1 = bv_m1 * cos(ra1) / Bρ1
     ks1 = bv_m1 * sin(ra1) / Bρ1
-    BeamTracking.launch!(BunchView(Bunch(v)), KernelCall(IntegrationTracking.dkd_multipole!, (β1, γsq1, 1/βγ1, ms_m1,  kn1,  ks1, lm1)))
+    BeamTracking.launch!(Bunch(v), KernelCall(IntegrationTracking.dkd_multipole!, (β1, γsq1, 1/βγ1, ms_m1,  kn1,  ks1, lm1)))
     @test v[:,BeamTracking.XI]  ≈  xf_mp1  (rtol=5.e-13)
     @test v[:,BeamTracking.YI]  ≈  yf_mp1  (rtol=5.e-13)
     @test v[:,BeamTracking.ZI]  ≈  zf_mp1  (rtol=5.e-13)
@@ -648,7 +648,7 @@ zf_mn4  = [ 0., 3.140908277834687e-8, -3.1503450227072763e-8, 3.140908186274627e
     @test v[:,BeamTracking.PYI] ≈  pyf_mp1 (rtol=5.e-13)
     @test v[:,BeamTracking.PZI] == pzi2
     v = [ xi2 pxi2 yi2 pyi2 zi2 pzi2 ]
-    BeamTracking.launch!(BunchView(Bunch(v)), KernelCall(IntegrationTracking.dkd_multipole!, (β1, γsq1, 1/βγ1, ms_m1, -kn1, -ks1, lm1)))
+    BeamTracking.launch!(Bunch(v), KernelCall(IntegrationTracking.dkd_multipole!, (β1, γsq1, 1/βγ1, ms_m1, -kn1, -ks1, lm1)))
     @test v[:,BeamTracking.XI]  ≈  xf_mn1  (rtol=5.e-13)
     @test v[:,BeamTracking.YI]  ≈  yf_mn1  (rtol=5.e-13)
     @test v[:,BeamTracking.ZI]  ≈  zf_mn1  (rtol=5.e-13)
@@ -660,7 +660,7 @@ zf_mn4  = [ 0., 3.140908277834687e-8, -3.1503450227072763e-8, 3.140908186274627e
     v = [ xi2 pxi2 yi2 pyi2 zi2 pzi2 ]
     kn2 = bv_m2 * cos(ra2) / Bρ2
     ks2 = bv_m2 * sin(ra2) / Bρ2
-    BeamTracking.launch!(BunchView(Bunch(v)), KernelCall(IntegrationTracking.dkd_multipole!, (β2, γsq2, 1/βγ2, ms_m2,  kn2,  ks2, lm2)))
+    BeamTracking.launch!(Bunch(v), KernelCall(IntegrationTracking.dkd_multipole!, (β2, γsq2, 1/βγ2, ms_m2,  kn2,  ks2, lm2)))
     @test v[:,BeamTracking.XI]  ≈  xf_mp2  (rtol=5.e-13)
     @test v[:,BeamTracking.YI]  ≈  yf_mp2  (rtol=5.e-13)
     @test v[:,BeamTracking.ZI]  ≈  zf_mp2  (rtol=5.e-13)
@@ -668,7 +668,7 @@ zf_mn4  = [ 0., 3.140908277834687e-8, -3.1503450227072763e-8, 3.140908186274627e
     @test v[:,BeamTracking.PYI] ≈  pyf_mp2 (rtol=5.e-13)
     @test v[:,BeamTracking.PZI] == pzi2
     v = [ xi2 pxi2 yi2 pyi2 zi2 pzi2 ]
-    BeamTracking.launch!(BunchView(Bunch(v)), KernelCall(IntegrationTracking.dkd_multipole!, (β2, γsq2, 1/βγ2, ms_m2, -kn2, -ks2, lm2)))
+    BeamTracking.launch!(Bunch(v), KernelCall(IntegrationTracking.dkd_multipole!, (β2, γsq2, 1/βγ2, ms_m2, -kn2, -ks2, lm2)))
     @test v[:,BeamTracking.XI]  ≈  xf_mn2  (rtol=5.e-13)
     @test v[:,BeamTracking.YI]  ≈  yf_mn2  (rtol=5.e-13)
     @test v[:,BeamTracking.ZI]  ≈  zf_mn2  (rtol=5.e-13)
@@ -680,7 +680,7 @@ zf_mn4  = [ 0., 3.140908277834687e-8, -3.1503450227072763e-8, 3.140908186274627e
     v = [ xi2 pxi2 yi2 pyi2 zi2 pzi2 ]
     kn3 = bv_m3 * cos(ra3) / Bρ3
     ks3 = bv_m3 * sin(ra3) / Bρ3
-    BeamTracking.launch!(BunchView(Bunch(v)), KernelCall(IntegrationTracking.dkd_multipole!, (β3, γsq3, 1/βγ3, ms_m3,  kn3,  ks3, lm3)))
+    BeamTracking.launch!(Bunch(v), KernelCall(IntegrationTracking.dkd_multipole!, (β3, γsq3, 1/βγ3, ms_m3,  kn3,  ks3, lm3)))
     @test v[:,BeamTracking.XI]  ≈  xf_mp3  (rtol=5.e-13)
     @test v[:,BeamTracking.YI]  ≈  yf_mp3  (rtol=5.e-13)
     @test v[:,BeamTracking.ZI]  ≈  zf_mp3  (rtol=5.e-13)
@@ -688,7 +688,7 @@ zf_mn4  = [ 0., 3.140908277834687e-8, -3.1503450227072763e-8, 3.140908186274627e
     @test v[:,BeamTracking.PYI] ≈  pyf_mp3 (rtol=5.e-13)
     @test v[:,BeamTracking.PZI] == pzi2
     v = [ xi2 pxi2 yi2 pyi2 zi2 pzi2 ]
-    BeamTracking.launch!(BunchView(Bunch(v)), KernelCall(IntegrationTracking.dkd_multipole!, (β3, γsq3, 1/βγ3, ms_m3, -kn3, -ks3, lm3)))
+    BeamTracking.launch!(Bunch(v), KernelCall(IntegrationTracking.dkd_multipole!, (β3, γsq3, 1/βγ3, ms_m3, -kn3, -ks3, lm3)))
     @test v[:,BeamTracking.XI]  ≈  xf_mn3  (rtol=5.e-13)
     @test v[:,BeamTracking.YI]  ≈  yf_mn3  (rtol=5.e-13)
     @test v[:,BeamTracking.ZI]  ≈  zf_mn3  (rtol=5.e-13)
@@ -700,7 +700,7 @@ zf_mn4  = [ 0., 3.140908277834687e-8, -3.1503450227072763e-8, 3.140908186274627e
     v = [ xi2 pxi2 yi2 pyi2 zi2 pzi2 ]
     kn4 = bv_m4 * cos(ra4) / Bρ4
     ks4 = bv_m4 * sin(ra4) / Bρ4
-    BeamTracking.launch!(BunchView(Bunch(v)), KernelCall(IntegrationTracking.dkd_multipole!, (β4, γsq4, 1/βγ4, ms_m4,  kn4,  ks4, lm4)))
+    BeamTracking.launch!(Bunch(v), KernelCall(IntegrationTracking.dkd_multipole!, (β4, γsq4, 1/βγ4, ms_m4,  kn4,  ks4, lm4)))
     @test v[:,BeamTracking.XI]  ≈  xf_mp4  (rtol=5.e-13)
     @test v[:,BeamTracking.YI]  ≈  yf_mp4  (rtol=5.e-13)
     @test v[:,BeamTracking.ZI]  ≈  zf_mp4  (rtol=5.e-13)
@@ -708,7 +708,7 @@ zf_mn4  = [ 0., 3.140908277834687e-8, -3.1503450227072763e-8, 3.140908186274627e
     @test v[:,BeamTracking.PYI] ≈  pyf_mp4 (rtol=5.e-13)
     @test v[:,BeamTracking.PZI] == pzi2
     v = [ xi2 pxi2 yi2 pyi2 zi2 pzi2 ]
-    BeamTracking.launch!(BunchView(Bunch(v)), KernelCall(IntegrationTracking.dkd_multipole!, (β4, γsq4, 1/βγ4, ms_m4, -kn4, -ks4, lm4)))
+    BeamTracking.launch!(Bunch(v), KernelCall(IntegrationTracking.dkd_multipole!, (β4, γsq4, 1/βγ4, ms_m4, -kn4, -ks4, lm4)))
     @test v[:,BeamTracking.XI]  ≈  xf_mn4  (rtol=5.e-13)
     @test v[:,BeamTracking.YI]  ≈  yf_mn4  (rtol=5.e-13)
     @test v[:,BeamTracking.ZI]  ≈  zf_mn4  (rtol=5.e-13)
@@ -721,7 +721,7 @@ zf_mn4  = [ 0., 3.140908277834687e-8, -3.1503450227072763e-8, 3.140908186274627e
     #
     # 5 keV electron
     v = [ xi2 pxi2 yi2 pyi2 zi2 pzi2 ]
-    BeamTracking.launch!(BunchView(Bunch(v)), KernelCall(ExactTracking.exact_sbend!, (β1, Bρ1, hc1, b_1, ee1, ex1, la1)))
+    BeamTracking.launch!(Bunch(v), KernelCall(ExactTracking.exact_sbend!, (β1, Bρ1, hc1, b_1, ee1, ex1, la1)))
     @test v[:,BeamTracking.XI]  ≈  xf_sb1  (rtol=5.e-13)
     @test v[:,BeamTracking.YI]  ≈  yf_sb1  (rtol=5.e-13)
     @test v[:,BeamTracking.ZI]  ≈  zf_sb1  (rtol=5.e-13)
@@ -731,7 +731,7 @@ zf_mn4  = [ 0., 3.140908277834687e-8, -3.1503450227072763e-8, 3.140908186274627e
     #
     # 1 MeV electron
     v = [ xi2 pxi2 yi2 pyi2 zi2 pzi2 ]
-    BeamTracking.launch!(BunchView(Bunch(v)), KernelCall(ExactTracking.exact_sbend!, (β2, Bρ2, hc2, b_2, ee2, ex2, la2)))
+    BeamTracking.launch!(Bunch(v), KernelCall(ExactTracking.exact_sbend!, (β2, Bρ2, hc2, b_2, ee2, ex2, la2)))
     @test v[:,BeamTracking.XI]  ≈  xf_sb2  (rtol=5.e-13)
     @test v[:,BeamTracking.YI]  ≈  yf_sb2  (rtol=5.e-13)
     @test v[:,BeamTracking.ZI]  ≈  zf_sb2  (rtol=5.e-13)
@@ -741,7 +741,7 @@ zf_mn4  = [ 0., 3.140908277834687e-8, -3.1503450227072763e-8, 3.140908186274627e
     #
     # 1 GeV electron
     v = [ xi2 pxi2 yi2 pyi2 zi2 pzi2 ]
-    BeamTracking.launch!(BunchView(Bunch(v)), KernelCall(ExactTracking.exact_sbend!, (β3, Bρ3, hc3, b_3, ee3, ex3, la3)))
+    BeamTracking.launch!(Bunch(v), KernelCall(ExactTracking.exact_sbend!, (β3, Bρ3, hc3, b_3, ee3, ex3, la3)))
     @test v[:,BeamTracking.XI]  ≈  xf_sb3  (rtol=5.e-13)
     @test v[:,BeamTracking.YI]  ≈  yf_sb3  (rtol=5.e-13)
     @test v[:,BeamTracking.ZI]  ≈  zf_sb3  (rtol=5.e-13)
@@ -751,7 +751,7 @@ zf_mn4  = [ 0., 3.140908277834687e-8, -3.1503450227072763e-8, 3.140908186274627e
     #
     # 250 GeV proton
     v = [ xi2 pxi2 yi2 pyi2 zi2 pzi2 ]
-    BeamTracking.launch!(BunchView(Bunch(v)), KernelCall(ExactTracking.exact_sbend!, (β4, Bρ4, hc4, b_4, ee4, ex4, la4)))
+    BeamTracking.launch!(Bunch(v), KernelCall(ExactTracking.exact_sbend!, (β4, Bρ4, hc4, b_4, ee4, ex4, la4)))
     @test v[:,BeamTracking.XI]  ≈  xf_sb4  (rtol=5.e-13)
     @test v[:,BeamTracking.YI]  ≈  yf_sb4  (rtol=5.e-13)
     @test v[:,BeamTracking.ZI]  ≈  zf_sb4  (rtol=5.e-13)

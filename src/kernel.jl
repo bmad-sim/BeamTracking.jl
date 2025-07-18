@@ -37,12 +37,12 @@ end
 check_args(kcalli) = true
 
 # KA does not like Vararg
-@kernel function generic_kernel!(b::BunchView, @Const(kc::KernelChain))
+@kernel function generic_kernel!(b::Bunch, @Const(kc::KernelChain))
   i = @index(Global, Linear)
   @inline _generic_kernel!(i, b, kc)
 end
 
-@unroll function _generic_kernel!(i, b::BunchView, kc::KernelChain)
+@unroll function _generic_kernel!(i, b::Bunch, kc::KernelChain)
   @unroll for kcall in kc
     (kcall.kernel)(i, b, kcall.args...)
   end
@@ -53,7 +53,7 @@ end
 # Matrix v should ALWAYS be in SoA whether for real or as a view via tranpose(v)
 
 @inline function launch!(
-  b::BunchView{S,V},
+  b::Bunch{S,V},
   kc::KernelChain;
   groupsize::Union{Nothing,Integer}=nothing, #backend isa CPU ? floor(Int,REGISTER_SIZE/sizeof(eltype(v))) : 256 
   multithread_threshold::Integer=Threads.nthreads() > 1 ? 1750*Threads.nthreads() : typemax(Int),
@@ -119,8 +119,8 @@ end
 end
 
 # Call kernels directly
-@inline runkernels!(i::Nothing, b::BunchView, kc::KernelChain; kwargs...) =  launch!(b, kc; kwargs...)
-@inline runkernels!(i, b::BunchView, kc::KernelChain; kwargs...) = _generic_kernel!(i, b, kc)
+@inline runkernels!(i::Nothing, b::Bunch, kc::KernelChain; kwargs...) =  launch!(b, kc; kwargs...)
+@inline runkernels!(i, b::Bunch, kc::KernelChain; kwargs...) = _generic_kernel!(i, b, kc)
 
 function check_kwargs(mac, kwargs...)
   valid_kwargs = [:(fastgtpsa)=>Bool, :(inbounds)=>Bool]
@@ -140,7 +140,7 @@ function check_kwargs(mac, kwargs...)
 end
 
 # Also allow launch! on single KernelCalls
-@inline launch!(b::BunchView, kcall::KernelCall; kwargs...) = launch!(b, (kcall,); kwargs...)
+@inline launch!(b::Bunch, kcall::KernelCall; kwargs...) = launch!(b, (kcall,); kwargs...)
 
 macro makekernel(args...)
   kwargs = args[1:length(args)-1]

@@ -1,8 +1,8 @@
 module BeamTrackingBeamlinesExt
 using Beamlines, BeamTracking, GTPSA, StaticArrays, KernelAbstractions
 using Beamlines: isactive, o2i, BitsBeamline, BitsLineElement
-using BeamTracking: soaview, get_N_particle, calc_gamma, calc_p0c, runkernels!,
-                    @makekernel, BunchView, KernelCall, KernelChain, push
+using BeamTracking: get_N_particle, calc_gamma, calc_p0c, runkernels!,
+                    @makekernel, KernelCall, KernelChain, push
 import BeamTracking: track!, C_LIGHT, chargeof, massof
 
 
@@ -13,8 +13,7 @@ function track!(
   ele::LineElement; 
   kwargs...
 )
-  b = BunchView(bunch)
-  @noinline _track!(nothing, b, bunch, ele, ele.tracking_method; kwargs...)
+  @noinline _track!(nothing, bunch, ele, ele.tracking_method; kwargs...)
   return bunch
 end
 
@@ -23,10 +22,10 @@ end
 # Would also allow you to do mix of outer and inner loop too, doing a sub-bunch of 
 # particles in parallel
 
-@makekernel fastgtpsa=false function outer_track!(i, b::BunchView, bunch::Bunch, bl::Beamline)
+@makekernel fastgtpsa=false function outer_track!(i, bunch::Bunch, bl::Beamline)
   for j in 1:length(bl.line)
     @inbounds ele = bl.line[j]
-    @noinline _track!(i, b, bunch, ele, ele.tracking_method)
+    @noinline _track!(i, bunch, ele, ele.tracking_method)
   end
 end
 
@@ -48,7 +47,7 @@ function track!(
     end
   else
     kc = (KernelCall(outer_track!, (bunch, bl)),)
-    launch!(BunchView(bunch), kc; kwargs...)
+    launch!(bunch, kc; kwargs...)
   end
 
   return bunch
@@ -77,7 +76,7 @@ function track!(
           i = start_i
           while true
             ele = BitsLineElement(bbl, i)
-            _track!(nothing, BunchView(bunch), bunch, ele, TM)
+            _track!(nothing, bunch, ele, TM)
             i += 1
             if i > length(bbl.rep) || bbl.rep[i] != 0
               break
@@ -88,7 +87,7 @@ function track!(
     else
       for i in 1:length(bbl.params)
         ele = BitsLineElement(bbl, i)
-        _track!(nothing, BunchView(bunch), bunch, ele, TM)
+        _track!(nothing, bunch, ele, TM)
       end
     end
   else
@@ -108,7 +107,6 @@ end
 #=
 function _track!(
   i,
-  b::BunchView,
   bunch::Bunch,
   ele::Union{LineElement,BitsLineElement}, 
   tm::Any;

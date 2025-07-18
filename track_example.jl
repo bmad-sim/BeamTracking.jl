@@ -26,7 +26,7 @@ track!(b0, bitsring)
 # GTPSA map:
 const D = Descriptor(6, 1) # 6 variables to 1st order
 v = @vars(D)
-b0 = Bunch(v, mem=BeamTracking.AoS)
+b0 = Bunch(v)
 
 track!(b0, ring)
 track!(b0, bitsring)

@@ -9,12 +9,12 @@ struct Linear end
 
 module LinearTracking
 using ..GTPSA, ..BeamTracking, ..StaticArrays, ..KernelAbstractions
-using ..BeamTracking: XI, PXI, YI, PYI, ZI, PZI, @makekernel, BunchView
+using ..BeamTracking: XI, PXI, YI, PYI, ZI, PZI, @makekernel, Bunch
 const TRACKING_METHOD = Linear
 
 # Maybe get rid of inline here and put in function-wise launch! ?
 # Drift kernel
-@makekernel fastgtpsa=true function linear_drift!(i, b::BunchView, L, r56)
+@makekernel fastgtpsa=true function linear_drift!(i, b::Bunch, L, r56)
   v = b.v
   v[i,XI] += v[i,PXI] * L
   v[i,YI] += v[i,PYI] * L
@@ -31,7 +31,7 @@ end
 
 =#
 
-@makekernel fastgtpsa=true function linear_coast_uncoupled!(i, b::BunchView, mx::StaticMatrix{2,2}, my::StaticMatrix{2,2}, r56, d::Union{StaticVector{4},Nothing}, t::Union{StaticVector{4},Nothing})
+@makekernel fastgtpsa=true function linear_coast_uncoupled!(i, b::Bunch, mx::StaticMatrix{2,2}, my::StaticMatrix{2,2}, r56, d::Union{StaticVector{4},Nothing}, t::Union{StaticVector{4},Nothing})
   v = b.v
   if !isnothing(t)
     v[i,ZI] += t[XI] * v[i,XI] + t[PXI] * v[i,PXI] + t[YI] * v[i,YI] + t[PYI] * v[i,PYI]
@@ -51,7 +51,7 @@ end
   end
 end
 
-@makekernel fastgtpsa=true function linear_coast!(i, b::BunchView, mxy::StaticMatrix{4,4}, r56, d::Union{StaticVector{4},Nothing}, t::Union{StaticVector{4},Nothing})
+@makekernel fastgtpsa=true function linear_coast!(i, b::Bunch, mxy::StaticMatrix{4,4}, r56, d::Union{StaticVector{4},Nothing}, t::Union{StaticVector{4},Nothing})
   v = b.v
   if !isnothing(t)
     v[i,ZI] += t[XI] * v[i,XI] + t[PXI] * v[i,PXI] + t[YI] * v[i,YI] + t[PYI] * v[i,PYI]
@@ -72,7 +72,7 @@ end
   end
 end
 
-@makekernel fastgtpsa=true function linear_6D!(i, b::BunchView, m::StaticMatrix{6,6})
+@makekernel fastgtpsa=true function linear_6D!(i, b::Bunch, m::StaticMatrix{6,6})
   v = b.v
   old_x  = v[i,XI]
   old_px = v[i,PXI]

@@ -1,7 +1,6 @@
 # Step 1: Unpack the element ---------------------------------------------
 function _track!(
   i,
-  b::BunchView,
   bunch::Bunch,
   ele::Union{LineElement,BitsLineElement}, 
   tm;
@@ -17,15 +16,14 @@ function _track!(
   dp = ele isa BitsLineElement ? nothing : ele.ApertureParams
 
   # Function barrier
-  universal!(i, b, tm, bunch, L, ap, bp, bm, pp, dp; kwargs...)
+  universal!(i, bunch, tm, L, ap, bp, bm, pp, dp; kwargs...)
 end
 
 # Step 2: Push particles through -----------------------------------------
 function universal!(
   i, 
-  b,
-  tm,
   bunch,
+  tm,
   L, 
   alignmentparams, 
   bendparams,
@@ -142,7 +140,7 @@ function universal!(
     kc = push(kc, @inline(misalign(tm, bunch, alignmentparams, false)))
   end
 
-  runkernels!(i, b, kc; kwargs...)
+  runkernels!(i, bunch, kc; kwargs...)
   return nothing
 end
 
