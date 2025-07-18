@@ -25,7 +25,7 @@ BeamTrackingBeamlinesExt = "Beamlines"
 [compat]
 Accessors = "0.1.42"
 Adapt = "4.3.0"
-Beamlines = "0.4.1"
+Beamlines = "0.4.2"
 EnumX = "1.0.5"
 GTPSA = "1.4.7"
 KernelAbstractions = "0.9.35"

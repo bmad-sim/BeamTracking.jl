@@ -139,9 +139,9 @@ L: element length
 
   ExactTracking.multipole_kick!(i, b, mm, kn * L / 2, ks * L / 2, 3)
   quadrupole_kick!(             i, b, beta_0, gamsqr_0, tilde_m, L / 2)
-  ExactTracking.patch!(         i, b, tilde_m, 0, 0, 0, 0, w, 0)
+  ExactTracking.patch_rotation!(i, b, w, 0)
   quadrupole_matrix!(           i, b, k1, L)
-  ExactTracking.patch!(         i, b, tilde_m, 0, 0, 0, 0, w_inv, 0)
+  ExactTracking.patch_rotation!(i, b, w_inv, 0)
   quadrupole_kick!(             i, b, beta_0, gamsqr_0, tilde_m, L / 2)
   ExactTracking.multipole_kick!(i, b, mm, kn * L / 2, ks * L / 2, 3)
 

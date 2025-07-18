@@ -109,7 +109,7 @@
 
 
     # Thick solenoid:
-    ele_sol = LineElement(L=1.0, Ks=2.0, tracking_method=Exact())
+    ele_sol = LineElement(L=1.0, Ksol=2.0, tracking_method=Exact())
     b0 = Bunch(collect(transpose(@vars(D10))), Brho_ref=Brho_ref)
     bl = Beamline([ele_sol], Brho_ref=Brho_ref)
     track!(b0, bl)
@@ -121,7 +121,7 @@
     ele_kick = LineElement(L=1.0, Kn0L=1.0, tracking_method=Exact())
     ele_bend = LineElement(L=1.0, g=0.01, tracking_method=Exact())
     ele_patch_bend = LineElement(L=1.0, g=0.01, dy=3.0, dz_rot=0.3, tracking_method=Exact())
-    ele_patch_sol = LineElement(L=1.0, Ks=1.0, dt=1.0, tracking_method=Exact())
+    ele_patch_sol = LineElement(L=1.0, Ksol=1.0, dt=1.0, tracking_method=Exact())
     ele_bend_quad = LineElement(L=1.0, g=0.01, Kn1=1.0, tracking_method=Exact())
     @test_throws ErrorException track!(b0, Beamline([ele_kick],       Brho_ref=Brho_ref))
     @test_throws ErrorException track!(b0, Beamline([ele_bend],       Brho_ref=Brho_ref))
@@ -192,7 +192,7 @@
     @test coeffs_approx_equal(v_expected, b0.v, 5e-10)
 
     # Pure solenoid:
-    ele = LineElement(L=1.0, Ks=2.0, tracking_method=SplitIntegration())
+    ele = LineElement(L=1.0, Ksol=2.0, tracking_method=SplitIntegration())
     b0 = Bunch(collect(transpose(@vars(D10))), Brho_ref=Brho_ref)
     bl = Beamline([ele], Brho_ref=Brho_ref)
     track!(b0, bl)
@@ -200,7 +200,7 @@
     @test coeffs_approx_equal(v_expected, b0.v, 5e-10)
 
     # Solenoid with quadrupole:
-    ele = LineElement(L=2.0, Ks=0.1, Kn1=0.1, tracking_method=SolenoidKick())
+    ele = LineElement(L=2.0, Ksol=0.1, Kn1=0.1, tracking_method=SolenoidKick())
     b0 = Bunch(collect(transpose(@vars(D10))), Brho_ref=Brho_ref)
     bl = Beamline([ele], Brho_ref=Brho_ref)
     track!(b0, bl)
@@ -208,7 +208,7 @@
     @test coeffs_approx_equal(v_expected, b0.v, 5e-10)
 
     # SK multiple steps:
-    ele = LineElement(L=2.0, Ks=0.1, Kn1=0.1, tracking_method=SolenoidKick(order=4, num_steps=2))
+    ele = LineElement(L=2.0, Ksol=0.1, Kn1=0.1, tracking_method=SolenoidKick(order=4, num_steps=2))
     b0 = Bunch(collect(transpose(@vars(D10))), Brho_ref=Brho_ref)
     bl = Beamline([ele], Brho_ref=Brho_ref)
     track!(b0, bl)
@@ -216,7 +216,7 @@
     @test coeffs_approx_equal(v_expected, b0.v, 5e-10)
 
     # Step size:
-    ele = LineElement(L=2.0, Ks=0.1, Kn1=0.1, tracking_method=SolenoidKick(order=4, ds_step=1.0))
+    ele = LineElement(L=2.0, Ksol=0.1, Kn1=0.1, tracking_method=SolenoidKick(order=4, ds_step=1.0))
     b0 = Bunch(collect(transpose(@vars(D10))), Brho_ref=Brho_ref)
     bl = Beamline([ele], Brho_ref=Brho_ref)
     track!(b0, bl)

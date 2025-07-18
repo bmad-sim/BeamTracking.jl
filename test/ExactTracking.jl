@@ -794,7 +794,7 @@ end
         dz = T(4)
         winv = ExactTracking.w_inv_matrix(T(-5),T(6),T(7))
         L = winv[3,1]*dx + winv[3,2]*dy + winv[3,3]*dz
-        return tilde_m, dt, dx, dy, dz, winv, L
+        return beta_0, gamsqr_0, tilde_m, dt, dx, dy, dz, winv, L
     end
 
     function patch_norot_args(::Type{T}) where {T}
@@ -808,7 +808,7 @@ end
         dy = T(2)
         dz = T(3)
         L = dz
-        return tilde_m, dt, dx, dy, dz, nothing, L
+        return beta_0, gamsqr_0, tilde_m, dt, dx, dy, dz, nothing, L
     end
 
     function drift_args(::Type{T}) where {T}

@@ -12,11 +12,12 @@ function _track!(
   ap = ele.AlignmentParams
   bp = ele.BendParams
   bm = ele.BMultipoleParams
-  # bc BitsLineElement does not support PatchParams yet
-  pp = ele isa BitsLineElement ? nothing : ele.PatchParams
+  pp = ele.PatchParams
+    # bc BitsLineElement does not support ApertureParams yet
+  dp = ele isa BitsLineElement ? nothing : ele.ApertureParams
 
   # Function barrier
-  universal!(i, b, tm, bunch, L, ap, bp, bm, pp; kwargs...)
+  universal!(i, b, tm, bunch, L, ap, bp, bm, pp, dp; kwargs...)
 end
 
 # Step 2: Push particles through -----------------------------------------
@@ -29,7 +30,8 @@ function universal!(
   alignmentparams, 
   bendparams,
   bmultipoleparams,
-  patchparams;
+  patchparams,
+  apertureparams;
   kwargs...
 ) 
   kc = KernelChain(Val{1}())

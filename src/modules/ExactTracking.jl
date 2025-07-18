@@ -228,52 +228,42 @@ end # function exact_sbend!()
   v[i,PYI]  = ks * cm * x_0 / 4 - s * (px_0 / 2 + ks * y_0 / 4) + cp * v[i,PYI] / 2
 end
 
-
-@makekernel fastgtpsa=true function patch!(i, b::BunchView, tilde_m, dt, dx, dy, dz, winv::Union{StaticMatrix{3,3},Nothing}, L)
-  # Temporary momentum [1+δp, ps_0]
+@makekernel fastgtpsa=true function patch_offset!(i, b::BunchView, tilde_m, dx, dy, dt)
   v = b.v
-
   rel_p = 1 + v[i,PZI]
-  ps_0 = sqrt(rel_p^2 - v[i,PXI]^2 - v[i,PYI]^2)
+  v[i,XI] -= dx
+  v[i,YI] -= dy
+  v[i,ZI] += rel_p/sqrt(rel_p^2+tilde_m^2)*C_LIGHT*dt
+end
+
+@makekernel fastgtpsa=true function patch_rotation!(i, b::BunchView, winv::StaticMatrix{3,3}, dz)
+  v = b.v
+  ps_0 = sqrt((1 + v[i,PZI])^2 - v[i,PXI]^2 - v[i,PYI]^2)
+  x_0 = v[i,XI]
+  y_0 = v[i,YI]
+  v[i,XI]   = winv[1,1]*x_0 + winv[1,2]*y_0 - winv[1,3]*dz
+  v[i,YI]   = winv[2,1]*x_0 + winv[2,2]*y_0 - winv[2,3]*dz
+
+  px_0 = v[i,PXI]
+  py_0 = v[i,PYI]
+  v[i,PXI] = winv[1,1]*px_0 + winv[1,2]*py_0 + winv[1,3]*ps_0
+  v[i,PYI] = winv[2,1]*px_0 + winv[2,2]*py_0 + winv[2,3]*ps_0
+end
+
+@makekernel fastgtpsa=true function patch!(i, b::BunchView, beta_0, gamsqr_0, tilde_m, dt, dx, dy, dz, winv::Union{StaticMatrix{3,3},Nothing}, L)
+  v = b.v
+  rel_p = 1 + v[i,PZI]
   # Only apply rotations if needed
   if isnothing(winv)
-    # No rotation case
-    v[i,XI] -= dx
-    v[i,YI] -= dy
-
-    # Apply t_offset
-    v[i,ZI] += rel_p/sqrt(rel_p^2+tilde_m^2)*C_LIGHT*dt
-
-    # Drift to face
-    v[i,XI]   += v[i,PXI] * dz / ps_0
-    v[i,YI]   += v[i,PYI] * dz / ps_0
-    v[i,ZI]   -=  dz * rel_p / ps_0 - L*rel_p*sqrt((1+tilde_m^2)/(rel_p^2+tilde_m^2))
+    patch_offset!(i, b, tilde_m, dx, dy, dt)
+    exact_drift!(i, b, beta_0, gamsqr_0, tilde_m, L)
+    v[i,ZI] -= (dz-L) * rel_p / sqrt(rel_p^2 - v[i,PXI]^2 - v[i,PYI]^2)
   else
-    # Translate position vector [x, y]
-    x_0 = v[i,XI] - dx                                # x_0
-    y_0 = v[i,YI] - dy                                # y_0
-
-    # Temporary momentum vector [px, py]
-    px_0 = v[i,PXI]                                    # px_0
-    py_0 = v[i,PYI]                                    # py_0
-
-    # Transform position vector [x - dx, y - dy, -dz]
-    v[i,XI]   = winv[1,1]*x_0 + winv[1,2]*y_0 - winv[1,3]*dz
-    v[i,YI]   = winv[2,1]*x_0 + winv[2,2]*y_0 - winv[2,3]*dz
-    s_f = winv[3,1]*x_0 + winv[3,2]*y_0 - winv[3,3]*dz  # s_f
-
-    # Transform momentum vector [px, py, ps]
-    v[i,PXI]  = winv[1,1]*px_0 + winv[1,2]*py_0 + winv[1,3]*ps_0
-    v[i,PYI]  = winv[2,1]*px_0 + winv[2,2]*py_0 + winv[2,3]*ps_0
-    ps_f = winv[3,1]*px_0 + winv[3,2]*py_0 + winv[3,3]*ps_0 # ps_f
-
-    # Apply t_offset
-    v[i,ZI] += rel_p/sqrt(rel_p^2+tilde_m^2)*C_LIGHT*dt
-
-    # Drift to face
-    v[i,XI] -= s_f * v[i,PXI] / ps_f
-    v[i,YI] -= s_f * v[i,PYI] / ps_f
-    v[i,ZI] += s_f * rel_p / ps_f + L*rel_p*sqrt((1+tilde_m^2)/(rel_p^2+tilde_m^2))
+    patch_offset!(i, b, tilde_m, dx, dy, dt)
+    s_f = winv[3,1]*v[i,XI] + winv[3,2]*v[i,YI] - winv[3,3]*dz
+    patch_rotation!(i, b, winv, dz)
+    exact_drift!(i, b, beta_0, gamsqr_0, tilde_m, -s_f)
+    v[i,ZI] += (s_f + L) * rel_p * sqrt((1 + tilde_m^2)/(rel_p^2 + tilde_m^2))
   end
 end
 
