@@ -98,7 +98,7 @@ begin
 	# GTPSA map:
 	const D = Descriptor(6, 1) # 6 variables to 1st order
 	v = @vars(D)
-	local b0_tpsa = Bunch(v, mem=BeamTracking.AoS)
+	local b0_tpsa = Bunch(v)
 	
 	track!(b0_tpsa, ring)
 	track!(b0_tpsa, bitsring)

@@ -10,87 +10,41 @@ const PZI = 6
 
 @enumx State::UInt8 Preborn Alive Lost Lost_Neg_X Lost_Pos_X Lost_Neg_Y Lost_Pos_Y Lost_Pz Lost_Z   
 
-mutable struct Bunch{mem<:MemoryLayout,B,S,V,Q}
+struct Bunch{B,S,V,Q}
   species::Species # Species
-  Brho_ref::B      # Defines normalization of phase space coordinates
-  const state::S   # Array of particle states
-  const v::V       # Matrix of particle coordinates
-  const q::Q       # Matrix of particle quaternions if spin else nothing 
-  function Bunch{mem}(species, Brho_ref, state, v, q=nothing) where {mem}
-    return new{mem,typeof(Brho_ref),typeof(state),typeof(v),typeof(q)}(species, Brho_ref, state, v, q)
+  Brho_ref::B      # 0D Array: Defines normalization of phase space coordinates
+  state::S   # Array of particle states
+  v::V       # Matrix of particle coordinates
+  q::Q       # Matrix of particle quaternions if spin else nothing 
+  function Bunch(species, Brho_ref, state, v, q=nothing)
+    return new{typeof(Brho_ref),typeof(state),typeof(v),typeof(q)}(species, Brho_ref, state, v, q)
   end
-end
-
-# Always SOA
-struct BunchView{S,V,Q}
-  state::S
-  v::V
-  q::Q
-  function BunchView(b::Bunch)
-    state = b.state
-    v = soaview(b)
-    q = soaviewq(b)
-    return new{typeof.((state,v,q))...}(state,v,q)
-  end
-  BunchView(args...) = new{typeof.(args)...}(args...)
 end
 
 # Necessary for GPU compatibility:
-Adapt.@adapt_structure BunchView
+Adapt.@adapt_structure Bunch
 
-# Index particle i coordinate x as (i,1) , px as (i,2), etc
-soaview(bunch::Bunch{A}) where {A} = A == AoS ? transpose(bunch.v) : bunch.v
-aosview(bunch::Bunch{A}) where {A} = A == AoS ? bunch.v : transpose(bunch.v)
 
-soaviewq(bunch::Bunch{A}) where {A} = (A == SoA || isnothing(bunch.q)) ? bunch.q : transpose(bunch.q)
-aosviewq(bunch::Bunch{A}) where {A} = (A == AoS || isnothing(bunch.q)) ? bunch.q : transpose(bunch.q)
+get_N_particle(bunch::Bunch) = size(bunch.v, 1)
 
-get_N_particle(bunch::Bunch{A}) where {A} = A == AoS ? size(bunch.v, 2) : size(bunch.v, 1)
-
-function Bunch(N::Integer; mem=SoA, Brho_ref=NaN, species=ELECTRON, spin=false)
-  if mem == SoA
-    v = rand(N,6)
-    q = spin ? rand(N,4) : nothing
-  else
-    v = rand(6,N)
-    q = spin ? rand(4,N) : nothing
-  end
+function Bunch(N::Integer; Brho_ref=NaN, species=ELECTRON, spin=false)
+  v = rand(N,6)
+  q = spin ? rand(N,4) : nothing
   state = similar(v, State.T, N)
   state .= State.Alive
-  return Bunch{mem}(species, Brho_ref, state, v, q)
+  return Bunch(species, fill(Brho_ref), state, v, q)
 end
 
-function Bunch(v::AbstractArray, q=nothing; mem=SoA, Brho_ref=NaN, species=ELECTRON)
-  if mem == SoA
-    size(v, 2) == 6 || error("For SoA the number of columns must be equal to 6")
-    N_particle = size(v, 1)
-  else
-    size(v, 1) == 6 || error("For SoA the number of rows must be equal to 6")
-    N_particle = size(v, 2)
-  end
+function Bunch(v::AbstractArray, q=nothing; Brho_ref=NaN, species=ELECTRON)
+  size(v, 2) == 6 || error("The number of columns must be equal to 6")
+  N_particle = size(v, 1)
   state = similar(v, State.T, N_particle)
   state .= State.Alive
-  return Bunch{mem}(species, Brho_ref, state, v, q)
-end
-
-struct ParticleView{B,S,V,Q}
-  index::Int
-  species::Species
-  Brho_ref::B     
-  state::S
-  v::V
-  q::Q    
-  ParticleView(args...) = new{typeof.(args)...}(args...)
-end
-
-function ParticleView(bunch::Bunch, i=1)
-  v = aosview(bunch)
-  q = aosviewq(bunch)
-  return ParticleView(i, bunch.species, bunch.Brho_ref, bunch.state[i], view(v, :, i), isnothing(q) ? q : view(q, :, i))
+  return Bunch(species, fill(Brho_ref), state, v, q)
 end
 
 # Update momenta for change to Brho_ref or change to species
-function setproperty!(bunch::Bunch{mem,B}, key::Symbol, value) where {mem,B}
+function setproperty!(bunch::Bunch{B}, key::Symbol, value) where {B}
   if key == :Brho_ref
     error("Updating reference energy of bunch calculation not yet implemented")
     #=

@@ -6,7 +6,7 @@ using Test,
       GTPSA,
       StaticArrays
 
-using BeamTracking: BunchView, KernelCall
+using BeamTracking: Bunch, KernelCall
 BenchmarkTools.DEFAULT_PARAMETERS.gctrial = false
 BenchmarkTools.DEFAULT_PARAMETERS.evals = 2
 
@@ -23,9 +23,7 @@ function test_matrix(
 )
   # Initialize bunch without spin
   v = transpose(@vars(D1))
-  state = similar(v, State.T, 1)
-  state .= State.Alive
-  b = BunchView(state, v, nothing)
+  b = Bunch(v)
 
   # Set up kernel chain and launch!
   BeamTracking.launch!(b, kernel_call)
@@ -49,7 +47,7 @@ function test_matrix(
   if no_scalar_allocs
     v = [0.1 0.2 0.3 0.4 0.5 0.6]
     @test @ballocated(BeamTracking.launch!(b, $kernel_call; use_KA=false), 
-    setup=(b = BunchView(copy($state), copy($v), nothing))) == 0
+    setup=(b = Bunch(copy($v)))) == 0
   end
 end
 
@@ -74,9 +72,7 @@ function test_map(
 
   # Initialize bunch without spin
   v = transpose(@vars(D10))
-  state = similar(v, State.T, 1)
-  state .= State.Alive
-  b = BunchView(state, v, nothing)
+  b = Bunch(v)
 
   # Set up kernel chain and launch!
   BeamTracking.launch!(b, kernel_call)
@@ -91,7 +87,7 @@ function test_map(
   if no_scalar_allocs
     v = [0.1 0.2 0.3 0.4 0.5 6e16]
     @test @ballocated(BeamTracking.launch!(b, $kernel_call; use_KA=false), 
-    setup=(b = BunchView(copy($state), copy($v), nothing))) == 0
+    setup=(b = Bunch(copy($v)))) == 0
   end
 
 

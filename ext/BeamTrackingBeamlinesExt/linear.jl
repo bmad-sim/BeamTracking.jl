@@ -28,7 +28,7 @@ end
 end
 
 @inline function thin_pure_bquadrupole(tm::Linear, bunch, bm2)
-  Kn1L, Ks1L = get_integrated_strengths(bm2, 0, bunch.Brho_ref)
+  Kn1L, Ks1L = get_integrated_strengths(bm2, 0, bunch.Brho_ref[])
   # Temporary
   Ks1L ≈ 0 || error("Skew/tilt multipoles not implemented yet for tracking method $tm")
   mx, my = LinearTracking.linear_thin_quad_matrices(Kn1L)
@@ -45,13 +45,13 @@ end
 
 # === Thick elements === #
 @inline function drift(tm::Linear, bunch, L)
-  gamma_0 = calc_gamma(bunch.species, bunch.Brho_ref)
+  gamma_0 = calc_gamma(bunch.species, bunch.Brho_ref[])
   return KernelCall(LinearTracking.linear_drift!, (L, L/gamma_0^2))
 end
 
 @inline function thick_pure_bsolenoid(tm::Linear, bunch, bm0, L)
-  gamma_0 = calc_gamma(bunch.species, bunch.Brho_ref)
-  Kns, Kss = get_strengths(bm0, L, bunch.Brho_ref)
+  gamma_0 = calc_gamma(bunch.species, bunch.Brho_ref[])
+  Kns, Kss = get_strengths(bm0, L, bunch.Brho_ref[])
   Ks = sqrt(Kns^2 + Kss^2)
   mxy = LinearTracking.linear_solenoid_matrix(Ks, L)
   return KernelCall(LinearTracking.linear_coast!, (mxy, L/gamma_0^2, nothing, nothing))
@@ -70,9 +70,9 @@ end
     # This is a thick corrector coil with a quadrupole term
     # In Fortran Bmad is g == 0 but dg != 0 and Kn1 != 0
     # In SciBmad this is g == 0 but Kn0 != 0 and Kn1 != 0
-    gamma_0 = calc_gamma(bunch.species, bunch.Brho_ref)
-    Kn0, Ks0 = get_strengths(bmultipoleparams[1], L, bunch.Brho_ref)
-    Kn1, Ks1 = get_strengths(bmultipoleparams[2], L, bunch.Brho_ref) 
+    gamma_0 = calc_gamma(bunch.species, bunch.Brho_ref[])
+    Kn0, Ks0 = get_strengths(bmultipoleparams[1], L, bunch.Brho_ref[])
+    Kn1, Ks1 = get_strengths(bmultipoleparams[2], L, bunch.Brho_ref[]) 
     (Ks0 ≈ 0 && Ks1 ≈ 0) || error("Skew/tilt multipoles not implemented yet for tracking method $tm")
     mx, my, r56, d, t = LinearTracking.linear_dipole_matrices(0, 0, 0, Kn0, Kn1, gamma_0, L)
     return KernelCall(LinearTracking.linear_coast_uncoupled!, (mx, my, r56, d, t))
@@ -82,8 +82,8 @@ end
 end
 
 @inline function thick_pure_bquadrupole(tm::Linear, bunch, bm2, L)
-  gamma_0 = calc_gamma(bunch.species, bunch.Brho_ref)
-  Kn1, Ks1 = get_strengths(bm2, L, bunch.Brho_ref)
+  gamma_0 = calc_gamma(bunch.species, bunch.Brho_ref[])
+  Kn1, Ks1 = get_strengths(bm2, L, bunch.Brho_ref[])
   Ks1 ≈ 0 || error("Skew/tilt multipoles not implemented yet for tracking method $tm")
   mx, my = LinearTracking.linear_quad_matrices(Kn1, L)
   return KernelCall(LinearTracking.linear_coast_uncoupled!, (mx, my, L/gamma_0^2, nothing, nothing))
@@ -108,8 +108,8 @@ end
 end
 
 @inline function thick_bend_pure_bdipole(tm::Linear, bunch, bendparams, bm1, L)     
-  gamma_0 = calc_gamma(bunch.species, bunch.Brho_ref)
-  Kn0, Ks0 = get_strengths(bm1, L, bunch.Brho_ref)
+  gamma_0 = calc_gamma(bunch.species, bunch.Brho_ref[])
+  Kn0, Ks0 = get_strengths(bm1, L, bunch.Brho_ref[])
   Ks0 ≈ 0 || error("Skew/tilt multipoles not implemented yet for tracking method $tm")
   mx, my, r56, d, t = LinearTracking.linear_dipole_matrices(bendparams.g, bendparams.e1, bendparams.e2, Kn0, 0, gamma_0, L)
   return KernelCall(LinearTracking.linear_coast_uncoupled!, (mx, my, r56, d, t))
@@ -120,9 +120,9 @@ end
     # This is a thick combined function magnet
     # In Fortran Bmad is g != 0, dg != 0, Kn1 != 0
     # In SciBmad this is g != 0, Kn0 != 0, Kn1 != 0
-    gamma_0 = calc_gamma(bunch.species, bunch.Brho_ref)
-    Kn0, Ks0 = get_strengths(bmultipoleparams[1], L, bunch.Brho_ref)
-    Kn1, Ks1 = get_strengths(bmultipoleparams[2], L, bunch.Brho_ref)
+    gamma_0 = calc_gamma(bunch.species, bunch.Brho_ref[])
+    Kn0, Ks0 = get_strengths(bmultipoleparams[1], L, bunch.Brho_ref[])
+    Kn1, Ks1 = get_strengths(bmultipoleparams[2], L, bunch.Brho_ref[])
     (Ks0 ≈ 0 && Ks1 ≈ 0) || error("Skew/tilt multipoles not implemented yet for tracking method $tm")
     mx, my, r56, d, t = LinearTracking.linear_dipole_matrices(bendparams.g, bendparams.e1, bendparams.e2, Kn0, Kn1, gamma_0, L)
     return KernelCall(LinearTracking.linear_coast_uncoupled!, (mx, my, r56, d, t))
@@ -134,8 +134,8 @@ end
 @inline function thick_bend_pure_bquadrupole(tm::Linear, bunch, bendparams, bm2, L) 
   # This is a quadrupole with a g, I think your code should be able to handle this
   # In Fortran Bmad it would be like dg == -g, Kn1 != 0.
-  gamma_0 = calc_gamma(bunch.species, bunch.Brho_ref)
-  Kn1, Ks1 = get_strengths(bm2, L, bunch.Brho_ref)
+  gamma_0 = calc_gamma(bunch.species, bunch.Brho_ref[])
+  Kn1, Ks1 = get_strengths(bm2, L, bunch.Brho_ref[])
   Ks1 ≈ 0 || error("Skew/tilt multipoles not implemented yet for tracking method $tm")
   mx, my, r56, d, t = LinearTracking.linear_dipole_matrices(bendparams.g, bendparams.e1, bendparams.e2, 0, Kn1, gamma_0, L)
   return KernelCall(LinearTracking.linear_coast_uncoupled!, (mx, my, r56, d, t))

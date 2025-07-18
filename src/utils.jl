@@ -100,16 +100,15 @@ const M_ELECTRON = 0.51099895069e6 # eV/c^2
 const M_PROTON = 9.3827208943e8 # eV/c^2
 
 struct Species
-  name::String
   mass::Float64   # in eV/c^2
   charge::Float64 # in Coulomb
 end
 
-const ELECTRON = Species("electron", M_ELECTRON,-1)
-const POSITRON = Species("positron", M_ELECTRON,1)
+const ELECTRON = Species(M_ELECTRON,-1)
+const POSITRON = Species(M_ELECTRON,1)
 
-const PROTON = Species("proton", M_PROTON,1)
-const ANTIPROTON = Species("antiproton", M_PROTON,-1)
+const PROTON = Species(M_PROTON,1)
+const ANTIPROTON = Species(M_PROTON,-1)
 
 
 function Species(name)
