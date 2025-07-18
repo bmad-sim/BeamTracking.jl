@@ -110,14 +110,14 @@ function TBMT_quat(G, gx, gy, γ, Bρ, B::Vector{<:Number}, bv::Matrix{<:Number}
   return SVector(cos(θ/2), sin(θ/2)*Ω...)
 end
 
-function quat_mult!(q1, q2, i)
+function quat_mult!(q1, q2)
   # In-place quaternion multiplication: q2 := q1 * q2
   w1, x1, y1, z1 = q1
-  w2, x2, y2, z2 = q2[i,:]
-  q2[i,1] = w1*w2 - x1*x2 - y1*y2 - z1*z2
-  q2[i,2] = w1*x2 + x1*w2 + y1*z2 - z1*y2
-  q2[i,3] = w1*y2 - x1*z2 + y1*w2 + z1*x2
-  q2[i,4] = w1*z2 + x1*y2 - y1*x2 + z1*w2
+  w2, x2, y2, z2 = q2
+  q2[1] = w1*w2 - x1*x2 - y1*y2 - z1*z2
+  q2[2] = w1*x2 + x1*w2 + y1*z2 - z1*y2
+  q2[3] = w1*y2 - x1*z2 + y1*w2 + z1*x2
+  q2[4] = w1*z2 + x1*y2 - y1*x2 + z1*w2
 end
 
 function quat_inv(q)

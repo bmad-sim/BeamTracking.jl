@@ -13,7 +13,6 @@ const TRACKING_METHOD = BmadStandard
   # First kick
   rel_p = 1 + v[i, PZI]
   φ = φ0 - 2π * wave_number * v[i, ZI] * sqrt(rel_p^2 + tilde_m^2) / (rel_p * sqrt(1 + tilde_m^2))
-  φ = mod2pi(φ) - π
   dE = V * sin(φ) / 2
   pc = rel_p * p0c
   E_old = sqrt(pc^2 + (tilde_m * p0c)^2)
@@ -99,7 +98,7 @@ end
         # Quaternion update for spin
         ζ = sqrt(A^2 + B^2 + CC^2)
         sc = sincu(ζ)
-        quat_mult!(@SVector[-cos(ζ), A*sc, B*sc, CC*sc], b.q, i)
+        quat_mult!(@SVector[-cos(ζ), A*sc, B*sc, CC*sc], @view b.q[i,:])
     end
 
     # Update coordinates
@@ -116,8 +115,7 @@ end
         χ = 1 + G * γ
         ξ = G * (γ - 1)
         kx = g * K0
-
-        ωx = sqrt(abs(kx)/rel_p)
+        ωx = sqrt(abs(kx))/sqrt(rel_p)
         xc = abs(kx) > 0 ? (g*rel_p - K0)/kx : 0.0
         xd = v[i,XI] - xc
         if kx > 0
@@ -184,7 +182,7 @@ end
 
         ζ = sqrt(A^2 + B^2 + CC^2)
         sc = sincu(ζ)
-        quat_mult!(@SVector[-cos(ζ), A*sc, B*sc, CC*sc], b.q, i)
+        quat_mult!(@SVector[-cos(ζ), A*sc, B*sc, CC*sc], @view b.q[i,:])
     end
 
     # Update coordinates
@@ -252,7 +250,7 @@ end
         # Quaternion update for spin
         ζ = sqrt(A^2 + B^2 + CC^2)
         sc = sincu(ζ)
-        quat_mult!(@SVector[-cos(ζ), A*sc, B*sc, CC*sc], b.q, i)
+        quat_mult!(@SVector[-cos(ζ), A*sc, B*sc, CC*sc], @view b.q[i,:])
     end
 
     # Update coordinates
@@ -404,7 +402,6 @@ end
             )
           cc2 *= 0.25 * k1 * kx * χ^2 / (rel_p^4 * η * ωx^2 * ωy^2)
     
-# ==============================================================
     elseif kx > 0 && k1 < 0
         if abs(μ) > 1e-20
             a1 = k0 * ξ * ωy^2 * (
@@ -457,6 +454,7 @@ end
                               sx * sy * xd * ωy^4)
             )
             cc2 *= 0.25 * k1 * kx * χ^2 / (rel_p^4 * ωx^2 * ωy^2 * μ)
+            println("We are here")
         else
             error("μ ≈ 0 should not happen for k0 > 0 and k1 < 0")
         end
@@ -608,7 +606,7 @@ end
 
     ζ = sqrt(A^2 + B^2 + CC^2)
     sc = sincu(ζ)
-    quat_mult!(@SVector[-cos(ζ), A*sc, B*sc, CC*sc], b.q, i)
+    quat_mult!(@SVector[-cos(ζ), A*sc, B*sc, CC*sc], @view b.q[i,:])
   end
 
   x0 -= xc
@@ -634,7 +632,7 @@ end
 end
 
 @makekernel fastgtpsa=true function thin_snake!(i, b::BunchView, axis, angle)
-    quat_mult!(SVector{4}([cos(angle/2), sin(angle/2)*axis...]), b.q, i)
+    quat_mult!(SVector{4}([cos(angle/2), sin(angle/2)*axis...]), @view b.q[i,:])
 end
 
 # Sextupole
@@ -700,7 +698,7 @@ end
         # Quaternion update
         ζ = sqrt(A^2 + B^2 + CC^2)
         sc = sincu(ζ)
-        quat_mult!(@SVector[-cos(ζ), A*sc, B*sc, CC*sc], b.q, i)
+        quat_mult!(@SVector[-cos(ζ), A*sc, B*sc, CC*sc], @view b.q[i,:])
       end
   end
   # ========== End of Magnus spin rotation ==========
@@ -773,10 +771,10 @@ end
   if !isnothing(b.q)
     rel_p = 1 + v[i, PZI]
     γ = sqrt(1 + (rel_p * βγ0)^2)
-    B = k0 * [-sin_e * v[i, YI], -tan_e * v[i, XI], cos_e * v[i, YI]]
-    B -= k1 * tan_e * v[i, XI] * [v13, v1_2 - v3_2, 0.0]
+    B = k0 .* [-sin_e * v[i, YI], -tan_e * v[i, XI], cos_e * v[i, YI]]
+    #B -= k1 * tan_e .* [v[i, XI] * v13, v[i, XI] * (v1_2 - v3_2), 0.0]
     B[3] *= s
-    quat_mult!(TBMT_quat(G, 0, 0, γ, 1, B, b.v, i), b.q, i)
+    quat_mult!(TBMT_quat(G, 0, 0, γ, 1, B, b.v, i), @view b.q[i,:])
   end
 end
 
