@@ -51,9 +51,8 @@ end
 
 @inline function thick_pure_bsolenoid(tm::Linear, bunch, bm0, L)
   gamma_0 = calc_gamma(bunch.species, bunch.Brho_ref)
-  Kns, Kss = get_strengths(bm0, L, bunch.Brho_ref)
-  Ks = sqrt(Kns^2 + Kss^2)
-  mxy = LinearTracking.linear_solenoid_matrix(Ks, L)
+  Kns, _ = get_strengths(bm0, L, bunch.Brho_ref)
+  mxy = LinearTracking.linear_solenoid_matrix(Kns, L)
   return KernelCall(LinearTracking.linear_coast!, (mxy, L/gamma_0^2, nothing, nothing))
 end
 
