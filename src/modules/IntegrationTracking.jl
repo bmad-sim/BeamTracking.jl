@@ -42,7 +42,7 @@ end
 
 module IntegrationTracking
 using ..GTPSA, ..BeamTracking, ..StaticArrays, ..KernelAbstractions
-using ..BeamTracking: XI, PXI, YI, PYI, ZI, PZI, @makekernel, BunchView
+using ..BeamTracking: XI, PXI, YI, PYI, ZI, PZI, Q0, QX, QY, QZ, @makekernel, BunchView
 
 #
 # ===============  I N T E G R A T O R S  ===============
@@ -132,7 +132,11 @@ kn: vector of normal multipole strengths scaled by Bρ0
 ks: vector of skew multipole strengths scaled by Bρ0
 L: element length
 """
-@makekernel fastgtpsa=true function mkm_quadrupole!(i, b::BunchView, beta_0, gamsqr_0, tilde_m, w, w_inv, k1, mm, kn, ks, L)
+@makekernel fastgtpsa=true function mkm_quadrupole!(i, b::BunchView, beta_0, gamsqr_0, tilde_m, beta_gamma_0, a, w, w_inv, k1, mm, kn, ks, L)
+  if !isnothing(b.q)
+    rotate_spin!(               i, b, a, 0, beta_gamma_0, mm, kn, ks, L / 2)
+  end
+
   ExactTracking.multipole_kick!(i, b, mm, kn * L / 2, ks * L / 2, 3)
   quadrupole_kick!(             i, b, beta_0, gamsqr_0, tilde_m, L / 2)
   ExactTracking.patch!(         i, b, tilde_m, 0, 0, 0, 0, w, 0)
@@ -140,6 +144,10 @@ L: element length
   ExactTracking.patch!(         i, b, tilde_m, 0, 0, 0, 0, w_inv, 0)
   quadrupole_kick!(             i, b, beta_0, gamsqr_0, tilde_m, L / 2)
   ExactTracking.multipole_kick!(i, b, mm, kn * L / 2, ks * L / 2, 3)
+
+  if !isnothing(b.q)
+    rotate_spin!(               i, b, a, 0, beta_gamma_0, mm, kn, ks, L / 2)
+  end
 end 
 
 
@@ -227,6 +235,7 @@ s: element length
                           )
 end # function quadrupole_kick!()
 
+
 #=
 #
 # ===============  B E N D  ===============
@@ -261,6 +270,7 @@ L:  element arc length
 end 
 =#
 
+
 #
 # ===============  S O L E N O I D  ===============
 #
@@ -285,10 +295,18 @@ kn: vector of normal multipole strengths scaled by Bρ0
 sn: vector of skew multipole strengths scaled by Bρ0
 L:  element length
 """
-@makekernel fastgtpsa=true function sks_multipole!(i, b::BunchView, beta_0, gamsqr_0, tilde_m, Ksol, mm, kn, sn, L)
-  ExactTracking.exact_solenoid!(i, b, Ksol, beta_0, gamsqr_0, tilde_m, L / 2)
-  ExactTracking.multipole_kick!(i, b, mm, kn * L, sn * L, 1)
-  ExactTracking.exact_solenoid!(i, b, Ksol, beta_0, gamsqr_0, tilde_m, L / 2)
+@makekernel fastgtpsa=true function sks_multipole!(i, b::BunchView, beta_0, gamsqr_0, tilde_m, beta_gamma_0, a, Ksol, mm, kn, ks, L)
+  ExactTracking.exact_solenoid!(  i, b, Ksol, beta_0, gamsqr_0, tilde_m, L / 2)
+
+  if isnothing(b.q)
+    ExactTracking.multipole_kick!(i, b, mm, kn * L, ks * L, 1)
+  else
+    ExactTracking.multipole_kick!(i, b, mm, kn * L / 2, ks * L / 2, 1)
+    rotate_spin!(                 i, b, a, 0, beta_gamma_0, mm, kn, ks, L)
+    ExactTracking.multipole_kick!(i, b, mm, kn * L / 2, ks * L / 2, 1)
+  end
+
+  ExactTracking.exact_solenoid!(  i, b, Ksol, beta_0, gamsqr_0, tilde_m, L / 2)
 end 
 
 
@@ -302,9 +320,7 @@ This integrator uses Drift-Kick-Drift to track a beam through
 a straight, finite-length multipole magnet. The method is
 accurate through second order in the step size. The vectors
 kn and ks contain the normal and skew multipole strengths,
-starting with the dipole component. (For example, b[3] denotes
-the normal sextupole strength in Tesla/m^2.) The argument ns
-denotes the number of slices.
+starting with the dipole component.
 
 Arguments
 —————————
@@ -316,10 +332,90 @@ kn: vector of normal multipole strengths scaled by Bρ0
 ks: vector of skew multipole strengths scaled by Bρ0
 L:  element length
 """
-@makekernel fastgtpsa=true function dkd_multipole!(i, b::BunchView, beta_0, gamsqr_0, tilde_m, mm, kn, ks, L)
-  ExactTracking.exact_drift!(   i, b, beta_0, gamsqr_0, tilde_m, L / 2)
-  ExactTracking.multipole_kick!(i, b, mm, kn * L, ks * L, 1)
-  ExactTracking.exact_drift!(   i, b, beta_0, gamsqr_0, tilde_m, L / 2)
+@makekernel fastgtpsa=true function dkd_multipole!(i, b::BunchView, beta_0, gamsqr_0, tilde_m, beta_gamma_0, a, mm, kn, ks, L)
+  ExactTracking.exact_drift!(     i, b, beta_0, gamsqr_0, tilde_m, L / 2)
+
+  if isnothing(b.q)
+    ExactTracking.multipole_kick!(i, b, mm, kn * L, ks * L, 1)
+  else
+    ExactTracking.multipole_kick!(i, b, mm, kn * L / 2, ks * L / 2, 1)
+    rotate_spin!(                 i, b, a, 0, beta_gamma_0, mm, kn, ks, L)
+    ExactTracking.multipole_kick!(i, b, mm, kn * L / 2, ks * L / 2, 1)
+  end
+
+  ExactTracking.exact_drift!(     i, b, beta_0, gamsqr_0, tilde_m, L / 2)
 end
+
+
+#
+# ===============  S P I N  ===============
+#
+@inline function omega(i, b::BunchView, a, g, beta_gamma_0, mm, kn, ks)
+  """
+  This function computes the spin-precession vector using the multipole 
+  coefficients kn and ks indexed by mm, i.e., knl[i] is the normal 
+  coefficient of order mm[i].
+  """
+  v = b.v
+
+  px = v[i,PXI] + (v[i,YI] * kn[1] / 2) * (mm[1] == 0) # kinetic momenta
+  py = v[i,PYI] - (v[i,XI] * kn[1] / 2) * (mm[1] == 0)
+
+  rel_p = 1 + v[i,PZI]
+  gamma_0 = sqrt(1 + beta_gamma_0^2)
+  beta_gamma = rel_p * beta_gamma_0
+  gamma = sqrt(1 + beta_gamma^2)
+  pl = sqrt(rel_p^2 - px^2 - py^2)
+  beta_hat = SA[px, py, pl] / rel_p
+
+  bx, by = ExactTracking.normalized_field!(mm, kn, ks, v[i,XI], v[i,YI], 1)
+  bz = kn[1] * (mm[1] == 0)
+  b_field = SA[bx, by, bz]
+
+  dot = b_field[1]*beta_hat[1] + b_field[2]*beta_hat[2] + b_field[3]*beta_hat[3]
+  b_para = dot * beta_hat
+  b_perp = b_field - b_para
+  
+  omega = (1 + a*gamma)*b_perp + (1 + a)*b_para
+  omega = -(1 + g*v[i,XI])/pl * omega
+  omega = omega + SA[0, g, 0]
+
+  return omega
+end
+
+
+@inline function expq(v)
+  """
+  This function computes exp(i v⋅σ) as a quaternion, where σ is the 
+  vector of Pauli matrices.
+  """
+  n = sqrt(v[1]^2 + v[2]^2 + v[3]^2)
+  c = cos(n)
+  s = sincu(n)
+  v2 = s * v
+  return SA[-c, v2[1], v2[2], v2[3]]
+end
+
+
+@makekernel fastgtpsa=true function rotate_spin!(i, b::BunchView, a, g, beta_gamma_0, mm, kn, ks, L)
+  """
+  This function rotates b.q according to the multipoles present.
+  """
+  q2 = b.q
+  q1 = expq(-L / 2 * omega(i, b, a, g, beta_gamma_0, mm, kn, ks))
+  a1, b1, c1, d1 = q1[1], q1[2], q1[3], q1[4]
+  a2, b2, c2, d2 = q2[i,Q0], q2[i,QX], q2[i,QY], q2[i,QZ]
+  q2[i,Q0] = a1*a2 - b1*b2 - c1*c2 - d1*d2
+  q2[i,QX] = a1*b2 + b1*a2 + c1*d2 - d1*c2
+  q2[i,QY] = a1*c2 - b1*d2 + c1*a2 + d1*b2
+  q2[i,QZ] = a1*d2 + b1*c2 - c1*b2 + d1*a2
+end
+
+
+@makekernel fastgtpsa=true function integrate_with_spin_thin!(i, b::BunchView, ker, params, a, g, beta_gamma_0, mm, knl, ksl)
+  rotate_spin!(i, b, a, g, beta_gamma_0, mm, knl, ksl)
+  ker(i, b, params...)
+end
+
 
 end

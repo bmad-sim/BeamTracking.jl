@@ -3,12 +3,14 @@
   order = tm.order
   ds_step = tm.ds_step
   num_steps = tm.num_steps
+
   if ds_step < 0
     ds_step = L / num_steps
   else
     num_steps = Int(ceil(L / ds_step))
     ds_step = L / num_steps
   end
+
   if order == 2
     return KernelCall(IntegrationTracking.order_two_integrator!, (ker, params, ds_step, num_steps, L))
   elseif order == 4
@@ -27,7 +29,14 @@ end
   brho_0 = bunch.Brho_ref
   mm = bm.order
   knl, ksl = get_integrated_strengths(bm, 0, brho_0)
-  return KernelCall(ExactTracking.multipole_kick!, (mm, knl, ksl, 1))
+  params = (mm, knl, ksl, 1)
+  if isnothing(bunch.q)
+    return KernelCall(ExactTracking.multipole_kick!, params)
+  else
+    beta_gamma_0 = BeamTracking.calc_beta_gamma(bunch.species, brho_0)
+    return KernelCall(IntegrationTracking.integrate_with_spin_thin!, 
+      (ExactTracking.multipole_kick!, params, bunch.species.anom, 0, beta_gamma_0, mm, knl, ksl))
+  end
 end
 
 @inline thin_bdipole(tm::SplitIntegration, bunch, bm) = thin_pure_bdipole(tm, bunch, bm)
@@ -44,16 +53,21 @@ end
 # === Thick elements === #
 @inline drift(tm::Union{SplitIntegration,DriftKick}, bunch, L) = drift(Exact(), bunch, L)
 
-@inline thick_pure_bsolenoid(tm::Union{SplitIntegration,SolenoidKick}, bunch, bm, L) = 
-  thick_pure_bsolenoid(Exact(), bunch, bm, L)
+@inline function thick_pure_bsolenoid(tm::Union{SplitIntegration,SolenoidKick}, bunch, bm, L)
+  if isnothing(bunch.q)
+    return thick_pure_bsolenoid(Exact(), bunch, bm, L)
+  else
+    return thick_bsolenoid(tm, bunch, bm, L)
+  end
+end
 
 @inline function thick_bsolenoid(tm::Union{SplitIntegration,SolenoidKick}, bunch, bm, L) 
   brho_0 = bunch.Brho_ref
   tilde_m, gamsqr_0, beta_0 = ExactTracking.drift_params(bunch.species, brho_0)
   mm = bm.order
   kn, ks = get_strengths(bm, L, brho_0)
-  Ksol = sqrt(kn[1]^2 + ks[1]^2)
-  params = (beta_0, gamsqr_0, tilde_m, Ksol, mm, kn, ks)
+  Ksol = kn[1]
+  params = (beta_0, gamsqr_0, tilde_m, 1/tilde_m, bunch.species.anom, Ksol, mm, kn, ks)
   return integration_launcher!(IntegrationTracking.sks_multipole!, params, tm, L)
 end
 
@@ -62,7 +76,7 @@ end
   tilde_m, gamsqr_0, beta_0 = ExactTracking.drift_params(bunch.species, brho_0)
   mm = bm.order
   kn, ks = get_strengths(bm, L, brho_0)
-  params = (beta_0, gamsqr_0, tilde_m, mm, kn, ks)
+  params = (beta_0, gamsqr_0, tilde_m, 1/tilde_m, bunch.species.anom, mm, kn, ks)
   return integration_launcher!(IntegrationTracking.dkd_multipole!, params, tm, L)
 end
 
@@ -86,16 +100,17 @@ end
   return integration_launcher!(IntegrationTracking.bkb_multipole!, params, tm, L)
 end
 =#
+
 @inline function thick_pure_bquadrupole(tm::Union{SplitIntegration,MatrixKick}, bunch, bm, L)
   brho_0 = bunch.Brho_ref
   tilde_m, gamsqr_0, beta_0 = ExactTracking.drift_params(bunch.species, brho_0)
   mm = bm.order
   kn, ks = get_strengths(bm, L, brho_0)
   k1 = sqrt(kn[1]^2 + ks[1]^2)
-  tilt = atan(ks[1],kn[1]) / 2
+  tilt = atan(ks[1], kn[1]) / 2
   w = ExactTracking.w_matrix(0,0,tilt)
   w_inv = ExactTracking.w_inv_matrix(0,0,tilt)
-  params = (beta_0, gamsqr_0, tilde_m, w, w_inv, k1, mm, kn, ks)
+  params = (beta_0, gamsqr_0, tilde_m, 1/tilde_m, bunch.species.anom, w, w_inv, k1, mm, kn, ks)
   return integration_launcher!(IntegrationTracking.mkm_quadrupole!, params, tm, L)
 end
 
@@ -165,6 +180,7 @@ end
 
 @inline thick_bend_bmultipole(tm::Union{SplitIntegration,BendKick}, bunch, bendparams, bdict, L) = thick_bend_bquadrupole(tm, bunch, bendparams, bdict, L)
 =#
+
 
 # =========== PATCH ============= #
 @inline pure_patch(tm::SplitIntegration, bunch, patchparams, L)  = 

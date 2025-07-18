@@ -24,7 +24,7 @@
       tilde_m = mc2/p0c
       gamsqr_0 = 1 + 1/tilde_m^2
       beta_0 = 1/sqrt(1 + tilde_m^2)
-      return beta_0, gamsqr_0, tilde_m, Ksol, mm, kn, sn, L
+      return beta_0, gamsqr_0, tilde_m, 1/tilde_m, 0, Ksol, mm, kn, sn, L
     end
 
     function mk_args(::Type{T}) where {T}
@@ -41,7 +41,7 @@
       tilde_m = mc2/p0c
       gamsqr_0 = 1 + 1/tilde_m^2
       beta_0 = 1/sqrt(1 + tilde_m^2)
-      return beta_0, gamsqr_0, tilde_m, w, w_inv, k1, mm, kn, ks, L
+      return beta_0, gamsqr_0, tilde_m, 1/tilde_m, 0, w, w_inv, k1, mm, kn, ks, L
     end
 
     function dk_args(::Type{T}) where {T}
@@ -58,7 +58,7 @@
       tilde_m = mc2/p0c
       gamsqr_0 = 1 + 1/tilde_m^2
       beta_0 = 1/sqrt(1 + tilde_m^2)
-      return beta_0, gamsqr_0, tilde_m, mm, kn, ks, L
+      return beta_0, gamsqr_0, tilde_m, 1/tilde_m, 0, mm, kn, ks, L
     end
 
     function integrator_args(::Type{T}) where {T}
@@ -75,7 +75,7 @@
       tilde_m = mc2/p0c
       gamsqr_0 = 1 + 1/tilde_m^2
       beta_0 = 1/sqrt(1 + tilde_m^2)
-      params = (beta_0, gamsqr_0, tilde_m, mm, kn, ks)
+      params = (beta_0, gamsqr_0, tilde_m, 1/tilde_m, 0, mm, kn, ks)
       ker = IntegrationTracking.dkd_multipole!
       num_steps = 1
       ds_step = T(2)
