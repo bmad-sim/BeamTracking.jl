@@ -115,7 +115,18 @@
     track!(b0, bl)
     v_expected = read_map("bmad_maps/solenoid.jl")
     @test coeffs_approx_equal(v_expected, b0.v, 5e-10)
-
+    
+    empty_ele = LineElement(tracking_method=Exact())
+    empty_bl = Beamline([empty_ele], Brho_ref = 1.0)
+    v0 = [0.0 0.1 0.0 0.1 0.0 0.0]
+    b0 = Bunch(copy(v0), Brho_ref = empty_bl.Brho_ref)
+    track!(b0, empty_bl)
+    @test b0.Brho_ref == empty_bl.Brho_ref
+    @test b0.v == v0
+    empty_bl.Brho_ref = 2.0
+    track!(b0, empty_bl)
+    @test b0.Brho_ref == empty_bl.Brho_ref
+    @test b0.v == [0.0 0.05 0.0 0.05 0.0 -0.5]
 
     # Errors:
     ele_kick = LineElement(L=1.0, Kn0L=1.0, tracking_method=Exact())

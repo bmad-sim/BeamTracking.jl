@@ -40,8 +40,6 @@ function track!(
     return bunch
   end
 
-  check_Brho(bl.Brho_ref, bunch)
-
   if !outer_particle_loop
     for ele in bl.line
       track!(bunch, ele; kwargs...)
@@ -65,8 +63,6 @@ function track!(
     return bunch
   end
   
-  check_Brho(NaN, bunch)
-
   if !outer_particle_loop
     if !isnothing(bbl.rep)
       i = 1 
