@@ -13,17 +13,14 @@ using ..BeamTracking: C_LIGHT
 const TRACKING_METHOD = Exact
 
 # Update the reference energy of the canonical coordinates
-# BUG: z and pz are not updated correctly
-#=
-@makekernel fastgtpsa=true function update_P0!(i, b, Brho_initial, Brho_final)
+@makekernel fastgtpsa=true function update_P0!(i, b::BunchView, Brho_initial, Brho_final)
+  v = b.v
   @inbounds begin
-    @FastGTPSA! v[i,PXI] = v[i,PXI] * Brho_initial / Brho_final
-    @FastGTPSA! v[i,PYI] = v[i,PYI] * Brho_initial / Brho_final
-    @FastGTPSA! v[i,PZI] = v[i,PZI] * Brho_initial / Brho_final
+    v[i,PXI] *= Brho_initial / Brho_final
+    v[i,PYI] *= Brho_initial / Brho_final
+    v[i,PZI] += (Brho_initial - Brho_final) / Brho_final
   end
-  return v
 end
-=#
 
 #
 # ===============  E X A C T   D R I F T  ===============
