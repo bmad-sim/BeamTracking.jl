@@ -15,7 +15,7 @@ const TRACKING_METHOD = Exact
 # Update the reference energy of the canonical coordinates
 @makekernel fastgtpsa=true function update_P0!(i, b::BunchView, Brho_initial, Brho_final)
   v = b.v
-  @inbounds begin
+  @inbounds begin # Currently does not support GTPSA-type Brho_ref
     v[i,PXI] *= Brho_initial / Brho_final
     v[i,PYI] *= Brho_initial / Brho_final
     v[i,PZI] += (Brho_initial - Brho_final) / Brho_final

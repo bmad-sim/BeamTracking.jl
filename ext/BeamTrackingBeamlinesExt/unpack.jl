@@ -15,7 +15,7 @@ function _track!(
   pp = ele.PatchParams
     # bc BitsLineElement does not support ApertureParams yet
   dp = ele isa BitsLineElement ? nothing : ele.ApertureParams
-  Bρ = ele isa BitsLineElement ? nothing : check_Brho(ele.beamline.Brho_ref, bunch)
+  Bρ = ele isa BitsLineElement ? nothing : get_Brho(ele.beamline.Brho_ref, bunch)
 
   # Function barrier
   universal!(i, b, tm, bunch, L, ap, bp, bm, pp, dp, Bρ; kwargs...)
@@ -39,7 +39,7 @@ function universal!(
   kc = KernelChain(Val{1}())
   if !isnothing(Bρ) && !(Bρ[1] ≈ Bρ[2])
     kc = KernelChain(Val{2}())
-    kc = push(kc, KernelCall(update_P0!, (b, Bρ[1], Bρ[2])))
+    kc = push(kc, KernelCall(ExactTracking.update_P0!, (Bρ[1], Bρ[2])))
   end
 
   if isactive(alignmentparams)

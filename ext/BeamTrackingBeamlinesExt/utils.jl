@@ -1,11 +1,11 @@
-function check_Brho(Brho_ref, bunch::Bunch)
+function get_Brho(Brho_ref, bunch::Bunch)
   if isnan(bunch.Brho_ref) && isnan(Brho_ref)
     @warn "Both the bunch and beamline do not have any set Brho_ref. If any LineElements have unnormalized fields stored as independent variables, tracking results will be NaNs"
     setfield!(bunch, :Brho_ref, typeof(bunch.Brho_ref)(Brho_ref))
     Bρ = (Brho_ref, Brho_ref)
   else
     Bρ = (bunch.Brho_ref, Brho_ref)
-    setfield!(bunch, :Brho_ref, typeof(bunch.Brho_ref)(Brho_ref))
+    setfield!(bunch, :Brho_ref, typeof(bunch.Brho_ref)(Brho_ref)) # Currently does not support GTPSA-type Brho_ref
   end
   return Bρ
 end
