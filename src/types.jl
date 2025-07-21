@@ -7,9 +7,9 @@ const YI  = 3
 const PYI = 4
 const ZI  = 5
 const PZI = 6
-const Q0 = 1
+const Q0  = 1
 const QX = 2
-const QY = 3
+const QY  = 3
 const QZ = 4
 
 @enumx State::UInt8 Preborn Alive Lost Lost_Neg_X Lost_Pos_X Lost_Neg_Y Lost_Pos_Y Lost_Pz Lost_Z   
