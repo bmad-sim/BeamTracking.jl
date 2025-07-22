@@ -93,6 +93,53 @@ function sincuc(x)
   return y
 end
 
+"""
+    sincus(x)
+
+Compute the unnormalized sinc square-root function 
+``\\operatorname{sincus}(x) = \\sin(\\sqrt(x)) / (\\sqrt(x))`` 
+with accuracy near the origin.
+"""
+sincus(x) = _sincus(float(x))
+function _sincus(x::Union{T,Complex{T}}) where {T}
+    nrm = Base.Math.fastabs(x)
+    if nrm >= 10.9*sqrt(eps(T))
+        return sin(sqrt(x))/(sqrt(x))
+    else
+        # |x| < sqrt(120*eps)
+        return 1 - x/6
+    end
+end
+
+"""
+    coss(x)
+
+Compute the cos square-root function 
+``\\operatorname{coss}(x) = \\cos(\\sqrt(x))`` 
+with differentiability near the origin.
+"""
+coss(x) = _coss(float(x))
+function _coss(x::Union{T,Complex{T}}) where {T}
+    nrm = Base.Math.fastabs(x)
+    if nrm >= 4.8*sqrt(eps(T))
+        return cos(sqrt(x))
+    else
+        # |x| < sqrt(24*eps)
+        return 1 - x/2
+    end
+end
+
+@inline function expq(v)
+  """
+  This function computes exp(i v⋅σ) as a quaternion, where σ is the 
+  vector of Pauli matrices.
+  """
+  c = coss(v[1]^2 + v[2]^2 + v[3]^2)
+  s = sincus(v[1]^2 + v[2]^2 + v[3]^2)
+  v2 = s * v
+  return SA[-c, v2[1], v2[2], v2[3]]
+end
+
 # Fake APC ====================================================================
 const Q = 1.602176634e-19 # C
 const C_LIGHT = 2.99792458e8 # m/s

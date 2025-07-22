@@ -384,19 +384,6 @@ end
 end
 
 
-@inline function expq(v)
-  """
-  This function computes exp(i v⋅σ) as a quaternion, where σ is the 
-  vector of Pauli matrices.
-  """
-  n = sqrt(v[1]^2 + v[2]^2 + v[3]^2)
-  c = cos(n)
-  s = sincu(n)
-  v2 = s * v
-  return SA[-c, v2[1], v2[2], v2[3]]
-end
-
-
 @makekernel fastgtpsa=true function rotate_spin!(i, b::BunchView, a, g, beta_gamma_0, mm, kn, ks, L)
   """
   This function rotates b.q according to the multipoles present.
