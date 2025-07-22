@@ -134,8 +134,9 @@ end
   This function computes exp(i v⋅σ) as a quaternion, where σ is the 
   vector of Pauli matrices.
   """
-  c = coss(v[1]^2 + v[2]^2 + v[3]^2)
-  s = sincus(v[1]^2 + v[2]^2 + v[3]^2)
+  n2 = v[1]^2 + v[2]^2 + v[3]^2
+  c = coss(n2)
+  s = sincus(n2)
   v2 = s * v
   return SA[-c, v2[1], v2[2], v2[3]]
 end
