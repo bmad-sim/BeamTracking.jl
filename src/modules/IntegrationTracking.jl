@@ -362,7 +362,6 @@ end
   py = v[i,PYI] - (v[i,XI] * kn[1] / 2) * (mm[1] == 0)
 
   rel_p = 1 + v[i,PZI]
-  gamma_0 = sqrt(1 + beta_gamma_0^2)
   beta_gamma = rel_p * beta_gamma_0
   gamma = sqrt(1 + beta_gamma^2)
   pl = sqrt(rel_p^2 - px^2 - py^2)
