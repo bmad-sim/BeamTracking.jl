@@ -322,4 +322,240 @@ L:  element length
   ExactTracking.exact_drift!(   i, b, beta_0, gamsqr_0, tilde_m, L / 2)
 end
 
+
+#
+# ===============  IMPLICIT  ===============
+#
+
+@makekernel fastgtpsa=true function tilted_kik_multipole!(i, b::BunchView, β0, tilde_m, w, w_inv, gx, gy, A, mm, kn, ks, L)
+  ExactTracking.multipole_kick!(i, b, mm, kn * L / 2, ks * L / 2, 3)
+  implicit_drift!(              i, b, tilde_m, β0, L / 2)
+  ExactTracking.patch_rotation!(i, b, w, 0)
+  implicit_step!(               i, b, gx, gy, A, L)
+  ExactTracking.patch_rotation!(i, b, w_inv, 0)
+  implicit_drift!(              i, b, tilde_m, β0, L / 2)
+  ExactTracking.multipole_kick!(i, b, mm, kn * L / 2, ks * L / 2, 3)
+end 
+
+@makekernel fastgtpsa=true function kik_multipole!(i, b::BunchView, β0, tilde_m, gx, gy, A, mm, kn, ks, L)
+  ExactTracking.multipole_kick!(i, b, mm, kn * L / 2, ks * L / 2, 1)
+  implicit_drift!(              i, b, tilde_m, β0, L / 2)
+  implicit_step!(               i, b, gx, gy, A, L)
+  implicit_drift!(              i, b, tilde_m, β0, L / 2)
+  ExactTracking.multipole_kick!(i, b, mm, kn * L / 2, ks * L / 2, 1)
+end 
+
+@makekernel fastgtpsa=true function did_implicit!(i, b::BunchView, β0, tilde_m, gx, gy, A, L)
+  implicit_drift!(              i, b, tilde_m, β0, L / 2)
+  implicit_step!(               i, b, gx, gy, A, L)
+  implicit_drift!(              i, b, tilde_m, β0, L / 2)
+end 
+
+
+@makekernel fastgtpsa=true function implicit_step!(i, b::BunchView, gx, gy, A, ds)
+  @inline implicit_step_1!(i, b, gx, gy, A, ds / 2)
+  @inline implicit_step_2!(i, b, gx, gy, A, ds / 2)
+end
+
+@makekernel fastgtpsa=true function implicit_drift!(i, b::BunchView, tilde_m, β0, ds)
+  v = b.v
+  rel_p = 1 + v[i,PZI]
+
+  v[i,ZI] += ds * rel_p / (β0 * sqrt(rel_p^2 + tilde_m^2))
+end
+
+"""
+implicit_step_1!()
+
+Arguments
+—————————
+gx: horizontal curvature
+gy: vertical curvature
+A: (x,y) -> (ax, ay) transverse vector potential function (longitudinally constant)
+ds: step size
+
+"""
+function implicit_step_1!(i, b::BunchView, gx, gy, A, ds)
+  v = b.v
+
+  T = eltype(v)
+  xdual = (
+    BeamTracking.Dual(v[i,XI], (one(T), zero(T))),
+    BeamTracking.Dual(v[i,YI], (zero(T), one(T))),
+  )
+  ydual = A(xdual)
+  ax, ay = BeamTracking.value.(ydual)
+  jac = (
+    BeamTracking.partials.(ydual, 1),
+    BeamTracking.partials.(ydual, 2),
+  )
+
+  function dF(zf; z0) 
+    px = zf[PXI] - ax
+    py = zf[PYI] - ay
+    rel_p = 1 + zf[PZI]
+    ps = sqrt(rel_p^2 - px^2 - py^2)
+    dps = ds * (1 + gx * z0[XI] + gy * z0[YI]) / ps
+    dF = SVector{6}(
+      zf[XI]  - z0[XI]  - dps * px,
+      zf[YI]  - z0[YI]  - dps * py,
+      zf[ZI]  - z0[ZI]  + dps * rel_p,
+      zf[PXI] - z0[PXI] + dps * (jac[1][1]*px + jac[2][1]*py) + gx * ps * ds,
+      zf[PYI] - z0[PYI] + dps * (jac[1][2]*px + jac[2][2]*py) + gy * ps * ds,
+      zf[PZI] - z0[PZI]
+    )
+    return dF
+  end
+  BeamTracking.newton!(dF, @view v[i,:])
+end
+
+"""
+implicit_step!()
+
+Arguments
+—————————
+gx: horizontal curvature
+gy: vertical curvature
+A: (x,y) -> (ax, ay) transverse vector potential function (longitudinally constant)
+ds: step size
+
+"""
+function implicit_step_2!(i, b::BunchView, gx, gy, A, ds)
+  v = b.v
+
+  function dF(zf; z0) 
+    T = eltype(zf)
+    xdual = (
+      BeamTracking.Dual(zf[XI], (one(T), zero(T))),
+      BeamTracking.Dual(zf[YI], (zero(T), one(T)))
+    )
+    ydual = A(xdual)
+    ax, ay = BeamTracking.value.(ydual)
+    jac = (
+      BeamTracking.partials.(ydual, 1),
+      BeamTracking.partials.(ydual, 2)
+    )
+
+    px = z0[PXI] - ax
+    py = z0[PYI] - ay
+    rel_p = 1 + z0[PZI]
+    ps = sqrt(rel_p^2 - px^2 - py^2)
+    dps = ds * (1 + gx * zf[XI] + gy * zf[YI]) / ps
+    dF = SVector{6}(
+      zf[XI]  - z0[XI]  - dps * px,
+      zf[YI]  - z0[YI]  - dps * py,
+      zf[ZI]  - z0[ZI]  + dps * rel_p,
+      zf[PXI] - z0[PXI] + dps * (jac[1][1]*px + jac[2][1]*py) + gx * ps * ds,
+      zf[PYI] - z0[PYI] + dps * (jac[1][2]*px + jac[2][2]*py) + gy * ps * ds,
+      zf[PZI] - z0[PZI]
+    )
+    return dF
+  end
+  BeamTracking.newton!(dF, @view v[i,:])
+end
+
+function implicit_full_1!(i, b::BunchView, A, tilde_m, β0, ds)
+  v = b.v
+
+  function H(z)
+    a = A(z[[XI,YI]])
+    return -sqrt((1+z[PZI])^2 - (z[PXI]-a[1])^2 - (z[PYI]-a[2])^2) - a[3] + sqrt((1+z[PZI])^2 + tilde_m^2) / β0
+  end
+  
+  function dF(zf; z0) 
+    T = eltype(zf)
+    xdual = (
+      BeamTracking.Dual(z0[XI], ( one(T), zero(T), zero(T), zero(T), zero(T), zero(T))),
+      BeamTracking.Dual(zf[PXI],(zero(T),  one(T), zero(T), zero(T), zero(T), zero(T))),
+      BeamTracking.Dual(z0[YI], (zero(T), zero(T),  one(T), zero(T), zero(T), zero(T))),
+      BeamTracking.Dual(zf[PYI],(zero(T), zero(T), zero(T),  one(T), zero(T), zero(T))),
+      BeamTracking.Dual(z0[ZI], (zero(T), zero(T), zero(T), zero(T),  one(T), zero(T))),
+      BeamTracking.Dual(zf[PZI],(zero(T), zero(T), zero(T), zero(T), zero(T),  one(T))),
+    )
+    ydual = H(xdual)
+    H_diff = (
+      BeamTracking.partials.(ydual, 1),
+      BeamTracking.partials.(ydual, 2),
+      BeamTracking.partials.(ydual, 3),
+      BeamTracking.partials.(ydual, 4),
+      BeamTracking.partials.(ydual, 5),
+      BeamTracking.partials.(ydual, 6),
+    )
+
+    dF = SVector{6}(
+      zf[XI]  - z0[XI]  - ds * H_diff[2],
+      zf[YI]  - z0[YI]  - ds * H_diff[4],
+      zf[ZI]  - z0[ZI]  - ds * H_diff[6],
+      zf[PXI] - z0[PXI] + ds * H_diff[1],
+      zf[PYI] - z0[PYI] + ds * H_diff[3],
+      zf[PZI] - z0[PZI] + ds * H_diff[5]
+    )
+    return dF
+  end
+  BeamTracking.newton!(dF, @view v[i,:])
+end
+
+function implicit_full_2!(i, b::BunchView, A, tilde_m, β0, ds)
+  v = b.v
+
+  function H(z)
+    a = A(z[[XI,YI]])
+    return -sqrt((1+z[PZI])^2 - (z[PXI]-a[1])^2 - (z[PYI]-a[2])^2) - a[3] + sqrt((1+z[PZI])^2 + tilde_m^2) / β0
+  end
+
+  function dF(zf; z0) 
+    T = eltype(zf)
+    xdual = (
+      BeamTracking.Dual(zf[XI], ( one(T), zero(T), zero(T), zero(T), zero(T), zero(T))),
+      BeamTracking.Dual(z0[PXI],(zero(T),  one(T), zero(T), zero(T), zero(T), zero(T))),
+      BeamTracking.Dual(zf[YI], (zero(T), zero(T),  one(T), zero(T), zero(T), zero(T))),
+      BeamTracking.Dual(z0[PYI],(zero(T), zero(T), zero(T),  one(T), zero(T), zero(T))),
+      BeamTracking.Dual(zf[ZI], (zero(T), zero(T), zero(T), zero(T),  one(T), zero(T))),
+      BeamTracking.Dual(z0[PZI],(zero(T), zero(T), zero(T), zero(T), zero(T),  one(T))),
+    )
+    ydual = H(xdual)
+    H_diff = (
+      BeamTracking.partials.(ydual, 1),
+      BeamTracking.partials.(ydual, 2),
+      BeamTracking.partials.(ydual, 3),
+      BeamTracking.partials.(ydual, 4),
+      BeamTracking.partials.(ydual, 5),
+      BeamTracking.partials.(ydual, 6),
+    )
+
+    dF = SVector{6}(
+      zf[XI]  - z0[XI]  - ds * H_diff[2],
+      zf[YI]  - z0[YI]  - ds * H_diff[4],
+      zf[ZI]  - z0[ZI]  - ds * H_diff[6],
+      zf[PXI] - z0[PXI] + ds * H_diff[1],
+      zf[PYI] - z0[PYI] + ds * H_diff[3],
+      zf[PZI] - z0[PZI] + ds * H_diff[5]
+    )
+    return dF
+  end
+  BeamTracking.newton!(dF, @view v[i,:])
+end
+
+@makekernel fastgtpsa=true function implicit_full_step!(i, b::BunchView, A, tilde_m, β0, ds)
+  implicit_full_1!(i, b, A, tilde_m, β0, ds/2)
+  implicit_full_2!(i, b, A, tilde_m, β0, ds/2)
+end
+
+
+function H(z; A, tilde_m, β0)
+  a = A(z[[XI,YI]])
+  return -sqrt((1+z[PZI])^2 - (z[PXI]-a[1])^2 - (z[PYI]-a[2])^2) - a[3] + sqrt((1+z[PZI])^2 + tilde_m^2) / β0
+end
+
+function F(z::Vector{TPS64{D}}; A, tilde_m=1.0, β0=1.0, ds=1) where D
+  h = H(z; A=A, tilde_m=tilde_m, β0=β0) * ds
+  return @vars(D) + [
+          GTPSA.deriv(h,2);
+          GTPSA.deriv(h,1);
+          GTPSA.deriv(h,4);
+          GTPSA.deriv(h,3);
+          GTPSA.deriv(h,6);
+          GTPSA.deriv(h,5)]
+end
+
 end

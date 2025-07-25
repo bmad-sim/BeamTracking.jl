@@ -139,6 +139,39 @@ calc_beta_gamma(species::Species, Brho) = @FastGTPSA Brho*chargeof(species)*C_LI
 
 
 
+"""
+    newton(f, x0; tol=1e‑12, maxiter=30, α=1.0)
+
+Solve `f(x) = 0` where  
+* `f  :: SVector{6}` maps `SVector{6}` → `SVector{6}`  
+* `x0 :: SVector{6}` is the initial guess.
+
+Returns `(x̂, converged, niter, residual)`.
+"""
+function newton!(f, x::AbstractVector{T};
+                tol::T = T(1e-15),
+                maxiter::Int = 100,
+                α::T = one(T)) where {T<:Real}
+
+    z0 = copy(x)
+    for k ∈ 1:maxiter
+      fx, J = fx_J_dual(f, x; x0=z0)
+      norm(fx) < tol && break
+
+      x .-= α .* J \ fx
+
+      k == maxiter && @warn "Newton's method did not converge in $maxiter iterations, residual = $(norm(fx))"
+    end
+end
+
+function fx_J_dual(f, x::AbstractVector{T}; x0::AbstractVector{T}) where {T}
+  I6 = SMatrix{6,6,T}(I)
+  xdual = ntuple(i->Dual{Nothing,T,6}(x[i], Partials(tuple(I6[i,:]...))), 6)
+  ydual = f(xdual; z0=x0)
+  fx = value.(ydual) |> SVector{6,T}
+  J  = SMatrix{6,6,T}(reduce(vcat, ntuple(j -> partials.(ydual, j), 6)))
+  return fx, J
+end
 #=
 
 
