@@ -543,19 +543,71 @@ end
 
 
 function H(z; A, tilde_m, β0)
-  a = A(z[[XI,YI]])
-  return -sqrt((1+z[PZI])^2 - (z[PXI]-a[1])^2 - (z[PYI]-a[2])^2) - a[3] + sqrt((1+z[PZI])^2 + tilde_m^2) / β0
+  @FastGTPSA begin
+    a = A(z[[XI,YI]])
+    return -sqrt((1+z[PZI])^2 - (z[PXI]-a[1])^2 - (z[PYI]-a[2])^2) - a[3] + sqrt((1+z[PZI])^2 + tilde_m^2) / β0
+  end
 end
 
 function F(z::Vector{TPS64{D}}; A, tilde_m=1.0, β0=1.0, ds=1) where D
-  h = H(z; A=A, tilde_m=tilde_m, β0=β0) * ds
-  return @vars(D) + [
+  @FastGTPSA begin
+  h = H(z; A=A, tilde_m=tilde_m, β0=β0)
+  return z + ds * [
           GTPSA.deriv(h,2);
           GTPSA.deriv(h,1);
           GTPSA.deriv(h,4);
           GTPSA.deriv(h,3);
           GTPSA.deriv(h,6);
           GTPSA.deriv(h,5)]
+  end
+end
+
+@makekernel fastgtpsa=true function implicit_TPSA_step_1!(i, b::BunchView, A, tilde_m, β0, ds)
+  f = BunchView([copy(b.state)[i]], GTPSA.scalar.(b.v[i,:]'), nothing)
+  implicit_full_1!(i, f, A, tilde_m, β0, ds)
+
+  D = eltype(b.v).parameters[2] # GTPSA descriptor
+  coord = GTPSA.scalar.([ b.v[i, XI], 
+                          f.v[1, PXI], 
+                          b.v[i, YI], 
+                          f.v[1, PYI], 
+                          b.v[i, ZI], 
+                          f.v[1, PZI]]) + @vars(D)
+  f1 = F(coord; A=A, tilde_m=tilde_m, β0=β0, ds=ds)
+
+  println(coord)
+  println(f.v[1,:])
+  println(GTPSA.scalar.(f1))
+  println(f1)
+
+  f1_pinv = zero(f1)  # Partial inversion
+  GTPSA.pminv!(6, f1, 6, f1_pinv, [0, 1, 0, 1, 0, 1])
+
+  b.v[i,:] = f.v[1,:] + f1_pinv ∘ cutord.(b.v[i,:], 0)  # Combine scalar and composed GTPSA part
+end
+
+@makekernel fastgtpsa=true function implicit_TPSA_step_2!(i, b::BunchView, A, tilde_m, β0, ds)
+  f = BunchView([copy(b.state)[i]], GTPSA.scalar.(b.v[i,:]'), nothing)
+  implicit_full_2!(i, f, A, tilde_m, β0, ds)
+  
+  D = eltype(b.v).parameters[2]
+  coord = GTPSA.scalar.([f.v[1, XI], 
+                         b.v[i, PXI], 
+                         f.v[1, YI], 
+                         b.v[i, PYI], 
+                         f.v[1, ZI], 
+                         b.v[i, PZI]]) + @vars(D)
+  f2 = F(coord; A=A, tilde_m=tilde_m, β0=β0, ds=ds)
+
+  f2_pinv = zero(f2)  # Partial inversion
+  GTPSA.pminv!(6, f2, 6, f2_pinv, [1, 0, 1, 0, 1, 0])
+
+  b.v[i,:] = f.v[1,:] + f2_pinv ∘ cutord.(b.v[i,:], 0)  # Combine scalar and composed GTPSA part
+end
+
+@makekernel fastgtpsa=true function implicit_TPSA_step!(i, b::BunchView, A, tilde_m, β0, ds)
+  implicit_TPSA_step_1!(i, b, A, tilde_m, β0, ds/2)
+  implicit_TPSA_step_2!(i, b, A, tilde_m, β0, ds/2)
 end
 
 end
