@@ -102,26 +102,36 @@ properties, though I've not seen a proof of that claim.
 @makekernel fastgtpsa=true function multipole_kick!(i, b::BunchView, ms, knl, ksl, start)
   v = b.v
 
+  bx, by = normalized_field!(ms, knl, ksl, v[i,XI], v[i,YI], start)
+  v[i,PXI] -= by
+  v[i,PYI] += bx
+end # function multipole_kick!()
+
+
+@inline function normalized_field!(ms, knl, ksl, x, y, start)
+  """
+  Returns (bx, by), the transverse components of the magnetic field divided
+  by the reference Brho.
+  """
   jm = length(ms)
   m  = ms[jm]
   add = (start <= m)
-  ar = knl[jm] * add
-  ai = ksl[jm] * add
+  by = knl[jm] * add
+  bx = ksl[jm] * add
   jm -= 1
   while 2 <= m
     m -= 1
-    t  = (ar * v[i,XI] - ai * v[i,YI]) / m
-    ai = (ar * v[i,YI] + ai * v[i,XI]) / m
-    ar = t
+    t  = (by * x - bx * y) / m
+    bx = (by * y + bx * x) / m
+    by = t
     add = (0 < jm && m == ms[jm]) && (start <= m) # branchless
     idx = max(1, jm) # branchless trickery
-    ar += knl[idx] * add
-    ai += ksl[idx] * add
+    by += knl[idx] * add
+    bx += ksl[idx] * add
     jm -= add
   end
-  v[i,PXI] -= ar
-  v[i,PYI] += ai
-end # function multipole_kick!()
+  return bx, by
+end
 
 
 #function binom(m::Integer, x, y)
