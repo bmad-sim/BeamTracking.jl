@@ -15,11 +15,11 @@ const TRACKING_METHOD = Exact
 # Update the reference energy of the canonical coordinates
 # BUG: z and pz are not updated correctly
 #=
-@makekernel fastgtpsa=true function update_P0!(i, b, Brho_initial, Brho_final)
+@makekernel fastgtpsa=true function update_P0!(i, b, rigidity_initial, rigidity_final)
   @inbounds begin
-    @FastGTPSA! v[i,PXI] = v[i,PXI] * Brho_initial / Brho_final
-    @FastGTPSA! v[i,PYI] = v[i,PYI] * Brho_initial / Brho_final
-    @FastGTPSA! v[i,PZI] = v[i,PZI] * Brho_initial / Brho_final
+    @FastGTPSA! v[i,PXI] = v[i,PXI] * rigidity_initial / rigidity_final
+    @FastGTPSA! v[i,PYI] = v[i,PYI] * rigidity_initial / rigidity_final
+    @FastGTPSA! v[i,PZI] = v[i,PZI] * rigidity_initial / rigidity_final
   end
   return v
 end
@@ -165,17 +165,17 @@ to carry both reference and design values.
 
 ## Arguments
 - beta_0: β_0 = (βγ)_0 / √(γ_0^2)
-- brho_0: Bρ_0,  reference magnetic rigidity
+- rigidity_0: Bρ_0,  reference magnetic rigidity
 - hc:     coordinate frame curvature
 - b0:     magnet field strength
 - e1:     entrance face angle (+ve angle <=> toward rbend)
 - e2:     exit face angle (+ve angle <=> toward rbend)
 - Larc:   element arc length, in meters
 """
-@makekernel fastgtpsa=true function exact_sbend!(i, b::BunchView, beta_0, brho_0, hc, b0, e1, e2, Lr)
+@makekernel fastgtpsa=true function exact_sbend!(i, b::BunchView, beta_0, rigidity_0, hc, b0, e1, e2, Lr)
   v = b.v
 
-  rho = brho0 / b0
+  rho = rigidity0 / b0
   ang = hc * Lr
   c1 = cos(ang)
   s1 = sin(ang)
@@ -375,8 +375,8 @@ function w_inv_matrix(x_rot, y_rot, z_rot)
   return ReferenceFrameRotations.angle_to_rot(y_rot, x_rot, z_rot, :YXZ)
 end
 
-function drift_params(species::Species, Brho)
-  beta_gamma_0 = BeamTracking.calc_beta_gamma(species, Brho)
+function drift_params(species::Species, rigidity)
+  beta_gamma_0 = BeamTracking.calc_beta_gamma(species, rigidity)
   tilde_m = 1/beta_gamma_0
   gamsqr_0 = @FastGTPSA 1+beta_gamma_0^2
   beta_0 = @FastGTPSA beta_gamma_0/sqrt(gamsqr_0)

@@ -24,9 +24,9 @@ end
 # =========== STRAIGHT ELEMENTS ============= #
 # === Thin elements === #
 @inline function thin_pure_bdipole(tm::SplitIntegration, bunch, bm)
-  brho_0 = bunch.Brho_ref
+  rigidity_0 = bunch.rigidity
   mm = bm.order
-  knl, ksl = get_integrated_strengths(bm, 0, brho_0)
+  knl, ksl = get_integrated_strengths(bm, 0, rigidity_0)
   return KernelCall(ExactTracking.multipole_kick!, (mm, knl, ksl, 1))
 end
 
@@ -48,20 +48,20 @@ end
   thick_pure_bsolenoid(Exact(), bunch, bm, L)
 
 @inline function thick_bsolenoid(tm::Union{SplitIntegration,SolenoidKick}, bunch, bm, L) 
-  brho_0 = bunch.Brho_ref
-  tilde_m, gamsqr_0, beta_0 = ExactTracking.drift_params(bunch.species, brho_0)
+  rigidity_0 = bunch.rigidity
+  tilde_m, gamsqr_0, beta_0 = ExactTracking.drift_params(bunch.species, rigidity_0)
   mm = bm.order
-  kn, ks = get_strengths(bm, L, brho_0)
+  kn, ks = get_strengths(bm, L, rigidity_0)
   Ksol = kn[1]
   params = (beta_0, gamsqr_0, tilde_m, Ksol, mm, kn, ks)
   return integration_launcher!(IntegrationTracking.sks_multipole!, params, tm, L)
 end
 
 @inline function thick_pure_bdipole(tm::DriftKick, bunch, bm, L)
-  brho_0 = bunch.Brho_ref
-  tilde_m, gamsqr_0, beta_0 = ExactTracking.drift_params(bunch.species, brho_0)
+  rigidity_0 = bunch.rigidity
+  tilde_m, gamsqr_0, beta_0 = ExactTracking.drift_params(bunch.species, rigidity_0)
   mm = bm.order
-  kn, ks = get_strengths(bm, L, brho_0)
+  kn, ks = get_strengths(bm, L, rigidity_0)
   params = (beta_0, gamsqr_0, tilde_m, mm, kn, ks)
   return integration_launcher!(IntegrationTracking.dkd_multipole!, params, tm, L)
 end
@@ -72,10 +72,10 @@ end
   thick_pure_bdipole(Exact(), bunch, bm1, L)
 
 @inline function thick_bdipole(tm::Union{SplitIntegration,BendKick}, bunch, bm, L)
-  brho_0 = bunch.Brho_ref
-  tilde_m, _, beta_0 = ExactTracking.drift_params(bunch.species, brho_0)
+  rigidity_0 = bunch.rigidity
+  tilde_m, _, beta_0 = ExactTracking.drift_params(bunch.species, rigidity_0)
   mm = bm.order
-  kn, ks = get_strengths(bm, L, brho_0)
+  kn, ks = get_strengths(bm, L, rigidity_0)
   k0 = sqrt(kn[1]^2 + ks[1]^2)
   tilt = atan(ks[1], kn[1])
   w = ExactTracking.w_matrix(0,0,tilt)
@@ -85,10 +85,10 @@ end
 end
 
 @inline function thick_pure_bquadrupole(tm::Union{SplitIntegration,MatrixKick}, bunch, bm, L)
-  brho_0 = bunch.Brho_ref
-  tilde_m, gamsqr_0, beta_0 = ExactTracking.drift_params(bunch.species, brho_0)
+  rigidity_0 = bunch.rigidity
+  tilde_m, gamsqr_0, beta_0 = ExactTracking.drift_params(bunch.species, rigidity_0)
   mm = bm.order
-  kn, ks = get_strengths(bm, L, brho_0)
+  kn, ks = get_strengths(bm, L, rigidity_0)
   k1 = sqrt(kn[1]^2 + ks[1]^2)
   tilt = atan(ks[1], kn[1]) / 2
   w = ExactTracking.w_matrix(0,0,tilt)

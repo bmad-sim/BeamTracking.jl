@@ -12,12 +12,12 @@ const PZI = 6
 
 mutable struct Bunch{mem<:MemoryLayout,B,S,V,Q}
   species::Species # Species
-  Brho_ref::B      # Defines normalization of phase space coordinates
+  rigidity::B      # Defines normalization of phase space coordinates
   const state::S   # Array of particle states
   const v::V       # Matrix of particle coordinates
   const q::Q       # Matrix of particle quaternions if spin else nothing 
-  function Bunch{mem}(species, Brho_ref, state, v, q=nothing) where {mem}
-    return new{mem,typeof(Brho_ref),typeof(state),typeof(v),typeof(q)}(species, Brho_ref, state, v, q)
+  function Bunch{mem}(species, rigidity, state, v, q=nothing) where {mem}
+    return new{mem,typeof(rigidity),typeof(state),typeof(v),typeof(q)}(species, rigidity, state, v, q)
   end
 end
 
@@ -47,7 +47,7 @@ aosviewq(bunch::Bunch{A}) where {A} = (A == AoS || isnothing(bunch.q)) ? bunch.q
 
 get_N_particle(bunch::Bunch{A}) where {A} = A == AoS ? size(bunch.v, 2) : size(bunch.v, 1)
 
-function Bunch(N::Integer; mem=SoA, Brho_ref=NaN, species=ELECTRON, spin=false)
+function Bunch(N::Integer; mem=SoA, rigidity=NaN, species=ELECTRON, spin=false)
   if mem == SoA
     v = rand(N,6)
     q = spin ? rand(N,4) : nothing
@@ -57,10 +57,10 @@ function Bunch(N::Integer; mem=SoA, Brho_ref=NaN, species=ELECTRON, spin=false)
   end
   state = similar(v, State.T, N)
   state .= State.Alive
-  return Bunch{mem}(species, Brho_ref, state, v, q)
+  return Bunch{mem}(species, rigidity, state, v, q)
 end
 
-function Bunch(v::AbstractArray, q=nothing; mem=SoA, Brho_ref=NaN, species=ELECTRON)
+function Bunch(v::AbstractArray, q=nothing; mem=SoA, rigidity=NaN, species=ELECTRON)
   if mem == SoA
     size(v, 2) == 6 || error("For SoA the number of columns must be equal to 6")
     N_particle = size(v, 1)
@@ -70,13 +70,13 @@ function Bunch(v::AbstractArray, q=nothing; mem=SoA, Brho_ref=NaN, species=ELECT
   end
   state = similar(v, State.T, N_particle)
   state .= State.Alive
-  return Bunch{mem}(species, Brho_ref, state, v, q)
+  return Bunch{mem}(species, rigidity, state, v, q)
 end
 
 struct ParticleView{B,S,V,Q}
   index::Int
   species::Species
-  Brho_ref::B     
+  rigidity::B     
   state::S
   v::V
   q::Q    
@@ -86,31 +86,31 @@ end
 function ParticleView(bunch::Bunch, i=1)
   v = aosview(bunch)
   q = aosviewq(bunch)
-  return ParticleView(i, bunch.species, bunch.Brho_ref, bunch.state[i], view(v, :, i), isnothing(q) ? q : view(q, :, i))
+  return ParticleView(i, bunch.species, bunch.rigidity, bunch.state[i], view(v, :, i), isnothing(q) ? q : view(q, :, i))
 end
 
-# Update momenta for change to Brho_ref or change to species
+# Update momenta for change to rigidity or change to species
 function setproperty!(bunch::Bunch{mem,B}, key::Symbol, value) where {mem,B}
-  if key == :Brho_ref
+  if key == :rigidity
     error("Updating reference energy of bunch calculation not yet implemented")
     #=
-    if value == bunch.Brho_ref
+    if value == bunch.rigidity
       return value
     end
     v = soaview(bunch)
-    launch!(Exact.update_P0!, v, nothing, bunch.Brho_ref, value)
-    setfield!(bunch, :Brho_ref, B(value))
+    launch!(Exact.update_P0!, v, nothing, bunch.rigidity, value)
+    setfield!(bunch, :rigidity, B(value))
     =#
   elseif key == :species
-    error("Updating species of bunch (which affects Brho_ref) not yet implemented")
+    error("Updating species of bunch (which affects rigidity) not yet implemented")
     #=
     if value == bunch.species
       return value
     end
     v = soaview(bunch)
-    Brho_final = bunch.Brho_ref*chargeof(bunch.species)/chargeof(value)
-    launch!(Exact.update_P0!, v, nothing, bunch.Brho_ref, Brho_final)
-    setfield!(bunch, :Brho_ref, B(Brho_final))
+    rigidity_final = bunch.rigidity*chargeof(bunch.species)/chargeof(value)
+    launch!(Exact.update_P0!, v, nothing, bunch.rigidity, rigidity_final)
+    setfield!(bunch, :rigidity, B(rigidity_final))
     setfield!(bunch, :species, value)
     =#
   else

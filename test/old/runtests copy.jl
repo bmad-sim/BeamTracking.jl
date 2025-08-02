@@ -35,7 +35,7 @@ end
   beta_gamma_ref = 1.0
   gamma_ref = sr_gamma(beta_gamma_ref)
   species = Species("electron")
-  brho_ref = brho(massof(species), beta_gamma_ref, chargeof(species)) 
+  rigidity_ref = rigidity(massof(species), beta_gamma_ref, chargeof(species)) 
   tol = 1e-14 
 
   # Linear drift test:
@@ -55,7 +55,7 @@ end
     # Focusing:
     L_q = 1.2
     Kn1 = 0.36
-    Bn1 = Kn1*brho_ref
+    Bn1 = Kn1*rigidity_ref
     qf = Linear.Quadrupole(Bn1=Bn1,L=L_q)
     M_qf_x = [cos(sqrt(Kn1)*L_q)            sincu(sqrt(Kn1)*L_q)*L_q;  
               -sqrt(Kn1)*sin(sqrt(Kn1)*L_q) cos(sqrt(Kn1)*L_q)      ;]
@@ -82,7 +82,7 @@ end
   #Linear Solenoid test----------------------- 
     L_s =1.0
     S = 1.57
-    Bs = S * brho_ref
+    Bs = S * rigidity_ref
     phi = S * L_s / 2
     so = Linear.Solenoid(L = L_s, Bs = Bs)
     M_solenoid_expected = [cos(phi)^2  sin(2*phi)/S  sin(2*phi)/2  sin(phi)^2*2/S   0.0  0.0;
@@ -102,7 +102,7 @@ end
     #design g = actual g 
     gtot = 0.25
     g = 0.25
-    B0 = gtot * brho_ref
+    B0 = gtot * rigidity_ref
     e1 = 0.20
     e2 = 0.20
     gL = g*L_sb
@@ -147,8 +147,8 @@ end
     gtot = 0
     g = 0.0
     Kn1 = 0.25
-    B0 = gtot * brho_ref
-    Bn1 = Kn1 * brho_ref
+    B0 = gtot * rigidity_ref
+    Bn1 = Kn1 * rigidity_ref
     cb = Linear.Combined(L = L_b, B0 = B0, Bn1 = Bn1, g = g, e1 = e1, e2 = e2)
     M_cb_expected = [
       0.87758256189037276     0.95885107720840601     0.00000000000000000     0.00000000000000000     0.00000000000000000     0.00000000000000000  
@@ -162,7 +162,7 @@ end
 
   #g = 0, e = 0, k1 = -0.25,should reduce to quad
     Kn1 = - 0.25
-    Bn1 = Kn1 * brho_ref
+    Bn1 = Kn1 * rigidity_ref
     cb = Linear.Combined(L = L_b, B0 = B0, Bn1 = Bn1, g = g, e1 = e1, e2 = e2)
     M_cb_expected = [
       1.1276259652063807     1.0421906109874948     0.00000000     0.00000000     0.00000000     0.00000000
@@ -178,8 +178,8 @@ end
     gtot = 0.25
     g = 0.25
     Kn1 = 0.25
-    B0 = gtot * brho_ref
-    Bn1 = Kn1 * brho_ref
+    B0 = gtot * rigidity_ref
+    Bn1 = Kn1 * rigidity_ref
     cb = Linear.Combined(L = L_b, B0 = B0, Bn1 = Bn1, g = g, e1 = e1, e2 = e2)
     M_cb_expected = [
       8.4777686059853008e-01     9.4872443988117094e-01     0.0000000000000000     0.00000000     0.00000000     1.2177851152117594e-01 
@@ -194,7 +194,7 @@ end
   
   # dg = - 0.01, g = 0.25, k1 = 0.25, e = 0
     gtot = 0.24
-    B0 = gtot * brho_ref
+    B0 = gtot * rigidity_ref
     cb = Linear.Combined(L = L_b, B0 = B0, Bn1 = Bn1, g = g, e1 = e1, e2 = e2)
     M_cb_expected = [
       8.4896301853855183e-01     9.4912828113215142e-01     0.00000000     0.00000000     0.00000000     1.1705837590195874e-01  
@@ -208,7 +208,7 @@ end
     
   # dg = - 0.25, g = 0.25, k1 = 0.25, e = 0
     gtot = 0
-    B0 = gtot * brho_ref
+    B0 = gtot * rigidity_ref
     cb = Linear.Combined(L = L_b, B0 = B0, Bn1 = Bn1, g = g, e1 = e1, e2 = e2)
     M_cb_expected = [
       8.7758256189037276e-01     9.5885107720840601e-01     0.00000000     0.00000000     0.00000000     2.5610534585764899e-03 
@@ -223,7 +223,7 @@ end
     # dg = 0, g = 0.25, k1 = 0.25, e1 = e1 = 0.3
       gtot = 0.25
       g = 0.25
-      B0 = gtot * brho_ref
+      B0 = gtot * rigidity_ref
       e1 = 0.3
       e2 = 0.3
       cb = Linear.Combined(L = L_b, B0 = B0, Bn1 = Bn1, g = g, e1 = e1, e2 = e2)
@@ -241,8 +241,8 @@ end
       #   g = 0.25
       #   gtot = 0.0
       #   Kn1 = 0.25
-      #   B0 = gtot * brho_ref
-      #   Bn1 = Kn1 * brho_ref
+      #   B0 = gtot * rigidity_ref
+      #   Bn1 = Kn1 * rigidity_ref
       #   cb = Linear.Combined(L = L_b, B0 = B0, Bn1 = Bn1, g = g, e1 = e1, e2 = e2)
       #   M_cb_expected = [
           
@@ -255,8 +255,8 @@ end
         # Kn1 = 0.25
         # e1 = 0.01
         # e2 =0.9
-        # B0 = gtot * brho_ref
-        # Bn1 = Kn1*brho_ref
+        # B0 = gtot * rigidity_ref
+        # Bn1 = Kn1*rigidity_ref
         # cb = Linear.Combined(L = L_b, B0 = B0, Bn1 = Bn1, g = g, e1 = e1, e2 = e2)
         # M_cb_expected = [
         #   0.8665771   0.9547928   0.0000000   0.0000000   0.0000000   0.0505521
