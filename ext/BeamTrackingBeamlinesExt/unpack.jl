@@ -8,13 +8,12 @@ function _track!(
   kwargs...
 )
   # Unpack the line element (type unstable)
-  L = ele.L
-  ap = ele.AlignmentParams
-  bp = ele.BendParams
-  bm = ele.BMultipoleParams
-  pp = ele.PatchParams
-    # bc BitsLineElement does not support ApertureParams yet
-  dp = ele isa BitsLineElement ? nothing : ele.ApertureParams
+  L = ele.L # Automatically calls deval (element-level get)
+  ap = deval(ele.AlignmentParams)
+  bp = deval(ele.BendParams)
+  bm = deval(ele.BMultipoleParams)
+  pp = deval(ele.PatchParams)
+  dp = deval(ele.ApertureParams)
 
   # Function barrier
   universal!(i, b, tm, bunch, L, ap, bp, bm, pp, dp; kwargs...)

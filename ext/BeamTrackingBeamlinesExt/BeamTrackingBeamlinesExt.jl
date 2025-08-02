@@ -1,6 +1,6 @@
 module BeamTrackingBeamlinesExt
 using Beamlines, BeamTracking, GTPSA, StaticArrays, KernelAbstractions
-using Beamlines: isactive, o2i, BitsBeamline, BitsLineElement
+using Beamlines: isactive, deval, o2i, BitsBeamline, BitsLineElement
 using BeamTracking: soaview, get_N_particle, calc_gamma, calc_p0c, runkernels!,
                     @makekernel, BunchView, KernelCall, KernelChain, push
 import BeamTracking: track!, C_LIGHT, chargeof, massof
