@@ -156,10 +156,12 @@ end
   This function computes exp(i v⋅σ) as a quaternion, where σ is the 
   vector of Pauli matrices.
   """
-  n2 = v[1]^2 + v[2]^2 + v[3]^2
-  c = coss(n2)
-  s = sincus(n2)
+  @FastGTPSA begin
+    n2 = v[1]^2 + v[2]^2 + v[3]^2
+    c = coss(n2)
+    s = sincus(n2)
   v2 = s * v
+  end
   return SA[-c, v2[1], v2[2], v2[3]]
 end
 
@@ -167,12 +169,14 @@ end
   """
   Returns q1 * q2.
   """
-  a1, b1, c1, d1 = q1[Q0], q1[QX], q1[QY], q1[QZ]
-  a2, b2, c2, d2 = q2[Q0], q2[QX], q2[QY], q2[QZ]
-  a3 = a1*a2 - b1*b2 - c1*c2 - d1*d2
-  b3 = a1*b2 + b1*a2 + c1*d2 - d1*c2
-  c3 = a1*c2 - b1*d2 + c1*a2 + d1*b2
-  d3 = a1*d2 + b1*c2 - c1*b2 + d1*a2
+  @FastGTPSA begin
+    a1, b1, c1, d1 = q1[Q0], q1[QX], q1[QY], q1[QZ]
+    a2, b2, c2, d2 = q2[Q0], q2[QX], q2[QY], q2[QZ]
+    a3 = a1*a2 - b1*b2 - c1*c2 - d1*d2
+    b3 = a1*b2 + b1*a2 + c1*d2 - d1*c2
+    c3 = a1*c2 - b1*d2 + c1*a2 + d1*b2
+    d3 = a1*d2 + b1*c2 - c1*b2 + d1*a2
+  end
   return SA[a3 b3 c3 d3]
 end
 

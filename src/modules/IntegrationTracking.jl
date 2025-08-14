@@ -390,37 +390,41 @@ end
 @inline function omega(i, coords::Coords, a, g, tilde_m, mm, kn, ks)
   """
   This function computes the spin-precession vector using the multipole 
-  coefficients kn and ks indexed by mm, i.e., knl[i] is the normal 
+  coefficients kn and ks indexed by mm, i.e., kn[i] is the normal 
   coefficient of order mm[i].
   """
-  v = coords.v
+  @FastGTPSA begin
+    v = coords.v
 
-  # kinetic momenta, not canonical momenta
-  px = v[i,PXI] + (v[i,YI] * kn[1] / 2) * (mm[1] == 0) 
-  py = v[i,PYI] - (v[i,XI] * kn[1] / 2) * (mm[1] == 0)
-
-  rel_p = 1 + v[i,PZI]
-  beta_gamma = rel_p / tilde_m
-  gamma = sqrt(1 + beta_gamma^2)
-  pl2 = rel_p^2 - px^2 - py^2
-  coords.state[i] = ifelse(pl2 <= 0 && coords.state[i] == State.Alive, State.Lost, coords.state[i])
-  alive = ifelse(coords.state[i]==State.Alive, 1, 0) 
-  pl = sqrt(pl2 + (alive-1)*(pl2-1))
-
-  beta_hat = SA[px, py, pl] / rel_p
-
-  bx, by = ExactTracking.normalized_field!(mm, kn, ks, v[i,XI], v[i,YI], -1)
-  bz = kn[1] * (mm[1] == 0)
-  b_field = SA[bx, by, bz]
-
-  dot = b_field[1]*beta_hat[1] + b_field[2]*beta_hat[2] + b_field[3]*beta_hat[3]
-  b_para = dot * beta_hat
-  b_perp = b_field - b_para
+    # kinetic momenta, not canonical momenta
+    px = v[i,PXI] + (v[i,YI] * kn[1] / 2) * (mm[1] == 0) 
+    py = v[i,PYI] - (v[i,XI] * kn[1] / 2) * (mm[1] == 0)
   
-  omega = (1 + a*gamma)*b_perp + (1 + a)*b_para
-  omega = -(1 + g*v[i,XI])/pl * omega
-  omega = omega + SA[0, g, 0]
-  omega = alive * omega
+
+    rel_p = 1 + v[i,PZI]
+    beta_gamma = rel_p / tilde_m
+    gamma = sqrt(1 + beta_gamma^2)
+    pl2 = rel_p^2 - px^2 - py^2
+    coords.state[i] = ifelse(pl2 <= 0 && coords.state[i] == State.Alive, State.Lost, coords.state[i])
+    alive = ifelse(coords.state[i]==State.Alive, 1, 0) 
+    pl = sqrt(pl2 + (alive-1)*(pl2-1))
+
+    beta_hat = SA[px, py, pl] / rel_p
+
+    bx, by = ExactTracking.normalized_field(mm, kn, ks, v[i,XI], v[i,YI], -1)
+    bz = kn[1] * (mm[1] == 0)
+    b_field = SA[bx, by, bz]
+
+    dot = b_field[1]*beta_hat[1] + b_field[2]*beta_hat[2] + b_field[3]*beta_hat[3]
+    b_para = dot * beta_hat
+    b_perp = b_field - b_para
+  end
+
+  omega = (1 + a*gamma) .* b_perp .+ (1 + a) .* b_para
+  omega = -(1 + g*v[i,XI])/pl .* omega
+  omega = omega .+ SA[0, g, 0]
+  omega = alive .* omega
+  # The above lines currently give wrong numbers with FastGTPSA
 
   return omega
 end
@@ -432,7 +436,8 @@ end
   """
   q2 = coords.q
   q1 = expq(-L/2 * omega(i, coords, a, g, tilde_m, mm, kn, ks))
-  q3 = quat_mul(q1, q2[i,:])
+  # The line above does not work with FastGTPSA (yet)
+  q3 = quat_mul(q1, SA[q2[i,Q0], q2[i,QX], q2[i,QY], q2[i,QZ]])
   q2[i,Q0], q2[i,QX], q2[i,QY], q2[i,QZ] = q3[Q0], q3[QX], q3[QY], q3[QZ]
 end
 
