@@ -117,7 +117,7 @@ end # function multipole_kick!()
   Returns (bx, by), the transverse components of the magnetic field divided
   by the reference rigidty.
   """
-  @FastGTPSA begin
+  @FastGTPSA begin @inbounds begin
     jm = length(ms)
     m  = ms[jm]
     add = (m != excluding && m > 0)
@@ -134,7 +134,7 @@ end # function multipole_kick!()
       by += knl[idx] * add
       bx += ksl[idx] * add
       jm -= add
-    end
+    end end
   end
   return bx, by
 end

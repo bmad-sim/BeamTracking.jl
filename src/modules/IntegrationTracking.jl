@@ -387,13 +387,13 @@ end
 #
 # ===============  S P I N  ===============
 #
-@inline function omega(i, coords::Coords, a, g, tilde_m, mm, kn, ks)
+@inline function omega(i, coords::Coords, a, g, tilde_m, mm, kn, ks, L)
   """
-  This function computes the spin-precession vector using the multipole 
+  This function computes the integrated spin-precession vector using the multipole 
   coefficients kn and ks indexed by mm, i.e., kn[i] is the normal 
   coefficient of order mm[i].
   """
-  @FastGTPSA begin
+  @FastGTPSA begin @inbounds begin
     v = coords.v
 
     # kinetic momenta, not canonical momenta
@@ -418,27 +418,43 @@ end
     dot = b_field[1]*beta_hat[1] + b_field[2]*beta_hat[2] + b_field[3]*beta_hat[3]
     b_para = dot * beta_hat
     b_perp = b_field - b_para
-  end
 
-  omega = (1 + a*gamma) .* b_perp .+ (1 + a) .* b_para
-  omega = -(1 + g*v[i,XI])/pl .* omega
-  omega = omega .+ SA[0, g, 0]
-  omega = alive .* omega
+    coeff1 = -(1 + g*v[i,XI])/pl
+    coeff2 = 1 + a*gamma
+    coeff3 = 1 + a
+
+    ox = coeff1 * (coeff2 * b_perp[1] + coeff3 * b_para[1])
+    oy = coeff1 * (coeff2 * b_perp[2] + coeff3 * b_para[2]) + g
+    oz = coeff1 * (coeff2 * b_perp[3] + coeff3 * b_para[3])
+
+    ox = alive * L * ox
+    oy = alive * L * oy
+    oz = alive * L * oz
+
+    omega = SA[ox oy oz]
+  end end
+
+  #omega = (1 + a*gamma) .* b_perp .+ (1 + a) .* b_para
+  #omega = -(1 + g*v[i,XI])/pl .* omega
+  #omega = omega .+ SA[0, g, 0]
+  #omega = L .* omega
+  #omega = alive .* omega
   # The above lines currently give wrong numbers with FastGTPSA
 
   return omega
 end
 
 
-@makekernel fastgtpsa=false function rotate_spin!(i, coords::Coords, a, g, tilde_m, mm, kn, ks, L)
+@makekernel fastgtpsa=true function rotate_spin!(i, coords::Coords, a, g, tilde_m, mm, kn, ks, L)
   """
   This function rotates particle i's quaternion according to the multipoles present.
   """
   q2 = coords.q
-  q1 = expq(-L/2 * omega(i, coords, a, g, tilde_m, mm, kn, ks))
-  # The line above does not work with FastGTPSA (yet)
-  q3 = quat_mul(q1, SA[q2[i,Q0], q2[i,QX], q2[i,QY], q2[i,QZ]])
-  q2[i,Q0], q2[i,QX], q2[i,QY], q2[i,QZ] = q3[Q0], q3[QX], q3[QY], q3[QZ]
+  q1 = expq(-omega(i, coords, a, g, tilde_m, mm, kn, ks, L)/2)
+  @inbounds begin
+    q3 = quat_mul(q1, SA[q2[i,Q0], q2[i,QX], q2[i,QY], q2[i,QZ]])
+    q2[i,Q0], q2[i,QX], q2[i,QY], q2[i,QZ] = q3[Q0], q3[QX], q3[QY], q3[QZ]
+  end
 end
 
 
