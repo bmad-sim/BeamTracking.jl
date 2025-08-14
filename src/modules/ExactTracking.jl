@@ -117,22 +117,24 @@ end # function multipole_kick!()
   Returns (bx, by), the transverse components of the magnetic field divided
   by the reference rigidty.
   """
-  jm = length(ms)
-  m  = ms[jm]
-  add = (m != excluding && m > 0)
-  by = knl[jm] * add
-  bx = ksl[jm] * add
-  jm -= 1
-  while 2 <= m
-    m -= 1
-    t  = (by * x - bx * y) / m
-    bx = (by * y + bx * x) / m
-    by = t
-    add = (0 < jm && m == ms[jm]) && (m != excluding) # branchless
-    idx = max(1, jm) # branchless trickery
-    by += knl[idx] * add
-    bx += ksl[idx] * add
-    jm -= add
+  @FastGTPSA begin
+    jm = length(ms)
+    m  = ms[jm]
+    add = (m != excluding && m > 0)
+    by = knl[jm] * add
+    bx = ksl[jm] * add
+    jm -= 1
+    while 2 <= m
+      m -= 1
+      t  = (by * x - bx * y) / m
+      bx = (by * y + bx * x) / m
+      by = t
+      add = (0 < jm && m == ms[jm]) && (m != excluding) # branchless
+      idx = max(1, jm) # branchless trickery
+      by += knl[idx] * add
+      bx += ksl[idx] * add
+      jm -= add
+    end
   end
   return bx, by
 end
