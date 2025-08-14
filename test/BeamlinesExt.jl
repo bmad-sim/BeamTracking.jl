@@ -1,7 +1,7 @@
 @testset "Beamlines" begin
   include("lattices/esr.jl")
 
-  #=@testset "Linear" begin
+  @testset "Linear" begin
     b0 = Bunch(collect(transpose(@vars(D1))), R_ref=ring.R_ref)
     foreach(t->t.tracking_method=Linear(), ring.line)
     track!(b0, ring)
@@ -330,7 +330,7 @@
     @test_throws ErrorException track!(b0, Beamline([ele_patch_sol],  R_ref=R_ref))
     @test_throws ErrorException track!(b0, Beamline([ele_bend_quad],  R_ref=R_ref))
   end
-=#
+
   @testset "SplitIntegration" begin
     b0 = Bunch(collect(transpose(@vars(D1))), R_ref=ring.R_ref)
     foreach(t->t.tracking_method=SplitIntegration(), ring.line)
