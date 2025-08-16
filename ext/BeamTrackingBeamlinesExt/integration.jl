@@ -71,7 +71,7 @@ end
   tilde_m, gamsqr_0, beta_0 = ExactTracking.drift_params(bunch.species, R_ref)
   mm = bm.order
   kn, ks = get_strengths(bm, L, R_ref)
-  Ksol = kn[1]
+  @inbounds Ksol = kn[1]
   params = (beta_0, gamsqr_0, tilde_m, BeamTracking.anom(bunch.species), Ksol, mm, kn, ks)
   return integration_launcher!(IntegrationTracking.sks_multipole!, params, tm, L)
 end
@@ -109,8 +109,10 @@ end
   tilde_m, _, beta_0 = ExactTracking.drift_params(bunch.species, R_ref)
   mm = bm.order
   kn, ks = get_strengths(bm, L, R_ref)
-  k0 = sqrt(kn[1]^2 + ks[1]^2)
-  tilt = atan(ks[1], kn[1])
+  @inbounds begin
+    k0 = sqrt(kn[1]^2 + ks[1]^2)
+    tilt = atan(ks[1], kn[1])
+  end
   w = ExactTracking.w_quaternion(0,0,tilt)
   w_inv = ExactTracking.w_inv_quaternion(0,0,tilt)
   params = (tilde_m, beta_0, BeamTracking.anom(bunch.species), 0, 0, 0, w, w_inv, k0, mm, kn, ks)
@@ -122,10 +124,12 @@ end
   tilde_m, gamsqr_0, beta_0 = ExactTracking.drift_params(bunch.species, R_ref)
   mm = bm.order
   kn, ks = get_strengths(bm, L, R_ref)
-  k1 = sqrt(kn[2]^2 + ks[2]^2) * (mm[2] == 2)
-  tilt = (atan(ks[2], kn[2]) / 2) * (mm[2] == 2)
-  w = ExactTracking.w_quaternion(0,0,tilt)
-  w_inv = ExactTracking.w_inv_quaternion(0,0,tilt)
+  @inbounds begin
+    k1 = sqrt(kn[2]^2 + ks[2]^2) * (mm[2] == 2)
+    tilt = (atan(ks[2], kn[2]) / 2) * (mm[2] == 2)
+  end
+  w = ExactTracking.w_quaternion(0 ,0 ,tilt)
+  w_inv = ExactTracking.w_inv_quaternion(0, 0, tilt)
   params = (beta_0, gamsqr_0, tilde_m, BeamTracking.anom(bunch.species), w, w_inv, k1, mm, kn, ks)
   return integration_launcher!(IntegrationTracking.mkm_quadrupole!, params, tm, L)
 end
@@ -159,8 +163,10 @@ end
   tilde_m, gamsqr_0, beta_0 = ExactTracking.drift_params(bunch.species, R_ref)
   mm = bm.order
   kn, ks = get_strengths(bm, L, R_ref)
-  k1 = sqrt(kn[1]^2 + ks[1]^2)
-  tilt = atan(ks[1], kn[1]) / 2
+  @inbounds begin
+    k1 = sqrt(kn[1]^2 + ks[1]^2)
+    tilt = atan(ks[1], kn[1]) / 2
+  end
   w = ExactTracking.w_quaternion(0,0,tilt)
   w_inv = ExactTracking.w_inv_quaternion(0,0,tilt)
   params = (beta_0, gamsqr_0, tilde_m, BeamTracking.anom(bunch.species), w, w_inv, k1, mm, kn, ks)
