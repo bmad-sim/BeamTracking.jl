@@ -93,65 +93,74 @@ function sincuc(x)
   return y
 end
 
-"""
-    sincus(x)
 
-Compute the unnormalized sinc square-root function 
-``\\operatorname{sincus}(x) = \\sin(\\sqrt(x)) / (\\sqrt(x))`` 
-with accuracy near the origin.
-"""
-sincus(x) = _sincus(float(x))
-function _sincus(x::Union{T,Complex{T}}) where {T}
-    if x >= 109.018*eps(T)^(1/11)
-        return sin(sqrt(x))/(sqrt(x))
+function sin_quaternion(x::T) where T
+  """
+  This function computes sin(sqrt(x))/sqrt(x), which is necessary for
+  exponentiating a rotation vector into a quaternion.
+  """
+  ε = eps(T)
+  N_max = 100
+  N = 1
+  conv = false
+  y = one(x)
+  prev = one(x)
+  result = one(x)
+  @FastGTPSA! begin
+    if x < 0.1
+      while !conv && N < N_max
+        y = -y/((2*N + 1)*(2*N))
+        result = prev + y * x^N
+        N += 1
+        if norm_tps(result - prev) < ε
+          conv = true
+        end
+        prev = result
+      end
     else
-        c0 = 1
-        c1 = -1/6
-        c2 = 1/120
-        c3 = -1/5040
-        c4 = 1/362880
-        c5 = -1/39916800
-        c6 = 1/6227020800
-        c7 = -1/1307674368000
-        c8 = 1/355687428096000
-        c9 = -1/12164510040883200000
-        c10 = 1/5109094217170944000000
-        p = zero(x)
-        @FastGTPSA! p = (c0+x*(c1+x*(c2+x*(c3+x*(c4+x*(c5+x*(c6+x*(c7+x*(c8+x*
-        (c9+x*c10))))))))))
-        return p
+      result = sin(sqrt(x))/sqrt(x)
     end
+  end
+  if N == N_max
+    @warn "sin_quaternion convergence not reached in $N_max iterations"
+  end
+  return result
 end
 
-"""
-    coss(x)
 
-Compute the cos square-root function 
-``\\operatorname{coss}(x) = \\cos(\\sqrt(x))`` 
-with differentiability near the origin.
-"""
-coss(x) = _coss(float(x))
-function _coss(x::Union{T,Complex{T}}) where {T}
-    if x >= 81.9796*eps(T)^(1/11)
-        return cos(sqrt(x))
+function cos_quaternion(x::T) where T
+  """
+  This function computes cos(sqrt(x)), which is necessary for
+  exponentiating a rotation vector into a quaternion.
+  """
+  ε = eps(T)
+  N_max = 100
+  N = 1
+  conv = false
+  y = one(x)
+  prev = one(x)
+  result = one(x)
+  @FastGTPSA! begin
+    if x < 0.1
+      while !conv && N < N_max
+        y = -y/((2*N)*(2*N - 1))
+        result = prev + y * x^N
+        N += 1
+        if norm_tps(result - prev) < ε
+          conv = true
+        end
+        prev = result
+      end
     else
-        c0 = 1
-        c1 = -1/2
-        c2 = 1/24
-        c3 = -1/720
-        c4 = 1/40320
-        c5 = -1/3628800
-        c6 = 1/479001600
-        c7 = -1/87178291200
-        c8 = 1/20922789888000
-        c9 = -1/6402373705728000
-        c10 = 1/2432902008176640000
-        p = zero(x)
-        @FastGTPSA! p = (c0+x*(c1+x*(c2+x*(c3+x*(c4+x*(c5+x*(c6+x*(c7+x*(c8+x*
-        (c9+x*c10))))))))))
-        return p
+      result = cos(sqrt(x))
     end
+  end
+  if N == N_max
+    @warn "cos_quaternion convergence not reached in $N_max iterations"
+  end
+  return result
 end
+
 
 @inline function expq(v)
   """
@@ -160,12 +169,13 @@ end
   """
   @FastGTPSA begin @inbounds begin
     n2 = v[1]^2 + v[2]^2 + v[3]^2
-    c = coss(n2)
-    s = -sincus(n2)
+    c = cos_quaternion(n2)
+    s = -sin_quaternion(n2)
     v2 = s * v
   end end
-  return SA[c, v2[1], v2[2], v2[3]]
+  return @inbounds SA[c, v2[1], v2[2], v2[3]]
 end
+
 
 @inline function quat_mul(q1, q2)
   """

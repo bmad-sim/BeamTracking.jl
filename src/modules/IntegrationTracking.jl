@@ -431,7 +431,7 @@ end
     oy = alive * L * oy
     oz = alive * L * oz
 
-    omega = SA[ox oy oz]
+    omega = SA[ox, oy, oz]
   end end
 
   #omega = (1 + a*gamma) .* b_perp .+ (1 + a) .* b_para

@@ -14,6 +14,7 @@ using KernelAbstractions
       
 import GTPSA: sincu, sinhcu
 import Base: setproperty!
+import TPSAInterface: norm_tps
 
 # Put AtomicAndPhysicalConstants in a box for now for safety
 include("Constants.jl")
