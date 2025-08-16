@@ -109,8 +109,8 @@ function sin_quaternion(x::T) where T
   @FastGTPSA! begin
     if x < 0.1
       while !conv && N < N_max
-        y = -y/((2*N + 1)*(2*N))
-        result = prev + y * x^N
+        y = -y*x/((2*N + 1)*(2*N))
+        result = prev + y
         N += 1
         if norm_tps(result - prev) < ε
           conv = true
@@ -143,8 +143,8 @@ function cos_quaternion(x::T) where T
   @FastGTPSA! begin
     if x < 0.1
       while !conv && N < N_max
-        y = -y/((2*N)*(2*N - 1))
-        result = prev + y * x^N
+        y = -y*x/((2*N)*(2*N - 1))
+        result = prev + y
         N += 1
         if norm_tps(result - prev) < ε
           conv = true
