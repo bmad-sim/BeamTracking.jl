@@ -1,4 +1,4 @@
-
+include("test_utils.jl")
 @testset "LinearTracking" begin
   @testset "Utility functions" begin
     # Thick Quadrupole

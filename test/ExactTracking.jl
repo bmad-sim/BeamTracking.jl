@@ -1,3 +1,5 @@
+include("test_utils.jl")
+
 c_light = 299792458.0
 degree = π / 180
 

@@ -1,3 +1,4 @@
+include("test_utils.jl")
 @testset "SplitIntegration" begin
   @testset "Kernels" begin
     function multipole_args(::Type{T}) where {T}
@@ -120,14 +121,14 @@
     test_map("bmad_maps/straight_dipole_bk.jl", KernelCall(IntegrationTracking.order_six_integrator!, bk_straight_args(Float64)); tol=2e-6, no_scalar_allocs=true)
 
     # GTPSA parameters
-    test_map("bmad_maps/thin_dipole.jl", KernelCall(ExactTracking.multipole_kick!, multipole_args(TPS64{D10})); tol=1e-14)
-    test_map("bmad_maps/sol_quad.jl", KernelCall(IntegrationTracking.sks_multipole!, sk_args(TPS64{D10})); tol=5e-10)
-    test_map("bmad_maps/skew_quad_mk.jl", KernelCall(IntegrationTracking.mkm_quadrupole!, mk_args(TPS64{D10})); tol=5e-10)
-    test_map("bmad_maps/sex_dec.jl", KernelCall(IntegrationTracking.dkd_multipole!, dk_args(TPS64{D10})); tol=5e-10)
-    test_map("bmad_maps/sex_dec.jl", KernelCall(IntegrationTracking.order_two_integrator!, integrator_args(TPS64{D10})); tol=5e-10)
-    test_map("bmad_maps/order_four.jl", KernelCall(IntegrationTracking.order_four_integrator!, integrator_args(TPS64{D10})); tol=5e-10)
-    test_map("bmad_maps/order_six.jl", KernelCall(IntegrationTracking.order_six_integrator!, integrator_args(TPS64{D10})); tol=5e-9)
-    test_map("bmad_maps/order_eight.jl", KernelCall(IntegrationTracking.order_eight_integrator!, integrator_args(TPS64{D10})); tol=5e-9)
-    test_map("bmad_maps/straight_dipole_bk.jl", KernelCall(IntegrationTracking.order_six_integrator!, bk_straight_args(TPS64{D10})); tol=2e-6)
+    test_map("bmad_maps/thin_dipole.jl", KernelCall(ExactTracking.multipole_kick!, multipole_args(TPS64{DN})); tol=1e-14)
+    test_map("bmad_maps/sol_quad.jl", KernelCall(IntegrationTracking.sks_multipole!, sk_args(TPS64{DN})); tol=5e-10)
+    test_map("bmad_maps/skew_quad_mk.jl", KernelCall(IntegrationTracking.mkm_quadrupole!, mk_args(TPS64{DN})); tol=5e-10)
+    test_map("bmad_maps/sex_dec.jl", KernelCall(IntegrationTracking.dkd_multipole!, dk_args(TPS64{DN})); tol=5e-10)
+    test_map("bmad_maps/sex_dec.jl", KernelCall(IntegrationTracking.order_two_integrator!, integrator_args(TPS64{DN})); tol=5e-10)
+    test_map("bmad_maps/order_four.jl", KernelCall(IntegrationTracking.order_four_integrator!, integrator_args(TPS64{DN})); tol=5e-10)
+    test_map("bmad_maps/order_six.jl", KernelCall(IntegrationTracking.order_six_integrator!, integrator_args(TPS64{DN})); tol=5e-9)
+    test_map("bmad_maps/order_eight.jl", KernelCall(IntegrationTracking.order_eight_integrator!, integrator_args(TPS64{DN})); tol=5e-9)
+    test_map("bmad_maps/straight_dipole_bk.jl", KernelCall(IntegrationTracking.order_six_integrator!, bk_straight_args(TPS64{DN})); tol=2e-6)
   end
 end

@@ -212,7 +212,7 @@ function anom(species::Species)
   elseif nameof(species) == "proton"
     return 1.7928473446300592
   else
-    error("Your species is not in fake APC yet")
+    return 0.0
   end
 end
 
