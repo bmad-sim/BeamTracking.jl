@@ -154,7 +154,7 @@ function linear_dipole_matrices(g, e1, e2, K0, K1, gamma_0, L)
           sgnx = 1
         end
         
-        if abs(kx)<1e-10
+        if abs(kx) < 1e-10
           z2 = K0 * L * L / 2
         else 
           z2 = sgnx * K0 * (1 - cx) / abs(kx)
@@ -175,17 +175,18 @@ function linear_dipole_matrices(g, e1, e2, K0, K1, gamma_0, L)
       
         mx = SA[cx  sxc; sgnx*abs(kx)*sxc  cx]
         my = SA[cy  syc; sgny*abs(K1)*syc  cy]
-        r56 = (-dx_c * z1 - K0 * L * dx_c + L/gamma_0^2) 
+        r56 = (-dx_c * z1 - K0 * L * dx_c + L/(gamma_0*gamma_0)) 
         d = SA[dx_c * (1 - cx), -sgnx * wx * (dx_c * wx * sxc), 0, 0]
         t = SA[z1, z2, 0, 0]
       else
         theta = K0*L
         s, c = sincos(theta)
-        cc = (sincu(theta/2)^2)/2
+        sinc_theta_2 = sincu(theta/2)
+        cc = (sinc_theta_2*sinc_theta_2)/2
         sc = sincu(theta)
         mx = SA[c  L*sc; -K0*s  c]
         my = SA[1  L; 0 1]
-        r56 = L * (1/gamma_0^2 - theta^2*sincuc(theta))
+        r56 = L * (1/(gamma_0*gamma_0) - theta*theta*sincuc(theta))
         d = SA[theta*L*cc, theta*sc, 0, 0]
         t = SA[-theta*sc,  -theta*L*cc, 0, 0]
       end
@@ -194,8 +195,8 @@ function linear_dipole_matrices(g, e1, e2, K0, K1, gamma_0, L)
         sgny = sign(K1)
         wyL = wy * L
         if (wyL < 1e-6)
-          cy = 1 + sgny * wyL^2 / 2
-          syc = (1 + sgny * wyL^2 / 6) * L
+          cy = 1 + sgny * wyL*wyL / 2
+          syc = (1 + sgny * wyL*wyL / 6) * L
         elseif K1 >= 0
           cy  = cosh(wyL)
           syc = sinhcu(wyL) * L
@@ -210,9 +211,9 @@ function linear_dipole_matrices(g, e1, e2, K0, K1, gamma_0, L)
         sgnx = -sign(kx)
         wxL = wx * L 
         if (wxL < 1e-6)
-          sxc = (1 + sgnx * wxL^2 / 6) * L
-          cx = 1 + sgnx * wxL^2 / 2
-          z2 = g * L^2 / 2
+          sxc = (1 + sgnx * wxL*wxL / 6) * L
+          cx = 1 + sgnx * wxL*wxL / 2
+          z2 = g * L*L / 2
         elseif kx >= 0
           cx  = cos(wxL)
           sxc = sincu(wxL) * L 
@@ -240,7 +241,7 @@ function linear_dipole_matrices(g, e1, e2, K0, K1, gamma_0, L)
     
         mx = SA[cx  sxc; sgnx*abs(kx)*sxc  cx]
         my = SA[cy  syc; sgny*abs(K1)*syc  cy]
-        r56 = (- dx_c * (z1 - x_c * 2 * z11) - g * L * dx_c + x_c * g * ds_x - (z11 + sgnx * abs(kx) * dcs_x / 4) * x_c * x_c + L/gamma_0^2) 
+        r56 = (- dx_c * (z1 - x_c * 2 * z11) - g * L * dx_c + x_c * g * ds_x - (z11 + sgnx * abs(kx) * dcs_x / 4) * x_c * x_c + L/(gamma_0*gamma_0)) 
         d = SA[(dx_c * (1 - cx) - dc_x * x_c), -sgnx * wx * (2 * dom_x * sxc * x_c + wx * sxc * x_c + wx * ds_x * x_c + dx_c * wx * sxc), 0, 0]
         t = SA[z1 - x_c * 2 * z11, z2 - x_c * z12, 0, 0]
 

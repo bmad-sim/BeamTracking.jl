@@ -7,7 +7,7 @@ using Test,
       StaticArrays,
       ReferenceFrameRotations
 
-using BeamTracking: Coords, KernelCall, Q0, QX, QY, QZ
+using BeamTracking: Coords, KernelCall, Q0, QX, QY, QZ, State_Alive, State_Lost
 BenchmarkTools.DEFAULT_PARAMETERS.gctrial = false
 BenchmarkTools.DEFAULT_PARAMETERS.evals = 2
 
@@ -24,8 +24,8 @@ function test_matrix(
 )
   # Initialize bunch without spin
   v = transpose(@vars(D1))
-  state = similar(v, State.T, 1)
-  state .= State.Alive
+  state = similar(v, UInt8, 1)
+  state .= State_Alive
   coords = Coords(state, v, nothing)
 
   # Set up kernel chain and launch!
@@ -48,9 +48,11 @@ function test_matrix(
   end
   # 3) No scalar allocations
   if no_scalar_allocs
-    v = [0.1 0.2 0.3 0.4 0.5 0.6]
+    v = repeat([0.1 0.2 0.3 0.4 0.5 0.6], 2)
+    q = repeat([1.0 0.0 0.0 0.0], 2)
+    state = [State_Alive State_Alive]
     @test @ballocated(BeamTracking.launch!(coords, $kernel_call; use_KA=false), 
-    setup=(coords = Coords(copy($state), copy($v), nothing))) == 0
+    setup=(coords = Coords(copy($state), copy($v), copy($q)))) == 0
   end
 end
 
@@ -87,8 +89,8 @@ function test_map(
   # Initialize bunch without spin
   v = transpose(@vars(D10))
   q = TPS64{D10}[1 0 0 0]
-  state = similar(v, State.T, 1)
-  state .= State.Alive
+  state = similar(v, UInt8, 1)
+  state .= State_Alive
   coords = Coords(state, v, q)
 
   # Set up kernel chain and launch!
@@ -102,9 +104,11 @@ function test_map(
   end
   # 3) No scalar allocations
   if no_scalar_allocs
-    v = [0.1 0.2 0.3 0.4 0.5 6e16]
+    v = repeat([0.1 0.2 0.3 0.4 0.5 0.6], 2)
+    q = repeat([1.0 0.0 0.0 0.0], 2)
+    state = [State_Alive State_Alive]
     @test @ballocated(BeamTracking.launch!(coords, $kernel_call; use_KA=false), 
-    setup=(coords = Coords(copy($state), copy($v), nothing))) == 0
+    setup=(coords = Coords(copy($state), copy($v), copy($q)))) == 0
   end
 
 

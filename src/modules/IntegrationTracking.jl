@@ -41,8 +41,8 @@ end
 @def_integrator_struct(DriftKick)
 
 module IntegrationTracking
-using ..GTPSA, ..BeamTracking, ..StaticArrays, ..KernelAbstractions
-using ..BeamTracking: XI, PXI, YI, PYI, ZI, PZI, Q0, QX, QY, QZ, @makekernel, Coords
+using ..GTPSA, ..BeamTracking, ..StaticArrays, ..KernelAbstractions, ..SIMD, ..SIMDMathFunctions
+using ..BeamTracking: XI, PXI, YI, PYI, ZI, PZI, Q0, QX, QY, QZ, State_Alive, State_Lost, @makekernel, Coords
 
 #
 # ===============  I N T E G R A T O R S  ===============
@@ -136,8 +136,13 @@ L: element length
   knl = kn * L / 2
   ksl = ks * L / 2
 
-  Ps2 = (1+coords.v[i,PZI])^2 - coords.v[i,PXI]^2 - coords.v[i,PYI]^2        
-  coords.state[i] = ifelse(Ps2 <= 0 && coords.state[i] == State.Alive, State.Lost, coords.state[i])  
+  rel_p = 1 + coords.v[i,PZI]
+  px = coords.v[i,PXI]
+  py = coords.v[i,PYI]
+  P_s2 = rel_p*rel_p - px*px - py*py
+  good_momenta = (P_s2 > 0)
+  alive_at_start = (coords.state[i] == State_Alive)
+  coords.state[i] = vifelse(!good_momenta & alive_at_start, State_Lost, coords.state[i])
 
   if !isnothing(coords.q)
     rotate_spin!(               i, coords, a, 0, tilde_m, mm, kn, ks, L / 2)
@@ -171,38 +176,41 @@ s: element length
 """
 @makekernel fastgtpsa=true function quadrupole_matrix!(i, coords::Coords, k1, s)
   v = coords.v
-  alive = ifelse(coords.state[i] == State.Alive, 1, 0)
+  alive = (coords.state[i] == State_Alive)
 
   focus = k1 >= 0  # horizontally focusing if positive
-  defocus = k1 < 0 
 
   rel_p = 1 + v[i,PZI]
   xp = v[i,PXI] / rel_p  # x'
   yp = v[i,PYI] / rel_p  # y'
   sqrtks = sqrt(abs(k1 / rel_p)) * s  # |κ|s
 
-  cosine = cos(sqrtks) # precompute trig for branchless but still fast
+  cosine = cos(sqrtks)
   coshine = cosh(sqrtks)
   sinecu = sincu(sqrtks)
   shinecu = sinhcu(sqrtks)
-  cx = focus * cosine  + defocus * coshine # branchless
-  cy = focus * coshine + defocus * cosine
-  sx = focus * sinecu  + defocus * shinecu
-  sy = focus * shinecu + defocus * sinecu
+  cx = vifelse(focus, cosine, coshine)
+  cy = vifelse(focus, coshine, cosine)
+  sx = vifelse(focus, sinecu, shinecu)
+  sy = vifelse(focus, shinecu, sinecu)
 
-  v[i,PXI] = alive*(v[i,PXI] * cx - k1 * s * v[i,XI] * sx) - (alive-1) * v[i,PXI]
-  v[i,PYI] = alive*(v[i,PYI] * cy + k1 * s * v[i,YI] * sy) - (alive-1) * v[i,PYI]
-  v[i,ZI]  = (alive*((v[i,ZI] - (s / 4) * (  xp^2 * (1 + sx * cx)
-                                    + yp^2 * (1 + sy * cy)
+  new_px = v[i,PXI] * cx - k1 * s * v[i,XI] * sx
+  new_py = v[i,PYI] * cy + k1 * s * v[i,YI] * sy
+  new_z = v[i,ZI]  - (s / 4) * (  xp*xp * (1 + sx * cx)
+                                    + yp*yp * (1 + sy * cy)
                                     + k1 / (1 + v[i,PZI])
-                                        * ( v[i,XI]^2 * (1 - sx * cx)
-                                          - v[i,YI]^2 * (1 - sy * cy) )
-                                  )
-                      + sign(k1) * ( v[i,XI] * xp * (sqrtks * sx)^2
-                              - v[i,YI] * yp * (sqrtks * sy)^2 ) / 2
-              )) - (alive-1) * v[i,ZI])
-  v[i,XI]  = alive*(v[i,XI] * cx + xp * s * sx) - (alive-1) * v[i,XI]
-  v[i,YI]  = alive*(v[i,YI] * cy + yp * s * sy) - (alive-1) * v[i,YI]
+                                        * ( v[i,XI]*v[i,XI] * (1 - sx * cx)
+                                          - v[i,YI]*v[i,YI] * (1 - sy * cy) )
+                                  ) + sign(k1) * ( v[i,XI] * xp * (sqrtks * sx)* 
+                                  (sqrtks * sx) - v[i,YI] * yp * (sqrtks * sy)*
+                                  (sqrtks * sy) ) / 2
+  new_x = v[i,XI] * cx + xp * s * sx
+  new_y = v[i,YI] * cy + yp * s * sy
+  v[i,PXI] = vifelse(alive, new_px, v[i,PXI])
+  v[i,PYI] = vifelse(alive, new_py, v[i,PYI])
+  v[i,ZI]  = vifelse(alive, new_z, v[i,ZI])
+  v[i,XI]  = vifelse(alive, new_x, v[i,XI])
+  v[i,YI]  = vifelse(alive, new_y, v[i,YI])
 end 
 
 
@@ -229,22 +237,25 @@ s: element length
   v = coords.v
 
   P      = 1 + v[i,PZI]             # [scaled] total momentum, P/P0 = 1 + δ
-  PtSqr  = v[i,PXI]^2 + v[i,PYI]^2  # (transverse momentum)^2, P⟂^2 = (Px^2 + Py^2) / P0^2
-  Ps2    = P^2 - PtSqr        
-  coords.state[i] = ifelse(Ps2 <= 0 && coords.state[i] == State.Alive, State.Lost, coords.state[i])
-  alive = ifelse(coords.state[i]==State.Alive, 1, 0) 
-  Ps = sqrt(Ps2 + (alive-1)*(Ps2-1)) # longitudinal momentum,   Ps   = √[(1 + δ)^2 - P⟂^2]
+  PtSqr  = v[i,PXI]*v[i,PXI] + v[i,PYI]*v[i,PYI]  # (transverse momentum)^2, P⟂^2 = (Px^2 + Py^2) / P0^2
+  Ps2    = P*P - PtSqr        
+  good_momenta = (Ps2 > 0)
+  alive_at_start = (coords.state[i] == State_Alive)
+  coords.state[i] = vifelse(!good_momenta & alive_at_start, State_Lost, coords.state[i])
+  Ps2_1 = one(Ps2)
+  Ps = sqrt(vifelse(good_momenta, Ps2, Ps2_1)) # longitudinal momentum,   Ps   = √[(1 + δ)^2 - P⟂^2]
+  alive = (coords.state[i] == State_Alive)
 
-  v[i,XI] = (alive*(v[i,XI] + s * v[i,PXI] * PtSqr / (P * Ps * (P + Ps)))
-            - (alive - 1) * v[i,XI])
-  v[i,YI] = (alive*(v[i,YI] + s * v[i,PYI] * PtSqr / (P * Ps * (P + Ps)))
-            - (alive - 1) * v[i,YI])
-  v[i,ZI] = (alive*(v[i,ZI] - s * ( P * (PtSqr - v[i,PZI] * (2 + v[i,PZI]) / gamsqr_0)
-                                / ( beta_0 * sqrt(P^2 + tilde_m^2) * Ps
-                                    * (beta_0 * sqrt(P^2 + tilde_m^2) + Ps)
+  new_x = v[i,XI] + s * v[i,PXI] * PtSqr / (P * Ps * (P + Ps))
+  new_y = v[i,YI] + s * v[i,PYI] * PtSqr / (P * Ps * (P + Ps))
+  new_z = v[i,ZI] - s * (P * (PtSqr - v[i,PZI] * (2 + v[i,PZI]) / gamsqr_0)
+                                / ( beta_0 * sqrt(P*P + tilde_m*tilde_m) * Ps
+                                    * (beta_0 * sqrt(P*P + tilde_m*tilde_m) + Ps)
                                   )
-                            - PtSqr / (2 * P^2)
-                          )) - (alive - 1) * v[i,ZI])
+                            - PtSqr / (2 * P*P))
+  v[i,XI] = vifelse(alive, new_x, v[i,XI])
+  v[i,YI] = vifelse(alive, new_y, v[i,YI])
+  v[i,ZI] = vifelse(alive, new_z, v[i,ZI])
 end # function quadrupole_kick!()
 
 
@@ -279,23 +290,18 @@ Arguments
   knl = kn * L / 2
   ksl = ks * L / 2
 
-  Ps2 = (1+coords.v[i,PZI])^2 - coords.v[i,PXI]^2 - coords.v[i,PYI]^2 
-  coords.state[i] = ifelse(Ps2 <= 0 && coords.state[i] == State.Alive, State.Lost, coords.state[i]) 
-
   ExactTracking.exact_bend!(      i, coords, e1, e2, g*L/2, g, k0, w, w_inv, tilde_m, beta_0, L / 2)
+  ExactTracking.patch_rotation!(  i, coords, w, 0)
 
   if isnothing(coords.q)
-    ExactTracking.patch_rotation!(i, coords, w, 0)
     ExactTracking.multipole_kick!(i, coords, mm, knl * 2, ksl * 2, -1)
-    ExactTracking.patch_rotation!(i, coords, w_inv, 0)
   else
-    ExactTracking.patch_rotation!(i, coords, w, 0)
     ExactTracking.multipole_kick!(i, coords, mm, knl, ksl, 1)
     rotate_spin!(                 i, coords, a, g, tilde_m, mm, kn, ks, L)
     ExactTracking.multipole_kick!(i, coords, mm, knl, ksl, 1)
-    ExactTracking.patch_rotation!(i, coords, w_inv, 0)
   end
 
+  ExactTracking.patch_rotation!(  i, coords, w_inv, 0)
   ExactTracking.exact_bend!(      i, coords, e1, e2, g*L/2, g, k0, w, w_inv, tilde_m, beta_0, L / 2)
 end 
 
@@ -387,53 +393,81 @@ end
 #
 # ===============  S P I N  ===============
 #
-@inline function omega(i, coords::Coords, a, g, tilde_m, mm, kn, ks)
+
+# WARNING!!! IF YOU INLINE THIS FUNCTION, SPIN TRACKING THROUGH A SOLENOID WILL
+# BREAK WITH SIMD!!!
+# BEWARE!!!
+function omega(i, coords::Coords, a, g, tilde_m, mm, kn, ks, L)
   """
-  This function computes the spin-precession vector using the multipole 
+  This function computes the integrated spin-precession vector using the multipole 
   coefficients kn and ks indexed by mm, i.e., knl[i] is the normal 
   coefficient of order mm[i].
   """
-  v = coords.v
+  @FastGTPSA begin
+    v = coords.v
 
-  # kinetic momenta, not canonical momenta
-  px = v[i,PXI] + (v[i,YI] * kn[1] / 2) * (mm[1] == 0) 
-  py = v[i,PYI] - (v[i,XI] * kn[1] / 2) * (mm[1] == 0)
+    # kinetic momenta, not canonical momenta
+    if (length(kn) == 0) || (mm[1] != 0)
+      px = v[i,PXI]
+      py = v[i,PYI] 
+    else
+      px = v[i,PXI] + (v[i,YI] * kn[1] / 2)
+      py = v[i,PYI] - (v[i,XI] * kn[1] / 2)
+    end
 
-  rel_p = 1 + v[i,PZI]
-  beta_gamma = rel_p / tilde_m
-  gamma = sqrt(1 + beta_gamma^2)
-  pl2 = rel_p^2 - px^2 - py^2
-  coords.state[i] = ifelse(pl2 <= 0 && coords.state[i] == State.Alive, State.Lost, coords.state[i])
-  alive = ifelse(coords.state[i]==State.Alive, 1, 0) 
-  pl = sqrt(pl2 + (alive-1)*(pl2-1))
+    rel_p = 1 + v[i,PZI]
+    beta_gamma = rel_p / tilde_m
+    gamma = sqrt(1 + beta_gamma*beta_gamma)
+    pl2 = rel_p*rel_p - px*px - py*py
+    pl2_0 = zero(pl2)
+    good_momenta = (pl2 > pl2_0)
+    alive_at_start = (coords.state[i] == State_Alive)
+    coords.state[i] = vifelse(!good_momenta & alive_at_start, State_Lost, coords.state[i])
+    alive = (coords.state[i] == State_Alive)
+    pl2_1 = one(pl2)
+    pl = sqrt(vifelse(good_momenta, pl2, pl2_1)) 
 
-  beta_hat = SA[px, py, pl] / rel_p
+    bx, by = ExactTracking.normalized_field(mm, kn, ks, v[i,XI], v[i,YI], -1)
+    bz = mm[1] == 0 ? kn[1] : zero(kn[1])
 
-  bx, by = ExactTracking.normalized_field!(mm, kn, ks, v[i,XI], v[i,YI], -1)
-  bz = kn[1] * (mm[1] == 0)
-  b_field = SA[bx, by, bz]
+    coeff = -(1 + g*v[i,XI])/pl
+    coeff1 = coeff * (1 + a*gamma)
+    coeff2 = coeff * (1 + a)
 
-  dot = b_field[1]*beta_hat[1] + b_field[2]*beta_hat[2] + b_field[3]*beta_hat[3]
-  b_para = dot * beta_hat
-  b_perp = b_field - b_para
-  
-  omega = (1 + a*gamma)*b_perp + (1 + a)*b_para
-  omega = -(1 + g*v[i,XI])/pl * omega
-  omega = omega + SA[0, g, 0]
-  omega = alive * omega
+    dot = bx*px/rel_p + by*py/rel_p + bz*pl/rel_p
+
+    b_para_x = dot * px / rel_p
+    b_para_y = dot * py / rel_p
+    b_para_z = dot * pl / rel_p
+
+    b_perp_x = (bx - b_para_x) * coeff1
+    b_perp_y = (by - b_para_y) * coeff1
+    b_perp_z = (bz - b_para_z) * coeff1
+
+    b_para_x = b_para_x * coeff2
+    b_para_y = b_para_y * coeff2
+    b_para_z = b_para_z * coeff2
+
+    ox = (b_perp_x + b_para_x) * L        
+    oy = (b_perp_y + b_para_y + g) * L
+    oz = (b_perp_z + b_para_z) * L
+
+    omega = (ox, oy, oz)
+  end
 
   return omega
 end
 
 
-@makekernel fastgtpsa=false function rotate_spin!(i, coords::Coords, a, g, tilde_m, mm, kn, ks, L)
+@makekernel fastgtpsa=true function rotate_spin!(i, coords::Coords, a, g, tilde_m, mm, kn, ks, L)
   """
   This function rotates particle i's quaternion according to the multipoles present.
   """
   q2 = coords.q
-  q1 = expq(-L/2 * omega(i, coords, a, g, tilde_m, mm, kn, ks))
-  q3 = quat_mul(q1, q2[i,:])
-  q2[i,Q0], q2[i,QX], q2[i,QY], q2[i,QZ] = q3[Q0], q3[QX], q3[QY], q3[QZ]
+  alive = (coords.state[i] == State_Alive)
+  q1 = expq(omega(i, coords, a, g, tilde_m, mm, kn, ks, L), alive)
+  q3 = quat_mul(q1, q2[i,Q0], q2[i,QX], q2[i,QY], q2[i,QZ])
+  q2[i,Q0], q2[i,QX], q2[i,QY], q2[i,QZ] = q3
 end
 
 

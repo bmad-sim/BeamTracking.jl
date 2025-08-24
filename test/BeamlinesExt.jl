@@ -82,7 +82,6 @@
     b0 = Bunch(collect(transpose(@vars(D1))), R_ref=ring2.R_ref, species=Species("electron"))
     track!(b0, bblring)
     @test GTPSA.jacobian(b0.coords.v) ≈ M_combined
-
   end
 
   @testset "Exact" begin
@@ -285,7 +284,7 @@
     v_init = copy(b0.coords.v)
     ele_kick = LineElement(L=1.0, Kn0L=1.0, tracking_method=Exact())
     track!(b0, Beamline([ele_kick], R_ref=R_ref, species_ref=Species("electron")))
-    @test b0.coords.state[1] == State.Lost
+    @test b0.coords.state[1] == State_Lost
     @test v_init == b0.coords.v
 
     # Particle lost (abs(px) > pt):
@@ -293,7 +292,7 @@
     v_init = copy(b0.coords.v)
     ele_bend = LineElement(L=1.0, g_ref=0.01, Kn0=0.01, tracking_method=Exact())
     track!(b0, Beamline([ele_bend], R_ref=R_ref, species_ref=Species("electron")))
-    @test b0.coords.state[1] == State.Lost
+    @test b0.coords.state[1] == State_Lost
     @test v_init == b0.coords.v
 
     # Particle lost in bend (momentum is too small):
@@ -301,7 +300,7 @@
     v_init = copy(b0.coords.v)
     ele_bend = LineElement(L=1.0, g_ref=0.01, Kn0=0.01, tracking_method=Exact())
     track!(b0, Beamline([ele_bend], R_ref=R_ref, species_ref=Species("electron")))
-    @test b0.coords.state[1] == State.Lost
+    @test b0.coords.state[1] == State_Lost
     @test v_init == b0.coords.v
 
     # Particle lost in drift (momentum is too small):
@@ -309,7 +308,7 @@
     v_init = copy(b0.coords.v)
     ele_drift = LineElement(L=1.0, tracking_method=Exact())
     track!(b0, Beamline([ele_drift], R_ref=R_ref, species_ref=Species("electron")))
-    @test b0.coords.state[1] == State.Lost
+    @test b0.coords.state[1] == State_Lost
     @test v_init == b0.coords.v
 
     # Particle lost in solenoid (momentum is too small):
@@ -317,7 +316,7 @@
     v_init = copy(b0.coords.v)
     ele_sol = LineElement(L=1.0, Ksol=1.0, tracking_method=Exact())
     track!(b0, Beamline([ele_sol], R_ref=R_ref, species_ref=Species("electron")))
-    @test b0.coords.state[1] == State.Lost
+    @test b0.coords.state[1] == State_Lost
     @test v_init == b0.coords.v
 
     # Errors:
@@ -330,7 +329,7 @@
     @test_throws ErrorException track!(b0, Beamline([ele_patch_sol],  R_ref=R_ref))
     @test_throws ErrorException track!(b0, Beamline([ele_bend_quad],  R_ref=R_ref))
   end
-
+  
   @testset "SplitIntegration" begin
     b0 = Bunch(collect(transpose(@vars(D1))), R_ref=ring.R_ref)
     foreach(t->t.tracking_method=SplitIntegration(), ring.line)
@@ -465,7 +464,8 @@
     bl = Beamline([ele], R_ref=R_ref, species_ref=Species("electron"))
     track!(b0, bl)
     @test b0.coords.v ≈ [58.61782947 31.13531470 105.79375452 40.00000000 41.75205992 60.00000000]/1e3
-    @test b0.coords.q ≈ [0.99999555887473 0.00000197685011 0.00297918168991 0.00008187412527]
+    @test (b0.coords.q ≈ [0.99999555887473 0.00000197685011 0.00297918168991 0.00008187412527]
+           || b0.coords.q ≈ -[0.99999555887473 0.00000197685011 0.00297918168991 0.00008187412527])
 
     # Pure solenoid:
     ele = LineElement(L=1.0, Ksol=2.0, tracking_method=SplitIntegration())
@@ -749,7 +749,7 @@
     q_init = copy(b0.coords.q)
     ele_dipole = LineElement(L=1.0, Kn0=1e-8, Kn1=1e-8, tracking_method=BendKick())
     track!(b0, Beamline([ele_dipole], R_ref=R_ref))
-    @test b0.coords.state[1] == State.Lost
+    @test b0.coords.state[1] == State_Lost
     @test v_init == b0.coords.v
     @test q_init == b0.coords.q || q_init == -b0.coords.q
 
@@ -759,7 +759,7 @@
     q_init = copy(b0.coords.q)
     ele_quad = LineElement(L=1.0, Kn1=1e-8, tracking_method=MatrixKick())
     track!(b0, Beamline([ele_quad], R_ref=R_ref))
-    @test b0.coords.state[1] == State.Lost
+    @test b0.coords.state[1] == State_Lost
     @test v_init == b0.coords.v
     @test q_init == b0.coords.q || q_init == -b0.coords.q
 
@@ -769,7 +769,7 @@
     q_init = copy(b0.coords.q)
     ele_patch = LineElement(dt=1e-9, dx=2.0, dy=3.0, dz=4.0, dx_rot=-5.0, dy_rot=6.0, dz_rot=7.0, L=-1.9458360380198412, tracking_method=SplitIntegration())
     track!(b0, Beamline([ele_patch], R_ref=R_ref))
-    @test b0.coords.state[1] == State.Lost
+    @test b0.coords.state[1] == State_Lost
     @test v_init == b0.coords.v
     @test q_init == b0.coords.q || q_init == -b0.coords.q
 

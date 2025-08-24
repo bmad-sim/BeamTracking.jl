@@ -24,19 +24,13 @@ isinf_imag(x::Number) = isfinite(real(x)) && isinf(imag(x))
 Compute the unnormalized sinc function ``\\operatorname{sincu}(x) = \\sin(x) / (x)`` 
 with accuracy near the origin.
 """
-sincu(x) = _sinc(float(x))
-function _sinc(x::Union{T,Complex{T}}) where {T}
-    if isinf_real(x)
-        return zero(x)
-    end
+function sincu(x)
+  #if isinf_real(x)
+  #  return zero(x)
+  #end
 
-    nrm = Base.Math.fastabs(x)
-    if nrm >= 3.3*sqrt(sqrt(eps(T)))
-        return sin(x)/x
-    else
-        # |x| < (eps*120)^(1/4)
-        return 1 - x*x/6
-    end
+  threshold = 0.0004 # (120*eps(Float64))^(1/4)
+  return vifelse(abs(x) > threshold, sin(x)/x, 1-x*x/6)
 end
 
 # sinhcu copied from Boost library and correct limit behavior added
@@ -46,134 +40,133 @@ end
     sinhcu(x)
 
 Compute the unnormalized sinhc function ``\\operatorname{sinhcu}(x) = \\sinh(x) / (x)`` 
-with accuracy accuracy near the origin.
-"""
-sinhcu(x) = _sinhcu(float(x))
-function _sinhcu(x::Union{T,Complex{T}}) where {T}
-    taylor_0_bound = eps(T)
-    taylor_2_bound = sqrt(taylor_0_bound)
-    taylor_n_bound = sqrt(taylor_2_bound)
-
-    if isinf_imag(x) 
-        return zero(x)
-    end
-    
-    nrm = Base.Math.fastabs(x)
-
-    if nrm >= taylor_n_bound || isnan(nrm)
-        return sinh(x)/x
-    else
-        # approximation by taylor series in x at 0 up to order 0
-        res = one(x)
-        if nrm >= taylor_0_bound
-            x2 = x*x
-            # approximation by taylor series in x at 0 up to order 2
-            res += x2/6
-            if nrm >= taylor_2_bound
-                # approximation by taylor series in x at 0 up to order 4
-                res += (x2*x2)/120
-            end
-        end
-        return res
-    end
-end
-
-# Copied pasted from sincc in bmad-ecosystem
-function sincuc(x) 
-  if Base.Math.fastabs(x) < 0.1
-    c0 = 1/6
-    c1 = -1/120
-    c2 = 1/5040
-    c3 = -1/362880
-    x2 = x^2
-    y = c0 + x2 * (c1 + x2 * (c2 + x2 * c3))
-  else
-    y = (x - sin(x)) / x^3
-  end
-  return y
-end
-
-"""
-    sincus(x)
-
-Compute the unnormalized sinc square-root function 
-``\\operatorname{sincus}(x) = \\sin(\\sqrt(x)) / (\\sqrt(x))`` 
 with accuracy near the origin.
 """
-sincus(x) = _sincus(float(x))
-function _sincus(x::Union{T,Complex{T}}) where {T}
-    nrm = Base.Math.fastabs(x)
-    if nrm >= 109.018*eps(T)^(1/11)
-        return sin(sqrt(x))/(sqrt(x))
-    else
-        c0 = 1
-        c1 = -1/6
-        c2 = 1/120
-        c3 = -1/5040
-        c4 = 1/362880
-        c5 = -1/39916800
-        c6 = 1/6227020800
-        c7 = -1/1307674368000
-        c8 = 1/355687428096000
-        c9 = -1/12164510040883200000
-        c10 = 1/5109094217170944000000
-        return (c0+x*(c1+x*(c2+x*(c3+x*(c4+x*(c5+x*(c6+x*(c7+x*(c8+x*
-        (c9+x*c10))))))))))
-    end
+function sinhcu(x)
+  #if isinf_imag(x)
+  #  return zero(x)
+  #end
+
+  threshold = 0.0004 # (120*eps(Float64))^(1/4)
+  return vifelse(abs(x) > threshold, sinh(x)/x, 1+x*x/6)
 end
 
-"""
-    coss(x)
 
-Compute the cos square-root function 
-``\\operatorname{coss}(x) = \\cos(\\sqrt(x))`` 
-with differentiability near the origin.
-"""
-coss(x) = _coss(float(x))
-function _coss(x::Union{T,Complex{T}}) where {T}
-    nrm = Base.Math.fastabs(x)
-    if nrm >= 81.9796*eps(T)^(1/11)
-        return cos(sqrt(x))
-    else
-        c0 = 1
-        c1 = -1/2
-        c2 = 1/24
-        c3 = -1/720
-        c4 = 1/40320
-        c5 = -1/3628800
-        c6 = 1/479001600
-        c7 = -1/87178291200
-        c8 = 1/20922789888000
-        c9 = -1/6402373705728000
-        c10 = 1/2432902008176640000
-        return (c0+x*(c1+x*(c2+x*(c3+x*(c4+x*(c5+x*(c6+x*(c7+x*(c8+x*
-        (c9+x*c10))))))))))
-    end
+function atan2(y, x)
+  return atan(y, x)
 end
 
-@inline function expq(v)
+
+function atan2(y::Vec{N, T}, x::Vec{N, T}) where {N, T}
+  arctan = atan(y/x)
+  return vifelse(x > 0, arctan,
+         vifelse((x < 0)  & (y >= 0),  arctan + Vec{N, T}(T(pi)),
+         vifelse((x < 0)  & (y < 0),   arctan - Vec{N, T}(T(pi)),
+         vifelse((x == 0) & (y > 0),   Vec{N, T}(pi/2),
+         vifelse((x == 0) & (y < 0),   Vec{N, T}(-pi/2),
+         vifelse((x == 0) & (y == 0),  Vec{N, T}(0), 
+         Vec{N, T}(NaN)))))))
+end
+
+
+# Copy-pasted from sincc in bmad-ecosystem
+function sincuc(x) 
+  c0 = 1/6
+  c1 = -1/120
+  c2 = 1/5040
+  c3 = -1/362880
+  x2 = x^2
+  return vifelse(abs(x) >= 0.1, (x-sin(x))/x^3, c0+x2*(c1+x2*(c2+x2*c3)))
+end
+
+
+function sincos_quaternion(x)
   """
-  This function computes exp(i v⋅σ) as a quaternion, where σ is the 
-  vector of Pauli matrices.
+  This function computes sin(sqrt(x))/sqrt(x) and cos(sqrt(x)), which are both 
+  necessary for exponentiating a rotation vector into a quaternion.
   """
-  n2 = v[1]^2 + v[2]^2 + v[3]^2
-  c = coss(n2)
-  s = sincus(n2)
-  v2 = s * v
-  return SA[-c, v2[1], v2[2], v2[3]]
+  threshold = 7.3e-8 # sqrt(24*eps(Float64))
+  sq = sqrt(x)
+  s, c = sincos(sq)
+  s = s/sq
+  s_out = vifelse(x > threshold, s, 1-x/6)
+  c_out = vifelse(x > threshold, c, 1-x/2)
+  return s_out, c_out
 end
 
-@inline function quat_mul(q1, q2)
+
+function sincos_quaternion(x::TPS{T}) where {T}
+  """
+  This function computes sin(sqrt(x))/sqrt(x) and cos(sqrt(x)), which are both 
+  necessary for exponentiating a rotation vector into a quaternion.
+  """
+  ε = eps(T)
+  N_max = 100
+  N = 1
+  conv_sin = false
+  conv_cos = false
+  y = one(x)
+  prev_sin = one(x)
+  prev_cos = one(x)
+  result_sin = one(x)
+  result_cos = one(x)
+  #sq = one(x)
+  # Using FastGTPSA! for the following makes other kernels run out of temps
+  @FastGTPSA begin
+    if x < 0.1
+      while !(conv_sin && conv_cos) && N < N_max
+        y = -y*x/((2*N)*(2*N - 1))
+        result_sin = prev_sin + y/(2*N + 1)
+        result_cos = prev_cos + y
+        N += 1
+        if norm_tps(result_sin - prev_sin) < ε
+          conv_sin = true
+        end
+        if norm_tps(result_cos - prev_cos) < ε
+          conv_cos = true
+        end
+        prev_sin = result_sin
+        prev_cos = result_cos
+      end
+    else
+      sq = sqrt(x)
+      result_sin, result_cos = sincos(sq)
+      result_sin = result_sin/sq
+    end
+  end
+  if N == N_max
+    @warn "sincos_quaternion convergence not reached in $N_max iterations"
+  end
+  return result_sin, result_cos
+end
+
+
+function expq(v, compute)
+  """
+  This function computes exp(-i/2 v⋅σ) as a quaternion, where σ is the 
+  vector of Pauli matrices. If compute is false, it returns the identity quaternion.
+  """
+  n2 = @FastGTPSA (v[1]*v[1] + v[2]*v[2] + v[3]*v[3])/4
+  n2_0 = zero(n2)
+  s, c = sincos_quaternion(vifelse(compute, n2, n2_0))
+  s = vifelse(compute, s, n2_0)
+  return (c, s*v[1]/2, s*v[2]/2, s*v[3]/2)
+end
+
+
+function quat_mul(q1, q20, q2x, q2y, q2z)
   """
   Returns q1 * q2.
   """
   a1, b1, c1, d1 = q1[Q0], q1[QX], q1[QY], q1[QZ]
-  a2, b2, c2, d2 = q2[Q0], q2[QX], q2[QY], q2[QZ]
-  a3 = a1*a2 - b1*b2 - c1*c2 - d1*d2
-  b3 = a1*b2 + b1*a2 + c1*d2 - d1*c2
-  c3 = a1*c2 - b1*d2 + c1*a2 + d1*b2
-  d3 = a1*d2 + b1*c2 - c1*b2 + d1*a2
-  return SA[a3 b3 c3 d3]
+  a2, b2, c2, d2 = q20, q2x, q2y, q2z
+  @FastGTPSA begin
+    a3 = a1*a2 - b1*b2 - c1*c2 - d1*d2
+    b3 = a1*b2 + b1*a2 + c1*d2 - d1*c2
+    c3 = a1*c2 - b1*d2 + c1*a2 + d1*b2
+    d3 = a1*d2 + b1*c2 - c1*b2 + d1*a2
+  end
+  return (a3, b3, c3, d3)
 end
 
 # Particle energy conversions =============================================================
@@ -193,10 +186,10 @@ function anom(species::Species)
     return 0.0011596521735304233
   elseif nameof(species) == "proton"
     return 1.7928473446300592
-  elseif nameof(species) == "proton"
+  elseif nameof(species) == "anti-proton"
     return 1.7928473446300592
   else
-    error("Your species is not in fake APC yet")
+    return 0.0
   end
 end
 
