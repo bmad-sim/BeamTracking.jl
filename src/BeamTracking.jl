@@ -1,17 +1,23 @@
+"""
+    BeamTracking
+
+A high-performance particle beam tracking package for accelerator physics simulations.
+Currently provides both linear, exact, field tracking, and Runge-Kutta tracking methods.
+"""
 module BeamTracking
 using GTPSA,
-      ReferenceFrameRotations,
-      StaticArrays, 
-      SIMD,
-      VectorizationBase,
-      EnumX,
-      Unrolled,
-      MacroTools,
-      Adapt,
-      Accessors
+  ReferenceFrameRotations,
+  StaticArrays,
+  SIMD,
+  VectorizationBase,
+  EnumX,
+  Unrolled,
+  MacroTools,
+  Adapt,
+  Accessors
 
 using KernelAbstractions
-      
+
 import GTPSA: sincu, sinhcu
 import Base: setproperty!
 
@@ -23,6 +29,8 @@ export Species
 export Bunch, State, ParticleView, sincu, sinhcu, sincuc, expq, quat_mul
 export LinearTracking, Linear
 export ExactTracking, Exact
+export FieldTracking, Field
+export RungeKuttaTracking, RungeKutta
 export IntegrationTracking, SplitIntegration, DriftKick, BendKick, SolenoidKick, MatrixKick
 export track!
 
@@ -34,7 +42,6 @@ include("kernel.jl")
 
 include("modules/ExactTracking.jl") #; TRACKING_METHOD(::ExactTracking) = Exact
 include("modules/LinearTracking.jl") #; TRACKING_METHOD(::LinearTracking) = Linear
-include("modules/IntegrationTracking.jl") #; TRACKING_METHOD(::LinearTracking) = SplitIntegration, DriftKick, BendKick, SolenoidKick, MatrixKick
 
 
 # Empty tracking method to be imported+implemented by package extensions
