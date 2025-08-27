@@ -1,20 +1,4 @@
 # BeamTracking
 
-Documentation for the BeamTracking.jl package.
+Documentation currently in development. See [`SciBmad.jl`](https://github.com/bmad-sim/SciBmad.jl) for examples of how to track in the `SciBmad` accelerator physics software ecosystem.
 
-
-```{toctree}
-:maxdepth: 1
-:caption: Submodules
-
-linear.md
-matrixkick.md
-misc.md
-```
-
-```{toctree}
-:maxdepth: 1
-:caption: Developer's Guide
-
-devel.md
-```

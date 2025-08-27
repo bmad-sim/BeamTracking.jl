@@ -37,14 +37,14 @@ end
 check_args(kcalli) = true
 
 # KA does not like Vararg
-@kernel function generic_kernel!(b::BunchView, @Const(kc::KernelChain))
+@kernel function generic_kernel!(coords::Coords, @Const(kc::KernelChain))
   i = @index(Global, Linear)
-  @inline _generic_kernel!(i, b, kc)
+  @inline _generic_kernel!(i, coords, kc)
 end
 
-@unroll function _generic_kernel!(i, b::BunchView, kc::KernelChain)
+@unroll function _generic_kernel!(i, coords::Coords, kc::KernelChain)
   @unroll for kcall in kc
-    (kcall.kernel)(i, b, kcall.args...)
+    (kcall.kernel)(i, coords, kcall.args...)
   end
   return nothing
 end
@@ -53,24 +53,24 @@ end
 # Matrix v should ALWAYS be in SoA whether for real or as a view via tranpose(v)
 
 @inline function launch!(
-  b::BunchView{S,V},
+  coords::Coords{<:Any,V},
   kc::KernelChain;
   groupsize::Union{Nothing,Integer}=nothing, #backend isa CPU ? floor(Int,REGISTER_SIZE/sizeof(eltype(v))) : 256 
   multithread_threshold::Integer=Threads.nthreads() > 1 ? 1750*Threads.nthreads() : typemax(Int),
-  use_KA::Bool=true, #!(get_backend(b.v) isa CPU && isnothing(groupsize)),
+  use_KA::Bool=true, #!(get_backend(coords.v) isa CPU && isnothing(groupsize)),
   use_explicit_SIMD::Bool=!use_KA # Default to use explicit SIMD on CPU
-) where {S,V}
-  v = b.v
+) where {V}
+  v = coords.v
   N_particle = size(v, 1)
-  backend = get_backend(v)
+
   if use_KA && use_explicit_SIMD
     error("Cannot use both KernelAbstractions (KA) and explicit SIMD")
   end
-  
+#=  
   if !use_KA && backend isa GPU
     error("For GPU parallelized kernel launching, KernelAbstractions (KA) must be used")
   end
-
+=#
   if !use_KA
     if use_explicit_SIMD && V <: SIMD.FastContiguousArray && eltype(V) <: SIMD.ScalarTypes && VectorizationBase.pick_vector_width(eltype(V)) > 1 # do SIMD
       simd_lane_width = VectorizationBase.pick_vector_width(eltype(V))
@@ -80,47 +80,48 @@ end
       if N_particle >= multithread_threshold
         Threads.@threads for i in 1:simd_lane_width:N_SIMD
           @assert last(i) <= N_particle "Out of bounds!"  # Use last because VecRange SIMD
-          _generic_kernel!(lane+i, b, kc)
+          _generic_kernel!(lane+i, coords, kc)
         end
       else
         for i in 1:simd_lane_width:N_SIMD
           @assert last(i) <= N_particle "Out of bounds!"  # Use last because VecRange SIMD
-          _generic_kernel!(lane+i, b, kc)
+          _generic_kernel!(lane+i, coords, kc)
         end
       end
       # Do the remainder
       for i in N_SIMD+1:N_particle
         @assert last(i) <= N_particle "Out of bounds!"
-        _generic_kernel!(i, b, kc)
+        _generic_kernel!(i, coords, kc)
       end
     else
       if N_particle >= multithread_threshold
         Threads.@threads for i in 1:N_particle
           @assert last(i) <= N_particle "Out of bounds!"
-          _generic_kernel!(i, b, kc)
+          _generic_kernel!(i, coords, kc)
         end
       else
         @simd for i in 1:N_particle
           @assert last(i) <= N_particle "Out of bounds!"
-          _generic_kernel!(i, b, kc)
+          _generic_kernel!(i, coords, kc)
         end
       end
     end
   else
+    backend = get_backend(v)
     if isnothing(groupsize)
       kernel! = generic_kernel!(backend)
     else
       kernel! = generic_kernel!(backend, groupsize)
     end
-    kernel!(b, kc; ndrange=N_particle)
+    kernel!(coords, kc; ndrange=N_particle)
     KernelAbstractions.synchronize(backend)
   end
   return v
 end
 
 # Call kernels directly
-@inline runkernels!(i::Nothing, b::BunchView, kc::KernelChain; kwargs...) =  launch!(b, kc; kwargs...)
-@inline runkernels!(i, b::BunchView, kc::KernelChain; kwargs...) = _generic_kernel!(i, b, kc)
+@inline runkernels!(i::Nothing, coords::Coords, kc::KernelChain; kwargs...) =  launch!(coords, kc; kwargs...)
+@inline runkernels!(i, coords::Coords, kc::KernelChain; kwargs...) = _generic_kernel!(i, coords, kc)
 
 function check_kwargs(mac, kwargs...)
   valid_kwargs = [:(fastgtpsa)=>Bool, :(inbounds)=>Bool]
@@ -140,7 +141,7 @@ function check_kwargs(mac, kwargs...)
 end
 
 # Also allow launch! on single KernelCalls
-@inline launch!(b::BunchView, kcall::KernelCall; kwargs...) = launch!(b, (kcall,); kwargs...)
+@inline launch!(coords::Coords, kcall::KernelCall; kwargs...) = launch!(coords, (kcall,); kwargs...)
 
 macro makekernel(args...)
   kwargs = args[1:length(args)-1]

@@ -33,8 +33,8 @@ qd4 = MatrixKick.Quadrupole(L = lq4, Bn1 = -gr4)
 # -- species
 e_minus = Species("electron")
 p_plus =  Species("proton")
-mec2 = massof(e_minus) # 0.51099895069 MeV
-mpc2 = massof(p_plus)  # 938.27208943 MeV
+mec2 = BeamTracking.massof(e_minus) # 0.51099895069 MeV
+mpc2 = BeamTracking.massof(p_plus)  # 938.27208943 MeV
 # -- kinetic energy
 ek1 =   5.e3;  # eV
 ek2 =   1.e6;  # eV

@@ -9,13 +9,13 @@ struct Linear end
 
 module LinearTracking
 using ..GTPSA, ..BeamTracking, ..StaticArrays, ..KernelAbstractions
-using ..BeamTracking: XI, PXI, YI, PYI, ZI, PZI, @makekernel, BunchView
+using ..BeamTracking: XI, PXI, YI, PYI, ZI, PZI, @makekernel, Coords
 const TRACKING_METHOD = Linear
 
 # Maybe get rid of inline here and put in function-wise launch! ?
 # Drift kernel
-@makekernel fastgtpsa=true function linear_drift!(i, b::BunchView, L, r56)
-  v = b.v
+@makekernel fastgtpsa=true function linear_drift!(i, coords::Coords, L, r56)
+  v = coords.v
   v[i,XI] += v[i,PXI] * L
   v[i,YI] += v[i,PYI] * L
   v[i,ZI] += v[i,PZI] * r56
@@ -31,8 +31,8 @@ end
 
 =#
 
-@makekernel fastgtpsa=true function linear_coast_uncoupled!(i, b::BunchView, mx::StaticMatrix{2,2}, my::StaticMatrix{2,2}, r56, d::Union{StaticVector{4},Nothing}, t::Union{StaticVector{4},Nothing})
-  v = b.v
+@makekernel fastgtpsa=true function linear_coast_uncoupled!(i, coords::Coords, mx::StaticMatrix{2,2}, my::StaticMatrix{2,2}, r56, d::Union{StaticVector{4},Nothing}, t::Union{StaticVector{4},Nothing})
+  v = coords.v
   if !isnothing(t)
     v[i,ZI] += t[XI] * v[i,XI] + t[PXI] * v[i,PXI] + t[YI] * v[i,YI] + t[PYI] * v[i,PYI]
   end
@@ -51,8 +51,8 @@ end
   end
 end
 
-@makekernel fastgtpsa=true function linear_coast!(i, b::BunchView, mxy::StaticMatrix{4,4}, r56, d::Union{StaticVector{4},Nothing}, t::Union{StaticVector{4},Nothing})
-  v = b.v
+@makekernel fastgtpsa=true function linear_coast!(i, coords::Coords, mxy::StaticMatrix{4,4}, r56, d::Union{StaticVector{4},Nothing}, t::Union{StaticVector{4},Nothing})
+  v = coords.v
   if !isnothing(t)
     v[i,ZI] += t[XI] * v[i,XI] + t[PXI] * v[i,PXI] + t[YI] * v[i,YI] + t[PYI] * v[i,PYI]
   end
@@ -72,8 +72,8 @@ end
   end
 end
 
-@makekernel fastgtpsa=true function linear_6D!(i, b::BunchView, m::StaticMatrix{6,6})
-  v = b.v
+@makekernel fastgtpsa=true function linear_6D!(i, coords::Coords, m::StaticMatrix{6,6})
+  v = coords.v
   old_x  = v[i,XI]
   old_px = v[i,PXI]
   old_y  = v[i,YI]
@@ -125,32 +125,143 @@ function linear_solenoid_matrix(Ks, L)
 end
 
 
-function linear_bend_matrices(K0, L, gamma_0, e1=nothing, e2=nothing)
-  theta = K0*L
-  s, c = sincos(theta)
-  cc = (sincu(theta/2)^2)/2
-  sc = sincu(theta)
-  mx = SA[c  L*sc; -K0*s  c]
-  my = SA[1  L; 0 1]
-  r56 = L*(1/gamma_0^2 - theta^2*sincuc(theta))
-  d = SA[theta*L*cc, theta*sc, 0, 0]
-  t = SA[-theta*sc,  -theta*L*cc, 0, 0]
 
-  if !isnothing(e1) && e1 != 0
-    me1 = K0*tan(e1)
-    mx = mx*SA[1 0; me1  1]
-    my = my*SA[1 0; -me1 1]
-    t = SA[t[1]+me1*t[2], t[2], 0, 0]
+function linear_dipole_matrices(g, e1, e2, K0, K1, gamma_0, L)
+    if !(g ≈ 0) && g ≈ K0
+      if !(K1 ≈ 0)
+        wy = sqrt(abs(K1))
+        wyL = wy * L
+        if K1 >= 0
+          cy  = cosh(wyL)
+          syc = sinhcu(wyL) * L
+          sgny = 1
+        else
+          cy  = cos(wyL)
+          syc = sincu(wyL) * L 
+          sgny = -1
+        end
+
+        kx = K1 + K0 * K0 
+        wx = sqrt(abs(kx))
+        wxL = wx * L 
+        if kx >= 0
+          cx  = cos(wxL)
+          sxc = sincu(wxL) * L 
+          sgnx = - 1
+        else
+          cx  = cosh(wxL)
+          sxc = sinhcu(wxL) * L
+          sgnx = 1
+        end
+        
+        if abs(kx) < 1e-10
+          z2 = K0 * L * L / 2
+        else 
+          z2 = sgnx * K0 * (1 - cx) / abs(kx)
+        end
+      
+        dx_c = K0/kx
+
+        dom_x = - wx /2
+        dom_xx = -1/2
+      
+        dc_x = sgnx * sxc * wx * dom_x * L
+        ds_x = (cx * L - sxc) * dom_xx
+        dcs_x = cx * ds_x + dc_x * sxc
+
+        z1  = -K0 * sxc
+        z11 = sgnx * abs(kx) * (L - cx * sxc) / 4
+        z12 = -sgnx * abs(kx) * sxc * sxc / 2
+      
+        mx = SA[cx  sxc; sgnx*abs(kx)*sxc  cx]
+        my = SA[cy  syc; sgny*abs(K1)*syc  cy]
+        r56 = (-dx_c * z1 - K0 * L * dx_c + L/(gamma_0*gamma_0)) 
+        d = SA[dx_c * (1 - cx), -sgnx * wx * (dx_c * wx * sxc), 0, 0]
+        t = SA[z1, z2, 0, 0]
+      else
+        theta = K0*L
+        s, c = sincos(theta)
+        sinc_theta_2 = sincu(theta/2)
+        cc = (sinc_theta_2*sinc_theta_2)/2
+        sc = sincu(theta)
+        mx = SA[c  L*sc; -K0*s  c]
+        my = SA[1  L; 0 1]
+        r56 = L * (1/(gamma_0*gamma_0) - theta*theta*sincuc(theta))
+        d = SA[theta*L*cc, theta*sc, 0, 0]
+        t = SA[-theta*sc,  -theta*L*cc, 0, 0]
+      end
+    else
+        wy = sqrt(abs(K1))
+        sgny = sign(K1)
+        wyL = wy * L
+        if (wyL < 1e-6)
+          cy = 1 + sgny * wyL*wyL / 2
+          syc = (1 + sgny * wyL*wyL / 6) * L
+        elseif K1 >= 0
+          cy  = cosh(wyL)
+          syc = sinhcu(wyL) * L
+        else
+          cy  = cos(wyL)
+          syc = sincu(wyL) * L
+        end
+
+        kx = K1 + g * K0 
+
+        wx = sqrt(abs(kx))
+        sgnx = -sign(kx)
+        wxL = wx * L 
+        if (wxL < 1e-6)
+          sxc = (1 + sgnx * wxL*wxL / 6) * L
+          cx = 1 + sgnx * wxL*wxL / 2
+          z2 = g * L*L / 2
+        elseif kx >= 0
+          cx  = cos(wxL)
+          sxc = sincu(wxL) * L 
+          z2 = sgnx * g * (1 - cx) / (wx * wx)
+        else
+          cx  = cosh(wxL)
+          sxc = sinhcu(wxL) * L
+          z2 = sgnx * g * (1 - cx) / (wx * wx)
+        end
+      
+        x_c = (g - K0)/kx
+        dx_c = g/kx
+
+        dom_x = - wx /2
+        dom_xx = -1/2
+      
+        dc_x = sgnx * sxc * wx * dom_x * L
+        ds_x = (cx * L - sxc) * dom_xx
+        dcs_x = cx * ds_x + dc_x * sxc
+
+        z1  = -g * sxc
+        z11 = sgnx * wx * wx * (L - cx * sxc) / 4
+        z12 = -sgnx * wx * wx * sxc * sxc / 2
+       
+    
+        mx = SA[cx  sxc; sgnx*abs(kx)*sxc  cx]
+        my = SA[cy  syc; sgny*abs(K1)*syc  cy]
+        r56 = (- dx_c * (z1 - x_c * 2 * z11) - g * L * dx_c + x_c * g * ds_x - (z11 + sgnx * abs(kx) * dcs_x / 4) * x_c * x_c + L/(gamma_0*gamma_0)) 
+        d = SA[(dx_c * (1 - cx) - dc_x * x_c), -sgnx * wx * (2 * dom_x * sxc * x_c + wx * sxc * x_c + wx * ds_x * x_c + dx_c * wx * sxc), 0, 0]
+        t = SA[z1 - x_c * 2 * z11, z2 - x_c * z12, 0, 0]
+
+    end
+
+    if !(e1 ≈ 0)
+      me1 = K0*tan(e1)
+      mx = mx*SA[1 0; me1  1]
+      my = my*SA[1 0;-me1  1]
+      t = SA[t[1]+me1*t[2], t[2], 0, 0]
+    end
+  
+    if !(e2 ≈ 0)
+      me2 = K0*tan(e2)
+      mx = SA[1 0; me2  1]*mx
+      my = SA[1 0;-me2 1]*my
+      d = SA[d[1], me2*d[1]+d[2], 0, 0]
+    end
+  
+    return mx, my, r56, d, t
   end
-
-  if !isnothing(e2) && e2 != 0
-    me2 = K0*tan(e2)
-    mx = SA[1 0; me2  1]*mx
-    my = SA[1 0; -me2 1]*my
-    d = SA[d[1], me2*d[1]+d[2], 0, 0]
-  end
-
-  return mx, my, r56, d, t
-end
-
+  
 end

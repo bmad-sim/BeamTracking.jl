@@ -1,26 +1,25 @@
 #=
 
-Exact tracking methods
+  “Exact” tracking methods
 
 =#
-# Define the Exact tracking method, and number of columns in the work matrix
-# (equal to number of temporaries needed for a single particle)
+
 struct Exact end
 
 module ExactTracking
-using ..GTPSA, ..BeamTracking, ..StaticArrays, ..ReferenceFrameRotations, ..KernelAbstractions
-using ..BeamTracking: XI, PXI, YI, PYI, ZI, PZI, @makekernel, BunchView
+using ..GTPSA, ..BeamTracking, ..StaticArrays, ..ReferenceFrameRotations, ..KernelAbstractions, ..SIMD, ..SIMDMathFunctions
+using ..BeamTracking: XI, PXI, YI, PYI, ZI, PZI, Q0, QX, QY, QZ, STATE_ALIVE, STATE_LOST, @makekernel, Coords
 using ..BeamTracking: C_LIGHT
 const TRACKING_METHOD = Exact
 
 # Update the reference energy of the canonical coordinates
 # BUG: z and pz are not updated correctly
 #=
-@makekernel fastgtpsa=true function update_P0!(i, b, Brho_initial, Brho_final)
+@makekernel fastgtpsa=true function update_P0!(i, coords, R_ref_initial, R_ref_final)
   @inbounds begin
-    @FastGTPSA! v[i,PXI] = v[i,PXI] * Brho_initial / Brho_final
-    @FastGTPSA! v[i,PYI] = v[i,PYI] * Brho_initial / Brho_final
-    @FastGTPSA! v[i,PZI] = v[i,PZI] * Brho_initial / Brho_final
+    @FastGTPSA! v[i,PXI] = v[i,PXI] * R_ref_initial / R_ref_final
+    @FastGTPSA! v[i,PYI] = v[i,PYI] * R_ref_initial / R_ref_final
+    @FastGTPSA! v[i,PZI] = v[i,PZI] * R_ref_initial / R_ref_final
   end
   return v
 end
@@ -30,180 +29,60 @@ end
 # ===============  E X A C T   D R I F T  ===============
 #
 """
-exact_drift!()
+    exact_drift!(i, coords, β_0, γsqr_0, tilde_m, L)
 
-In the computation of z_final, we use the fact that
-    1/√a - 1/√b == (b - a)/(√a √b (√a + √b))
+Return the result of exact tracking a particle through a drift
+of length `L`, assuming `β_0`, `γsqr_0`, and `tilde_m` respectively
+denote the reference velocity normalized to the speed of light,
+the corresponding value of the squared Lorentz factor, and the
+particle rest energy normalized to the reference value of ``pc``.
+
+NB: In the computation of ``z_final``, we use the fact that
+  - ``1/√a - 1/√b == (coords - a)/(√a √b (√a + √b))``
 to avoid the potential for severe cancellation when
-a and b both have the form 1 + ε for different small
-values of ε.
+``a`` and ``coords`` both have the form ``1 + ε`` for different small
+values of ``ε``.
 
-Arguments
-—————————
-beta_0:   β_0 = (βγ)_0 / √(γ_0^2)
-gamsqr_0: γ_0^2 = 1 + (βγ)_0^2
-tilde_m:  1 / (βγ)_0  # mc^2 / p0·c
-L: element length
+## Arguments
+- `β_0`:     reference velocity normalized to the speed of light, ``v_0 / c``
+- `γsqr_0`:  corresponding value of the squared Lorentz factor
+- `tilde_m`: particle rest energy normalized to the reference value of ``pc``
+- `L`:       element length, in meters
 """
-@makekernel fastgtpsa=true function exact_drift!(i, b::BunchView, beta_0, gamsqr_0, tilde_m, L)
-  v = b.v
-  P_s2 = (1 + v[i,PZI])^2 - (v[i,PXI]^2 + v[i,PYI]^2)
-  if P_s2 <= 0
-    b.state[i] = State.Lost
-    @warn "Particle lost in drift (transverse momentum too large)"
-  else
-    P_s = sqrt(P_s2) 
-    v[i,XI]   = v[i,XI] + v[i,PXI] * L / P_s
-    v[i,YI]   = v[i,YI] + v[i,PYI] * L / P_s
-    # high-precision computation of z_final
-    # vf.z = vi.z - (1 + δ) * L * (1 / Ps - 1 / (β0 * sqrt((1 + δ)^2 + tilde_m^2)))
-    v[i,ZI]   = v[i,ZI] - ( (1 + v[i,PZI]) * L
-                  * ((v[i,PXI]^2 + v[i,PYI]^2) - v[i,PZI] * (2 + v[i,PZI]) / gamsqr_0)
-                  / ( beta_0 * sqrt((1 + v[i,PZI])^2 + tilde_m^2) * P_s
-                      * (beta_0 * sqrt((1 + v[i,PZI])^2 + tilde_m^2) + P_s)
-                    )
-                )
-  end
-end # function exact_drift!()
+@makekernel fastgtpsa=true function exact_drift!(i, coords::Coords, beta_0, gamsqr_0, tilde_m, L)
+  v = coords.v
 
-
-#
-# ===============  Q U A D R U P O L E  ===============
-#
-"""
-mkm_quadrupole!()
-
-This integrator uses Matrix-Kick-Matrix to implement a quadrupole
-integrator accurate though second-order in the integration step-size.
-
-Arguments
-—————————
-beta_0:   β_0 = (βγ)_0 / √(γ_0^2)
-gamsqr_0: γ_0^2 = 1 + (βγ)_0^2
-tilde_m:  1 / (βγ)_0  # mc^2 / p0·c
-k2_num:   g / Bρ0 = g / (p0 / q)
-          where g and Bρ0 respectively denote the quadrupole gradient
-          and (signed) reference magnetic rigidity.
-L: element length
-"""
-@makekernel fastgtpsa=true function mkm_quadrupole!(i, b::BunchView, beta_0, gamsqr_0, tilde_m, k2_num, L)
-  quadrupole_matrix!(i, b::BunchView, k2_num, L / 2)
-  quadrupole_kick!(  i, b::BunchView, beta_0, gamsqr_0, tilde_m, L)
-  quadrupole_matrix!(i, b::BunchView, k2_num, L / 2)
-end # function mkm_quadrupole!()
-
-
-"""
-quadrupole_matrix!()
-
-Track "matrix part" of quadrupole.
-
-Arguments
-—————————
-k2_num:  g / Bρ0 = g / (p0 / q)
-         where g and Bρ0 respectively denote the quadrupole gradient
-         and (signed) reference magnetic rigidity.
-s: element length
-"""
-@makekernel fastgtpsa=true function quadrupole_matrix!(i, b::BunchView, k2_num, s)
-  v = b.v
-
-  focus = k2_num >= 0  # horizontally focusing for positive particles
   rel_p = 1 + v[i,PZI]
-  xp = v[i,PXI] / rel_p  # x'
-  yp = v[i,PYI] / rel_p  # y'
-  sqrtks = sqrt(abs(k2_num) / rel_p) * s  # |κ|s
-  cx = focus * cos(sqrtks) + (1 - focus) * cosh(sqrtks)
-  cy = focus * cosh(sqrtks) + (1 - focus) * cos(sqrtks)
-  sx = focus * sincu(sqrtks) + (1 - focus) * sinhcu(sqrtks)
-  sy = focus * sinhcu(sqrtks) + (1 - focus) * sincu(sqrtks)
+  P_t2 = v[i,PXI]*v[i,PXI] + v[i,PYI]*v[i,PYI]
+  P_s2 = rel_p*rel_p - P_t2
+  good_momenta = (P_s2 > 0)
+  alive_at_start = (coords.state[i] == STATE_ALIVE)
+  coords.state[i] = vifelse(!good_momenta & alive_at_start, STATE_LOST, coords.state[i])
+  alive = (coords.state[i] == STATE_ALIVE)
+  P_s2_1 = one(P_s2)
+  P_s = sqrt(vifelse(good_momenta, P_s2, P_s2_1))
 
-  v[i,PXI] = v[i,PXI] * cx - k2_num * s * v[i,XI] * sx
-  v[i,PYI] = v[i,PYI] * cy + k2_num * s * v[i,YI] * sy
-  v[i,ZI]  = (v[i,ZI] - (s / 4) * (  xp^2 * (1 + sx * cx)
-                                    + yp^2 * (1 + sy * cy)
-                                    + k2_num / rel_p
-                                        * ( v[i,XI]^2 * (1 - sx * cx)
-                                          - v[i,YI]^2 * (1 - sy * cy) 
-                                          - 2 * s * ( v[i,XI] * xp * sx^2
-                                                    - v[i,YI] * yp * sy^2 ))
-                                  )
+  new_x = v[i,XI] + v[i,PXI] * L / P_s
+  new_y = v[i,YI] + v[i,PYI] * L / P_s
+  # high-precision computation of z_final:
+  #   vf.z = vi.z - (1 + δ) * L * (1 / Ps - 1 / (β0 * sqrt((1 + δ)^2 + tilde_m^2)))
+  new_z = v[i,ZI] - ( (1 + v[i,PZI]) * L
+                * (P_t2 - v[i,PZI] * (2 + v[i,PZI]) / gamsqr_0)
+                / ( beta_0 * sqrt(rel_p*rel_p + tilde_m*tilde_m) * P_s
+                    * (beta_0 * sqrt(rel_p*rel_p + tilde_m*tilde_m) + P_s)
+                  )
               )
-  v[i,XI]  = v[i,XI] * cx + xp * s * sx
-  v[i,YI]  = v[i,YI] * cy + yp * s * sy
-
-end # function quadrupole_matrix!()
-
-
-"""
-quadrupole_kick!()
-
-Track "remaining part" of quadrupole —— a position kick.
-
-### Note re implementation:
-A common factor that appears in the expressions for `zf.x` and `zf.y`
-originally included a factor with the generic form ``1 - \\sqrt{1 - A}``,
-which suffers a loss of precision when ``|A| \\ll 1``. To combat that
-problem, we rewrite it in the form ``A / (1 + \\sqrt{1-A})``---more
-complicated, yes, but far more accurate.
-
-Arguments
-—————————
-beta_0:   β_0 = (βγ)_0 / √(γ_0^2)
-gamsqr_0: γ_0^2 = 1 + (βγ)_0^2
-tilde_m:  1 / (βγ)_0  # mc^2 / p0·c
-s: element length
-"""
-@makekernel fastgtpsa=true function quadrupole_kick!(i, b::BunchView, beta_0, gamsqr_0, tilde_m, s)
-  v = b.v
-  rP0 = 1 + v[i,PZI]              # reduced total momentum,  P/P0 = 1 + δ
-  sqrPt = v[i,PXI]^2 + v[i,PYI]^2   # (transverse momentum)^2, P⟂^2 = (Px^2 + Py^2) / P0^2
-  Ps = sqrt(rP0^2 - sqrPt)          # longitudinal momentum,   Ps = √[(1 + δ)^2 - P⟂^2]
-  v[i,XI] = v[i,XI] + s * v[i,PXI] / rP0 * sqrPt / (Ps * (rP0 + Ps))
-  v[i,YI] = v[i,YI] + s * v[i,PYI] / rP0 * sqrPt / (Ps * (rP0 + Ps))
-  v[i,ZI] = v[i,ZI] - s * ( rP0
-                              * (sqrPt - v[i,PZI] * (2 + v[i,PZI]) / gamsqr_0)
-                                / ( beta_0 * sqrt(rP0^2 + tilde_m^2) * Ps
-                                    * (beta_0 * sqrt(rP0^2 + tilde_m^2) + Ps)
-                                  )
-                            - sqrPt / (2 * rP0^2)
-                          )
-end # function quadrupole_kick!()
+  v[i,XI] = vifelse(alive, new_x, v[i,XI])
+  v[i,YI] = vifelse(alive, new_y, v[i,YI])
+  v[i,ZI] = vifelse(alive, new_z, v[i,ZI])
+end # function exact_drift!()
 
 
 #
 # ===============  M U L T I P O L E  ===============
 #
 """
-dkd_multipole()
-
-This integrator uses Drift-Kick-Drift to track a beam through
-a straight, finite-length multipole magnet. The method is
-accurate through second order in the step size. The vectors
-kn and ks contain the normal and skew multipole strengths,
-starting with the dipole component. (For example, b[3] denotes
-the normal sextupole strength in Tesla/m^2.) The argument ns
-denotes the number of slices.
-
-Arguments
-—————————
-beta_0:   β_0 = (βγ)_0 / √(γ_0^2)
-gamsqr_0: γ_0^2 = 1 + (βγ)_0^2
-tilde_m:  1 / (βγ)_0  # mc^2 / p0·c
-mm: vector of m values for non-zero multipole coefficients
-kn: vector of normal multipole strengths scaled by Bρ0
-ks: vector of skew multipole strengths scaled by Bρ0
-L:  element length
-"""
-@makekernel fastgtpsa=true function dkd_multipole!(i, b::BunchView, beta_0, gamsqr_0, tilde_m, mm, kn, ks, L)
-  exact_drift!(   i, b, beta_0, gamsqr_0, tilde_m, L / 2)
-  multipole_kick!(i, b, mm, kn * L, ks * L)
-  exact_drift!(   i, b, beta_0, gamsqr_0, tilde_m, L / 2)
-end # function dkd_multipole!()
-
-
-"""
-    multipole_kick!(i, b, ms, knl, ksl)
+    multipole_kick!(i, coords, ms, knl, ksl)
 
 Track a beam of particles through a thin-lens multipole
 having integrated normal and skew strengths listed in the
@@ -212,16 +91,13 @@ lists the orders of the corresponding entries in knl and ksl.
 
 The algorithm used in this function takes advantage of the
 complex representation of the vector potential Az,
-  - ``-Re{ sum_m (b_m + i a_m) (x + i y)^m / m }``,
+  - ``-Re{ sum_m (b_m + i a_m) (x + i y)^m / m! }``,
 and uses a Horner-like scheme (see Shachinger and Talman
 [SSC-52]) to compute the transverse kicks induced by a pure
 multipole magnet. This method supposedly has good numerical
 properties, though I've not seen a proof of that claim.
 
-DTA: Ordering matters!
-DTA: Add thin dipole kick.
-
-### Arguments
+## Arguments
  - ms:  vector of m values for non-zero multipole coefficients
  - knl: vector of normal integrated multipole strengths
  - ksl: vector of skew integrated multipole strengths
@@ -229,56 +105,55 @@ DTA: Add thin dipole kick.
 
      NB: Here the j-th component of knl (ksl) denotes the
        normal (skew) component of the multipole strength of
-       order mm[j] (after scaling by the reference Bρ).
-       For example, if mm[j] = 3, then knl[j] denotes the
+       order ms[j] (after scaling by the reference Bρ).
+       For example, if ms[j] = 3, then knl[j] denotes the
        normal integrated sextupole strength scaled by Bρo.
+       Moreover, and this is essential, the multipole
+       coefficients must appear in ascending order.
 """
-#@inline function multipole_kick!(i, b, mm, knl, ksl)
-#  @inbounds begin #@FastGTPSA! begin
-#  jm = length(mm)
-#  m = mm[jm]
-#  if m == 1 return v end
-#  work[i,1] = ar = knl[jm] * v[i,XI] - ksl[jm] * v[i,YI]
-#  work[i,2] = ai = knl[jm] * v[i,YI] + ksl[jm] * v[i,XI]
-#  jm -= 1
-#  while m > 2
-#    m -= 1
-#    work[i,3] = work[i,1] * v[i,XI] - work[i,2] * v[i,YI]
-#    work[i,2] = work[i,1] * v[i,YI] + work[i,2] * v[i,XI]
-#    work[i,1] = work[i,3]
-#    if m == mm[jm]
-#      work[i,1] += knl[jm] * v[i,XI] - ksl[jm] * v[i,YI]
-#      work[i,2] += knl[jm] * v[i,YI] + ksl[jm] * v[i,XI]
-#      jm -= 1
-#    end
-#  end
-#  v[i,PXI] -= work[i,1]
-#  v[i,PYI] += work[i,2]
-#  end #end
-#  return v
-#end # function multipole_kick!()
-#
-@makekernel fastgtpsa=true function multipole_kick!(i, b::BunchView, ms, knl, ksl)
-  v = b.v
-  jm = length(ms)
-  m  = ms[jm]
-  knl_tot = knl[jm]
-  ksl_tot = ksl[jm]
-  jm -= 1
-  while 2 <= m
-    m -= 1
-    tmp_knl_tot = (knl_tot * v[i,XI] - ksl_tot * v[i,YI]) / m
-    ksl_tot     = (knl_tot * v[i,YI] + ksl_tot * v[i,XI]) / m
-    knl_tot = tmp_knl_tot
-    if 0 < jm && m == ms[jm]
-      knl_tot += knl[jm]
-      ksl_tot += ksl[jm]
-      jm -= 1
+@makekernel fastgtpsa=true function multipole_kick!(i, coords::Coords, ms, knl, ksl, excluding)
+  v = coords.v
+  alive = (coords.state[i] == STATE_ALIVE)
+  bx, by = normalized_field(ms, knl, ksl, v[i,XI], v[i,YI], excluding)
+  bx_0 = zero(bx)
+  by_0 = zero(by)
+  v[i,PXI] -= vifelse(alive, by, by_0)                   
+  v[i,PYI] += vifelse(alive, bx, bx_0)
+end # function multipole_kick!()
+
+
+function normalized_field(ms, knl, ksl, x, y, excluding)
+  """
+  Returns (bx, by), the transverse components of the magnetic field divided
+  by the reference rigidty.
+  """
+  @FastGTPSA begin
+    jm = length(ms)
+    m  = ms[jm]
+    add = (m != excluding && m > 0)
+    knl_0 = zero(knl[jm]*x)
+    ksl_0 = zero(ksl[jm]*y)
+    by_0 = knl[jm]*one(x)
+    bx_0 = ksl[jm]*one(y)
+    by = vifelse(add, by_0, knl_0)
+    bx = vifelse(add, bx_0, ksl_0)
+    jm -= 1
+    while 2 <= m
+      m -= 1
+      t  = (by * x - bx * y) / m
+      bx = (by * y + bx * x) / m
+      by = t
+      add = (0 < jm && m == ms[jm]) && (m != excluding) # branchless
+      idx = max(1, jm) # branchless trickery
+      new_by = by + knl[idx]
+      new_bx = bx + ksl[idx]
+      by = vifelse(add, new_by, by)
+      bx = vifelse(add, new_bx, bx)
+      jm -= add
     end
   end
-  v[i,PXI] -= knl_tot
-  v[i,PYI] += ksl_tot
-end # function multipole_kick!()
+  return bx, by
+end
 
 
 #function binom(m::Integer, x, y)
@@ -307,7 +182,9 @@ end # function multipole_kick!()
 #
 # ===============  E X A C T   S E C T O R   B E N D  ===============
 #
+#=
 """
+    exact_sbend!(i, coords, β0, Bρ0, hc, b0, e1, e2, Larc)
 This function implements exact symplectic tracking through a
 sector bend, derived using the Hamiltonian (25.9) given in the
 BMad manual. As a consequence of using that Hamiltonian, the
@@ -315,20 +192,19 @@ reference value of βγ must be that of a particle with the
 design energy.  Should we wish to change that, we shall need
 to carry both reference and design values.
 
-Arguments
-—————————
-beta_0: β_0 = (βγ)_0 / √(γ_0^2)
-brho_0: Bρ_0,  reference magnetic rigidity
-hc: coordinate frame curvature
-b0: magnet field strength
-e1: entrance face angle (+ve angle <=> toward rbend)
-e2: exit face angle (+ve angle <=> toward rbend)
-Lr: element arc length
+## Arguments
+- beta_0: β_0 = (βγ)_0 / √(γ_0^2)
+- R_ref:  Bρ_0,  reference magnetic R_ref
+- hc:     coordinate frame curvature
+- b0:     magnet field strength
+- e1:     entrance face angle (+ve angle <=> toward rbend)
+- e2:     exit face angle (+ve angle <=> toward rbend)
+- Larc:   element arc length, in meters
 """
-@makekernel fastgtpsa=true function exact_sbend!(i, b::BunchView, beta_0, brho_0, hc, b0, e1, e2, Lr)
-  v = b.v
+@makekernel fastgtpsa=true function exact_sbend!(i, coords::Coords, beta_0, R_ref, hc, b0, e1, e2, Lr)
+  v = coords.v
 
-  rho = brho_0 / b0
+  rho = R_ref0 / b0
   ang = hc * Lr
   c1 = cos(ang)
   s1 = sin(ang)
@@ -338,130 +214,254 @@ Lr: element arc length
   s1phx = (1 + hc * v[i,XI]) / (hc * rho)                     # scaled (1 + h x)
   Pxpph = P_s - s1phx                                 # Px'/h
   ang_eff = ang + asin(v[i,PXI] / P_alpha) - asin((v[i,PXI] * c1 + Pxpph * s1) / P_alpha)  # α + φ1 - φ2
-  # high-precision computation of x-final
+
+  # high-precision computation of x-final:
   v[i,XI] = (v[i,XI] * c1 - Lr * sin(ang / 2) * sincu(ang / 2)
              + rho * (v[i,PXI] + ((v[i,PXI]^2 + (P_s + Pxpph) * s1phx) * s1 - 2v[i,PXI] * Pxpph * c1)
                              / (sqrt(P_alpha^2 - (v[i,PXI] * c1 + Pxpph * s1)^2) + P_s * c1)) * s1)
   v[i,PXI] = v[i,PXI] * c1 + Pxpph * s1
   v[i,YI] = v[i,YI] + rho * v.py * ang_eff
+
   # high-precision computation of z-final
   v[i,ZI] = (v[i,ZI] - rho * (1 + v[i,PZI]) * ang_eff
                + (1 + v[i,PZI]) * Lr / (beta_0 * sqrt(1 / beta_0^2 + (2 + v[i,PZI]) * v[i,PZI])))
 end # function exact_sbend!()
+=#
 
 """
-    exact_bend!(i, b::BunchView, theta, g, k0, tilde_m, beta_0, L)
+    exact_bend!(i, coords::Coords, e1, e2, theta, g, Kn0, w, w_inv, tilde_m, beta_0, L)
 
-Tracks a particle through a sector bend via exact tracking. (no edge angles)
+Tracks a particle through a sector bend via exact tracking. If edge angles are 
+provided, a linear hard-edge fringe map is applied at both ends.
 
 #Arguments
+- 'e1'       -- entrance face angle
+- 'e2'       -- exit face angle
 - 'theta'    -- 'g' * 'L'
 - 'g'        -- curvature
-- 'k0'       -- normalized dipole field
+- 'Kn0'      -- normalized dipole field
+- 'w'        -- rotation matrix into curvature/field plane
+- 'w_inv'    -- rotation matrix out of curvature/field plane
 - 'tilde_m'  -- mc2/p0c
 - 'beta_0'   -- p0c/E0
 - 'L'        -- length
 """
-@makekernel fastgtpsa=true function exact_bend!(i, b::BunchView, theta, g, k0, tilde_m, beta_0, L)
-  v = b.v
+@makekernel fastgtpsa=true function exact_bend!(i, coords::Coords, e1, e2, theta, g, Kn0, w, w_inv, tilde_m, beta_0, L)
+  v = coords.v
   rel_p = 1 + v[i,PZI]
-  pt2 = rel_p^2 - v[i,PYI]^2
-  if pt2 - v[i,PXI]^2 <= 0
-    b.state[i] = State.Lost
-    @warn "Particle lost in bend (transverse momentum too large)"
-  else
-    pt = sqrt(pt2) #pt
-    phi1 = theta + asin(v[i,PXI] / pt) #phi1
-    gp = k0 / pt #gp
-    h = 1+g*v[i,XI] # 1 + g * x
-    cplus = cos(phi1) #cos(theta + phi1)
-    sinc_theta = sincu(theta) #sincu(theta)
-    alpha = 2*h*sin(phi1)*abs(L)*sinc_theta- gp*h^2*L^2*(sinc_theta)^2 #alpha
-    cond = cplus^2 + gp*alpha
-    #particle does not intersect the exit face
-    if cond <= 0
-      b.state[i] = State.Lost
-      @warn "Particle lost in bend (transverse momentum too large)"
-    else
-      if abs(phi1) < π/2
-          xi = alpha/(sqrt(cond) + cplus) #xi
-      else
-          xi = (sqrt(cond) - cplus) / gp #xi
-      end
-      Lcv = -L*sinc_theta-sign(L)*v[i,XI]*sin(theta) #Lcv
-      thetap = 2 * (phi1 - sign(L)*atan(xi, -Lcv)) #theta_p
-      Lp = sign(L)*sqrt(Lcv^2 + xi^2) / sincu(thetap/2) #Lp
 
-      v[i,XI] = v[i,XI]*cos(theta) - g/2*L^2*(sincu(theta/2))^2 + xi
-      v[i,PXI] = pt*sin(phi1 - thetap)
-      v[i,YI] = v[i,YI] + v[i,PYI]*Lp/pt 
-      v[i,ZI] = v[i,ZI] - rel_p*Lp/pt + 
-                      abs(L)*rel_p/sqrt(tilde_m^2+rel_p^2)/beta_0
-    end
+  me1 = Kn0*tan(e1)/rel_p
+  me2 = Kn0*tan(e2)/rel_p
+  
+  patch_rotation!(i, coords, w, 0)
+  alive = (coords.state[i] == STATE_ALIVE)
+  new_px = v[i,PXI] + v[i,XI]*me1
+  new_py = v[i,PYI] - v[i,YI]*me1
+  v[i,PXI] = vifelse(alive, new_px, v[i,PXI])
+  v[i,PYI] = vifelse(alive, new_py, v[i,PYI])
+
+  pt2 = rel_p*rel_p - v[i,PYI]*v[i,PYI]
+  good_momenta = (pt2 > 0)
+  alive_at_start = (coords.state[i] == STATE_ALIVE)
+  coords.state[i] = vifelse(!good_momenta & alive_at_start, STATE_LOST, coords.state[i])
+  alive = (coords.state[i] == STATE_ALIVE)
+  pt2_1 = one(pt2)
+  pt = sqrt(vifelse(good_momenta, pt2, pt2_1))
+
+  arg = v[i,PXI] / pt
+  abs_arg = abs(arg)
+  arg_1 = one(arg)
+  good_arg = (abs_arg <= arg_1)
+  coords.state[i] = vifelse(!good_arg & alive, STATE_LOST, coords.state[i])
+  alive = (coords.state[i] == STATE_ALIVE)
+
+  phi1 = theta + asin(vifelse(good_arg, arg, arg_1))
+  gp = Kn0 / pt
+  h = 1 + g*v[i,XI] 
+  cplus = cos(phi1) 
+  splus = sin(phi1)
+  sinc_theta = sincu(theta)
+  sinc_theta_2 = sincu(theta/2)
+  cosc_theta = sinc_theta_2*sinc_theta_2/2
+  sgn = sign(L)
+  alpha_helper = h*L*sinc_theta
+  alpha = 2*h*splus*L*sinc_theta - gp*alpha_helper*alpha_helper
+
+  cond = cplus*cplus + gp*alpha
+  good_cond = (cond > 0)
+  coords.state[i] = vifelse(!good_cond & alive, STATE_LOST, coords.state[i]) # particle does not intersect the exit face
+  alive = (coords.state[i] == STATE_ALIVE)
+  cond_1 = one(cond)
+  nasty_sqrt = sqrt(vifelse(good_cond, cond, cond_1))
+
+  gp_0 = zero(gp)
+  abs_gp = abs(gp)
+  good_gp = (abs_gp > gp_0)
+  gp_1 = one(gp)
+  gp_safe = vifelse(good_gp, gp, gp_1)
+  pos_cplus = (cplus > 0)
+  xi1 = alpha/(nasty_sqrt + cplus)
+  xi2 = (nasty_sqrt - cplus)/gp_safe
+  xi = vifelse(!good_gp | pos_cplus, xi1, xi2)
+
+  Lcv = -sgn*(L*sinc_theta + v[i,XI]*sin(theta)) 
+  negative_Lcv = -Lcv
+  thetap = 2*(phi1 - sgn*atan2(xi, negative_Lcv)) 
+  Lp = sgn*sqrt(Lcv*Lcv + xi*xi)/sincu(thetap/2) 
+
+  new_x = v[i,XI]*cos(theta) - L*L*g*cosc_theta + xi
+  new_px = pt*sin(phi1 - thetap)
+  new_y = v[i,YI] + v[i,PYI]*Lp/pt
+  new_z = v[i,ZI] - rel_p*Lp/pt + L*rel_p/sqrt(tilde_m*tilde_m + rel_p*rel_p)/beta_0
+  v[i,XI]  = vifelse(alive, new_x, v[i,XI])
+  v[i,PXI] = vifelse(alive, new_px, v[i,PXI])
+  v[i,YI]  = vifelse(alive, new_y, v[i,YI])
+  v[i,ZI]  = vifelse(alive, new_z, v[i,ZI])
+
+  new_px = v[i,PXI] + v[i,XI]*me2
+  new_py = v[i,PYI] - v[i,YI]*me2
+  v[i,PXI] = vifelse(alive, new_px, v[i,PXI])
+  v[i,PYI] = vifelse(alive, new_py, v[i,PYI])
+  patch_rotation!(i, coords, w_inv, 0)
+end
+
+
+# This is separate because the spin can be transported exactly here
+@makekernel fastgtpsa=true function exact_curved_drift!(i, coords::Coords, e1, e2, theta, g, w, w_inv, a, tilde_m, beta_0, L) 
+  exact_bend!(i, coords, 0, 0, theta, g, 0, w, w_inv, tilde_m, beta_0, L)
+  if !isnothing(coords.q)
+    patch_rotation!(i, coords, w, 0)
+    IntegrationTracking.rotate_spin!(i, coords, a, g, tilde_m, SA[0], SA[0], SA[0], L)
+    patch_rotation!(i, coords, w_inv, 0)
   end
 end
 
-@makekernel fastgtpsa=true function exact_solenoid!(i, b::BunchView, ks, beta_0, gamsqr_0, tilde_m, L)
-  v = b.v
-  # Recurring variables 
-  rel_p = 1 + v[i,PZI]    
-  pr = sqrt(rel_p^2 - (v[i,PXI] + v[i,YI] * ks / 2)^2 - (v[i,PYI] - v[i,XI] * ks / 2)^2)
-  s = sin(ks * L / pr)   
-  cp = 1 + cos(ks * L / pr)                
+
+@makekernel fastgtpsa=true function exact_solenoid!(i, coords::Coords, ks, beta_0, gamsqr_0, tilde_m, L)
+  v = coords.v
+
+  # Recurring variables
+  rel_p = 1 + v[i,PZI]
+  px_k = v[i,PXI] + v[i,YI] * ks / 2
+  py_k = v[i,PYI] - v[i,XI] * ks / 2
+  pt2 = px_k*px_k + py_k*py_k
+  pr2 = rel_p*rel_p - pt2
+  good_momenta = (pr2 > 0)
+  alive_at_start = (coords.state[i] == STATE_ALIVE)
+  coords.state[i] = vifelse(!good_momenta & alive_at_start, STATE_LOST, coords.state[i])
+  alive = (coords.state[i] == STATE_ALIVE)
+  pr2_1 = one(pr2)
+  pr = sqrt(vifelse(good_momenta, pr2, pr2_1))
+
+  s = sin(ks * L / pr)
+  cp = 1 + cos(ks * L / pr)
   cm = 2 - cp
   # Temporaries
-  x_0 = v[i,XI] 
-  px_0 = v[i,PXI] 
-  y_0 = v[i,YI]  
+  x_0 = v[i,XI]
+  px_0 = v[i,PXI]
+  y_0 = v[i,YI]
+
+  new_z = v[i,ZI] - rel_p * L * (pt2 - v[i,PZI] * (2 + v[i,PZI]) / gamsqr_0) /
+                ( beta_0 * sqrt(rel_p*rel_p + tilde_m*tilde_m) * pr * (beta_0 * 
+                sqrt(rel_p*rel_p + tilde_m*tilde_m) + pr) )
+  new_x = cp * x_0 / 2 + s * (px_0 / ks + y_0 / 2) + cm * v[i,PYI] / ks
+  new_px = s * (v[i,PYI] / 2 - ks * x_0 / 4) + cp * px_0 / 2 - ks * cm * y_0 / 4
+  new_y = s * (v[i,PYI] / ks - x_0 / 2) + cp * y_0 / 2 - cm * px_0 / ks
+  new_py = ks * cm * x_0 / 4 - s * (px_0 / 2 + ks * y_0 / 4) + cp * v[i,PYI] / 2
   # Update
-  v[i,ZI]  -= rel_p * L *
-                ((v[i,PXI] + v[i,YI] * ks / 2)^2 + (v[i,PYI] - v[i,XI] * ks / 2)^2 - v[i,PZI] * (2 + v[i,PZI]) / gamsqr_0) /
-                ( beta_0 * sqrt(rel_p^2 + tilde_m^2) * pr * (beta_0 * sqrt(rel_p^2 + tilde_m^2) + pr) )
-  v[i,XI] = cp * x_0 / 2 + s * (px_0 / ks + y_0 / 2) + cm * v[i,PYI] / ks
-  v[i,PXI] = s * (v[i,PYI] / 2 - ks * x_0 / 4) + cp * px_0 / 2 - ks * cm * y_0 / 4
-  v[i,YI] = s * (v[i,PYI] / ks - x_0 / 2) + cp * y_0 / 2 - cm * px_0 / ks
-  v[i,PYI]  = ks * cm * x_0 / 4 - s * (px_0 / 2 + ks * y_0 / 4) + cp * v[i,PYI] / 2
+  v[i,ZI]  = vifelse(alive, new_z, v[i,ZI])
+  v[i,XI]  = vifelse(alive, new_x, v[i,XI])
+  v[i,PXI] = vifelse(alive, new_px, v[i,PXI])
+  v[i,YI]  = vifelse(alive, new_y, v[i,YI])
+  v[i,PYI] = vifelse(alive, new_py, v[i,PYI])
 end
 
-@makekernel fastgtpsa=true function patch!(i, b::BunchView, tilde_m, dt, dx, dy, dz, winv::StaticMatrix{3,3}, L)
-  # Temporary momentum [1+δp, ps_0]
-  v = b.v
+
+@makekernel fastgtpsa=true function patch_offset!(i, coords::Coords, tilde_m, dx, dy, dt)
+  v = coords.v
+  alive = (coords.state[i] == STATE_ALIVE)
   rel_p = 1 + v[i,PZI]
-  ps_2 = rel_p^2 - v[i,PXI]^2 - v[i,PYI]^2
-  if ps_2 <= 0
-    b.state[i] = State.Lost
-    @warn "Particle lost in patch (transverse momentum too large)"
+  new_x = v[i,XI] - dx
+  new_y = v[i,YI] - dy
+  new_z = v[i,ZI] + rel_p/sqrt(rel_p*rel_p+tilde_m*tilde_m)*C_LIGHT*dt
+  v[i,XI] = vifelse(alive, new_x, v[i,XI])
+  v[i,YI] = vifelse(alive, new_y, v[i,YI])
+  v[i,ZI] = vifelse(alive, new_z, v[i,ZI])
+end
+
+
+@makekernel fastgtpsa=true function patch_rotation!(i, coords::Coords, winv, dz) 
+  v = coords.v
+  rel_p = 1 + v[i,PZI]
+  ps_02 = rel_p*rel_p - v[i,PXI]*v[i,PXI] - v[i,PYI]*v[i,PYI]
+  good_momenta = (ps_02 > 0)
+  alive_at_start = (coords.state[i] == STATE_ALIVE)
+  coords.state[i] = vifelse(!good_momenta & alive_at_start, STATE_LOST, coords.state[i])
+  alive = (coords.state[i] == STATE_ALIVE)
+  ps_02_1 = one(ps_02)
+  ps_0 = sqrt(vifelse(good_momenta, ps_02, ps_02_1))
+
+  w11 = 1 - 2*(winv[QY]*winv[QY] + winv[QZ]*winv[QZ])
+  w12 = 2*(winv[QX]*winv[QY] - winv[QZ]*winv[Q0])
+  w13 = 2*(winv[QX]*winv[QZ] + winv[QY]*winv[Q0])
+  w21 = 2*(winv[QX]*winv[QY] + winv[QZ]*winv[Q0])
+  w22 = 1 - 2*(winv[QX]*winv[QX]+winv[QZ]*winv[QZ])
+  w23 = 2*(winv[QY]*winv[QZ] - winv[QX]*winv[Q0])
+
+  x_0 = v[i,XI]
+  y_0 = v[i,YI]
+  new_x = w11*x_0 + w12*y_0 - w13*dz
+  new_y = w21*x_0 + w22*y_0 - w23*dz
+  v[i,XI] = vifelse(alive, new_x, x_0)
+  v[i,YI] = vifelse(alive, new_y, y_0)
+
+  px_0 = v[i,PXI]
+  py_0 = v[i,PYI]
+  new_px = w11*px_0 + w12*py_0 + w13*ps_0
+  new_py = w21*px_0 + w22*py_0 + w23*ps_0
+  v[i,PXI] = vifelse(alive, new_px, px_0)
+  v[i,PYI] = vifelse(alive, new_py, py_0)
+
+  q1 = coords.q
+  if !isnothing(q1)
+    q = quat_mul(winv, q1[i,Q0], q1[i,QX], q1[i,QY], q1[i,QZ])
+    q0 = vifelse(alive, q[Q0], q1[i,Q0])
+    qx = vifelse(alive, q[QX], q1[i,QX])
+    qy = vifelse(alive, q[QY], q1[i,QY])
+    qz = vifelse(alive, q[QZ], q1[i,QZ])
+    q1[i,Q0], q1[i,QX], q1[i,QY], q1[i,QZ] = q0, qx, qy, qz
+  end
+end
+
+
+@makekernel fastgtpsa=true function patch!(i, coords::Coords, beta_0, gamsqr_0, tilde_m, dt, dx, dy, dz, winv, L) 
+  v = coords.v
+  rel_p = 1 + v[i,PZI]
+  ps_02 = rel_p*rel_p - v[i,PXI]*v[i,PXI] - v[i,PYI]*v[i,PYI]
+  ps_02_0 = zero(ps_02)
+  good_momenta = (ps_02 > ps_02_0)
+  alive_at_start = (coords.state[i] == STATE_ALIVE)
+  coords.state[i] = vifelse(!good_momenta & alive_at_start, STATE_LOST, coords.state[i])
+  alive = (coords.state[i] == STATE_ALIVE)
+  ps_02_1 = one(ps_02)
+  ps_0 = sqrt(vifelse(good_momenta, ps_02, ps_02_1))
+  # Only apply rotations if needed
+  if isnothing(winv)
+    patch_offset!(i, coords, tilde_m, dx, dy, dt)
+    exact_drift!(i, coords, beta_0, gamsqr_0, tilde_m, L)
+    new_z = v[i,ZI] - (dz - L) * rel_p / ps_0
+    v[i,ZI] = vifelse(alive, new_z, v[i,ZI])
   else
-    if !isnothing(b.q)
-      quat_mult!(dcm_to_quat(winv'), @view b.q[i,:])
-    end
-
-    ps_0 = sqrt(ps_2)  
-    # Translate position vector [x, y]
-    x_0 = v[i,XI] - dx                                # x_0
-    y_0 = v[i,YI] - dy                                # y_0
-
-    # Temporary momentum vector [px, py]
-    px_0 = v[i,PXI]                                    # px_0
-    py_0 = v[i,PYI]                                    # py_0
-
-    # Transform position vector [x - dx, y - dy, -dz]
-    v[i,XI]   = winv[1,1]*x_0 + winv[1,2]*y_0 - winv[1,3]*dz
-    v[i,YI]   = winv[2,1]*x_0 + winv[2,2]*y_0 - winv[2,3]*dz
-    s_f       = winv[3,1]*x_0 + winv[3,2]*y_0 - winv[3,3]*dz
-
-    # Transform momentum vector [px, py, ps]
-    v[i,PXI]  = winv[1,1]*px_0 + winv[1,2]*py_0 + winv[1,3]*ps_0
-    v[i,PYI]  = winv[2,1]*px_0 + winv[2,2]*py_0 + winv[2,3]*ps_0
-    ps_f      = winv[3,1]*px_0 + winv[3,2]*py_0 + winv[3,3]*ps_0
-
-    # Apply t_offset
-    v[i,ZI] += rel_p/sqrt(rel_p^2+tilde_m^2)*C_LIGHT*dt
-
-    # Drift to face
-    v[i,XI] -= s_f * v[i,PXI] / ps_f
-    v[i,YI] -= s_f * v[i,PYI] / ps_f
-    v[i,ZI] += s_f * rel_p / ps_f + L*rel_p*sqrt((1+tilde_m^2)/(rel_p^2+tilde_m^2))
+    patch_offset!(i, coords, tilde_m, dx, dy, dt)
+    w31 = 2*(winv[QX]*winv[QZ] - winv[QY]*winv[Q0])
+    w32 = 2*(winv[QY]*winv[QZ] + winv[QX]*winv[Q0])
+    w33 = 1 - 2*(winv[QX]*winv[QX] + winv[QY]*winv[QY])
+    s_f = w31*v[i,XI] + w32*v[i,YI] - w33*dz
+    patch_rotation!(i, coords, winv, dz)
+    exact_drift!(i, coords, beta_0, gamsqr_0, tilde_m, -s_f)
+    new_z = v[i,ZI] + ((s_f + L) * rel_p * 
+    sqrt((1 + tilde_m*tilde_m)/(rel_p*rel_p + tilde_m*tilde_m)))
+    v[i,ZI] = vifelse(alive, new_z, v[i,ZI])
   end
 end
 
@@ -470,15 +470,13 @@ end
 
 # Rotation matrix
 """
-  w_matrix(x_rot, y_rot, z_rot)
+  w_quaternion(x_rot, y_rot, z_rot)
 
-Constructs a rotation matrix based on the given Bryan-Tait angles.
+Constructs a rotation quaternion based on the given Bryan-Tait angles.
 
 Bmad/SciBmad follows the MAD convention of applying z, x, y rotations in that order.
-Furthermore, in ReferenceFrameRotations, the rotation angles are defined as negative
-of the SciBmad rotation angles `x_rot`, `y_rot`, and `z_rot`.
 
-The inverse matrix reverses the order of operations and their signs.
+The inverse quaternion reverses the order of operations and their signs.
 
 
 Arguments:
@@ -486,26 +484,32 @@ Arguments:
 - `y_rot::Number`: Rotation angle around the y-axis.
 - `z_rot::Number`: Rotation angle around the z-axis.
 
-Returns:
-- `DCM{Float64}`: ReferenceFrameRotations.DCM (direct cosine matrix), rotation matrix.
 """
-function w_matrix(x_rot, y_rot, z_rot)
-  return ReferenceFrameRotations.angle_to_rot(-z_rot, -x_rot, -y_rot, :ZXY)
+function w_quaternion(x_rot, y_rot, z_rot)
+  qz = SA[cos(z_rot/2) 0 0 sin(z_rot/2)]
+  qx = SA[cos(x_rot/2) sin(x_rot/2) 0 0]
+  qy = SA[cos(y_rot/2) 0 sin(y_rot/2) 0]
+  q = quat_mul(qx, qz[Q0], qz[QX], qz[QY], qz[QZ])
+  q = quat_mul(qy, q[Q0], q[QX], q[QY], q[QZ])
+  return SA[q[Q0] q[QX] q[QY] q[QZ]]
 end
 
-# Inverse rotation matrix
-function w_inv_matrix(x_rot, y_rot, z_rot)
-  return ReferenceFrameRotations.angle_to_rot(y_rot, x_rot, z_rot, :YXZ)
+# Inverse rotation quaternion
+function w_inv_quaternion(x_rot, y_rot, z_rot)
+  qz = SA[cos(z_rot/2) 0 0 -sin(z_rot/2)]
+  qx = SA[cos(x_rot/2) -sin(x_rot/2) 0 0]
+  qy = SA[cos(y_rot/2) 0 -sin(y_rot/2) 0]
+  q = quat_mul(qx, qy[Q0], qy[QX], qy[QY], qy[QZ])
+  q = quat_mul(qz, q[Q0], q[QX], q[QY], q[QZ])
+  return SA[q[Q0] q[QX] q[QY] q[QZ]]
 end
 
-function drift_params(species::Species, Brho)
-  beta_gamma_0 = BeamTracking.calc_beta_gamma(species, Brho)
+function drift_params(species::Species, R_ref)
+  beta_gamma_0 = BeamTracking.R_to_beta_gamma(species, R_ref)
   tilde_m = 1/beta_gamma_0
-  gamsqr_0 = @FastGTPSA 1+beta_gamma_0^2
+  gamsqr_0 = @FastGTPSA 1+beta_gamma_0*beta_gamma_0
   beta_0 = @FastGTPSA beta_gamma_0/sqrt(gamsqr_0)
   return tilde_m, gamsqr_0, beta_0
 end
 
-
 end
-

@@ -2,7 +2,7 @@ struct BmadStandard end
 
 module BmadStandardTracking
 using ..GTPSA, ..BeamTracking, ..StaticArrays, ..KernelAbstractions
-using ..BeamTracking: XI, PXI, YI, PYI, ZI, PZI, @makekernel, BunchView, quat_mult!
+using ..BeamTracking: XI, PXI, YI, PYI, ZI, PZI, @makekernel, BunchView, quat_mul!
 const TRACKING_METHOD = BmadStandard
 
 
@@ -98,7 +98,7 @@ end
         # Quaternion update for spin
         ζ = sqrt(A^2 + B^2 + CC^2)
         sc = sincu(ζ)
-        quat_mult!(@SVector[-cos(ζ), A*sc, B*sc, CC*sc], @view b.q[i,:])
+        quat_mul!(@SVector[-cos(ζ), A*sc, B*sc, CC*sc], @view b.q[i,:])
     end
 
     # Update coordinates
@@ -182,7 +182,7 @@ end
 
         ζ = sqrt(A^2 + B^2 + CC^2)
         sc = sincu(ζ)
-        quat_mult!(@SVector[-cos(ζ), A*sc, B*sc, CC*sc], @view b.q[i,:])
+        quat_mul!(@SVector[-cos(ζ), A*sc, B*sc, CC*sc], @view b.q[i,:])
     end
 
     # Update coordinates
@@ -250,7 +250,7 @@ end
         # Quaternion update for spin
         ζ = sqrt(A^2 + B^2 + CC^2)
         sc = sincu(ζ)
-        quat_mult!(@SVector[-cos(ζ), A*sc, B*sc, CC*sc], @view b.q[i,:])
+        quat_mul!(@SVector[-cos(ζ), A*sc, B*sc, CC*sc], @view b.q[i,:])
     end
 
     # Update coordinates
@@ -606,7 +606,7 @@ end
 
     ζ = sqrt(A^2 + B^2 + CC^2)
     sc = sincu(ζ)
-    quat_mult!(@SVector[-cos(ζ), A*sc, B*sc, CC*sc], @view b.q[i,:])
+    quat_mul!(@SVector[-cos(ζ), A*sc, B*sc, CC*sc], @view b.q[i,:])
   end
 
   x0 -= xc
@@ -632,7 +632,7 @@ end
 end
 
 @makekernel fastgtpsa=true function thin_snake!(i, b::BunchView, axis, angle)
-    quat_mult!(SVector{4}([cos(angle/2), sin(angle/2)*axis...]), @view b.q[i,:])
+    quat_mul!(SVector{4}([cos(angle/2), sin(angle/2)*axis...]), @view b.q[i,:])
 end
 
 # Sextupole
@@ -698,7 +698,7 @@ end
         # Quaternion update
         ζ = sqrt(A^2 + B^2 + CC^2)
         sc = sincu(ζ)
-        quat_mult!(@SVector[-cos(ζ), A*sc, B*sc, CC*sc], @view b.q[i,:])
+        quat_mul!(@SVector[-cos(ζ), A*sc, B*sc, CC*sc], @view b.q[i,:])
       end
   end
   # ========== End of Magnus spin rotation ==========
@@ -774,7 +774,7 @@ end
     B = k0 .* [-sin_e * v[i, YI], -tan_e * v[i, XI], cos_e * v[i, YI]]
     #B -= k1 * tan_e .* [v[i, XI] * v13, v[i, XI] * (v1_2 - v3_2), 0.0]
     B[3] *= s
-    quat_mult!(TBMT_quat(G, 0, 0, γ, 1, B, b.v, i), @view b.q[i,:])
+    quat_mul!(TBMT_quat(G, 0, 0, γ, 1, B, b.v, i), @view b.q[i,:])
   end
 end
 

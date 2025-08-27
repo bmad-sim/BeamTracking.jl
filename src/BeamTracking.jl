@@ -3,8 +3,8 @@ using GTPSA,
       ReferenceFrameRotations,
       StaticArrays, 
       SIMD,
+      SIMDMathFunctions,
       VectorizationBase,
-      EnumX,
       Unrolled,
       MacroTools,
       Adapt,
@@ -12,12 +12,19 @@ using GTPSA,
 
 using KernelAbstractions
       
-import GTPSA: sincu, sinhcu
+import GTPSA: sincu, sinhcu, normTPS
 import Base: setproperty!
+import SIMD: Vec
 
-export Bunch, Species, State, ParticleView, ELECTRON, POSITRON, PROTON, ANTIPROTON, sincu, sinhcu, sincuc, quat_mult!, quat_inv, TBMT_quat
+# Put AtomicAndPhysicalConstants in a box for now for safety
+include("Constants.jl")
+using .Constants: Constants, Species, massof, chargeof, nameof, C_LIGHT, isnullspecies
+export Species
+
+export Bunch, State, ParticleView, sincu, sinhcu, sincuc, expq, quat_mul, atan2
 export LinearTracking, Linear
 export ExactTracking, Exact
+export IntegrationTracking, SplitIntegration, DriftKick, BendKick, SolenoidKick, MatrixKick
 export BmadStandardTracking, BmadStandard
 export track!
 
@@ -29,13 +36,13 @@ include("kernel.jl")
 
 include("modules/ExactTracking.jl") #; TRACKING_METHOD(::ExactTracking) = Exact
 include("modules/LinearTracking.jl") #; TRACKING_METHOD(::LinearTracking) = Linear
+include("modules/IntegrationTracking.jl") #; TRACKING_METHOD(::LinearTracking) = SplitIntegration, DriftKick, BendKick, SolenoidKick, MatrixKick
 include("modules/BmadStandardTracking.jl") #; TRACKING_METHOD(::BmadStandardTracking) = BmadStandard
 
 
 # Empty tracking method to be imported+implemented by package extensions
 function track! end
 
-function MAX_TEMPS end
 # --------------------------------------------------
 
 

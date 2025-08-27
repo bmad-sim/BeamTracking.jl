@@ -10,123 +10,138 @@ Beamlines.get_tracking_method_extras(::Linear) = SA[]
 # === Thin elements === #
 # Only thin element currently supported is thin quadrupole
 @inline function thin_pure_bdipole(tm::Linear, bunch, bm1)
-  # Sophia: this a thin (0 length) corrector coil
+  # This a thin (0 length) corrector coil
   # In Fortran Bmad is g == 0 but dgL != 0. 
-  # In SciBmad this is g == 0 but K0L != 0.
+  # In SciBmad this is g == 0 but Kn0L != 0.
   error("Undefined for tracking method $tm")
 end
 
-@inline function thin_bdipole(tm::Linear, bunch, bdict)
-  if haskey(bdict, 2)
-    # Sophia: this is a thin corrector coil with a quadrupole term
-    # In Fortran Bmad is g == 0 but dgL != 0 and K1L != 0
-    # In SciBmad this is g == 0 but K0L != 0 and K1L != 0
+@inline function thin_bdipole(tm::Linear, bunch, bmultipoleparams)
+  if 2 in bmultipoleparams.order
+    # This is a thin corrector coil with a quadrupole term
+    # In Fortran Bmad is g == 0 but dgL != 0 and Kn1L != 0
+    # In SciBmad this is g == 0 but Kn0L != 0 and Kn1L != 0
     error("Undefined for tracking method $tm")
   else # ignore higher order multipoles
-    return thin_pure_bdipole(tm, bunch, bdict[1])
+    return thin_pure_bdipole(tm, bunch, bmultipoleparams[1])
   end
 end
 
 @inline function thin_pure_bquadrupole(tm::Linear, bunch, bm2)
-  K1L = get_thin_strength(bm2, 0, bunch.Brho_ref)
-  mx, my = LinearTracking.linear_thin_quad_matrices(K1L)
+  Kn1L, Ks1L = get_integrated_strengths(bm2, 0, bunch.R_ref)
+  # Temporary
+  Ks1L ≈ 0 || error("Skew/tilt multipoles not implemented yet for tracking method $tm")
+  mx, my = LinearTracking.linear_thin_quad_matrices(Kn1L)
   return KernelCall(LinearTracking.linear_coast_uncoupled!, (mx, my, 0, nothing, nothing))
 end
 
 # Ignore higher order multipoles with quadrupole: 
-@inline thin_bquadrupole(tm::Linear, bunch, bdict) = thick_pure_bquadrupole(tm, bunch, bdict[2])
+@inline thin_bquadrupole(tm::Linear, bunch, bmultipoleparams) = thin_pure_bquadrupole(tm, bunch, bmultipoleparams[2])
 
 # Ignore higher order multipoles: do nothing for thin case (0 length)
-@inline thin_pure_bmultipole(tm::Linear, bunch, bmn) = KernelCall()
-@inline thin_bmultipole(tm::Linear, bunch, bdict) = KernelCall()
+@inline thin_pure_bmultipole(tm::Linear, bunch, bmk) = KernelCall()
+@inline thin_bmultipole(tm::Linear, bunch, bmultipoleparams) = KernelCall()
 
 
 # === Thick elements === #
 @inline function drift(tm::Linear, bunch, L)
-  gamma_0 = calc_gamma(bunch.species, bunch.Brho_ref)
+  gamma_0 = R_to_gamma(bunch.species, bunch.R_ref)
   return KernelCall(LinearTracking.linear_drift!, (L, L/gamma_0^2))
 end
 
-@inline function thick_pure_bsolenoid(tm::Linear, bunch, bm0, L) 
-  gamma_0 = calc_gamma(bunch.species, bunch.Brho_ref)
-  Ks = get_thick_strength(bm0, L, bunch.Brho_ref)
-  mxy = LinearTracking.linear_solenoid_matrix(Ks, L)
+@inline function thick_pure_bsolenoid(tm::Linear, bunch, bm0, L)
+  gamma_0 = R_to_gamma(bunch.species, bunch.R_ref)
+  Ksol, _ = get_strengths(bm0, L, bunch.R_ref)
+  mxy = LinearTracking.linear_solenoid_matrix(Ksol, L)
   return KernelCall(LinearTracking.linear_coast!, (mxy, L/gamma_0^2, nothing, nothing))
 end
 
 @inline function thick_pure_bdipole(tm::Linear, bunch, bm1, L)
-  # Sophia: this a thick corrector coil
+  # This a thick corrector coil
   # In Fortran Bmad is g == 0 but dg != 0. 
-  # In SciBmad this is g == 0 but K0 != 0.
+  # In SciBmad this is g == 0 but Kn0 != 0.
+  # Singularity for g==0
   error("Undefined for tracking method $tm")
 end
 
-@inline function thick_bdipole(tm::Linear, bunch, bdict, L)
-  if haskey(bdict, 2)
-    # Sophia: this is a thick corrector coil with a quadrupole term
-    # In Fortran Bmad is g == 0 but dg != 0 and K1 != 0
-    # In SciBmad this is g == 0 but K0 != 0 and K1 != 0
-    error("Undefined for tracking method $tm")
+@inline function thick_bdipole(tm::Linear, bunch, bmultipoleparams, L)
+  if 2 in bmultipoleparams.order
+    # This is a thick corrector coil with a quadrupole term
+    # In Fortran Bmad is g == 0 but dg != 0 and Kn1 != 0
+    # In SciBmad this is g == 0 but Kn0 != 0 and Kn1 != 0
+    gamma_0 = R_to_gamma(bunch.species, bunch.R_ref)
+    Kn0, Ks0 = get_strengths(bmultipoleparams[1], L, bunch.R_ref)
+    Kn1, Ks1 = get_strengths(bmultipoleparams[2], L, bunch.R_ref) 
+    (Ks0 ≈ 0 && Ks1 ≈ 0) || error("Skew/tilt multipoles not implemented yet for tracking method $tm")
+    mx, my, r56, d, t = LinearTracking.linear_dipole_matrices(0, 0, 0, Kn0, Kn1, gamma_0, L)
+    return KernelCall(LinearTracking.linear_coast_uncoupled!, (mx, my, r56, d, t))
   else # ignore higher order multipoles
-    return thick_pure_bdipole(tm, bunch, bdict[1], L)
+    return thick_pure_bdipole(tm, bunch, bmultipoleparams[1], L)
   end
 end
 
 @inline function thick_pure_bquadrupole(tm::Linear, bunch, bm2, L)
-  gamma_0 = calc_gamma(bunch.species, bunch.Brho_ref)
-  K1 = get_thick_strength(bm2, L, bunch.Brho_ref)
-  mx, my = LinearTracking.linear_quad_matrices(K1, L)
+  gamma_0 = R_to_gamma(bunch.species, bunch.R_ref)
+  Kn1, Ks1 = get_strengths(bm2, L, bunch.R_ref)
+  Ks1 ≈ 0 || error("Skew/tilt multipoles not implemented yet for tracking method $tm")
+  mx, my = LinearTracking.linear_quad_matrices(Kn1, L)
   return KernelCall(LinearTracking.linear_coast_uncoupled!, (mx, my, L/gamma_0^2, nothing, nothing))
 end
 
 # Ignore higher order multipoles with quadrupole:
-@inline thick_bquadrupole(tm::Linear, bunch, bdict, L) = thick_pure_bquadrupole(tm, bunch, bdict[2], L)
+@inline thick_bquadrupole(tm::Linear, bunch, bmultipoleparams, L) = thick_pure_bquadrupole(tm, bunch, bmultipoleparams[2], L)
 
 # Ignore higher order multipoles: drift
-@inline thick_pure_bmultipole(tm::Linear, bunch, bmn, L) = drift(tm, bunch, L)
-@inline thick_bmultipole(tm::Linear, bunch, bdict, L) = drift(tm, bunch, L)
+@inline thick_pure_bmultipole(tm::Linear, bunch, bmk, L) = drift(tm, bunch, L)
+@inline thick_bmultipole(tm::Linear, bunch, bmultipoleparams, L) = drift(tm, bunch, L)
 
 # =========== BENDING ELEMENTS ============= #
 # Again, "bend" means coordinate system bends, nothing wrt the field.
 # SciBmad likely will not support "thin" bends
 
 @inline function thick_bend_no_field(tm::Linear, bunch, bendparams, L)
-  # Sophia: this has NO FIELD!
+  # This has NO FIELD!
   # In Fortran Bmad it is like setting dg == -g
+  # Singularity for simutaneous`Kn0==0' and 'Kn1 = 0'
   error("Undefined for tracking method $tm")
 end
 
 @inline function thick_bend_pure_bdipole(tm::Linear, bunch, bendparams, bm1, L)     
-  gamma_0 = calc_gamma(bunch.species, bunch.Brho_ref)
-  K0 = get_thick_strength(bm1, L, bunch.Brho_ref)
-  mx, my, r56, d, t = LinearTracking.linear_bend_matrices(K0, L, gamma_0, bendparams.e1, bendparams.e2)
-  if !(K0 ≈ bendparams.g)
-    # Sophia - you will be able to remove this because your code handles this
-    error("Linear tracking currently only supports BendParams.g ≈ BMultipoleParams.K0")
-  end
+  gamma_0 = R_to_gamma(bunch.species, bunch.R_ref)
+  Kn0, Ks0 = get_strengths(bm1, L, bunch.R_ref)
+  Ks0 ≈ 0 || error("Skew/tilt multipoles not implemented yet for tracking method $tm")
+  mx, my, r56, d, t = LinearTracking.linear_dipole_matrices(bendparams.g_ref, bendparams.e1, bendparams.e2, Kn0, 0, gamma_0, L)
   return KernelCall(LinearTracking.linear_coast_uncoupled!, (mx, my, r56, d, t))
 end
 
-@inline function thick_bend_bdipole(tm::Linear, bunch, bendparams, bdict, L)   
-  if haskey(bdict, 2)
-    # Sophia: this is a thick combined function magnet
-    # In Fortran Bmad is g != 0, dg != 0, K1 != 0
-    # In SciBmad this is g != 0, K0 != 0, K1 != 0
-    error("Undefined for tracking method $tm")
+@inline function thick_bend_bdipole(tm::Linear, bunch, bendparams, bmultipoleparams, L)   
+  if 2 in bmultipoleparams.order
+    # This is a thick combined function magnet
+    # In Fortran Bmad is g != 0, dg != 0, Kn1 != 0
+    # In SciBmad this is g != 0, Kn0 != 0, Kn1 != 0
+    gamma_0 = R_to_gamma(bunch.species, bunch.R_ref)
+    Kn0, Ks0 = get_strengths(bmultipoleparams[1], L, bunch.R_ref)
+    Kn1, Ks1 = get_strengths(bmultipoleparams[2], L, bunch.R_ref)
+    (Ks0 ≈ 0 && Ks1 ≈ 0) || error("Skew/tilt multipoles not implemented yet for tracking method $tm")
+    mx, my, r56, d, t = LinearTracking.linear_dipole_matrices(bendparams.g_ref, bendparams.e1, bendparams.e2, Kn0, Kn1, gamma_0, L)
+    return KernelCall(LinearTracking.linear_coast_uncoupled!, (mx, my, r56, d, t))
   else # ignore higher order multipoles
-    return thick_bend_pure_bdipole(tm, bunch, bendparams, bdict[1], L)
+    return thick_bend_pure_bdipole(tm, bunch, bendparams, bmultipoleparams[1], L)
   end
 end
 
 @inline function thick_bend_pure_bquadrupole(tm::Linear, bunch, bendparams, bm2, L) 
-  # Sophia: this is a quadrupole with a g, I think your code should be able to handle this
-  # In Fortran Bmad it would be like dg == -g, K1 != 0.
-  error("Undefined for tracking method $tm")
+  # This is a quadrupole with a g, I think your code should be able to handle this
+  # In Fortran Bmad it would be like dg == -g, Kn1 != 0.
+  gamma_0 = R_to_gamma(bunch.species, bunch.R_ref)
+  Kn1, Ks1 = get_strengths(bm2, L, bunch.R_ref)
+  Ks1 ≈ 0 || error("Skew/tilt multipoles not implemented yet for tracking method $tm")
+  mx, my, r56, d, t = LinearTracking.linear_dipole_matrices(bendparams.g_ref, bendparams.e1, bendparams.e2, 0, Kn1, gamma_0, L)
+  return KernelCall(LinearTracking.linear_coast_uncoupled!, (mx, my, r56, d, t))
 end
 
 # Ignore higher order multipoles:
-@inline thick_bend_bquadrupole(tm::Linear, bunch, bendparams, bdict, L) = thick_bend_pure_bquadrupole(tm, bunch, bendparams, bdict[2], L)
-
+@inline thick_bend_bquadrupole(tm::Linear, bunch, bendparams, bmultipoleparams, L) = thick_bend_pure_bquadrupole(tm, bunch, bendparams, bmultipoleparams[2], L)
 # Ignore higher order multipoles: treat like bend no field
-@inline thick_bend_pure_bmultipole(tm::Linear, bunch, bendparams, bmn, L) = thick_bend_no_field(tm, bunch, bendparams, L)
-@inline thick_bend_bmultipole(tm::Linear, bunch, bendparams, bdict, L) = thick_bend_no_field(tm, bunch, bendparams, L)
+@inline thick_bend_pure_bmultipole(tm::Linear, bunch, bendparams, bmk, L) = thick_bend_no_field(tm, bunch, bendparams, L)
+@inline thick_bend_bmultipole(tm::Linear, bunch, bendparams, bmultipoleparams, L) = thick_bend_no_field(tm, bunch, bendparams, L)

@@ -24,19 +24,13 @@ isinf_imag(x::Number) = isfinite(real(x)) && isinf(imag(x))
 Compute the unnormalized sinc function ``\\operatorname{sincu}(x) = \\sin(x) / (x)`` 
 with accuracy near the origin.
 """
-sincu(x) = _sinc(float(x))
-function _sinc(x::Union{T,Complex{T}}) where {T}
-    if isinf_real(x)
-        return zero(x)
-    end
+function sincu(x)
+  #if isinf_real(x)
+  #  return zero(x)
+  #end
 
-    nrm = Base.Math.fastabs(x)
-    if nrm >= 3.3*sqrt(sqrt(eps(T)))
-        return sin(x)/x
-    else
-        # |x| < (eps*120)^(1/4)
-        return 1 - x*x/6
-    end
+  threshold = 0.0004 # (120*eps(Float64))^(1/4)
+  return vifelse(abs(x) > threshold, sin(x)/x, 1-x*x/6)
 end
 
 # sinhcu copied from Boost library and correct limit behavior added
@@ -46,53 +40,59 @@ end
     sinhcu(x)
 
 Compute the unnormalized sinhc function ``\\operatorname{sinhcu}(x) = \\sinh(x) / (x)`` 
-with accuracy accuracy near the origin.
+with accuracy near the origin.
 """
-sinhcu(x) = _sinhcu(float(x))
-function _sinhcu(x::Union{T,Complex{T}}) where {T}
-    taylor_0_bound = eps(T)
-    taylor_2_bound = sqrt(taylor_0_bound)
-    taylor_n_bound = sqrt(taylor_2_bound)
+function sinhcu(x)
+  #if isinf_imag(x)
+  #  return zero(x)
+  #end
 
-    if isinf_imag(x) 
-        return zero(x)
-    end
-    
-    nrm = Base.Math.fastabs(x)
-
-    if nrm >= taylor_n_bound || isnan(nrm)
-        return sinh(x)/x
-    else
-        # approximation by taylor series in x at 0 up to order 0
-        res = one(x)
-        if nrm >= taylor_0_bound
-            x2 = x*x
-            # approximation by taylor series in x at 0 up to order 2
-            res += x2/6
-            if nrm >= taylor_2_bound
-                # approximation by taylor series in x at 0 up to order 4
-                res += (x2*x2)/120
-            end
-        end
-        return res
-    end
+  threshold = 0.0004 # (120*eps(Float64))^(1/4)
+  return vifelse(abs(x) > threshold, sinh(x)/x, 1+x*x/6)
 end
 
-# Copied pasted from sincc in bmad-ecosystem
+
+function atan2(y, x)
+  return atan(y, x)
+end
+
+
+function atan2(y::Vec{N, T}, x::Vec{N, T}) where {N, T}
+  arctan = atan(y/x)
+  return vifelse(x > 0, arctan,
+         vifelse((x < 0)  & (y >= 0),  arctan + Vec{N, T}(T(pi)),
+         vifelse((x < 0)  & (y < 0),   arctan - Vec{N, T}(T(pi)),
+         vifelse((x == 0) & (y > 0),   Vec{N, T}(pi/2),
+         vifelse((x == 0) & (y < 0),   Vec{N, T}(-pi/2),
+         vifelse((x == 0) & (y == 0),  Vec{N, T}(0), 
+         Vec{N, T}(NaN)))))))
+end
+
+
+# Copy-pasted from sincc in bmad-ecosystem
 function sincuc(x) 
-  if Base.Math.fastabs(x) < 0.1
-    c0 = 1/6
-    c1 = -1/120
-    c2 = 1/5040
-    c3 = -1/362880
-    x2 = x^2
-    y = c0 + x2 * (c1 + x2 * (c2 + x2 * c3))
-  else
-    y = (x - sin(x)) / x^3
-  end
-  return y
+  c0 = 1/6
+  c1 = -1/120
+  c2 = 1/5040
+  c3 = -1/362880
+  x2 = x^2
+  return vifelse(abs(x) >= 0.1, (x-sin(x))/x^3, c0+x2*(c1+x2*(c2+x2*c3)))
 end
 
+
+"""
+This function computes sin(sqrt(x))/sqrt(x) and cos(sqrt(x)), which are both 
+necessary for exponentiating a rotation vector into a quaternion.
+"""
+function sincos_quaternion(x)
+  threshold = 7.3e-8 # sqrt(24*eps(Float64))
+  sq = sqrt(x)
+  s, c = sincos(sq)
+  s = s/sq
+  s_out = vifelse(x > threshold, s, 1-x/6)
+  c_out = vifelse(x > threshold, c, 1-x/2)
+  return s_out, c_out
+end
 """
 returns instantaneous T_BMT quaternion in a straight coordinate system for particle `i` in a bunch
 """
@@ -110,7 +110,7 @@ function TBMT_quat(G, gx, gy, γ, Bρ, B::Vector{<:Number}, bv::Matrix{<:Number}
   return SVector(cos(θ/2), sin(θ/2)*Ω...)
 end
 
-function quat_mult!(q1, q2)
+function quat_mul!(q1, q2)
   # In-place quaternion multiplication: q2 := q1 * q2
   w1, x1, y1, z1 = q1
   w2, x2, y2, z2 = q2
@@ -126,56 +126,108 @@ function quat_inv(q)
   return ([w, -x, -y, -z] ./ norm_sq)
 end
 
-# Fake APC ====================================================================
-const Q = 1.602176634e-19 # C
-const C_LIGHT = 2.99792458e8 # m/s
-const M_ELECTRON = 0.51099895069e6 # eV/c^2
-const M_PROTON = 9.3827208943e8 # eV/c^2
-const G_ELECTRON = 0.00115965218059
-const G_PROTON = 1.79284734463
 
-struct Species
-  name::String
-  mass::Float64   # in eV/c^2
-  charge::Float64 # in Coulomb
-  anomalous_magnetic_moment::Float64 # dimensionless, e.g. 0.001 for electron, 1.79285 for proton
-end
-
-const ELECTRON = Species("electron", M_ELECTRON,-1, G_ELECTRON)
-const POSITRON = Species("positron", M_ELECTRON, 1, G_ELECTRON)
-
-const PROTON = Species("proton", M_PROTON, 1, G_PROTON)
-const ANTIPROTON = Species("antiproton", M_PROTON,-1, G_PROTON)
-
-
-function Species(name)
-  if name == "electron"
-    return ELECTRON
-  elseif name == "positron"
-    return POSITRON
-  elseif name == "proton"
-    return PROTON
-  elseif name == "ANTIPROTON"
-    return ANTIPROTON
-  else
-    error("BeamTracking.jl's fake APC does not support species $name")
+"""
+This function computes sin(sqrt(x))/sqrt(x) and cos(sqrt(x)), which are both 
+necessary for exponentiating a rotation vector into a quaternion.
+"""
+function sincos_quaternion(x::TPS{T}) where {T}
+  ε = eps(T)
+  N_max = 100
+  N = 1
+  conv_sin = false
+  conv_cos = false
+  y = one(x)
+  prev_sin = one(x)
+  prev_cos = one(x)
+  result_sin = one(x)
+  result_cos = one(x)
+  #sq = one(x)
+  # Using FastGTPSA! for the following makes other kernels run out of temps
+  @FastGTPSA begin
+    if x < 0.1
+      while !(conv_sin && conv_cos) && N < N_max
+        y = -y*x/((2*N)*(2*N - 1))
+        result_sin = prev_sin + y/(2*N + 1)
+        result_cos = prev_cos + y
+        N += 1
+        if normTPS(result_sin - prev_sin) < ε
+          conv_sin = true
+        end
+        if normTPS(result_cos - prev_cos) < ε
+          conv_cos = true
+        end
+        prev_sin = result_sin
+        prev_cos = result_cos
+      end
+    else
+      sq = sqrt(x)
+      result_sin, result_cos = sincos(sq)
+      result_sin = result_sin/sq
+    end
   end
+  if N == N_max
+    @warn "sincos_quaternion convergence not reached in $N_max iterations"
+  end
+  return result_sin, result_cos
 end
 
-massof(s::Species) = s.mass
-chargeof(s::Species) = s.charge
-anomalous_moment_of(s::Species) = s.anomalous_magnetic_moment
+
+"""
+This function computes exp(-i/2 v⋅σ) as a quaternion, where σ is the 
+vector of Pauli matrices. If compute is false, it returns the identity quaternion.
+"""
+function expq(v, compute)
+  n2 = @FastGTPSA (v[1]*v[1] + v[2]*v[2] + v[3]*v[3])/4
+  n2_0 = zero(n2)
+  s, c = sincos_quaternion(vifelse(compute, n2, n2_0))
+  s = vifelse(compute, s, n2_0)
+  return (c, s*v[1]/2, s*v[2]/2, s*v[3]/2)
+end
+
+
+"""
+This function computes exp(-i/2 v⋅σ) as a quaternion, where σ is the 
+vector of Pauli matrices. If compute is false, it returns the identity quaternion.
+"""
+function quat_mul(q1, q20, q2x, q2y, q2z)
+  """
+  Returns q1 * q2.
+  """
+  a1, b1, c1, d1 = q1[Q0], q1[QX], q1[QY], q1[QZ]
+  a2, b2, c2, d2 = q20, q2x, q2y, q2z
+  @FastGTPSA begin
+    a3 = a1*a2 - b1*b2 - c1*c2 - d1*d2
+    b3 = a1*b2 + b1*a2 + c1*d2 - d1*c2
+    c3 = a1*c2 - b1*d2 + c1*a2 + d1*b2
+    d3 = a1*d2 + b1*c2 - c1*b2 + d1*a2
+  end
+  return (a3, b3, c3, d3)
+end
 
 # Particle energy conversions =============================================================
-calc_Brho(species::Species, E) = @FastGTPSA sqrt(E^2-massof(species)^2)/C_LIGHT/chargeof(species)
-calc_E(species::Species, Brho) = @FastGTPSA sqrt(calc_p0c(species,Brho)^2 + massof(species)^2)
-calc_gamma(species::Species, Brho) = @FastGTPSA sqrt((calc_p0c(species,Brho)/massof(species))^2+1)
-calc_gamma(species::Species, Brho, δ) = @FastGTPSA sqrt((calc_p0c(species,Brho)*(1+δ))^2/massof(species)^2+1)
+R_to_E(species::Species, R) = @FastGTPSA sqrt((R*C_LIGHT*chargeof(species))^2 + massof(species)^2)
+E_to_R(species::Species, E) = @FastGTPSA massof(species)*sinh(acosh(E/massof(species)))/C_LIGHT/chargeof(species) 
+pc_to_R(species::Species, pc) = @FastGTPSA pc/C_LIGHT/chargeof(species)
 
-calc_p0c(species::Species, Brho) = @FastGTPSA Brho*C_LIGHT*chargeof(species)
-calc_beta_gamma(species::Species, Brho) = @FastGTPSA calc_p0c(species,Brho)/massof(species)
+R_to_gamma(species::Species, R) = @FastGTPSA sqrt((R*C_LIGHT/massof(species))^2+1)
+R_to_pc(species::Species, R) = @FastGTPSA R*chargeof(species)*C_LIGHT
+R_to_beta_gamma(species::Species, R_ref) = @FastGTPSA R_ref*chargeof(species)*C_LIGHT/massof(species)
 
-
+# Fake APC because APC is not working for now :(
+function anom(species::Species) 
+  if nameof(species) == "electron"
+    return 0.00115965218046
+  elseif nameof(species) == "positron"
+    return 0.0011596521735304233
+  elseif nameof(species) == "proton"
+    return 1.7928473446300592
+  elseif nameof(species) == "anti-proton"
+    return 1.7928473446300592
+  else
+    return 0.0
+  end
+end
 
 #=
 
@@ -249,14 +301,14 @@ end
 
 
 """
-    brho(e_rest, beta_gamma, ne = 1)
+    R_ref(e_rest, beta_gamma, ne = 1)
 
 For a particle with a given rest energy and relativistic parameter
-``\\beta\\gamma``, compute the magnetic rigidity, ``B\\rho = p / q``.
+``\\beta\\gamma``, compute the magnetic R_ref, ``B\\rho = p / q``.
 
 DTA: Need to handle energy units other than ``\\mathrm{eV}``..
 """
-function brho(e_rest, beta_gamma, ne = 1)
+function R_ref(e_rest, beta_gamma, ne = 1)
   return (sr_pc(e_rest, beta_gamma) / (ne * C_LIGHT))
 end
 ## If given ``E_\text{kin}`` instead of ``\beta\gamma``,
@@ -287,7 +339,7 @@ end
 #  return e_rest + e_kin
 #end
 #
-#function brho(e_rest, e_kin, ne = 1)
+#function R_ref(e_rest, e_kin, ne = 1)
 #  return sr_pc(e_rest, e_kin) / (ne * clight)
 #end
 
