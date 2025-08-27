@@ -6,7 +6,7 @@ using ..BeamTracking: XI, PXI, YI, PYI, ZI, PZI, @makekernel, BunchView, quat_mu
 const TRACKING_METHOD = BmadStandard
 
 
-@makekernel fastgtpsa=true function bmad_cavity!(i, b::BunchView, V, wave_number, φ0, β0, gamsqr_0, tilde_m, p0c, L)
+@makekernel fastgtpsa=true function bmad_cavity!(i, coords::Coords, V, wave_number, φ0, β0, gamsqr_0, tilde_m, p0c, L)
   v = b.v
   z = v[i, ZI]
   # ============= Kick - Drift - Kick scheme =============
@@ -22,7 +22,7 @@ const TRACKING_METHOD = BmadStandard
 
   # Drift
   z = v[i, ZI]
-  ExactTracking.exact_drift!(i, b::BunchView, β0, gamsqr_0, tilde_m, L)
+  ExactTracking.exact_drift!(i, coords::Coords, β0, gamsqr_0, tilde_m, L)
   rel_p = 1 + v[i, PZI]
   φ -= 2π * wave_number * (v[i, ZI] - z) * sqrt(rel_p^2 + tilde_m^2) / (rel_p * sqrt(1 + tilde_m^2))
 
@@ -36,12 +36,12 @@ const TRACKING_METHOD = BmadStandard
 end
 
 # Drift - no spin rotation
-@makekernel fastgtpsa=true function magnus_drift!(i, b::BunchView, β0, gamsqr_0, tilde_m, L)
-    ExactTracking.exact_drift!(i, b::BunchView, β0, gamsqr_0, tilde_m, L)
+@makekernel fastgtpsa=true function magnus_drift!(i, coords::Coords, β0, gamsqr_0, tilde_m, L)
+    ExactTracking.exact_drift!(i, coords::Coords, β0, gamsqr_0, tilde_m, L)
 end
 
 # Solenoid -- second order Magnus expansion
-@makekernel fastgtpsa=true function magnus_solenoid!(i, b::BunchView, Ks, β0, gamsqr_0, tilde_m, G, L)
+@makekernel fastgtpsa=true function magnus_solenoid!(i, coords::Coords, Ks, β0, gamsqr_0, tilde_m, G, L)
     v = b.v
 
     if !isnothing(b.q)
@@ -102,11 +102,11 @@ end
     end
 
     # Update coordinates
-    ExactTracking.exact_solenoid!(i, b::BunchView, Ks, β0, gamsqr_0, tilde_m, L)
+    ExactTracking.exact_solenoid!(i, coords::Coords, Ks, β0, gamsqr_0, tilde_m, L)
 end
 
 # SBend
-@makekernel fastgtpsa=true function magnus_sbend!(i, b::BunchView, g, K0, γ0, βγ0, G, L)
+@makekernel fastgtpsa=true function magnus_sbend!(i, coords::Coords, g, K0, γ0, βγ0, G, L)
     
     if !isnothing(b.q)
         v = b.v
@@ -186,11 +186,11 @@ end
     end
 
     # Update coordinates
-    ExactTracking.exact_bend!(i, b::BunchView, g * L, g, K0, 1/βγ0, βγ0/γ0, L)
+    ExactTracking.exact_bend!(i, coords::Coords, g * L, g, K0, 1/βγ0, βγ0/γ0, L)
 end
 
 # Quadrupole
-@makekernel fastgtpsa=true function magnus_quadrupole!(i, b::BunchView, K1, βγ0, tilde_m, G, L)
+@makekernel fastgtpsa=true function magnus_quadrupole!(i, coords::Coords, K1, βγ0, tilde_m, G, L)
     v = b.v
     rel_p = 1 + v[i,PZI]
     if !isnothing(b.q)
@@ -254,13 +254,13 @@ end
     end
 
     # Update coordinates
-    ExactTracking.quadrupole_matrix!(i, b::BunchView, K1, L)
+    ExactTracking.quadrupole_matrix!(i, coords::Coords, K1, L)
     # beta != beta_0 correction
     rel_e = sqrt(rel_p^2 + tilde_m^2)
     v[i,ZI] += L * ( tilde_m^2 * v[i,PZI] * (2 + v[i,PZI]) / ( rel_e * ( rel_p * sqrt(1 + tilde_m^2) + rel_e ) ) )
 end
 
-@makekernel fastgtpsa=true function magnus_combined_func!(i, b::BunchView, g, k0, k1, tilde_m, G, L)
+@makekernel fastgtpsa=true function magnus_combined_func!(i, coords::Coords, g, k0, k1, tilde_m, G, L)
   v = b.v
   rel_p  = 1 + v[i, PZI]
   inv_rel_p = 1 / rel_p
@@ -631,12 +631,12 @@ end
           (-(L + cy * sy) / (4 * rel_p^2)) * py0^2
 end
 
-@makekernel fastgtpsa=true function thin_snake!(i, b::BunchView, axis, angle)
+@makekernel fastgtpsa=true function thin_snake!(i, coords::Coords, axis, angle)
     quat_mul!(SVector{4}([cos(angle/2), sin(angle/2)*axis...]), @view b.q[i,:])
 end
 
 # Sextupole
-@makekernel fastgtpsa=true function magnus_thick_sextupole!(i, b::BunchView, K2, β0, gamsqr_0, tilde_m, G, L)
+@makekernel fastgtpsa=true function magnus_thick_sextupole!(i, coords::Coords, K2, β0, gamsqr_0, tilde_m, G, L)
   mm = [3]
   K2N = [K2 * L/2]
   K2S = [0]
@@ -710,7 +710,7 @@ end
 
 
 # Octupole
-@makekernel fastgtpsa=true function thick_octupole!(i, b::BunchView, K3N, K3S, β0, gamsqr_0, tilde_m, L)
+@makekernel fastgtpsa=true function thick_octupole!(i, coords::Coords, K3N, K3S, β0, gamsqr_0, tilde_m, L)
   mm = [4]
   K3N = [K3N * L/2]
   K3S = [K3S * L/2]
@@ -721,7 +721,7 @@ end
   ExactTracking.multipole_kick!(i, b, mm, K3N, K3S)
 end
 
-@makekernel fastgtpsa=true function hwang_edge!(i, b::BunchView, e, g, k0, k1, G, βγ0, upstream)
+@makekernel fastgtpsa=true function hwang_edge!(i, coords::Coords, e, g, k0, k1, G, βγ0, upstream)
   cos_e = cos(e); 
   sin_e = sin(e); 
   tan_e = sin_e / cos_e; 
