@@ -14,6 +14,7 @@ function _track!(
   bm = deval(ele.BMultipoleParams)
   pp = deval(ele.PatchParams)
   dp = deval(ele.ApertureParams)
+  rf = deval(ele.RFParams)
 
   # Function barrier
   universal!(i, coords, tm, bunch, L, ap, bp, bm, pp, dp; kwargs...)
@@ -30,7 +31,8 @@ function universal!(
   bendparams,
   bmultipoleparams,
   patchparams,
-  apertureparams;
+  apertureparams,
+  rfparams;
   kwargs...
 ) 
   kc = KernelChain(Val{1}())
@@ -133,6 +135,9 @@ function universal!(
         kc = push(kc, @inline(bmultipole(tm, bunch, bmultipoleparams, L)))
       end
     end
+  elseif isactive(rfparams) # RF cavity
+    # RF cavity
+    kc = push(kc, @inline(cavity(tm, bunch, rfparams, L)))
   elseif !(L ≈ 0)
     kc = push(kc, @inline(drift(tm, bunch, L)))
   end
@@ -171,6 +176,7 @@ end
 @inline thick_pure_bmultipole(tm, bunch, bmk, L)          = error("Undefined for tracking method $tm")
 @inline thick_bmultipole(tm, bunch, bmultipoleparams, L)  = error("Undefined for tracking method $tm")
 
+@inline cavity(tm, bunch, rfparams, L) = error("Undefined for tracking method $tm")
 
 # === Elements with curving coordinate system "bend" === #
 # "Bend" means ONLY a coordinate system curvature through the element.
@@ -221,3 +227,6 @@ end
 @inline bend_pure_bmultipole(tm, bunch, bendparams, bmk, L)          = L ≈ 0 ? thin_bend_pure_bmultipole(tm, bunch, bendparams, bmk)          : thick_bend_pure_bmultipole(tm, bunch, bendparams, bmk, L)                   
 @inline bend_bmultipole(tm, bunch, bendparams, bmultipoleparams, L)  = L ≈ 0 ? thin_bend_bmultipole(tm, bunch, bendparams, bmultipoleparams)  : thick_bend_bmultipole(tm, bunch, bendparams, bmultipoleparams, L)                      
 
+# === Fringe fields === #
+@inline bend_fringe(tm, bunch, bendparams, bm1, L, upstream) = drift(tm, bunch, L)
+@inline bend_fringe(tm, bunch, bendparams, bm1, bm2, L, upstream) = drift(tm, bunch, L)
