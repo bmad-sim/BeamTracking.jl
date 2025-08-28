@@ -2,7 +2,7 @@ struct BmadStandard end
 
 module BmadStandardTracking
 using ..GTPSA, ..BeamTracking, ..StaticArrays, ..KernelAbstractions
-using ..BeamTracking: XI, PXI, YI, PYI, ZI, PZI, @makekernel, BunchView, quat_mul!
+using ..BeamTracking: XI, PXI, YI, PYI, ZI, PZI, @makekernel, Coords, quat_mul!
 const TRACKING_METHOD = BmadStandard
 
 
