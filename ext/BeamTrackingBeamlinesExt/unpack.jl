@@ -14,7 +14,7 @@ function _track!(
   bm = deval(ele.BMultipoleParams)
   pp = deval(ele.PatchParams)
   dp = deval(ele.ApertureParams)
-  rf = deval(ele.RFParams)
+  rf = isa BitsLineElement ? nothing : deval(ele.RFParams)
 
   # Function barrier
   universal!(i, coords, tm, bunch, L, ap, bp, bm, pp, dp, rf; kwargs...)
