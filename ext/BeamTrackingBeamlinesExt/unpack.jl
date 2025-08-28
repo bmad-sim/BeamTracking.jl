@@ -17,7 +17,7 @@ function _track!(
   rf = deval(ele.RFParams)
 
   # Function barrier
-  universal!(i, coords, tm, bunch, L, ap, bp, bm, pp, dp; kwargs...)
+  universal!(i, coords, tm, bunch, L, ap, bp, bm, pp, dp, rf; kwargs...)
 end
 
 # Step 2: Push particles through -----------------------------------------
