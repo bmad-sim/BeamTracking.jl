@@ -7,7 +7,7 @@ const TRACKING_METHOD = BmadStandard
 
 
 @makekernel fastgtpsa=true function bmad_cavity!(i, coords::Coords, V, wave_number, φ0, β0, gamsqr_0, tilde_m, p0c, L)
-  v = b.v
+  v = coords.v
   z = v[i, ZI]
   # ============= Kick - Drift - Kick scheme =============
   # First kick
@@ -42,9 +42,9 @@ end
 
 # Solenoid -- second order Magnus expansion
 @makekernel fastgtpsa=true function magnus_solenoid!(i, coords::Coords, Ks, β0, gamsqr_0, tilde_m, G, L)
-    v = b.v
+    v = coords.v
 
-    if !isnothing(b.q)
+    if !isnothing(coords.q)
         # Constants
         rel_p = 1 + v[i,PZI]
         γ = sqrt(1 + (rel_p / tilde_m)^2)
@@ -98,7 +98,7 @@ end
         # Quaternion update for spin
         ζ = sqrt(A^2 + B^2 + CC^2)
         sc = sincu(ζ)
-        quat_mul!(@SVector[-cos(ζ), A*sc, B*sc, CC*sc], @view b.q[i,:])
+        quat_mul!(@SVector[-cos(ζ), A*sc, B*sc, CC*sc], @view coords.q[i,:])
     end
 
     # Update coordinates
@@ -106,10 +106,10 @@ end
 end
 
 # SBend
-@makekernel fastgtpsa=true function magnus_sbend!(i, coords::Coords, g, K0, γ0, βγ0, G, L)
+@makekernel fastgtpsa=true function magnus_sbend!(i, coords::Coords, e1, e2, g, K0, w, w_inv, γ0, βγ0, G, L)
     
-    if !isnothing(b.q)
-        v = b.v
+    if !isnothing(coords.q)
+        v = coords.v
         rel_p = 1 + v[i,PZI]
         γ = sqrt(1 + (βγ0 * rel_p)^2)
         χ = 1 + G * γ
@@ -182,18 +182,17 @@ end
 
         ζ = sqrt(A^2 + B^2 + CC^2)
         sc = sincu(ζ)
-        quat_mul!(@SVector[-cos(ζ), A*sc, B*sc, CC*sc], @view b.q[i,:])
+        quat_mul!(@SVector[-cos(ζ), A*sc, B*sc, CC*sc], @view coords.q[i,:])
     end
 
     # Update coordinates
-    ExactTracking.exact_bend!(i, coords::Coords, g * L, g, K0, 1/βγ0, βγ0/γ0, L)
-end
+    ExactTracking.exact_bend!(i, coords::Coords, e1, e2, g * L, g, K0, w, w_inv, 1/βγ0, βγ0/γ0, L)end
 
 # Quadrupole
 @makekernel fastgtpsa=true function magnus_quadrupole!(i, coords::Coords, K1, βγ0, tilde_m, G, L)
-    v = b.v
+    v = coords.v
     rel_p = 1 + v[i,PZI]
-    if !isnothing(b.q)
+    if !isnothing(coords.q)
         γ = sqrt(1 + (βγ0 * rel_p)^2)
         χ = 1 + G * γ
         ξ = G * (γ - 1)
@@ -250,18 +249,18 @@ end
         # Quaternion update for spin
         ζ = sqrt(A^2 + B^2 + CC^2)
         sc = sincu(ζ)
-        quat_mul!(@SVector[-cos(ζ), A*sc, B*sc, CC*sc], @view b.q[i,:])
+        quat_mul!(@SVector[-cos(ζ), A*sc, B*sc, CC*sc], @view coords.q[i,:])
     end
 
     # Update coordinates
-    ExactTracking.quadrupole_matrix!(i, coords::Coords, K1, L)
+    IntegrationTracking.quadrupole_matrix!(i, coords::Coords, K1, L)
     # beta != beta_0 correction
     rel_e = sqrt(rel_p^2 + tilde_m^2)
     v[i,ZI] += L * ( tilde_m^2 * v[i,PZI] * (2 + v[i,PZI]) / ( rel_e * ( rel_p * sqrt(1 + tilde_m^2) + rel_e ) ) )
 end
 
 @makekernel fastgtpsa=true function magnus_combined_func!(i, coords::Coords, g, k0, k1, tilde_m, G, L)
-  v = b.v
+  v = coords.v
   rel_p  = 1 + v[i, PZI]
   inv_rel_p = 1 / rel_p
   kx  = k1 + g * k0
@@ -304,7 +303,7 @@ end
   py0 = v[i, PYI]
 
 
-  if !isnothing(b.q)
+  if !isnothing(coords.q)
     γ = sqrt(1 + (rel_p / tilde_m)^2)
     χ = 1 + G * γ
     ξ = G * (γ - 1)
@@ -606,7 +605,7 @@ end
 
     ζ = sqrt(A^2 + B^2 + CC^2)
     sc = sincu(ζ)
-    quat_mul!(@SVector[-cos(ζ), A*sc, B*sc, CC*sc], @view b.q[i,:])
+    quat_mul!(@SVector[-cos(ζ), A*sc, B*sc, CC*sc], @view coords.q[i,:])
   end
 
   x0 -= xc
@@ -632,7 +631,7 @@ end
 end
 
 @makekernel fastgtpsa=true function thin_snake!(i, coords::Coords, axis, angle)
-    quat_mul!(SVector{4}([cos(angle/2), sin(angle/2)*axis...]), @view b.q[i,:])
+    quat_mul!(SVector{4}([cos(angle/2), sin(angle/2)*axis...]), @view coords.q[i,:])
 end
 
 # Sextupole
@@ -642,11 +641,11 @@ end
   K2S = [0]
 
   # First kick of a kick-drift-kick split
-  ExactTracking.multipole_kick!(i, b, mm, K2N, K2S)
+  ExactTracking.multipole_kick!(i, coords, mm, K2N, K2S, -1)
 
   # ========== Magnus spin rotation ==========
-  if !isnothing(b.q)
-      v = b.v
+  if !isnothing(coords.q)
+      v = coords.v
       rel_p = 1 + v[i,PZI]
       γ = sqrt(1 + (rel_p / tilde_m)^2)
       χ = 1 + G * γ
@@ -698,14 +697,14 @@ end
         # Quaternion update
         ζ = sqrt(A^2 + B^2 + CC^2)
         sc = sincu(ζ)
-        quat_mul!(@SVector[-cos(ζ), A*sc, B*sc, CC*sc], @view b.q[i,:])
+        quat_mul!(@SVector[-cos(ζ), A*sc, B*sc, CC*sc], @view coords.q[i,:])
       end
   end
   # ========== End of Magnus spin rotation ==========
 
   # Drift and second kick of a kick-drift-kick split
-  ExactTracking.exact_drift!(   i, b, β0, gamsqr_0, tilde_m, L)
-  ExactTracking.multipole_kick!(i, b, mm, K2N, K2S)
+  ExactTracking.exact_drift!(   i, coords, β0, gamsqr_0, tilde_m, L)
+  ExactTracking.multipole_kick!(i, coords, mm, K2N, K2S, -1)
 end
 
 
@@ -716,9 +715,9 @@ end
   K3S = [K3S * L/2]
 
   # Kick-drift-kick split
-  ExactTracking.multipole_kick!(i, b, mm, K3N, K3S)
-  ExactTracking.exact_drift!(   i, b, β0, gamsqr_0, tilde_m, L)
-  ExactTracking.multipole_kick!(i, b, mm, K3N, K3S)
+  ExactTracking.multipole_kick!(i, coords, mm, K3N, K3S, -1)
+  ExactTracking.exact_drift!(   i, coords, β0, gamsqr_0, tilde_m, L)
+  ExactTracking.multipole_kick!(i, coords, mm, K3N, K3S, -1)
 end
 
 @makekernel fastgtpsa=true function hwang_edge!(i, coords::Coords, e, g, k0, k1, G, βγ0, upstream)
@@ -734,7 +733,7 @@ end
 
   s = 2 * upstream - 1
 
-  v = b.v
+  v = coords.v
   v1_2 = v[i, XI] * v[i, XI]
   v13  = v[i, XI] * v[i, YI]
   v3_2 = v[i, YI] * v[i, YI]
@@ -768,13 +767,13 @@ end
   v[i,  ZI] += dz
 
   # spin tracking should be symmetrized, and exit edge face e2 does not reproduce Bmad
-  if !isnothing(b.q)
+  if !isnothing(coords.q)
     rel_p = 1 + v[i, PZI]
     γ = sqrt(1 + (rel_p * βγ0)^2)
     B = k0 .* [-sin_e * v[i, YI], -tan_e * v[i, XI], cos_e * v[i, YI]]
     #B -= k1 * tan_e .* [v[i, XI] * v13, v[i, XI] * (v1_2 - v3_2), 0.0]
     B[3] *= s
-    quat_mul!(TBMT_quat(G, 0, 0, γ, 1, B, b.v, i), @view b.q[i,:])
+    quat_mul!(TBMT_quat(G, 0, 0, γ, 1, B, coords.v, i), @view coords.q[i,:])
   end
 end
 
