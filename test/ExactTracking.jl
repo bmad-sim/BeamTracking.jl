@@ -897,6 +897,7 @@ zf_mn4  = [ 0., 3.140908277834687e-8, -3.1503450227072763e-8, 3.140908186274627e
         tilde_m = mc2/p0c
         gamsqr_0 = 1 + 1/tilde_m^2
         beta_0 = 1/sqrt(1 + tilde_m^2)
+        winv = @SArray T[1 0 0; 0 1 0; 0 0 1]
         dt = T(4e-9)
         dx = T(1)
         dy = T(2)

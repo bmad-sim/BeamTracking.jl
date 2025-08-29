@@ -1,7 +1,7 @@
 module BeamTrackingBeamlinesExt
 using Beamlines, BeamTracking, GTPSA, StaticArrays, KernelAbstractions
 using Beamlines: isactive, deval, unsafe_getparams, o2i, BitsBeamline, BitsLineElement, isnullspecies
-using BeamTracking: get_N_particle, R_to_gamma, R_to_pc, runkernels!,
+using BeamTracking: get_N_particle, R_to_gamma, R_to_beta_gamma, R_to_pc, runkernels!,
                     @makekernel, Coords, KernelCall, KernelChain, push
 import BeamTracking: track!, C_LIGHT, chargeof, massof
 
@@ -122,6 +122,7 @@ include("scibmadstandard.jl")
 include("linear.jl")
 include("exact.jl")
 include("integration.jl")
+include("bmadstandard.jl")
 
 
 end
