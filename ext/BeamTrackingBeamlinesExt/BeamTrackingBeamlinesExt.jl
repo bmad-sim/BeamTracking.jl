@@ -116,12 +116,15 @@ function _track!(
 )
   error("Tracking method $tm is not defined!")
 end
+
 =#
+
+include("aperture.jl")
+include("alignment.jl")
 include("unpack.jl")
 include("scibmadstandard.jl")
 include("linear.jl")
 include("exact.jl")
 include("integration.jl")
-
 
 end

@@ -33,21 +33,41 @@ function universal!(
   apertureparams;
   kwargs...
 ) 
-  kc = KernelChain(Val{1}())
+  # Current KernelChain length is 5 because we have up to
+  # 2 aperture, 2 alignment, 1 body kernels
+  kc = KernelChain(Val{5}())
+
+  # Entrance aperture and alignment
   if isactive(alignmentparams)
-    if isactive(patchparams)
-      error("Tracking through a LineElement containing both PatchParams and AlignmentParams is undefined")
+    if isactive(apertureparams)
+      if apertureparams.aperture_shifts_with_body
+        kc = push(kc, @inline(alignment(tm, bunch, alignmentparams, bendparams, L, true)))
+        kc = push(kc, @inline(aperture(tm, bunch, apertureparams, true)))
+      else
+        kc = push(kc, @inline(aperture(tm, bunch, apertureparams, true)))
+        kc = push(kc, @inline(alignment(tm, bunch, alignmentparams, bendparams, L, true)))
+      end
+    else
+      kc = push(kc, @inline(alignment(tm, bunch, alignmentparams, bendparams, L, true)))
     end
-    kc = push(kc, @inline(misalign(tm, bunch, alignmentparams, true)))
+  elseif isactive(apertureparams)
+    kc = push(kc, @inline(aperture(tm, bunch, apertureparams, true)))
   end
 
-  if isactive(patchparams) 
-    # Patch
-    if isactive(bendparams) || isactive(bmultipoleparams)
-      error("Tracking through a LineElement containing both PatchParams and BendParams/BMultipoleParams not currently defined")
+  # Element fringe and body
+
+  if isactive(patchparams)    
+    if isactive(alignmentparams)
+      error("Tracking through a LineElement containing both PatchParams and AlignmentParams is undefined")
+    elseif isactive(bendparams)
+      error("Tracking through a LineElement containing both PatchParams and BendParams not currently defined")
+    elseif isactive(bmultipoleparams)
+      error("Tracking through a LineElement containing both PatchParams and BMultipoleParams not currently defined")
     else
+      # Pure patch
       kc = push(kc, @inline(pure_patch(tm, bunch, patchparams, L)))
     end
+
   elseif isactive(bendparams)
     # Bend
     if !isactive(bmultipoleparams) 
@@ -93,6 +113,7 @@ function universal!(
         end
       end
     end
+
   elseif isactive(bmultipoleparams)
     # BMultipole
     n_multipoles = get_n_multipoles(bmultipoleparams)
@@ -133,20 +154,35 @@ function universal!(
         kc = push(kc, @inline(bmultipole(tm, bunch, bmultipoleparams, L)))
       end
     end
-  elseif !(L ≈ 0)
+
+  elseif L != 0
     kc = push(kc, @inline(drift(tm, bunch, L)))
   end
-    
+
+  # Exit aperture and alignment
   if isactive(alignmentparams)
-    kc = push(kc, @inline(misalign(tm, bunch, alignmentparams, false)))
+    if isactive(apertureparams)
+      if apertureparams.aperture_shifts_with_body
+        kc = push(kc, @inline(aperture(tm, bunch, apertureparams, false)))
+        kc = push(kc, @inline(alignment(tm, bunch, alignmentparams, bendparams, L, false)))
+      else
+        kc = push(kc, @inline(alignment(tm, bunch, alignmentparams, bendparams, L, false)))
+        kc = push(kc, @inline(aperture(tm, bunch, apertureparams, false)))
+      end
+    else
+      kc = push(kc, @inline(alignment(tm, bunch, alignmentparams, bendparams, L, false)))
+    end
+  elseif isactive(apertureparams)
+    kc = push(kc, @inline(aperture(tm, bunch, apertureparams, false)))
   end
+
+  #
 
   runkernels!(i, coords, kc; kwargs...)
   return nothing
 end
 
 # === Coordinate system transformations === #
-@inline misalign(tm, bunch, alignmentparams, in) = error("Undefined for tracking method $tm")
 @inline pure_patch(tm, bunch, patchparams, L)    = error("Undefined for tracking method $tm")
 
 # === Straight Elements === #

@@ -32,8 +32,8 @@
       L = T(2)
       k1 = T(0.1) 
       tilt = T(pi/4)
-      w = ExactTracking.w_quaternion(0,0,-tilt)
-      w_inv = ExactTracking.w_inv_quaternion(0,0,-tilt)
+      w = rot_quaternion(0,0,-tilt)
+      w_inv = inv_rot_quaternion(0,0,-tilt)
       mm = SA[2]
       kn = SA[k1*cos(-2*tilt)]
       ks = SA[k1*sin(-2*tilt)]

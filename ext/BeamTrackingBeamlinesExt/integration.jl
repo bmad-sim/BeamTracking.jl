@@ -97,8 +97,8 @@ end
     kn, ks = get_strengths(bm1, L, R_ref)
     k0 = sqrt(kn^2 + ks^2)
     tilt = atan(ks, kn)
-    w = ExactTracking.w_quaternion(0,0,tilt)
-    w_inv = ExactTracking.w_inv_quaternion(0,0,tilt)
+    w = rot_quaternion(0,0,tilt)
+    w_inv = inv_rot_quaternion(0,0,tilt)
     params = (tilde_m, beta_0, BeamTracking.anom(bunch.species), 0, 0, 0, w, w_inv, k0, mm, kn, ks)
     return integration_launcher!(IntegrationTracking.bkb_multipole!, params, tm, L)
   end
@@ -111,8 +111,8 @@ end
   kn, ks = get_strengths(bm, L, R_ref)
   k0 = sqrt(kn[1]^2 + ks[1]^2)
   tilt = atan(ks[1], kn[1])
-  w = ExactTracking.w_quaternion(0,0,tilt)
-  w_inv = ExactTracking.w_inv_quaternion(0,0,tilt)
+  w = rot_quaternion(0,0,tilt)
+  w_inv = inv_rot_quaternion(0,0,tilt)
   params = (tilde_m, beta_0, BeamTracking.anom(bunch.species), 0, 0, 0, w, w_inv, k0, mm, kn, ks)
   return integration_launcher!(IntegrationTracking.bkb_multipole!, params, tm, L)
 end
@@ -127,8 +127,8 @@ end
     return thick_bdipole(DriftKick(order=tm.order, num_steps=tm.num_steps, ds_step=tm.ds_step), bunch, bm, L)
   end
   tilt = (atan(ks[2], kn[2]) / 2) * (mm[2] == 2)
-  w = ExactTracking.w_quaternion(0,0,tilt)
-  w_inv = ExactTracking.w_inv_quaternion(0,0,tilt)
+  w = rot_quaternion(0,0,tilt)
+  w_inv = inv_rot_quaternion(0,0,tilt)
   params = (beta_0, gamsqr_0, tilde_m, BeamTracking.anom(bunch.species), w, w_inv, k1, mm, kn, ks)
   return integration_launcher!(IntegrationTracking.mkm_quadrupole!, params, tm, L)
 end
@@ -151,8 +151,8 @@ end
     return thick_pure_bquadrupole(DriftKick(order=tm.order, num_steps=tm.num_steps, ds_step=tm.ds_step), bunch, bm, L)
   end
   tilt = atan(ks, kn) / 2
-  w = ExactTracking.w_quaternion(0,0,tilt)
-  w_inv = ExactTracking.w_inv_quaternion(0,0,tilt)
+  w = rot_quaternion(0,0,tilt)
+  w_inv = inv_rot_quaternion(0,0,tilt)
   params = (beta_0, gamsqr_0, tilde_m, BeamTracking.anom(bunch.species), w, w_inv, k1, mm, kn, ks)
   return integration_launcher!(IntegrationTracking.mkm_quadrupole!, params, tm, L)
 end
@@ -170,8 +170,8 @@ end
     return thick_bquadrupole(DriftKick(order=tm.order, num_steps=tm.num_steps, ds_step=tm.ds_step), bunch, bm, L)
   end
   tilt = atan(ks[1], kn[1]) / 2
-  w = ExactTracking.w_quaternion(0,0,tilt)
-  w_inv = ExactTracking.w_inv_quaternion(0,0,tilt)
+  w = rot_quaternion(0,0,tilt)
+  w_inv = inv_rot_quaternion(0,0,tilt)
   params = (beta_0, gamsqr_0, tilde_m, BeamTracking.anom(bunch.species), w, w_inv, k1, mm, kn, ks)
   return integration_launcher!(IntegrationTracking.mkm_quadrupole!, params, tm, L)
 end
@@ -203,8 +203,8 @@ end
     mm = bm1.order
     Kn0, Ks0 = get_strengths(bm1, L, R_ref)
     Ks0 ≈ 0 || error("A skew dipole field cannot yet be used in a bend")
-    w = ExactTracking.w_quaternion(0,0,tilt)
-    w_inv = ExactTracking.w_inv_quaternion(0,0,tilt)
+    w = rot_quaternion(0,0,tilt)
+    w_inv = inv_rot_quaternion(0,0,tilt)
     params = (tilde_m, beta_0, BeamTracking.anom(bunch.species), e1, e2, g, w, w_inv, Kn0, mm, Kn0, Ks0)
     return integration_launcher!(IntegrationTracking.bkb_multipole!, params, tm, L)
   end

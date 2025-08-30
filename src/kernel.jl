@@ -13,6 +13,8 @@ end
 # Alias
 const KernelChain = Tuple{Vararg{<:KernelCall}}
 
+push(kc::KernelChain, kcall::Nothing) = kc
+
 @unroll function push(kc::KernelChain, kcall)
   i = 0
   @unroll for kcalli in kc

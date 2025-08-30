@@ -1,6 +1,6 @@
 @inline function pure_patch(tm::Exact, bunch, patchparams, L) 
   tilde_m, gamsqr_0, beta_0 = ExactTracking.drift_params(bunch.species, bunch.R_ref)
-  winv = ExactTracking.w_inv_quaternion(patchparams.dx_rot, patchparams.dy_rot, patchparams.dz_rot)
+  winv = inv_rot_quaternion(patchparams.dx_rot, patchparams.dy_rot, patchparams.dz_rot)
   return KernelCall(ExactTracking.patch!, (beta_0, gamsqr_0, tilde_m, patchparams.dt, patchparams.dx, patchparams.dy, patchparams.dz, winv, L))
 end
 
@@ -20,8 +20,8 @@ end
   tilt = bendparams.tilt_ref
   e1 = bendparams.e1
   e2 = bendparams.e2
-  w = ExactTracking.w_quaternion(0,0,-tilt)
-  w_inv = ExactTracking.w_inv_quaternion(0,0,-tilt)
+  w = rot_quaternion(0,0,-tilt)
+  w_inv = inv_rot_quaternion(0,0,-tilt)
   theta = g * L
   Kn0, Ks0 = get_strengths(bm1, L, bunch.R_ref)
   Ks0 ≈ 0 || error("A skew dipole field cannot be used in an exact bend")
@@ -33,8 +33,8 @@ end
   Kn0, Ks0 = get_strengths(bm1, L, bunch.R_ref)
   Kn = sqrt(Kn0^2 + Ks0^2)
   tilt = atan(Ks0, Kn0)
-  w = ExactTracking.w_quaternion(0,0,tilt)
-  w_inv = ExactTracking.w_inv_quaternion(0,0,tilt)
+  w = rot_quaternion(0,0,tilt)
+  w_inv = inv_rot_quaternion(0,0,tilt)
   tilde_m, _, beta_0 = ExactTracking.drift_params(bunch.species, bunch.R_ref)
   return KernelCall(ExactTracking.exact_bend!, (0, 0, 0, 0, Kn, w, w_inv, tilde_m, beta_0, L))
 end
@@ -44,8 +44,8 @@ end
   tilt = bendparams.tilt_ref
   e1 = bendparams.e1
   e2 = bendparams.e2
-  w = ExactTracking.w_quaternion(0,0,-tilt)
-  w_inv = ExactTracking.w_inv_quaternion(0,0,-tilt)
+  w = rot_quaternion(0,0,-tilt)
+  w_inv = inv_rot_quaternion(0,0,-tilt)
   theta = g * L
   tilde_m, _, beta_0 = ExactTracking.drift_params(bunch.species, bunch.R_ref)
   return KernelCall(ExactTracking.exact_curved_drift!, (e1, e2, theta, g, w, w_inv, BeamTracking.anom(bunch.species), tilde_m, beta_0, L))

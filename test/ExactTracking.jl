@@ -860,16 +860,16 @@ zf_mn4  = [ 0., 3.140908277834687e-8, -3.1503450227072763e-8, 3.140908186274627e
            cx*cz*sy - cy*sx*sz,
            -cz*sx*sy + cx*cy*sz]'
 
-    # Test w_quaternion function
-    @test ExactTracking.w_quaternion(dx_rot, dy_rot, dz_rot) ≈ W
+    # Test rot_quaternion function
+    @test rot_quaternion(dx_rot, dy_rot, dz_rot) ≈ W
 
     Winv = SA[cx*cy*cz + sx*sy*sz,
               -cy*cz*sx - cx*sy*sz,
               -cx*cz*sy + cy*sx*sz,
               cz*sx*sy - cx*cy*sz]'
 
-    # Test w_inv_quaternion function
-    @test ExactTracking.w_inv_quaternion(dx_rot, dy_rot, dz_rot) ≈ Winv
+    # Test inv_rot_quaternion function
+    @test inv_rot_quaternion(dx_rot, dy_rot, dz_rot) ≈ Winv
   end
 
   @testset "Kernels" begin
@@ -883,7 +883,7 @@ zf_mn4  = [ 0., 3.140908277834687e-8, -3.1503450227072763e-8, 3.140908186274627e
         dx = T(2)
         dy = T(3)
         dz = T(4)
-        winv = ExactTracking.w_inv_quaternion(T(-5),T(6),T(7))
+        winv = ExactTracking.inv_rot_quaternion(T(-5),T(6),T(7))
         w31 = 2*(winv[QX]*winv[QZ] - winv[QY]*winv[Q0])
         w32 = 2*(winv[QY]*winv[QZ] + winv[QX]*winv[Q0])
         w33 = 1 - 2*(winv[QX]^2 + winv[QY]^2)

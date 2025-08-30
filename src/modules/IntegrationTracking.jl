@@ -150,9 +150,9 @@ L: element length
 
   ExactTracking.multipole_kick!(i, coords, mm, knl, ksl, 2)
   quadrupole_kick!(             i, coords, beta_0, gamsqr_0, tilde_m, L / 2)
-  ExactTracking.patch_rotation!(i, coords, w, 0)
+  BeamTracking.coord_rotation!(i, coords, w, 0)
   quadrupole_matrix!(           i, coords, k1, L)
-  ExactTracking.patch_rotation!(i, coords, w_inv, 0)
+  BeamTracking.coord_rotation!(i, coords, w_inv, 0)
   quadrupole_kick!(             i, coords, beta_0, gamsqr_0, tilde_m, L / 2)
   ExactTracking.multipole_kick!(i, coords, mm, knl, ksl, 2)
 
@@ -291,7 +291,7 @@ Arguments
   ksl = ks * L / 2
 
   ExactTracking.exact_bend!(      i, coords, e1, e2, g*L/2, g, k0, w, w_inv, tilde_m, beta_0, L / 2)
-  ExactTracking.patch_rotation!(  i, coords, w, 0)
+  BeamTracking.coord_rotation!(  i, coords, w, 0)
 
   if isnothing(coords.q)
     ExactTracking.multipole_kick!(i, coords, mm, knl * 2, ksl * 2, -1)
@@ -301,7 +301,7 @@ Arguments
     ExactTracking.multipole_kick!(i, coords, mm, knl, ksl, 1)
   end
 
-  ExactTracking.patch_rotation!(  i, coords, w_inv, 0)
+  BeamTracking.coord_rotation!(  i, coords, w_inv, 0)
   ExactTracking.exact_bend!(      i, coords, e1, e2, g*L/2, g, k0, w, w_inv, tilde_m, beta_0, L / 2)
 end 
 
