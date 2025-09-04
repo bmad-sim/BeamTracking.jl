@@ -1,17 +1,24 @@
+"""
+    BeamTracking
+
+A high-performance particle beam tracking package for accelerator physics simulations.
+Currently provides both linear, exact, field tracking, and Runge-Kutta tracking methods.
+"""
 module BeamTracking
+
 using GTPSA,
-      ReferenceFrameRotations,
-      StaticArrays, 
-      SIMD,
-      SIMDMathFunctions,
-      VectorizationBase,
-      Unrolled,
-      MacroTools,
-      Adapt,
-      Accessors
+  ReferenceFrameRotations,
+  StaticArrays,
+  SIMD,
+  VectorizationBase,
+  Unrolled,
+  MacroTools,
+  Adapt,
+  Accessors,
+  SIMDMathFunctions
 
 using KernelAbstractions
-      
+
 import GTPSA: sincu, sinhcu, normTPS
 import Base: setproperty!
 import SIMD: Vec
@@ -24,6 +31,8 @@ export Species
 export Bunch, State, ParticleView, sincu, sinhcu, sincuc, expq, quat_mul, atan2
 export LinearTracking, Linear
 export ExactTracking, Exact
+export FieldTracking, Field
+export RungeKuttaTracking, RungeKutta
 export IntegrationTracking, SplitIntegration, DriftKick, BendKick, SolenoidKick, MatrixKick
 export track!
 
