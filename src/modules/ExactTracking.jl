@@ -283,7 +283,7 @@ end # function multipole_kick!()
 # ===============  E X A C T   S E C T O R   B E N D  ===============
 #
 """
-    exact_sbend!(i, b, β0, Bρ0, hc, b0, e1, e2, Larc)
+    exact_sbend!(i, b, β0, Bρ0, hc, b1, e1, e2, Larc)
 This function implements exact symplectic tracking through a
 sector bend, derived using the Hamiltonian (25.9) given in the
 BMad manual. As a consequence of using that Hamiltonian, the
@@ -293,40 +293,49 @@ to carry both reference and design values.
 
 ## Arguments
 - beta_0: β_0 = (βγ)_0 / √(γ_0^2)
-- brho_0: Bρ_0,  reference magnetic rigidity
-- hc:     coordinate frame curvature
-- b0:     magnet field strength
+- brho_0: Bρ_0,  reference magnetic rigidity, in T·m
+- hc:     coordinate frame curvature, in m^{-1}
+- b1:     actual magnet field strength, in T
 - e1:     entrance face angle (+ve angle <=> toward rbend)
-- e2:     exit face angle (+ve angle <=> toward rbend)
+- e2:     exit face angle     (+ve angle <=> toward rbend)
 - Larc:   element arc length, in meters
 """
-@makekernel fastgtpsa=true function exact_sbend!(i, b::BunchView, beta_0, brho_0, hc, b0, e1, e2, Lr)
+@makekernel fastgtpsa=true function exact_sbend!(i, b::BunchView, beta_0, brho_0, hc, b1, e1, e2, Larc)
   v = b.v
 
-  rho = brho0 / b0
-  ang = hc * Lr
+  rho = brho0 / b1
+  ang = hc * Larc
   c1 = cos(ang)
   s1 = sin(ang)
 
-  P_s     = sqrt((1 + v[i,PZI])^2 - (v[i,PXI]^2 + v[i,PYI]^2))  # P_s
-  P_alpha = sqrt((1 + v[i,PZI])^2 - v[i,PYI]^2)                 # P_α
-  s1phx = (1 + hc * v[i,XI]) / (hc * rho)                     # scaled (1 + h x)
-  Pxpph = P_s - s1phx                                 # Px'/h
-  ang_eff = ang + asin(v[i,PXI] / P_alpha) - asin((v[i,PXI] * c1 + Pxpph * s1) / P_alpha)  # α + φ1 - φ2
+  P_alpha = sqrt((1 + v[i,PZI])^2 - v[i,PYI]^2)  # P_α
+  P_s     = sqrt(P_alpha^2 - v[i,PXI]^2)         # P_s
+  s1phx = (1 + hc * v[i,XI]) / (hc * rho)        # scaled (1 + h x)
+  Pxpph = P_s - s1phx                            # Px'/h
+  d_ang = asin(v[i,PXI] / P_alpha) - asin((v[i,PXI] * c1 + Pxpph * s1) / P_alpha)  # φ1 - φ2
+  ang_eff = ang + d_ang
 
   # high-precision computation of x-final:
-  v[i,XI] = (v[i,XI] * c1 - Lr * sin(ang / 2) * sincu(ang / 2)
+  v[i,XI] = (v[i,XI] * c1 - Larc * sin(ang / 2) * sincu(ang / 2)
              + rho * (v[i,PXI] + ((v[i,PXI]^2 + (P_s + Pxpph) * s1phx) * s1 - 2v[i,PXI] * Pxpph * c1)
-                             / (sqrt(P_alpha^2 - (v[i,PXI] * c1 + Pxpph * s1)^2) + P_s * c1)) * s1)
+                                 / (sqrt(P_alpha^2 - (v[i,PXI] * c1 + Pxpph * s1)^2) + P_s * c1)) * s1)
   v[i,PXI] = v[i,PXI] * c1 + Pxpph * s1
-  v[i,YI] = v[i,YI] + rho * v.py * ang_eff
+  v[i,YI] = v[i,YI] + rho * v[i,PYI] * ang_eff
 
-  # high-precision computation of z-final
+  ## high-precision computation of z-final
   v[i,ZI] = (v[i,ZI] - rho * (1 + v[i,PZI]) * ang_eff
-               + (1 + v[i,PZI]) * Lr / (beta_0 * sqrt(1 / beta_0^2 + (2 + v[i,PZI]) * v[i,PZI])))
+               + (1 + v[i,PZI]) * Larc / (beta_0 * sqrt(1 / beta_0^2 + (2 + v[i,PZI]) * v[i,PZI])))
 end # function exact_sbend!()
 
 
+#
+# ===============  E X A C T   S O L E N O I D  ===============
+#
+"""
+    exact_solenoid!(i, b, ks, β0, γsqr_0, tilde_m, L)
+
+
+"""
 @makekernel fastgtpsa=true function exact_solenoid!(i, b::BunchView, ks, beta_0, gamsqr_0, tilde_m, L)
   v = b.v
 
