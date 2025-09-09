@@ -96,7 +96,7 @@ end
     mm = bm1.order
     kn, ks = get_strengths(bm1, L, R_ref)
     k0 = sqrt(kn^2 + ks^2)
-    tilt = atan(ks, kn)
+    tilt = atan2(ks, kn)
     w = rot_quaternion(0,0,tilt)
     w_inv = inv_rot_quaternion(0,0,tilt)
     params = (tilde_m, beta_0, BeamTracking.anom(bunch.species), 0, 0, 0, w, w_inv, k0, mm, kn, ks)
@@ -110,7 +110,7 @@ end
   mm = bm.order
   kn, ks = get_strengths(bm, L, R_ref)
   k0 = sqrt(kn[1]^2 + ks[1]^2)
-  tilt = atan(ks[1], kn[1])
+  tilt = atan2(ks[1], kn[1])
   w = rot_quaternion(0,0,tilt)
   w_inv = inv_rot_quaternion(0,0,tilt)
   params = (tilde_m, beta_0, BeamTracking.anom(bunch.species), 0, 0, 0, w, w_inv, k0, mm, kn, ks)
@@ -126,7 +126,7 @@ end
   if k1 == 0
     return thick_bdipole(DriftKick(order=tm.order, num_steps=tm.num_steps, ds_step=tm.ds_step), bunch, bm, L)
   end
-  tilt = (atan(ks[2], kn[2]) / 2) * (mm[2] == 2)
+  tilt = (atan2(ks[2], kn[2]) / 2) * (mm[2] == 2)
   w = rot_quaternion(0,0,tilt)
   w_inv = inv_rot_quaternion(0,0,tilt)
   params = (beta_0, gamsqr_0, tilde_m, BeamTracking.anom(bunch.species), w, w_inv, k1, mm, kn, ks)
@@ -150,7 +150,7 @@ end
   if k1 == 0
     return thick_pure_bquadrupole(DriftKick(order=tm.order, num_steps=tm.num_steps, ds_step=tm.ds_step), bunch, bm, L)
   end
-  tilt = atan(ks, kn) / 2
+  tilt = atan2(ks, kn) / 2
   w = rot_quaternion(0,0,tilt)
   w_inv = inv_rot_quaternion(0,0,tilt)
   params = (beta_0, gamsqr_0, tilde_m, BeamTracking.anom(bunch.species), w, w_inv, k1, mm, kn, ks)
@@ -169,7 +169,7 @@ end
   if k1 == 0
     return thick_bquadrupole(DriftKick(order=tm.order, num_steps=tm.num_steps, ds_step=tm.ds_step), bunch, bm, L)
   end
-  tilt = atan(ks[1], kn[1]) / 2
+  tilt = atan2(ks[1], kn[1]) / 2
   w = rot_quaternion(0,0,tilt)
   w_inv = inv_rot_quaternion(0,0,tilt)
   params = (beta_0, gamsqr_0, tilde_m, BeamTracking.anom(bunch.species), w, w_inv, k1, mm, kn, ks)

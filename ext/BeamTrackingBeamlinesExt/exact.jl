@@ -32,7 +32,7 @@ end
 @inline function thick_pure_bdipole(tm::Exact, bunch, bm1, L)
   Kn0, Ks0 = get_strengths(bm1, L, bunch.R_ref)
   Kn = sqrt(Kn0^2 + Ks0^2)
-  tilt = atan(Ks0, Kn0)
+  tilt = atan2(Ks0, Kn0)
   w = rot_quaternion(0,0,tilt)
   w_inv = inv_rot_quaternion(0,0,tilt)
   tilde_m, _, beta_0 = ExactTracking.drift_params(bunch.species, bunch.R_ref)

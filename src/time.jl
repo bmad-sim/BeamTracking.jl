@@ -43,6 +43,12 @@ for op in (:+,:-,:*,:/,:^)
   end
 end
 
+function Base.literal_pow(::typeof(^), da::TimeDependentParam, ::Val{N}) where {N} 
+  let fa = da.f
+    return TimeDependentParam((t)->Base.literal_pow(^, fa(t), Val{N}()))
+  end
+end
+
 for t = (:+, :-, :sqrt, :exp, :log, :sin, :cos, :tan, :cot, :sinh, :cosh, :tanh, :inv,
   :coth, :asin, :acos, :atan, :acot, :asinh, :acosh, :atanh, :acoth, :sinc, :csc, 
   :csch, :acsc, :acsch, :sec, :sech, :asec, :asech, :conj, :log10, :isnan)
@@ -51,7 +57,7 @@ for t = (:+, :-, :sqrt, :exp, :log, :sin, :cos, :tan, :cot, :sinh, :cosh, :tanh,
   end
 end
 
-Base.atan(d1::TimeDependentParam, d2::TimeDependentParam) = (let f1 = d1.f, f2 = d2.f; return TimeDependentParam((t)->atan(f1(t),f2(t))); end)
+atan2(d1::TimeDependentParam, d2::TimeDependentParam) = (let f1 = d1.f, f2 = d2.f; return TimeDependentParam((t)->atan2(f1(t),f2(t))); end)
 
 for t = (:unit, :sincu, :sinhc, :sinhcu, :asinc, :asincu, :asinhc, :asinhcu, :erf, 
          :erfc, :erfcx, :erfi, :wf, :rect)
