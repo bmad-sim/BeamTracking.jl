@@ -8,33 +8,42 @@ blank_kernel!(args...) = nothing
 @kwdef struct KernelCall{K,A}
   kernel::K = blank_kernel!
   args::A   = ()
+  function KernelCall(kernel, args)
+    _args = map(t->time_lower(t), args)
+    new{typeof(kernel),typeof(_args)}(kernel, _args)
+  end 
+end
+
+# Store the state of the reference coordinate system
+# Needed for time-dependent parameters
+struct RefState{T,U}
+  t::T          # Reference time
+  beta_gamma::U # Reference energy
 end
 
 # Alias
-const KernelChain = Tuple{Vararg{<:KernelCall}}
+struct KernelChain{C<:Tuple{Vararg{<:KernelCall}}, S<:Union{Nothing,RefState}}
+  chain::C  # The tuple of KernelCalls
+  ref::S    # An optional RefState for the initial time-dependent parameters
+  KernelChain(chain, ref=nothing) = new{typeof(chain), typeof(ref)}(chain, ref)
+end
 
-@unroll function push(kc::KernelChain, kcall)
+KernelChain(::Val{N}, ref=nothing) where {N} = KernelChain(ntuple(t->KernelCall(), Val{N}()), ref)
+
+push(kc::KernelChain, kcall::Nothing) = kc
+
+push(kc::KernelChain, kcall) = @reset kc.chain = _push(kc.chain, kcall)
+
+@unroll function _push(chain, kcall)
   i = 0
-  @unroll for kcalli in kc
+  @unroll for kcalli in chain
     i += 1
     if kcalli.kernel == blank_kernel!
-      return @reset kc[i] = kcall
+      return @reset chain[i] = kcall
     end
   end
   error("Unable to push KernelCall to kernel chain: kernel chain is full")
 end
-
-KernelChain(::Val{N}) where {N} = ntuple(t->KernelCall(), Val{N}())
-KernelChain(N::Integer) = ntuple(t->KernelCall(), Val{N}())
-
-@unroll function check_args(kc::KernelChain)
-  @unroll for kcalli in kc
-    check_args(kcalli)
-  end
-  return true
-end
-
-check_args(kcalli) = true
 
 # KA does not like Vararg
 @kernel function generic_kernel!(coords::Coords, @Const(kc::KernelChain))
@@ -42,11 +51,25 @@ check_args(kcalli) = true
   @inline _generic_kernel!(i, coords, kc)
 end
 
-@unroll function _generic_kernel!(i, coords::Coords, kc::KernelChain)
-  @unroll for kcall in kc
-    (kcall.kernel)(i, coords, kcall.args...)
+_generic_kernel!(i, coords, kc) = __generic_kernel!(i, coords, kc.chain, kc.ref)
+
+@unroll function __generic_kernel!(i, coords::Coords, chain, ref)
+  @unroll for kcall in chain
+    args = process_args(i, coords, kcall.args, ref)
+    (kcall.kernel)(i, coords, args...)
   end
   return nothing
+end
+
+function process_args(i, coords, args, ref)
+  if !isnothing(ref) && static_timecheck(args) 
+    let t = compute_time(coords.v[i,ZI], coords.v[i,PZI], ref)
+      new_args = map(arg->teval(arg, t), args)
+      return map(arg->teval(arg, t), args)
+    end
+  else
+    return args
+  end
 end
 
 # Generic function to launch a kernel on the bunch coordinates matrix
@@ -57,7 +80,7 @@ end
   kc::KernelChain;
   groupsize::Union{Nothing,Integer}=nothing, #backend isa CPU ? floor(Int,REGISTER_SIZE/sizeof(eltype(v))) : 256 
   multithread_threshold::Integer=Threads.nthreads() > 1 ? 1750*Threads.nthreads() : typemax(Int),
-  use_KA::Bool=true, #!(get_backend(coords.v) isa CPU && isnothing(groupsize)),
+  use_KA::Bool=!(get_backend(coords.v) isa CPU && isnothing(groupsize)),
   use_explicit_SIMD::Bool=!use_KA # Default to use explicit SIMD on CPU
 ) where {V}
   v = coords.v
@@ -141,7 +164,7 @@ function check_kwargs(mac, kwargs...)
 end
 
 # Also allow launch! on single KernelCalls
-@inline launch!(coords::Coords, kcall::KernelCall; kwargs...) = launch!(coords, (kcall,); kwargs...)
+@inline launch!(coords::Coords, kcall::KernelCall; kwargs...) = launch!(coords, KernelChain((kcall,)); kwargs...)
 
 macro makekernel(args...)
   kwargs = args[1:length(args)-1]

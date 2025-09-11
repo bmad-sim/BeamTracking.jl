@@ -24,6 +24,13 @@ struct Coords{S,V,Q}
   state::S # Array of particle states
   v::V     # Matrix of particle coordinates
   q::Q     # Matrix of particle quaternions if spin else nothing 
+  function Coords(state, v, q)
+    if !isnothing(q) && eltype(v) != eltype(q)
+      error("Cannot initialize Coords with orbital coordinates of type $(eltype(v))
+             and quaternion coordinates of type $(typeof(q)).")
+    end
+    return new{typeof(state),typeof(v),typeof(q)}(state, v, q)
+  end
 end
 
 mutable struct Bunch{B,C<:Coords}

@@ -173,6 +173,157 @@ function quat_mul(q1, q20, q2x, q2y, q2z)
   return (a3, b3, c3, d3)
 end
 
+#
+#= 
+This function should not be used because it is allocating
+
+"""
+    function quat_rotate!(r, q)
+
+Rotates vector `r` using quaternion `q`.
+"""
+@inline function quat_rotate!(r, q)
+
+q0_inv = -[q[QX]*r[1] + q[QY]*r[2] + q[QZ]*r[3]]
+
+r = SA[q[Q0]*r[1] + q[QY]*r[3] - q[QZ]*r[2],
+       q[Q0]*r[2] + q[QZ]*r[1] - q[QX]*r[3],
+       q[Q0]*r[3] + q[QX]*r[2] - q[QY]*r[1]]
+
+r = SA[q[Q0]*r[1] + q[QY]*r[3] - q[QZ]*r[2] - q0_inv*q[QX],
+       q[Q0]*r[2] + q[QZ]*r[1] - q[QX]*r[3] - q0_inv*q[QY],
+       q[Q0]*r[3] + q[QX]*r[2] - q[QY]*r[1] - q0_inv*q[QZ]] / (q' * q)
+end
+=#
+
+# Rotation matrix
+
+"""
+  rot_quaternion(x_rot, y_rot, z_rot)
+
+Constructs a rotation quaternion based on the given Bryan-Tait angles.
+
+Bmad/SciBmad follows the MAD convention of applying z, x, y rotations in that order.
+
+The inverse quaternion reverses the order of operations and their signs.
+
+
+Arguments:
+- `x_rot::Number`: Rotation angle around the x-axis.
+- `y_rot::Number`: Rotation angle around the y-axis.
+- `z_rot::Number`: Rotation angle around the z-axis.
+
+"""
+function rot_quaternion(x_rot, y_rot, z_rot)
+  qz = SA[cos(z_rot/2), 0, 0, sin(z_rot/2)]
+  qx = SA[cos(x_rot/2), sin(x_rot/2), 0, 0]
+  qy = SA[cos(y_rot/2), 0, sin(y_rot/2), 0]
+  q = quat_mul(qx, qz[Q0], qz[QX], qz[QY], qz[QZ])
+  q = quat_mul(qy, q[Q0], q[QX], q[QY], q[QZ])
+  return SA[q[Q0], q[QX], q[QY], q[QZ]]
+end
+
+# Inverse rotation quaternion
+function inv_rot_quaternion(x_rot, y_rot, z_rot)
+  qz = SA[cos(z_rot/2), 0, 0, -sin(z_rot/2)]
+  qx = SA[cos(x_rot/2), -sin(x_rot/2), 0, 0]
+  qy = SA[cos(y_rot/2), 0, -sin(y_rot/2), 0]
+  q = quat_mul(qx, qy[Q0], qy[QX], qy[QY], qy[QZ])
+  q = quat_mul(qz, q[Q0], q[QX], q[QY], q[QZ])
+  return SA[q[Q0], q[QX], q[QY], q[QZ]]
+end
+
+# Particle z, pz to time
+# Evaluate time-dependent arguments
+# we need to get the particle time, for that we need particle's velocity
+# We have pz = dP/P0 = (P-P0)/P0 = P/P0-1 = (gamma*beta)/(gamma0*beta0)-1
+# so pz + 1 = (gamma*beta)/(gamma0*beta0) 
+# And then
+# (pz + 1)*beta_0*gamma_0 = gamma*beta = beta/sqrt(1-beta^2)
+# [(pz + 1)*beta_0*gamma_0]^2*(1-beta^2) = beta^2
+# [(pz + 1)*beta_0*gamma_0]^2 = beta^2*(1+[(pz + 1)*beta_0*gamma_0]^2)
+# So
+# beta = (pz + 1)*beta_0*gamma_0/sqrt(1+[(pz + 1)*beta_0*gamma_0]^2)
+# 
+# Therefore, we should pass to the kernel beta_0*gamma_0 and t_ref to get beta
+function compute_time(z, pz, ref)
+  @FastGTPSA begin 
+    K = (pz + 1)*ref.beta_gamma
+    v = K/sqrt(1 + K*K)*C_LIGHT
+    t = -z/v + ref.t
+  end
+  return t
+end
+
+
+"""
+This function computes J_0(sqrt(x)) and J_1(sqrt(x))/sqrt(x), which are 
+necessary for tracking through a cylindrical pillbox cavity.
+"""
+@inline function bessel01_RF(x)
+  threshold = 2.9e-7 # sqrt(64*eps(Float64))
+  sq = sqrt(x)
+  b0_out = besselj(0, sq)
+  b1 = besselj(1, sq)
+  b1 = b1/sq
+  b1_out = ifelse(x > threshold, b1, 1/2-x/16)
+  return b0_out, b1_out
+end
+
+
+"""
+This function computes J_0(sqrt(x)) and J_1(sqrt(x))/sqrt(x), which are 
+necessary for tracking through a cylindrical pillbox cavity.
+"""
+@inline function bessel01_RF(x::Vec{N, T}) where {N, T}
+  threshold = 2.9e-7 # sqrt(64*eps(Float64))
+  sq = sqrt(x)
+  b0_out = SIMDMathFunctions.vmap(besselj0, sq)
+  b1 = SIMDMathFunctions.vmap(besselj1, sq)
+  b1 = b1/sq
+  b1_out = vifelse(x > threshold, b1, 1/2-x/16)
+  return b0_out, b1_out
+end
+
+
+"""
+This function computes J_0(sqrt(x)) and J_1(sqrt(x))/sqrt(x), which are 
+necessary for tracking through a cylindrical pillbox cavity.
+"""
+function bessel01_RF(x::TPS{T}) where {T}
+  ε = eps(T)
+  N_max = 100
+  N = 1
+  conv0 = false
+  conv1 = false
+  y = one(x)
+  prev0 = one(x)
+  prev1 = one(x)
+  result0 = one(x)
+  result1 = one(x)/2
+  @FastGTPSA begin
+    while !(conv0 && conv1) && N < N_max
+      y = -y*x/(4*N*N)
+      result0 = result0 + y
+      result1 = result1 + y/(2*(N + 1))
+      N += 1
+      if normTPS(result0 - prev0) < ε
+        conv0 = true
+      end
+      if normTPS(result1 - prev1) < ε
+        conv1 = true
+      end
+      prev0 = result0
+      prev1 = result1
+    end
+  end
+  if N == N_max
+    @warn "bessel01_RF convergence not reached in $N_max iterations"
+  end
+  return result0, result1
+end
+
+
 # Particle energy conversions =============================================================
 R_to_E(species::Species, R) = @FastGTPSA sqrt((R*C_LIGHT*chargeof(species))^2 + massof(species)^2)
 E_to_R(species::Species, E) = @FastGTPSA massof(species)*sinh(acosh(E/massof(species)))/C_LIGHT/chargeof(species) 
@@ -180,7 +331,9 @@ pc_to_R(species::Species, pc) = @FastGTPSA pc/C_LIGHT/chargeof(species)
 
 R_to_gamma(species::Species, R) = @FastGTPSA sqrt((R*C_LIGHT/massof(species))^2+1)
 R_to_pc(species::Species, R) = @FastGTPSA R*chargeof(species)*C_LIGHT
-R_to_beta_gamma(species::Species, R_ref) = @FastGTPSA R_ref*chargeof(species)*C_LIGHT/massof(species)
+R_to_beta_gamma(species::Species, R) = @FastGTPSA R*chargeof(species)*C_LIGHT/massof(species)
+R_to_v(species::Species, R) = @FastGTPSA chargeof(species)*C_LIGHT / sqrt(1+(massof(species)/(R*C_LIGHT))^2)
+beta_gamma_to_v(beta_gamma) = @FastGTPSA C_LIGHT*beta_gamma/sqrt(1+beta_gamma^2)
 
 # Fake APC because APC is not working for now :(
 function anom(species::Species) 

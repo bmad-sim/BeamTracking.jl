@@ -1,4 +1,4 @@
-using Beamlines
+using BeamTracking, Beamlines
 
 @eles begin
 IP6__1 =  Marker()
@@ -1661,57 +1661,57 @@ HQDSS_10__2 =  Quadrupole( L = 0.6, Kn1 = -0.2091039051)
 D000036 =  Drift( L = 6.11312)
 HQFLSS_10__1 =  Quadrupole( L = 1.2, Kn1 = 0.1407178134)
 D000007__7 =  Drift( L = 0.3)
-RF0__1 =  RFCavity( L = 4.01667) #, VOLTAGE = 3.3210942126011E6, RF_FREQUENCY = 5.9114268014977E8
+RF0__1 =  RFCavity( L = 4.01667, voltage=-3.3210942126011E6, rf_frequency = 5.9114268014977E8, tracking_method = SplitIntegration(num_steps = 10))
 D000007__8 =  Drift( L = 0.3)
-RF0__2 =  RFCavity( L = 4.01667) #, VOLTAGE = 3.3210942126011E6, RF_FREQUENCY = 5.9114268014977E8
+RF0__2 =  RFCavity( L = 4.01667, voltage=-3.3210942126011E6, rf_frequency = 5.9114268014977E8, tracking_method = SplitIntegration(num_steps = 10))
 D000007__9 =  Drift( L = 0.3)
 HQDLSS_10__1 =  Quadrupole( L = 1.2, Kn1 = -0.1176261853,)
 D000007__10 =  Drift( L = 0.3)
-RF0__3 =  RFCavity( L = 4.01667) #, VOLTAGE = 3.3210942126011E6, RF_FREQUENCY = 5.9114268014977E8
+RF0__3 =  RFCavity( L = 4.01667, voltage=-3.3210942126011E6, rf_frequency = 5.9114268014977E8, tracking_method = SplitIntegration(num_steps = 10))
 D000007__11 =  Drift( L = 0.3)
-RF0__4 =  RFCavity( L = 4.01667) #, VOLTAGE = 3.3210942126011E6, RF_FREQUENCY = 5.9114268014977E8
+RF0__4 =  RFCavity( L = 4.01667, voltage=-3.3210942126011E6, rf_frequency = 5.9114268014977E8, tracking_method = SplitIntegration(num_steps = 10))
 D000007__12 =  Drift( L = 0.3)
 HQFLSS_10__2 =  Quadrupole( L = 1.2, Kn1 = 0.1407178134)
 D000007__13 =  Drift( L = 0.3)
-RF0__5 =  RFCavity( L = 4.01667) #, VOLTAGE = 3.3210942126011E6, RF_FREQUENCY = 5.9114268014977E8
+RF0__5 =  RFCavity( L = 4.01667, voltage=-3.3210942126011E6, rf_frequency = 5.9114268014977E8, tracking_method = SplitIntegration(num_steps = 10))
 D000007__14 =  Drift( L = 0.3)
-RF0__6 =  RFCavity( L = 4.01667) #, VOLTAGE = 3.3210942126011E6, RF_FREQUENCY = 5.9114268014977E8
+RF0__6 =  RFCavity( L = 4.01667, voltage=-3.3210942126011E6, rf_frequency = 5.9114268014977E8, tracking_method = SplitIntegration(num_steps = 10))
 D000007__15 =  Drift( L = 0.3)
 HQDLSS_10__2 =  Quadrupole( L = 1.2, Kn1 = -0.1176261853,)
 D000007__16 =  Drift( L = 0.3)
-RF0__7 =  RFCavity( L = 4.01667) #, VOLTAGE = 3.3210942126011E6, RF_FREQUENCY = 5.9114268014977E8
+RF0__7 =  RFCavity( L = 4.01667, voltage=-3.3210942126011E6, rf_frequency = 5.9114268014977E8, tracking_method = SplitIntegration(num_steps = 10))
 D000007__17 =  Drift( L = 0.3)
-RF0__8 =  RFCavity( L = 4.01667) #, VOLTAGE = 3.3210942126011E6, RF_FREQUENCY = 5.9114268014977E8
+RF0__8 =  RFCavity( L = 4.01667, voltage=-3.3210942126011E6, rf_frequency = 5.9114268014977E8, tracking_method = SplitIntegration(num_steps = 10))
 D000007__18 =  Drift( L = 0.3)
 HQFLSS_10__3 =  Quadrupole( L = 1.2, Kn1 = 0.1407178134)
 D000007__19 =  Drift( L = 0.3)
-RF0__9 =  RFCavity( L = 4.01667) #, VOLTAGE = 3.3210942126011E6, RF_FREQUENCY = 5.9114268014977E8
+RF0__9 =  RFCavity( L = 4.01667, voltage=-3.3210942126011E6, rf_frequency = 5.9114268014977E8, tracking_method = SplitIntegration(num_steps = 10))
 D000037 =  Drift( L = 0.3,)
-RF0__10 =  RFCavity( L = 4.01667) #, VOLTAGE = 3.3210942126011E6, RF_FREQUENCY = 5.9114268014977E8
+RF0__10 =  RFCavity( L = 4.01667, voltage=-3.3210942126011E6, rf_frequency = 5.9114268014977E8, tracking_method = SplitIntegration(num_steps = 10))
 D000007__20 =  Drift( L = 0.3)
 HQDLSS_10__3 =  Quadrupole( L = 1.2, Kn1 = -0.1176261853,)
 D000007__21 =  Drift( L = 0.3)
-RF0__11 =  RFCavity( L = 4.01667) #, VOLTAGE = 3.3210942126011E6, RF_FREQUENCY = 5.9114268014977E8
+RF0__11 =  RFCavity( L = 4.01667, voltage=-3.3210942126011E6, rf_frequency = 5.9114268014977E8, tracking_method = SplitIntegration(num_steps = 10))
 D000007__22 =  Drift( L = 0.3)
-RF0__12 =  RFCavity( L = 4.01667) #, VOLTAGE = 3.3210942126011E6, RF_FREQUENCY = 5.9114268014977E8
+RF0__12 =  RFCavity( L = 4.01667, voltage=-3.3210942126011E6, rf_frequency = 5.9114268014977E8, tracking_method = SplitIntegration(num_steps = 10))
 D000007__23 =  Drift( L = 0.3)
 HQFLSS_10__4 =  Quadrupole( L = 1.2, Kn1 = 0.1407178134)
 D000007__24 =  Drift( L = 0.3)
-RF0__13 =  RFCavity( L = 4.01667) #, VOLTAGE = 3.3210942126011E6, RF_FREQUENCY = 5.9114268014977E8
+RF0__13 =  RFCavity( L = 4.01667, voltage=-3.3210942126011E6, rf_frequency = 5.9114268014977E8, tracking_method = SplitIntegration(num_steps = 10))
 D000007__25 =  Drift( L = 0.3)
-RF0__14 =  RFCavity( L = 4.01667) #, VOLTAGE = 3.3210942126011E6, RF_FREQUENCY = 5.9114268014977E8
+RF0__14 =  RFCavity( L = 4.01667, voltage=-3.3210942126011E6, rf_frequency = 5.9114268014977E8, tracking_method = SplitIntegration(num_steps = 10))
 D000007__26 =  Drift( L = 0.3)
 HQDLSS_10__4 =  Quadrupole( L = 1.2, Kn1 = -0.1176261853,)
 D000007__27 =  Drift( L = 0.3)
-RF0__15 =  RFCavity( L = 4.01667) #, VOLTAGE = 3.3210942126011E6, RF_FREQUENCY = 5.9114268014977E8
+RF0__15 =  RFCavity( L = 4.01667, voltage=-3.3210942126011E6, rf_frequency = 5.9114268014977E8, tracking_method = SplitIntegration(num_steps = 10))
 D000007__28 =  Drift( L = 0.3)
-RF0__16 =  RFCavity( L = 4.01667) #, VOLTAGE = 3.3210942126011E6, RF_FREQUENCY = 5.9114268014977E8
+RF0__16 =  RFCavity( L = 4.01667, voltage=-3.3210942126011E6, rf_frequency = 5.9114268014977E8, tracking_method = SplitIntegration(num_steps = 10))
 D000007__29 =  Drift( L = 0.3)
 HQFLSS_10__5 =  Quadrupole( L = 1.2, Kn1 = 0.1407178134)
 D000007__30 =  Drift( L = 0.3)
-RF0__17 =  RFCavity( L = 4.01667) #, VOLTAGE = 3.3210942126011E6, RF_FREQUENCY = 5.9114268014977E8
+RF0__17 =  RFCavity( L = 4.01667, voltage=-3.3210942126011E6, rf_frequency = 5.9114268014977E8, tracking_method = SplitIntegration(num_steps = 10))
 D000007__31 =  Drift( L = 0.3)
-RF0__18 =  RFCavity( L = 4.01667) #, VOLTAGE = 3.3210942126011E6, RF_FREQUENCY = 5.9114268014977E8
+RF0__18 =  RFCavity( L = 4.01667, voltage=-3.3210942126011E6, rf_frequency = 5.9114268014977E8, tracking_method = SplitIntegration(num_steps = 10))
 D000007__32 =  Drift( L = 0.3)
 HQDLSS_10__5 =  Quadrupole( L = 1.2, Kn1 = -0.1176261853,)
 D000035__4 =  Drift( L = 8.25)

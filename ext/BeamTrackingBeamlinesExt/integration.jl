@@ -27,6 +27,20 @@ end
   R_ref = bunch.R_ref
   mm = bm.order
   knl, ksl = get_integrated_strengths(bm, 0, R_ref)
+  params = (SA[mm], SA[knl], SA[ksl], -1)
+  if isnothing(bunch.coords.q)
+    return KernelCall(ExactTracking.multipole_kick!, params)
+  else  
+    tilde_m = 1/BeamTracking.R_to_beta_gamma(bunch.species, R_ref)
+    return KernelCall(IntegrationTracking.integrate_with_spin_thin!, 
+      (ExactTracking.multipole_kick!, params, BeamTracking.anom(bunch.species), 0, tilde_m, SA[mm], SA[knl], SA[ksl]))
+  end
+end
+
+@inline function thin_bdipole(tm::SplitIntegration, bunch, bm)
+  R_ref = bunch.R_ref
+  mm = bm.order
+  knl, ksl = get_integrated_strengths(bm, 0, R_ref)
   params = (mm, knl, ksl, -1)
   if isnothing(bunch.coords.q)
     return KernelCall(ExactTracking.multipole_kick!, params)
@@ -37,15 +51,13 @@ end
   end
 end
 
-@inline thin_bdipole(tm::SplitIntegration, bunch, bm) = thin_pure_bdipole(tm, bunch, bm)
-
 @inline thin_pure_bquadrupole(tm::SplitIntegration, bunch, bm) = thin_pure_bdipole(tm, bunch, bm)
 
-@inline thin_bquadrupole(tm::SplitIntegration, bunch, bm) = thin_pure_bdipole(tm, bunch, bm)
+@inline thin_bquadrupole(tm::SplitIntegration, bunch, bm) = thin_bdipole(tm, bunch, bm)
 
 @inline thin_pure_bmultipole(tm::SplitIntegration, bunch, bm) = thin_pure_bdipole(tm, bunch, bm)
 
-@inline thin_bmultipole(tm::SplitIntegration, bunch, bm) = thin_pure_bdipole(tm, bunch, bm)
+@inline thin_bmultipole(tm::SplitIntegration, bunch, bm) = thin_bdipole(tm, bunch, bm)
 
 
 # === Thick elements === #
@@ -81,11 +93,18 @@ end
   tilde_m, gamsqr_0, beta_0 = ExactTracking.drift_params(bunch.species, R_ref)
   mm = bm.order
   kn, ks = get_strengths(bm, L, R_ref)
-  params = (beta_0, gamsqr_0, tilde_m, BeamTracking.anom(bunch.species), mm, kn, ks)
+  params = (beta_0, gamsqr_0, tilde_m, BeamTracking.anom(bunch.species), SA[mm], SA[kn], SA[ks])
   return integration_launcher!(IntegrationTracking.dkd_multipole!, params, tm, L)
 end
 
-@inline thick_bdipole(tm::DriftKick, bunch, bm, L) = thick_pure_bdipole(tm, bunch, bm, L)
+@inline function thick_bdipole(tm::DriftKick, bunch, bm, L)
+  R_ref = bunch.R_ref
+  tilde_m, gamsqr_0, beta_0 = ExactTracking.drift_params(bunch.species, R_ref)
+  mm = bm.order
+  kn, ks = get_strengths(bm, L, R_ref)
+  params = (beta_0, gamsqr_0, tilde_m, BeamTracking.anom(bunch.species), mm, kn, ks)
+  return integration_launcher!(IntegrationTracking.dkd_multipole!, params, tm, L)
+end
 
 @inline function thick_pure_bdipole(tm::Union{SplitIntegration,BendKick}, bunch, bm1, L) 
   if isnothing(bunch.coords.q)
@@ -96,10 +115,10 @@ end
     mm = bm1.order
     kn, ks = get_strengths(bm1, L, R_ref)
     k0 = sqrt(kn^2 + ks^2)
-    tilt = atan(ks, kn)
-    w = ExactTracking.w_quaternion(0,0,tilt)
-    w_inv = ExactTracking.w_inv_quaternion(0,0,tilt)
-    params = (tilde_m, beta_0, BeamTracking.anom(bunch.species), 0, 0, 0, w, w_inv, k0, mm, kn, ks)
+    tilt = atan2(ks, kn)
+    w = rot_quaternion(0,0,tilt)
+    w_inv = inv_rot_quaternion(0,0,tilt)
+    params = (tilde_m, beta_0, BeamTracking.anom(bunch.species), 0, 0, 0, w, w_inv, k0, SA[mm], SA[kn], SA[ks])
     return integration_launcher!(IntegrationTracking.bkb_multipole!, params, tm, L)
   end
 end
@@ -110,9 +129,9 @@ end
   mm = bm.order
   kn, ks = get_strengths(bm, L, R_ref)
   k0 = sqrt(kn[1]^2 + ks[1]^2)
-  tilt = atan(ks[1], kn[1])
-  w = ExactTracking.w_quaternion(0,0,tilt)
-  w_inv = ExactTracking.w_inv_quaternion(0,0,tilt)
+  tilt = atan2(ks[1], kn[1])
+  w = rot_quaternion(0,0,tilt)
+  w_inv = inv_rot_quaternion(0,0,tilt)
   params = (tilde_m, beta_0, BeamTracking.anom(bunch.species), 0, 0, 0, w, w_inv, k0, mm, kn, ks)
   return integration_launcher!(IntegrationTracking.bkb_multipole!, params, tm, L)
 end
@@ -122,13 +141,17 @@ end
   tilde_m, gamsqr_0, beta_0 = ExactTracking.drift_params(bunch.species, R_ref)
   mm = bm.order
   kn, ks = get_strengths(bm, L, R_ref)
-  k1 = sqrt(kn[2]^2 + ks[2]^2) * (mm[2] == 2)
-  if k1 ≈ 0
+  quad = sqrt(kn[2]^2 + ks[2]^2)
+  quad_0 = zero(quad)
+  k1 = ifelse(mm[2] == 2, quad, quad_0)
+  if k1 == 0
     return thick_bdipole(DriftKick(order=tm.order, num_steps=tm.num_steps, ds_step=tm.ds_step), bunch, bm, L)
   end
-  tilt = (atan(ks[2], kn[2]) / 2) * (mm[2] == 2)
-  w = ExactTracking.w_quaternion(0,0,tilt)
-  w_inv = ExactTracking.w_inv_quaternion(0,0,tilt)
+  quad_tilt = atan2(ks[2], kn[2]) / 2
+  quad_tilt_0 = zero(quad_tilt)
+  tilt = ifelse(mm[2] == 2, quad_tilt, quad_tilt_0)
+  w = rot_quaternion(0,0,tilt)
+  w_inv = inv_rot_quaternion(0,0,tilt)
   params = (beta_0, gamsqr_0, tilde_m, BeamTracking.anom(bunch.species), w, w_inv, k1, mm, kn, ks)
   return integration_launcher!(IntegrationTracking.mkm_quadrupole!, params, tm, L)
 end
@@ -147,13 +170,13 @@ end
   mm = bm.order
   kn, ks = get_strengths(bm, L, R_ref)
   k1 = sqrt(kn^2 + ks^2)
-  if k1 ≈ 0
+  if k1 == 0
     return thick_pure_bquadrupole(DriftKick(order=tm.order, num_steps=tm.num_steps, ds_step=tm.ds_step), bunch, bm, L)
   end
-  tilt = atan(ks, kn) / 2
-  w = ExactTracking.w_quaternion(0,0,tilt)
-  w_inv = ExactTracking.w_inv_quaternion(0,0,tilt)
-  params = (beta_0, gamsqr_0, tilde_m, BeamTracking.anom(bunch.species), w, w_inv, k1, mm, kn, ks)
+  tilt = atan2(ks, kn) / 2
+  w = rot_quaternion(0,0,tilt)
+  w_inv = inv_rot_quaternion(0,0,tilt)
+  params = (beta_0, gamsqr_0, tilde_m, BeamTracking.anom(bunch.species), w, w_inv, k1, SA[mm], SA[kn], SA[ks])
   return integration_launcher!(IntegrationTracking.mkm_quadrupole!, params, tm, L)
 end
 
@@ -166,23 +189,23 @@ end
   mm = bm.order
   kn, ks = get_strengths(bm, L, R_ref)
   k1 = sqrt(kn[1]^2 + ks[1]^2)
-  if k1 ≈ 0
+  if k1 == 0
     return thick_bquadrupole(DriftKick(order=tm.order, num_steps=tm.num_steps, ds_step=tm.ds_step), bunch, bm, L)
   end
-  tilt = atan(ks[1], kn[1]) / 2
-  w = ExactTracking.w_quaternion(0,0,tilt)
-  w_inv = ExactTracking.w_inv_quaternion(0,0,tilt)
+  tilt = atan2(ks[1], kn[1]) / 2
+  w = rot_quaternion(0,0,tilt)
+  w_inv = inv_rot_quaternion(0,0,tilt)
   params = (beta_0, gamsqr_0, tilde_m, BeamTracking.anom(bunch.species), w, w_inv, k1, mm, kn, ks)
   return integration_launcher!(IntegrationTracking.mkm_quadrupole!, params, tm, L)
 end
 
-@inline thick_bquadrupole(tm::DriftKick, bunch, bm, L) = thick_pure_bdipole(tm, bunch, bm, L)
+@inline thick_bquadrupole(tm::DriftKick, bunch, bm, L) = thick_bdipole(tm, bunch, bm, L)
 
 @inline thick_pure_bmultipole(tm::Union{SplitIntegration,DriftKick}, bunch, bm, L) = 
   thick_pure_bdipole(DriftKick(order=tm.order, num_steps=tm.num_steps, ds_step=tm.ds_step), bunch, bm, L)
 
 @inline thick_bmultipole(tm::Union{SplitIntegration,DriftKick}, bunch, bm, L) = 
-  thick_pure_bmultipole(tm, bunch, bm, L)
+  thick_bdipole(DriftKick(order=tm.order, num_steps=tm.num_steps, ds_step=tm.ds_step), bunch, bm, L)
 
 
 # =========== BENDING ELEMENTS ============= #
@@ -203,13 +226,57 @@ end
     mm = bm1.order
     Kn0, Ks0 = get_strengths(bm1, L, R_ref)
     Ks0 ≈ 0 || error("A skew dipole field cannot yet be used in a bend")
-    w = ExactTracking.w_quaternion(0,0,tilt)
-    w_inv = ExactTracking.w_inv_quaternion(0,0,tilt)
-    params = (tilde_m, beta_0, BeamTracking.anom(bunch.species), e1, e2, g, w, w_inv, Kn0, mm, Kn0, Ks0)
+    w = rot_quaternion(0,0,tilt)
+    w_inv = inv_rot_quaternion(0,0,tilt)
+    params = (tilde_m, beta_0, BeamTracking.anom(bunch.species), e1, e2, g, w, w_inv, Kn0, SA[mm], SA[Kn0], SA[Ks0])
     return integration_launcher!(IntegrationTracking.bkb_multipole!, params, tm, L)
   end
 end
 
+
 # =========== PATCH ============= #
 @inline pure_patch(tm::SplitIntegration, bunch, patchparams, L)  = 
   pure_patch(Exact(), bunch, patchparams, L)
+
+
+# =========== RF ============= #
+@inline function thick_pure_rf(tm::Union{SplitIntegration,DriftKick}, bunch, rf, bl, L)
+  R_ref = bunch.R_ref
+  tilde_m, gamsqr_0, beta_0 = ExactTracking.drift_params(bunch.species, R_ref)
+  E0_over_Rref = rf.voltage/L/R_ref
+  if rf.harmon_master
+    circumference = bl.beamline.line[end].s_downstream
+    omega = 2*pi*rf.harmon*C_LIGHT*beta_0/circumference
+  else
+    omega = 2*pi*rf.rf_frequency
+  end
+  phi0 = rf.phi0
+  t0 = phi0/omega 
+  E_ref = BeamTracking.R_to_E(bunch.species, R_ref)
+  p0c = BeamTracking.R_to_pc(bunch.species, R_ref)
+  params = (beta_0, gamsqr_0, tilde_m, E_ref, p0c, BeamTracking.anom(bunch.species), omega, E0_over_Rref, t0, SA[], SA[], SA[], L)
+  return integration_launcher!(IntegrationTracking.cavity!, params, tm, L)
+end
+
+@inline function thick_bsolenoid_rf(tm::Union{SplitIntegration,SolenoidKick}, bunch, bm, rf, bl, L)
+  R_ref = bunch.R_ref
+  tilde_m, gamsqr_0, beta_0 = ExactTracking.drift_params(bunch.species, R_ref)
+  E0_over_Rref = rf.voltage/L/R_ref
+  if rf.harmon_master
+    circumference = bl.beamline.line[end].s_downstream
+    omega = 2*pi*rf.harmon*C_LIGHT*beta_0/circumference
+  else
+    omega = 2*pi*rf.rf_frequency
+  end
+  phi0 = rf.phi0
+  t0 = phi0/omega
+  mm = bm.order
+  kn, ks = get_strengths(bm, L, R_ref)
+  E_ref = BeamTracking.R_to_E(bunch.species, R_ref)
+  p0c = BeamTracking.R_to_pc(bunch.species, R_ref)
+  params = (beta_0, gamsqr_0, tilde_m, E_ref, p0c, BeamTracking.anom(bunch.species), omega, E0_over_Rref, t0, mm, kn, ks, L)
+  return integration_launcher!(IntegrationTracking.cavity!, params, tm, L)
+end
+
+@inline thick_bmultipole_rf(tm::Union{SplitIntegration,DriftKick}, bunch, bm, rf, bl, L) = 
+  thick_bsolenoid_rf(SplitIntegration(order=tm.order, ds_step=tm.ds_step, num_steps=tm.num_steps), bunch, bm, rf, bl, L)
