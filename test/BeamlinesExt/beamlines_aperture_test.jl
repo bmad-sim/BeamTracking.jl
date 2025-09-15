@@ -16,42 +16,42 @@ v2 = [
 
 @testset "Aperture" begin
   @testset "No patch" begin
-    bunch_error = Bunch(deepcopy(v1), species=Species("electron"))
+    bunch_error = Bunch(deepcopy(v1), species=Species("electron"), R_ref = 1.0)
     @test_throws ErrorException track!(bunch_error, b_error)
   end
 
   @testset "Rectangular" begin
-    b1 = Bunch(deepcopy(v1), species=Species("electron"))
+    b1 = Bunch(deepcopy(v1), species=Species("electron"), R_ref = 1.0)
     track!(b1, b1r)
     @test b1.coords.state == [STATE_ALIVE, STATE_ALIVE, STATE_ALIVE, STATE_ALIVE, STATE_ALIVE, STATE_ALIVE]
 
-    b2 = Bunch(deepcopy(v1), species=Species("electron"))
+    b2 = Bunch(deepcopy(v1), species=Species("electron"), R_ref = 1.0)
     track!(b2, b2r)
     @test b2.coords.state == [STATE_LOST_POS_Y, STATE_LOST_POS_X, STATE_ALIVE, STATE_ALIVE, STATE_LOST_NEG_Y, STATE_LOST_NEG_Y]
 
-    b3 = Bunch(deepcopy(v1), species=Species("electron"))
+    b3 = Bunch(deepcopy(v1), species=Species("electron"), R_ref = 1.0)
     track!(b3, b3r)
     @test b3.coords.state == [STATE_LOST_POS_Y, STATE_LOST_POS_X, STATE_LOST_POS_X, STATE_ALIVE, STATE_LOST_NEG_Y, STATE_LOST_NEG_Y]
 
-    b4 = Bunch(deepcopy(v1), species=Species("electron"))
+    b4 = Bunch(deepcopy(v1), species=Species("electron"), R_ref = 1.0)
     track!(b4, b4r)
     @test b4.coords.state == [STATE_LOST_NEG_X, STATE_ALIVE, STATE_LOST_POS_X, STATE_LOST_NEG_X, STATE_LOST_NEG_X, STATE_ALIVE]
   end
 
   @testset "Elliptical" begin
-    b1 = Bunch(deepcopy(v2), species=Species("electron"))
+    b1 = Bunch(deepcopy(v2), species=Species("electron"), R_ref = 1.0)
     track!(b1, b1e)
     @test b1.coords.state == [STATE_ALIVE, STATE_ALIVE]
 
-    b2 = Bunch(deepcopy(v2), species=Species("electron"))
+    b2 = Bunch(deepcopy(v2), species=Species("electron"), R_ref = 1.0)
     track!(b2, b2e)
     @test b2.coords.state == [STATE_LOST_POS_Y, STATE_LOST_POS_X]
 
-    b3 = Bunch(deepcopy(v2), species=Species("electron"))
+    b3 = Bunch(deepcopy(v2), species=Species("electron"), R_ref = 1.0)
     track!(b3, b3e)
     @test b3.coords.state == [STATE_LOST_POS_Y, STATE_ALIVE]
 
-    b4 = Bunch(deepcopy(v2), species=Species("electron"))
+    b4 = Bunch(deepcopy(v2), species=Species("electron"), R_ref = 1.0)
     @test_throws ErrorException track!(b4, b4e)
   end
 end

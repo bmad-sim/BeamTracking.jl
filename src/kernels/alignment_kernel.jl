@@ -1,35 +1,37 @@
-# entering = 1 -> entering element.
-# entering = -1 -> exiting element.
+@makekernel fastgtpsa=true function track_alignment_straight!(i, coords::Coords, beta_0, gamsqr_0, tilde_m,
+       entering, x_off, y_off, z_off, x_rot, y_rot, tilt, g_ref, tilt_ref, ele_orient, L)
 
-@makekernel fastgtpsa=true function track_alignment_straight!(i, coords::Coords, entering,
-          x_off, y_off, z_off, x_rot, y_rot, tilt, g_ref, tilt_ref, ele_orient, tilde_m, beta_0, L)
   v = coords.v
-  L2 = 0.5 * L * ele_orient * entering
-  q = rot_quaternion(x_rot, y_rot, tilt)
-  r = (v[i,XI] - x_off, v[i,YI] - y_off, -z_off-L2)
+  alive = (coords.state[i] == STATE_ALIVE)
+  L2 = 0.5 * L * ele_orient
 
-  pz2 = (1+v[i,PZI])^2 - v[i,PXI]^2, - v[i,PYI]
-  coords.state[i] = vifelse(pz2 < 0, State.Lost, coords.state[i])
-  alive = vifelse(coords.state[i]==STATE_ALIVE, 1, 0)
-  p = [v[i,PXI], v[i,PYI], sqrt(alive*pz)]
+  if entering
+    v[i,XI] = vifelse(alive, v[i,XI] - x_off, v[i,XI])
+    v[i,YI] = vifelse(alive, v[i,YI] - y_off, v[i,YI])
+ 
+    q = inv_rot_quaternion(x_rot, y_rot, tilt)
+    dz = -L2 - z_off    # Z distance from element center
+    dz_new = coord_rotation!(i, coords, q, dz)
 
-  quat_rotate!(r, q)
-  quat_rotate!(p, q)
-  coords.q = vifelse(isnothing(coords.q), coords.q, quat_mul(q, coords.q))
+    ExactTracking.exact_drift!(i, coords, beta_0, gamsqr_0, tilde_m, dz_new + L2)
 
-  v[i,XI]  = vifelse(coords.state[i]==STATE_ALIVE, r[1], v[i,XI])
-  v[i,YI]  = vifelse(coords.state[i]==STATE_ALIVE, r[2], v[i,YI])
-  v[i,PXI] = vifelse(coords.state[i]==STATE_ALIVE, p[1], v[i,PXI])
-  v[i,PYI] = vifelse(coords.state[i]==STATE_ALIVE, p[2], v[i,PYI])
+  else
+    q = rot_quaternion(x_rot, y_rot, tilt)
+    dz = L2 + z_off
+    dz_new = coord_rotation!(i, coords, q, dz)
 
-  exact_drift!(i, coords, beta_0, gamsqr_0, tilde_m, ele_orient * L2 - r[3])
+    v[i,XI] = vifelse(alive, v[i,XI] + x_off, v[i,XI])
+    v[i,YI] = vifelse(alive, v[i,YI] + y_off, v[i,YI])
+
+    ExactTracking.exact_drift!(i, coords, beta_0, gamsqr_0, tilde_m, dz_new - L2)
+  end
 end
-
+ 
 #
 
-@makekernel fastgtpsa=true function track_alignment_bend!(i, coords::Coords, entering, 
-          x_off, y_off, z_off, x_rot, y_rot, tilt, g_ref, tilt_ref, ele_orient, tilde_m, beta_0, L)
+@makekernel fastgtpsa=true function track_alignment_bend!(i, coords::Coords, beta_0, gamsqr_0, tilde_m,
+                    entering, x_off, y_off, z_off, x_rot, y_rot, tilt, g_ref, tilt_ref, ele_orient, L)
   v = coords.v
 
 end
-
+ 

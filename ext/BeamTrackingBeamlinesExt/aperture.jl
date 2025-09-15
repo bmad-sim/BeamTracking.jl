@@ -1,5 +1,3 @@
-#
-
 @inline function aperture(tm, bunch, apertureparams, entering::Bool)
   x1 = apertureparams.x1_limit
   x2 = apertureparams.x2_limit
