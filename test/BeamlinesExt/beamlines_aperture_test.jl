@@ -27,15 +27,15 @@ v2 = [
 
     b2 = Bunch(deepcopy(v1), species=Species("electron"))
     track!(b2, b2r)
-    @test b2.coords.state == [STATE_LOST, STATE_LOST, STATE_ALIVE, STATE_ALIVE, STATE_LOST, STATE_LOST]
+    @test b2.coords.state == [STATE_LOST_POS_Y, STATE_LOST_POS_X, STATE_ALIVE, STATE_ALIVE, STATE_LOST_NEG_Y, STATE_LOST_NEG_Y]
 
     b3 = Bunch(deepcopy(v1), species=Species("electron"))
     track!(b3, b3r)
-    @test b3.coords.state == [STATE_LOST, STATE_LOST, STATE_LOST, STATE_ALIVE, STATE_LOST, STATE_LOST]
+    @test b3.coords.state == [STATE_LOST_POS_Y, STATE_LOST_POS_X, STATE_LOST_POS_X, STATE_ALIVE, STATE_LOST_NEG_Y, STATE_LOST_NEG_Y]
 
     b4 = Bunch(deepcopy(v1), species=Species("electron"))
     track!(b4, b4r)
-    @test b4.coords.state == [STATE_LOST, STATE_ALIVE, STATE_LOST, STATE_LOST, STATE_LOST, STATE_ALIVE]
+    @test b4.coords.state == [STATE_LOST_NEG_X, STATE_ALIVE, STATE_LOST_POS_X, STATE_LOST_NEG_X, STATE_LOST_NEG_X, STATE_ALIVE]
   end
 
   @testset "Elliptical" begin
@@ -45,11 +45,11 @@ v2 = [
 
     b2 = Bunch(deepcopy(v2), species=Species("electron"))
     track!(b2, b2e)
-    @test b2.coords.state == [STATE_LOST, STATE_LOST]
+    @test b2.coords.state == [STATE_LOST_POS_Y, STATE_LOST_POS_X]
 
     b3 = Bunch(deepcopy(v2), species=Species("electron"))
     track!(b3, b3e)
-    @test b3.coords.state == [STATE_LOST, STATE_ALIVE]
+    @test b3.coords.state == [STATE_LOST_POS_Y, STATE_ALIVE]
 
     b4 = Bunch(deepcopy(v2), species=Species("electron"))
     @test_throws ErrorException track!(b4, b4e)

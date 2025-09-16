@@ -97,17 +97,17 @@ end
   if !use_KA
     if use_explicit_SIMD && V <: SIMD.FastContiguousArray && eltype(V) <: SIMD.ScalarTypes && VectorizationBase.pick_vector_width(eltype(V)) > 1 # do SIMD
       simd_lane_width = VectorizationBase.pick_vector_width(eltype(V))
-      lane = VecRange{Int(simd_lane_width)}(0)
+      lane = SIMD.VecRange{Int(simd_lane_width)}(0)
       rmn = rem(N_particle, simd_lane_width)
       N_SIMD = N_particle - rmn
       if N_particle >= multithread_threshold
         Threads.@threads for i in 1:simd_lane_width:N_SIMD
-          @assert last(i) <= N_particle "Out of bounds!"  # Use last because VecRange SIMD
+          @assert last(i) <= N_particle "Out of bounds!"  # Use last because SIMD.VecRange SIMD
           _generic_kernel!(lane+i, coords, kc)
         end
       else
         for i in 1:simd_lane_width:N_SIMD
-          @assert last(i) <= N_particle "Out of bounds!"  # Use last because VecRange SIMD
+          @assert last(i) <= N_particle "Out of bounds!"  # Use last because SIMD.VecRange SIMD
           _generic_kernel!(lane+i, coords, kc)
         end
       end

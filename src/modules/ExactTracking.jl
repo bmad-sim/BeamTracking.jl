@@ -8,8 +8,8 @@ struct Exact end
 
 module ExactTracking
 export exact_drift!
-using ..GTPSA, ..BeamTracking, ..StaticArrays, ..ReferenceFrameRotations, ..KernelAbstractions, ..SIMD, ..SIMDMathFunctions
-using ..BeamTracking: XI, PXI, YI, PYI, ZI, PZI, Q0, QX, QY, QZ, STATE_ALIVE, STATE_LOST, @makekernel, Coords, BeamTracking.coord_rotation!
+using ..GTPSA, ..BeamTracking, ..StaticArrays, ..ReferenceFrameRotations, ..KernelAbstractions, ..SIMDMathFunctions
+using ..BeamTracking: XI, PXI, YI, PYI, ZI, PZI, Q0, QX, QY, QZ, STATE_ALIVE, STATE_LOST, @makekernel, Coords, vifelse, BeamTracking.coord_rotation!
 using ..BeamTracking: C_LIGHT
 const TRACKING_METHOD = Exact
 

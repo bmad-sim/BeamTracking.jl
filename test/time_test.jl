@@ -147,7 +147,7 @@ end
     (;aperture_shape = ApertureShape.Rectangular); 
     v=[0.5 0 0 0 0 0],
     ft=(v)->v*sin(2*Time()),
-    extra_tests=((p,m,t)->check_state(p,m,t,BeamTracking.STATE_LOST),)
+    extra_tests=((p,m,t)->check_state(p,m,t,BeamTracking.STATE_LOST_POS_X),)
   )
 
 

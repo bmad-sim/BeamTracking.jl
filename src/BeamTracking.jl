@@ -13,10 +13,10 @@ using GTPSA,
       Roots
 
 using KernelAbstractions
+using SIMD: SIMD
       
 import GTPSA: sincu, sinhcu, normTPS
 import Base: setproperty!
-import SIMD: Vec
 
 # Put AtomicAndPhysicalConstants in a box for now for safety
 include("Constants.jl")
@@ -35,8 +35,8 @@ include("types.jl")
 include("time.jl")
 include("kernel.jl")
 
-include("kernels/alignment_tracking.jl")
-include("kernels/aperture_tracking.jl")
+include("kernels/alignment_kernel.jl")
+include("kernels/aperture_kernel.jl")
 include("kernels/beambeam_tracking.jl")
 include("kernels/coord_rotation.jl")
 include("modules/ExactTracking.jl") #; TRACKING_METHOD(::ExactTracking) = Exact

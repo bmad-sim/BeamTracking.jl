@@ -24,11 +24,11 @@ v0 = [
 @testset "ApertureKernel" begin
   bunch = Bunch(copy(v1))
   BeamTracking.launch!(bunch.coords, KernelCall(BeamTracking.track_aperture_rectangular!, (1.0, 2.0, 3.0, 5.0)))
-  @test bunch.coords.state == [STATE_LOST, STATE_ALIVE, STATE_LOST, STATE_LOST, STATE_LOST, STATE_LOST]
+  @test bunch.coords.state == [STATE_LOST_POS_Y, STATE_ALIVE, STATE_LOST_POS_X, STATE_LOST_NEG_X, STATE_LOST_NEG_Y, STATE_LOST_NEG_Y]
 
   bunch = Bunch(copy(v2))
   BeamTracking.launch!(bunch.coords, KernelCall(BeamTracking.track_aperture_elliptical!, (1.0, 2.0, 3.0, 5.0)))
-  @test bunch.coords.state == [STATE_LOST, STATE_ALIVE]
+  @test bunch.coords.state == [STATE_LOST_POS_Y, STATE_ALIVE]
 
   test_matrix(v0, KernelCall(BeamTracking.track_aperture_rectangular!, (1.0, 2.0, 3.0, 5.0)))
   test_matrix(v0, KernelCall(BeamTracking.track_aperture_elliptical!, (1.0, 2.0, 3.0, 5.0)))

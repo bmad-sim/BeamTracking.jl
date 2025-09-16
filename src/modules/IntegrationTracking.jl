@@ -41,8 +41,8 @@ end
 @def_integrator_struct(DriftKick)
 
 module IntegrationTracking
-using ..GTPSA, ..BeamTracking, ..StaticArrays, ..KernelAbstractions, ..SIMD, ..SIMDMathFunctions
-using ..BeamTracking: XI, PXI, YI, PYI, ZI, PZI, Q0, QX, QY, QZ, STATE_ALIVE, STATE_LOST, @makekernel, Coords, C_LIGHT
+using ..GTPSA, ..BeamTracking, ..StaticArrays, ..KernelAbstractions, ..SIMDMathFunctions
+using ..BeamTracking: XI, PXI, YI, PYI, ZI, PZI, Q0, QX, QY, QZ, STATE_ALIVE, STATE_LOST, @makekernel, Coords, vifelse, C_LIGHT
 
 #
 # ===============  I N T E G R A T O R S  ===============

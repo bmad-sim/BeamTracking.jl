@@ -2,7 +2,7 @@ module BeamTrackingBeamlinesExt
 using Beamlines, BeamTracking, GTPSA, StaticArrays, KernelAbstractions
 using Beamlines: isactive, deval, unsafe_getparams, o2i, BitsBeamline, BitsLineElement, isnullspecies
 using BeamTracking: get_N_particle, R_to_beta_gamma, R_to_gamma, R_to_pc, R_to_v, beta_gamma_to_v, runkernels!,
-                    @makekernel, Coords, KernelCall, KernelChain, push, TimeDependentParam, RefState
+                    @makekernel, Coords, KernelCall, KernelChain, push, TimeDependentParam, RefState, launch!
 import BeamTracking: track!, C_LIGHT, chargeof, massof
 
 

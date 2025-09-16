@@ -17,12 +17,12 @@ function check_species!(species_ref::Species, bunch::Bunch, notify=true)
       error("Bunch species has not been set")
     else
       if notify
-        @info "Setting bunch.species = $species_ref (reference species from the Beamline)"
+        println("Setting bunch.species = $species_ref (reference species from the Beamline)")
       end
       setfield!(bunch, :species, species_ref)
     end
   elseif !isnullspecies(species_ref) && species_ref != bunch.species && notify
-    @warn "The species of the bunch does NOT equal the reference species of the Beamline."
+    println("WARNING: The species of the bunch does NOT equal the reference species of the Beamline.")
   end
   return
 end
@@ -31,17 +31,17 @@ function check_R_ref!(R_ref, bunch::Bunch, notify=true)
   if isnan(bunch.R_ref)
     if isnothing(R_ref)
       if notify
-        @warn "Both the bunch and beamline do not have any set R_ref. If any LineElements have unnormalized fields stored as independent variables, there will be an error."
+        println("WARNING: Both the bunch and beamline do not have any set R_ref. If any LineElements have unnormalized fields stored as independent variables, there will be an error.")
       end
     else
       if notify
-        @info "Setting bunch.R_ref = $R_ref (reference R_ref from the Beamline)"
+        println("Setting bunch.R_ref = $R_ref (reference R_ref from the Beamline)")
       end
       setfield!(bunch, :R_ref, typeof(bunch.R_ref)(R_ref)) #R_ref = R_ref
     end
   elseif !isnothing(R_ref)  && !(R_ref ≈ bunch.R_ref) && notify
-    @warn "The reference energy of the bunch does NOT equal the reference energy of the Beamline. 
-    Normalized field strengths in tracking ALWAYS use the reference energy of the bunch."
+    println("WARNING:The reference energy of the bunch does NOT equal the reference energy of the Beamline. 
+              Normalized field strengths in tracking ALWAYS use the reference energy of the bunch.")
   end
   return
 end
