@@ -394,7 +394,7 @@ end
   v[i,ZI] = vifelse(alive, new_z, v[i,ZI])
 end
 
-@makekernel fastgtpsa=true function patch!(i, coords::Coords, beta_0, gamsqr_0, tilde_m, dt, dx, dy, dz, winv, L) 
+@makekernel fastgtpsa=true function patch!(i, coords::Coords, beta_0, gamsqr_0, tilde_m, dt, dx, dy, dz, q_inv, L) 
   v = coords.v
   rel_p = 1 + v[i,PZI]
   ps_02 = rel_p*rel_p - v[i,PXI]*v[i,PXI] - v[i,PYI]*v[i,PYI]
@@ -406,18 +406,18 @@ end
   ps_02_1 = one(ps_02)
   ps_0 = sqrt(vifelse(good_momenta, ps_02, ps_02_1))
   # Only apply rotations if needed
-  if isnothing(winv)
+  if isnothing(q_inv)
     patch_offset!(i, coords, tilde_m, dx, dy, dt)
     exact_drift!(i, coords, beta_0, gamsqr_0, tilde_m, L)
     new_z = v[i,ZI] - (dz - L) * rel_p / ps_0
     v[i,ZI] = vifelse(alive, new_z, v[i,ZI])
   else
     patch_offset!(i, coords, tilde_m, dx, dy, dt)
-    w31 = 2*(winv[QX]*winv[QZ] - winv[QY]*winv[Q0])
-    w32 = 2*(winv[QY]*winv[QZ] + winv[QX]*winv[Q0])
-    w33 = 1 - 2*(winv[QX]*winv[QX] + winv[QY]*winv[QY])
+    w31 = 2*(q_inv[QX]*q_inv[QZ] - q_inv[QY]*q_inv[Q0])
+    w32 = 2*(q_inv[QY]*q_inv[QZ] + q_inv[QX]*q_inv[Q0])
+    w33 = 1 - 2*(q_inv[QX]*q_inv[QX] + q_inv[QY]*q_inv[QY])
     s_f = w31*v[i,XI] + w32*v[i,YI] - w33*dz
-    BeamTracking.coord_rotation!(i, coords, winv, dz)
+    BeamTracking.coord_rotation!(i, coords, q_inv, -dz)
     exact_drift!(i, coords, beta_0, gamsqr_0, tilde_m, -s_f)
     new_z = v[i,ZI] + ((s_f + L) * rel_p * 
     sqrt((1 + tilde_m*tilde_m)/(rel_p*rel_p + tilde_m*tilde_m)))

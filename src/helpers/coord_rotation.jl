@@ -27,19 +27,20 @@ Returned is the new longitudinal offset from the center of rotation.
     w22 = 1 - 2*(q_inv[QX]*q_inv[QX] + q_inv[QZ]*q_inv[QZ])
     w23 =     2*(q_inv[QY]*q_inv[QZ] - q_inv[QX]*q_inv[Q0])
 
-    w31 =     2*(q_inv[QX]*q_inv[QZ] + q_inv[QY]*q_inv[Q0])
+    w31 =     2*(q_inv[QX]*q_inv[QZ] - q_inv[QY]*q_inv[Q0])
     w32 =     2*(q_inv[QY]*q_inv[QZ] + q_inv[QX]*q_inv[Q0])
     w33 = 1 - 2*(q_inv[QX]*q_inv[QX] + q_inv[QY]*q_inv[QY])
 
     x_0 = v[i,XI]
     y_0 = v[i,YI]
-    new_x = w11*x_0 + w12*y_0 - w13*z_0
-    new_y = w21*x_0 + w22*y_0 - w23*z_0
-    new_z = w31*x_0 + w32*y_0 - w33*z_0
+    new_x = w11*x_0 + w12*y_0 + w13*z_0
+    new_y = w21*x_0 + w22*y_0 + w23*z_0
+    new_z = w31*x_0 + w32*y_0 + w33*z_0
 
     v[i,XI] = vifelse(alive, new_x, x_0)
     v[i,YI] = vifelse(alive, new_y, y_0)
-    z_out = vifelse(alive, new_z, z_0)
+    zero_z = zero(new_z)
+    z_out = vifelse(alive, new_z, zero_z)
 
     px_0 = v[i,PXI]
     py_0 = v[i,PYI]

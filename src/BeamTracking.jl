@@ -34,9 +34,10 @@ include("types.jl")
 include("time.jl")
 include("kernel.jl")
 
+include("helpers/coord_rotation.jl")
+include("helpers/alignment_drift.jl")
 include("kernels/alignment_kernel.jl")
 include("kernels/aperture_kernel.jl")
-include("helpers/coord_rotation.jl")
 include("modules/ExactTracking.jl") #; TRACKING_METHOD(::ExactTracking) = Exact
 include("modules/LinearTracking.jl") #; TRACKING_METHOD(::LinearTracking) = Linear
 include("modules/IntegrationTracking.jl") #; TRACKING_METHOD(::LinearTracking) = SplitIntegration, DriftKick, BendKick, SolenoidKick, MatrixKick

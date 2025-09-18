@@ -166,27 +166,26 @@ function quaternion_coeffs_approx_equal(q_expected, q_calculated, ϵ)
   components = (:q0, :q1, :q2, :q3)
   n = GTPSA.numcoefs(q_expected.q0)
   all_ok = true
-    for cname in components
-      v_expected = getfield(q_expected, cname)
-      v_calculated = sgn * getfield(q_calculated, cname)
-      for j in 0:n-1
-          c1, c2 = v_expected[j], v_calculated[j]
-          if abs(c1 - c2) > max(ϵ, ϵ * (abs(c1) + abs(c2)))
-              println("Coefficients not equal: expected $cname[$j] = $c1, got $cname[$j] = $c2")
-              println("Difference: $(abs(c1 - c2))")
-              println("Tolerance:  $(max(ϵ, ϵ * (abs(c1) + abs(c2))))")
-              all_ok = false
-              break
-          end
+  for cname in components
+    v_expected = getfield(q_expected, cname)
+    v_calculated = sgn * getfield(q_calculated, cname)
+    for j in 0:n-1
+      c1, c2 = v_expected[j], v_calculated[j]
+      if abs(c1 - c2) > max(ϵ, ϵ * (abs(c1) + abs(c2)))
+        println("Coefficients not equal: expected $cname[$j] = $c1, got $cname[$j] = $c2")
+        println("Difference: $(abs(c1 - c2))")
+        println("Tolerance:  $(max(ϵ, ϵ * (abs(c1) + abs(c2))))")
+        all_ok = false
+        break
       end
-      if !all_ok
-          break
-      end
+    end
+    if !all_ok; break; end
   end
+
   return all_ok
 end
 
-##include("alignment_tracking_test.jl")
+include("alignment_tracking_test.jl")
 include("aperture_tracking_test.jl")
 include("BeamlinesExt_test.jl")
 include("LinearTracking_test.jl")

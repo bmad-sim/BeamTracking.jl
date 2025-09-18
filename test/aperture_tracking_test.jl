@@ -12,7 +12,7 @@ v2 = [
        1.8  0.9  4.2  0.0  0.0  0.0
      ]
 
-v0 = [
+m_unit = [
         1.0 0.0 0.0 0.0 0.0 0.0
         0.0 1.0 0.0 0.0 0.0 0.0
         0.0 0.0 1.0 0.0 0.0 0.0
@@ -30,6 +30,6 @@ v0 = [
   BeamTracking.launch!(bunch.coords, KernelCall(BeamTracking.track_aperture_elliptical!, (1.0, 2.0, 3.0, 5.0)))
   @test bunch.coords.state == [STATE_LOST_POS_Y, STATE_ALIVE]
 
-  test_matrix(v0, KernelCall(BeamTracking.track_aperture_rectangular!, (1.0, 2.0, 3.0, 5.0)))
-  test_matrix(v0, KernelCall(BeamTracking.track_aperture_elliptical!, (1.0, 2.0, 3.0, 5.0)))
+  test_matrix(m_unit, KernelCall(BeamTracking.track_aperture_rectangular!, (1.0, 2.0, 3.0, 5.0)))
+  test_matrix(m_unit, KernelCall(BeamTracking.track_aperture_elliptical!, (1.0, 2.0, 3.0, 5.0)))
 end
