@@ -6,7 +6,8 @@ using Test,
       GTPSA,
       StaticArrays,
       ReferenceFrameRotations,
-      SIMD
+      SIMD,
+      KernelAbstractions
 
 using BeamTracking: Coords, KernelCall, Q0, QX, QY, QZ, STATE_ALIVE, STATE_LOST,
       STATE_LOST_NEG_X, STATE_LOST_POS_X, STATE_LOST_NEG_Y, STATE_LOST_POS_Y, STATE_LOST_PZ, STATE_LOST_Z
@@ -185,7 +186,7 @@ function quaternion_coeffs_approx_equal(q_expected, q_calculated, ϵ)
   end
   return all_ok
 end
-
+include("BeamBeam_test.jl")
 include("aperture_tracking_test.jl")
 include("LinearTracking_test.jl")
 include("ExactTracking_test.jl")
