@@ -22,7 +22,7 @@ include("Constants.jl")
 using .Constants: Constants, Species, massof, chargeof, nameof, C_LIGHT, isnullspecies
 export Species
 
-export Bunch, State, ParticleView, sincu, sinhcu, sincuc, expq, quat_mul, atan2, bessel01_RF, Time, TimeDependentParam
+export Bunch, State, ParticleView, sincu, sinhcu, sincuc, expq, quat_mul, atan2, Time, TimeDependentParam
 export LinearTracking, Linear
 export ExactTracking, Exact
 export IntegrationTracking, SplitIntegration, DriftKick, BendKick, SolenoidKick, MatrixKick

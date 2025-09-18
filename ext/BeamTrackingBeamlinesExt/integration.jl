@@ -254,11 +254,11 @@ end
   t0 = phi0/omega 
   E_ref = BeamTracking.R_to_E(bunch.species, R_ref)
   p0c = BeamTracking.R_to_pc(bunch.species, R_ref)
-  params = (beta_0, gamsqr_0, tilde_m, E_ref, p0c, BeamTracking.anom(bunch.species), omega, E0_over_Rref, t0, SA[], SA[], SA[], L)
+  params = (beta_0, gamsqr_0, tilde_m, E_ref, p0c, BeamTracking.anom(bunch.species), omega, E0_over_Rref, t0, SA[], SA[], SA[])
   return integration_launcher!(IntegrationTracking.cavity!, params, tm, L)
 end
 
-@inline function thick_bsolenoid_rf(tm::Union{SplitIntegration,SolenoidKick}, bunch, bm, rf, bl, L)
+@inline function thick_bmultipole_rf(tm::Union{SplitIntegration,DriftKick,SolenoidKick}, bunch, bm, rf, bl, L)
   R_ref = bunch.R_ref
   tilde_m, gamsqr_0, beta_0 = ExactTracking.drift_params(bunch.species, R_ref)
   E0_over_Rref = rf.voltage/L/R_ref
@@ -274,9 +274,6 @@ end
   kn, ks = get_strengths(bm, L, R_ref)
   E_ref = BeamTracking.R_to_E(bunch.species, R_ref)
   p0c = BeamTracking.R_to_pc(bunch.species, R_ref)
-  params = (beta_0, gamsqr_0, tilde_m, E_ref, p0c, BeamTracking.anom(bunch.species), omega, E0_over_Rref, t0, mm, kn, ks, L)
+  params = (beta_0, gamsqr_0, tilde_m, E_ref, p0c, BeamTracking.anom(bunch.species), omega, E0_over_Rref, t0, mm, kn, ks)
   return integration_launcher!(IntegrationTracking.cavity!, params, tm, L)
 end
-
-@inline thick_bmultipole_rf(tm::Union{SplitIntegration,DriftKick}, bunch, bm, rf, bl, L) = 
-  thick_bsolenoid_rf(SplitIntegration(order=tm.order, ds_step=tm.ds_step, num_steps=tm.num_steps), bunch, bm, rf, bl, L)

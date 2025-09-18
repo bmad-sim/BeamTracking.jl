@@ -269,6 +269,7 @@ function compute_time(z, pz, ref)
 end
 
 
+#=
 """
 This function computes J_0(sqrt(x)) and J_1(sqrt(x))/sqrt(x), which are 
 necessary for tracking through a cylindrical pillbox cavity.
@@ -335,7 +336,7 @@ function bessel01_RF(x::TPS{T}) where {T}
   end
   return result0, result1
 end
-
+=#
 
 # Particle energy conversions =============================================================
 R_to_E(species::Species, R) = @FastGTPSA sqrt((R*C_LIGHT*chargeof(species))^2 + massof(species)^2)
