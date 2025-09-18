@@ -34,7 +34,7 @@ end
 @makekernel fastgtpsa=true function track_alignment_bend_entering!(i, coords::Coords,
                           x_off, y_off, z_off, x_rot, y_rot, tilt, g_ref, tilt_ref, ele_orient, L)
   v = coords.v
-  z1 = coord_bend_transformation!(i, coords, 0.5*L, g_ref, tilt_ref, 0.0)
+  z1 = coord_bend_transform!(i, coords, 0.5*L, g_ref, tilt_ref, 0.0)
   z1 = coord_translation!(i, coords, [0, 0, 0], z1)
   
 

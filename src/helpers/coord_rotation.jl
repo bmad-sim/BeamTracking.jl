@@ -1,8 +1,14 @@
 """
-    coord_rotation!(i, coords::Coords, q_inv, z_0) 
-Rotates both `(x, y)` and `(px, py, pz)` phase space coordinates.
+    coord_rotation!(i, coords::Coords, q_inv, z_0) -> z_1
 
-`z_0` is the longitudinal offset from the center of rotation. 
+Particle coordinate rotation. This rotates both `(x, y)` and `(px, py, pz)` phase space coordinates.
+
+## Arguments
+- `q_inv`   The particle quaternion rotation. This is the inverse of the rotation of the coordinate system.
+- `z_0`     The longitudinal particle distance from the center of rotation. 
+
+## Output
+- `z1`        The particle longitudinal distance from the center of rotation after rotation. 
 
 Returned is the new longitudinal offset from the center of rotation.
 """

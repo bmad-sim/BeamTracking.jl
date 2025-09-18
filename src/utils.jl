@@ -5,8 +5,21 @@ AcceleratorSimUtils.jl in the end.
 
 =#
 
+#---------------------------------------------------------------------------------------------------
+# one_cos
+# Temp from AcceleratorSimUtils
+
+"""
+    one_cos(x)
+
+Function to calculate `1 - cos(x)` to machine precision.
+This is usful if angle can be near zero where the direct evaluation of `1 - cos(x)` is inaccurate.
+""" one_cos
+
+one_cos(x) = 2.0 * sin(0.5*x)^2
 
 
+#---------------------------------------------------------------------------------------------------
 # Straight from SIMD.jl:
 @inline vifelse(v::Bool, v1::SIMD.Vec{N, T}, v2::SIMD.Vec{N, T}) where {N, T} = SIMD.vifelse(v, v1, v2)
 @inline vifelse(v::Bool, v1::SIMD.Vec{N, T}, v2::SIMD.ScalarTypes) where {N, T} = SIMD.vifelse(v, v1, v2)
