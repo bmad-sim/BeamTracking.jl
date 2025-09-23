@@ -34,7 +34,7 @@ include("types.jl")
 include("time.jl")
 include("kernel.jl")
 
-include("helpers/coord_rotation.jl")
+include("helpers/coord_transforms.jl")
 include("helpers/alignment_drift.jl")
 include("kernels/alignment_kernel.jl")
 include("kernels/aperture_kernel.jl")

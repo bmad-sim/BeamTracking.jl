@@ -15,10 +15,12 @@ as the particle drifts from beginning to end.
     rel_p = 1 + v[i,PZI]
     P_t2 = v[i,PXI]*v[i,PXI] + v[i,PYI]*v[i,PYI]
     P_s2 = rel_p*rel_p - P_t2
+
     good_momenta = (P_s2 > 0)
-    alive_at_start = (coords.state[i] == STATE_ALIVE)
-    coords.state[i] = vifelse(!good_momenta & alive_at_start, STATE_LOST, coords.state[i])
     alive = (coords.state[i] == STATE_ALIVE)
+    coords.state[i] = vifelse(!good_momenta & alive, STATE_LOST, coords.state[i])
+    alive = (coords.state[i] == STATE_ALIVE)
+
     P_s2_1 = one(P_s2)
     P_s = sqrt(vifelse(good_momenta, P_s2, P_s2_1))
 

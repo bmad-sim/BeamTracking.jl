@@ -1,8 +1,16 @@
 using BeamTracking, Test
 
-v1 = [0.1  0.02  0.3  0.04  0.5  0.3]
-v1_enter = [-0.3165959808234934 0.04754745605909551 -0.18236536347877394 0.05158049064876938 -0.09246402200390502 0.3]
-v1_exit = [0.4642308021396079 -0.007202272574320878 0.7750188504234871 0.027587793397562316 1.1046174611916189 0.3]
+vb1 = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+
+vs1 = [0.1  0.02  0.3  0.04   0.5  0.3
+      0.5  0.06  0.6  0.07  -0.4 -0.1]
+
+vs_enter = [-0.3165959808234934 0.04754745605909551 -0.18236536347877394 0.05158049064876938 -0.09246402200390502 0.3
+            0.12459790840631677 0.08022476563661293 0.1335585205366428 0.0765632835356387 -1.0072270672604062 -0.1]
+
+vs_exit = [0.4642308021396079 -0.007202272574320878 0.7750188504234871 0.027587793397562316 1.1046174611916189 0.3
+          0.8241548285801633 0.039944172668196574 1.0565996679665617 0.06281213996499757 0.21752162316101464 -0.1]
+
 
 m1 = [
   0.9997499770794925 0.5866010204862417 0.030196943370503864 0.01771798769973302 0.0 0.0
@@ -24,15 +32,25 @@ m2 = [
 # track_alignment_bend! args: (x_off, y_off, z_off, x_rot, y_rot, tilt, g_ref, tilt_ref, ele_orient, L)
 
 @testset "AlignmentKernel" begin
-  bunch = Bunch(copy(v1))
+  # bend tests
+
+  bunch = Bunch(copy(vs1))
+  BeamTracking.launch!(bunch.coords, KernelCall(BeamTracking.track_alignment_bend_entering!,
+                                            (0.0, 0.0, 0.0, 0.00, -0.00, 0.00, 0.0, 0.0, +1, 2.0)))
+  @test bunch.coords.v ≈ vs_enter
+
+
+  # Straight tests
+
+  bunch = Bunch(copy(vs1))
   BeamTracking.launch!(bunch.coords, KernelCall(BeamTracking.track_alignment_straight_entering!,
                                                       (0.4, 0.5, 0.6, 0.01, -0.02, 0.03, +1, 2.0)))
-  @test bunch.coords.v ≈ v1_enter
+  @test bunch.coords.v ≈ vs_enter
 
-  bunch = Bunch(copy(v1))
+  bunch = Bunch(copy(vs1))
   BeamTracking.launch!(bunch.coords, KernelCall(BeamTracking.track_alignment_straight_exiting!,
                                                       (0.4, 0.5, 0.6, 0.01, -0.02, 0.03, +1, 3.0)))
-  @test bunch.coords.v ≈ v1_exit
+  @test bunch.coords.v ≈ vs_exit
 
 
   test_matrix(m1, KernelCall(BeamTracking.track_alignment_straight_entering!, 

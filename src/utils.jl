@@ -6,7 +6,7 @@ AcceleratorSimUtils.jl in the end.
 =#
 
 #---------------------------------------------------------------------------------------------------
-# one_cos
+# one_cos(x)
 # Temp from AcceleratorSimUtils
 
 """
@@ -14,10 +14,51 @@ AcceleratorSimUtils.jl in the end.
 
 Function to calculate `1 - cos(x)` to machine precision.
 This is usful if angle can be near zero where the direct evaluation of `1 - cos(x)` is inaccurate.
+
+Also see `one_cos_norm(x)`.
 """ one_cos
 
 one_cos(x) = 2.0 * sin(0.5*x)^2
 
+#---------------------------------------------------------------------------------------------------
+# one_cos_norm(x)
+
+"""
+    one_cos_norm(x)
+
+Function to calculate `(1 - cos(x)) / x^2` to machine precision.
+This is usful if angle can be near zero where the direct evaluation of `(1 - cos(x))x^2` is inaccurate.
+""" one_cos_norm
+
+one_cos_norm(x) = 2.0 * sincu(0.5*x)^2
+
+#---------------------------------------------------------------------------------------------------
+# rot_mat
+
+"""
+  rot_mat(ax, angle) -> rmat
+
+Calculates rotation matrix from axis and angle.
+It is assumed that the axis is properly normalized.
+
+## Arguments
+- `ax`      Three vector axis.
+- `angle`   Rotation angle.
+
+# Returns
+- `rmat`    3x3 rotation matrix.
+"""
+function rot_mat(axis, angle)
+  c = cos(angle)
+  s = sin(angle)
+  oc = one_cos(angle)
+
+  return [
+      c + ax[1]^2oc              ax[1]*ax[2]*oc - ax[3]*s   ax[1]*ax[3]*oc + ax[2]*s
+      ax[1]*ax[2]*oc + ax[3]*s   c + ax[2]^2*oc             ax[2]*ax[3]*oc - ax[1]*s
+      ax[1]*ax[3]*oc - ax[2]*s   ax[2]*ax[3] + ax[1]*s      c + ax[3]^2*oc
+         ]
+end
 
 #---------------------------------------------------------------------------------------------------
 # Straight from SIMD.jl:
