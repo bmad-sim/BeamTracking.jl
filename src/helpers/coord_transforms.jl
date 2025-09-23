@@ -56,7 +56,7 @@ a bend arc a distance `ds`.
 
     alive = (coords.state[i] == STATE_ALIVE)
     good_ps = (ps_02 > 0)
-    coords.state[i] = vifelse(alive & good_ps, STATE_ALIVE, STATE_LOST)
+    coords.state[i] = vifelse(alive & good_ps, coords.state[i], STATE_LOST)
     alive = (coords.state[i] == STATE_ALIVE)
 
     ps_02_1 = one(ps_02)
@@ -65,7 +65,12 @@ a bend arc a distance `ds`.
     #
 
     angle = ds * g_ref
-    L = ds * [-0.5 * angle * sincu(0.5*angle)^2, 0.0, sincu(angle)]
+
+    angle2 = 0.5*angle
+    sinc_ang = sincu(angle2)
+    Lx = -0.5 * ds * angle * sinc_ang * sinc_ang
+    Lz = ds * sincu(angle)
+    L = [Lx, 0.0, Lz]
     axis = [sin(tilt_ref), cos(tilt_ref), 0.0]
     w = rot_mat(axis, ds * g_ref)
 
