@@ -2,15 +2,15 @@ module BeamTrackingBeamlinesExt
 using Beamlines, BeamTracking, GTPSA, StaticArrays, KernelAbstractions
 using Beamlines: isactive, deval, unsafe_getparams, o2i, BitsBeamline, BitsLineElement, isnullspecies
 using BeamTracking: get_N_particle, R_to_beta_gamma, R_to_gamma, R_to_pc, R_to_v, beta_gamma_to_v, runkernels!,
-                    @makekernel, Coords, KernelCall, KernelChain, push, TimeDependentParam, RefState, launch!
+  @makekernel, Coords, KernelCall, KernelChain, push, TimeDependentParam, RefState, launch!
 import BeamTracking: track!, C_LIGHT, chargeof, massof
 
 
 include("utils.jl")
 
 function track!(
-  bunch::Bunch, 
-  ele::LineElement; 
+  bunch::Bunch,
+  ele::LineElement;
   t_ref::Ref=Ref{eltype(bunch.coords.v)}(0),
   kwargs...
 )
@@ -24,7 +24,7 @@ end
 # Would also allow you to do mix of outer and inner loop too, doing a sub-bunch of 
 # particles in parallel
 
-@makekernel fastgtpsa=false function outer_track!(i, b::Coords, bunch::Bunch, bl::Beamline)
+@makekernel fastgtpsa = false function outer_track!(i, b::Coords, bunch::Bunch, bl::Beamline)
   for j in 1:length(bl.line)
     @inbounds ele = bl.line[j]
     @noinline _track!(i, b, bunch, ele, ele.tracking_method)
@@ -32,8 +32,8 @@ end
 end
 
 function track!(
-  bunch::Bunch, 
-  bl::Beamline; 
+  bunch::Bunch,
+  bl::Beamline;
   t_ref::Ref=Ref{eltype(bunch.coords.v)}(0),
   outer_particle_loop::Bool=false,
   kwargs...
@@ -58,8 +58,8 @@ end
 
 
 function track!(
-  bunch::Bunch, 
-  bbl::BitsBeamline{TM}; 
+  bunch::Bunch,
+  bbl::BitsBeamline{TM};
   t_ref::Ref=Ref{eltype(bunch.coords.v)}(0),
   outer_particle_loop::Bool=false
 ) where {TM}
@@ -67,12 +67,12 @@ function track!(
   if length(bbl.params) == 0
     return bunch
   end
-  
+
   check_R_ref!(nothing, bunch)
 
   if !outer_particle_loop
     if !isnothing(bbl.rep)
-      i = 1 
+      i = 1
       while i <= length(bbl.params)
         repeat_count = bbl.rep[i]
         start_i = i
@@ -102,8 +102,8 @@ function track!(
 end
 
 function track!(
-  bunch::Bunch, 
-  bbl::BitsBeamline{TM}; 
+  bunch::Bunch,
+  bbl::BitsBeamline{TM};
   outer_particle_loop::Bool=false
 ) where {TM<:Beamlines.MultipleTrackingMethods}
   error("BitsBeamline tracking including different tracking methods per element not implemented yet")

@@ -1,15 +1,16 @@
 using Test,
-      BeamTracking,
-      Beamlines,
-      JET,
-      BenchmarkTools,
-      GTPSA,
-      StaticArrays,
-      ReferenceFrameRotations,
-      SIMD
+  BeamTracking,
+  Beamlines,
+  JET,
+  BenchmarkTools,
+  GTPSA,
+  StaticArrays,
+  ReferenceFrameRotations,
+  OrdinaryDiffEq,
+  SIMD
 
 using BeamTracking: Coords, KernelCall, Q0, QX, QY, QZ, STATE_ALIVE, STATE_LOST,
-      STATE_LOST_NEG_X, STATE_LOST_POS_X, STATE_LOST_NEG_Y, STATE_LOST_POS_Y, STATE_LOST_PZ, STATE_LOST_Z
+  STATE_LOST_NEG_X, STATE_LOST_POS_X, STATE_LOST_NEG_Y, STATE_LOST_POS_Y, STATE_LOST_PZ, STATE_LOST_Z
 using Beamlines: isactive
 
 BenchmarkTools.DEFAULT_PARAMETERS.gctrial = false
@@ -21,9 +22,9 @@ const D10 = Descriptor(6, 10) # 6 variables 10th order
 function test_matrix(
   M_expected,    # Expected matrix
   kernel_call;
-  type_stable=VERSION >= v"1.11", 
-  no_scalar_allocs=!(any(t->eltype(t) <: TPS, kernel_call.args)), # only for non-parametric 
-  rtol=nothing, 
+  type_stable=VERSION >= v"1.11",
+  no_scalar_allocs=!(any(t -> eltype(t) <: TPS, kernel_call.args)), # only for non-parametric 
+  rtol=nothing,
   atol=nothing
 )
   # Initialize bunch without spin
@@ -38,25 +39,23 @@ function test_matrix(
   # Set up tolerance kwargs
   kwargs = ()
   if !isnothing(atol)
-    kwargs = pairs((;kwargs..., atol=atol))
+    kwargs = pairs((; kwargs..., atol=atol))
   end
   if !isnothing(rtol)
-    kwargs = pairs((;kwargs..., rtol=rtol))
+    kwargs = pairs((; kwargs..., rtol=rtol))
   end
 
   # 1) Correctness
-  @test isapprox(GTPSA.jacobian(coords.v)[1:6,1:6], scalar.(M_expected); kwargs...)
+  @test isapprox(GTPSA.jacobian(coords.v)[1:6, 1:6], scalar.(M_expected); kwargs...)
   # 2) Type stability
   if type_stable
     @test_opt kernel_call.kernel(1, coords, kernel_call.args...)
   end
   # 3) No scalar allocations
   if no_scalar_allocs
-    v = repeat([0.1 0.2 0.3 0.4 0.5 0.6], 2)
-    q = repeat([1.0 0.0 0.0 0.0], 2)
-    state = [STATE_ALIVE STATE_ALIVE]
-    @test @ballocated(BeamTracking.launch!(coords, $kernel_call; use_KA=false), 
-    setup=(coords = Coords(copy($state), copy($v), copy($q)))) == 0
+    v = [0.1 0.2 0.3 0.4 0.5 0.6]
+    @test @ballocated(BeamTracking.launch!(coords, $kernel_call; use_KA=false),
+      setup = (coords = Coords(copy($state), copy($v), nothing))) == 0
   end
 end
 
@@ -84,8 +83,8 @@ end
 function test_map(
   bmad_map_file::AbstractString,
   kernel_call;
-  type_stable=VERSION >= v"1.11", 
-  no_scalar_allocs=!(any(t->eltype(t) <: TPS, kernel_call.args)), # only for non-parametric 
+  type_stable=VERSION >= v"1.11",
+  no_scalar_allocs=!(any(t -> eltype(t) <: TPS, kernel_call.args)), # only for non-parametric 
   tol=1e-8
 )
   v_expected = read_map(bmad_map_file)
@@ -108,11 +107,9 @@ function test_map(
   end
   # 3) No scalar allocations
   if no_scalar_allocs
-    v = repeat([0.1 0.2 0.3 0.4 0.5 0.6], 2)
-    q = repeat([1.0 0.0 0.0 0.0], 2)
-    state = [STATE_ALIVE STATE_ALIVE]
-    @test @ballocated(BeamTracking.launch!(coords, $kernel_call; use_KA=false), 
-    setup=(coords = Coords(copy($state), copy($v), copy($q)))) == 0
+    v = [0.1 0.2 0.3 0.4 0.5 6e16]
+    @test @ballocated(BeamTracking.launch!(coords, $kernel_call; use_KA=false),
+      setup = (coords = Coords(copy($state), copy($v), nothing))) == 0
   end
 
 
@@ -126,7 +123,7 @@ function test_map(
     else
       error("`R_ref`, `E` or `p0c`, as well as `species` must both be provided as keyword arguments")
     end
-    
+
     if !haskey(kwargs, :ele)
       error("ele must be provided as a keyword argument")
     else
@@ -143,45 +140,45 @@ function coeffs_approx_equal(v_expected, v_calculated, ϵ)
   n = GTPSA.numcoefs(v_expected[1])
   all_ok = true
   for i in 1:length(v_expected)
-      for j in 0:n-1
-          c1, c2 = v_expected[i][j], v_calculated[i][j]
-          if abs(c1 - c2) > max(ϵ, ϵ * (abs(c1) + abs(c2)))
-              println("Coefficients not equal: v_expected[$i][$j] = $c1, v_calculated[$i][$j] = $c2")
-              println("Difference: $(abs(c1 - c2))")
-              println("Tolerance:  $(max(ϵ, ϵ * (abs(c1) + abs(c2))))")
-              all_ok = false
-              break
-          end
+    for j in 0:n-1
+      c1, c2 = v_expected[i][j], v_calculated[i][j]
+      if abs(c1 - c2) > max(ϵ, ϵ * (abs(c1) + abs(c2)))
+        println("Coefficients not equal: v_expected[$i][$j] = $c1, v_calculated[$i][$j] = $c2")
+        println("Difference: $(abs(c1 - c2))")
+        println("Tolerance:  $(max(ϵ, ϵ * (abs(c1) + abs(c2))))")
+        all_ok = false
+        break
       end
-      if !all_ok
-          break
-      end
+    end
+    if !all_ok
+      break
+    end
   end
   return all_ok
 end
 
 
 function quaternion_coeffs_approx_equal(q_expected, q_calculated, ϵ)
-  sgn = ifelse(q_expected.q0[[0,0,0,0,0,0]] * q_calculated.q0[[0,0,0,0,0,0]] >= 0, 1, -1)
+  sgn = ifelse(q_expected.q0[[0, 0, 0, 0, 0, 0]] * q_calculated.q0[[0, 0, 0, 0, 0, 0]] >= 0, 1, -1)
   components = (:q0, :q1, :q2, :q3)
   n = GTPSA.numcoefs(q_expected.q0)
   all_ok = true
-    for cname in components
-      v_expected = getfield(q_expected, cname)
-      v_calculated = sgn * getfield(q_calculated, cname)
-      for j in 0:n-1
-          c1, c2 = v_expected[j], v_calculated[j]
-          if abs(c1 - c2) > max(ϵ, ϵ * (abs(c1) + abs(c2)))
-              println("Coefficients not equal: expected $cname[$j] = $c1, got $cname[$j] = $c2")
-              println("Difference: $(abs(c1 - c2))")
-              println("Tolerance:  $(max(ϵ, ϵ * (abs(c1) + abs(c2))))")
-              all_ok = false
-              break
-          end
+  for cname in components
+    v_expected = getfield(q_expected, cname)
+    v_calculated = sgn * getfield(q_calculated, cname)
+    for j in 0:n-1
+      c1, c2 = v_expected[j], v_calculated[j]
+      if abs(c1 - c2) > max(ϵ, ϵ * (abs(c1) + abs(c2)))
+        println("Coefficients not equal: expected $cname[$j] = $c1, got $cname[$j] = $c2")
+        println("Difference: $(abs(c1 - c2))")
+        println("Tolerance:  $(max(ϵ, ϵ * (abs(c1) + abs(c2))))")
+        all_ok = false
+        break
       end
-      if !all_ok
-          break
-      end
+    end
+    if !all_ok
+      break
+    end
   end
   return all_ok
 end
@@ -192,3 +189,5 @@ include("ExactTracking_test.jl")
 include("IntegrationTracking_test.jl")
 include("BeamlinesExt_test.jl")
 include("time_test.jl")
+include("FieldTracking_test.jl")
+include("RungeKuttaTracking_test.jl")
