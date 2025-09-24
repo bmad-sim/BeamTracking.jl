@@ -75,8 +75,8 @@ end
   end
   kn, ks = get_strengths(bdict, L, bunch.R_ref)
   mm = bdict.order
-  k0 = sqrt(kn[1]^2 + ks[1]^2) * (mm[1] == 1)
-  k1 = sqrt(kn[2]^2 + ks[2]^2) * (mm[2] == 2)
+  k0 = sign(kn[1])*sqrt(kn[1]^2 + ks[1]^2) * (mm[1] == 1)
+  k1 = sign(kn[2])*sqrt(kn[2]^2 + ks[2]^2) * (mm[2] == 2)
   if k1 ≈ 0
     thick_pure_bdipole(tm::BmadStandard, bunch, first(bm), L)
   end
@@ -95,8 +95,8 @@ end
   g = bendparams.g_ref
   kn, ks = get_strengths(bdict, L, bunch.R_ref)
   mm = bdict.order
-  k0 = sqrt(kn[1]^2 + ks[1]^2) * (mm[1] == 1)
-  k1 = sqrt(kn[2]^2 + ks[2]^2) * (mm[2] == 2)
+  k0 = sign(kn[1])*sqrt(kn[1]^2 + ks[1]^2) * (mm[1] == 1)
+  k1 = sign(kn[2])*sqrt(kn[2]^2 + ks[2]^2) * (mm[2] == 2)
   if k1 ≈ 0
     thick_bend_pure_bdipole(tm::BmadStandard, bunch, bendparams, first(bm), L)
   end
@@ -129,7 +129,7 @@ end
 
 @inline function thick_pure_bquadrupole(tm::BmadStandard, bunch, bm2, L)
   Kn1, Ks1 = get_strengths(bm2, L, bunch.R_ref)
-  K1 = sqrt(Kn1^2 + Ks1^2)
+  K1 = sign(Kn1)*sqrt(Kn1^2 + Ks1^2)
   if abs(K1) < 1e-10
     tilde_m, gamsqr_0, β0 = ExactTracking.drift_params(bunch.species, bunch.R_ref)
     return KernelCall(BmadStandardTracking.magnus_drift!, (β0, gamsqr_0, tilde_m, L))
@@ -144,7 +144,7 @@ end
 @inline function thick_pure_bmultipole(tm::BmadStandard, bunch, bmn, L)
   if bmn.order == 3 # Pure sextupole (No tilt)
     Kn2, Ks2 = get_strengths(bmn, L, bunch.R_ref)
-    K2 = sqrt(Kn2^2 + Ks2^2)
+    K2 = sign(Kn2)*sqrt(Kn2^2 + Ks2^2)
     tilde_m, gamsqr_0, β0 = ExactTracking.drift_params(bunch.species, bunch.R_ref)
     G = BeamTracking.anom(bunch.species)
     return KernelCall(BmadStandardTracking.magnus_thick_sextupole!, (K2, β0, gamsqr_0, tilde_m, G, L))

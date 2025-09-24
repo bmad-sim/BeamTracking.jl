@@ -12,7 +12,7 @@ const TRACKING_METHOD = BmadStandard
   # ============= Kick - Drift - Kick scheme =============
   # First kick
   rel_p = 1 + v[i, PZI]
-  φ = φ0 - 2π * wave_number * v[i, ZI] * sqrt(rel_p^2 + tilde_m^2) / (rel_p * sqrt(1 + tilde_m^2))
+  φ = φ0 - 2π * wave_number * v[i, ZI] * sqrt(rel_p^2 + tilde_m^2) / (rel_p * sqrt(1 + tilde_m^2)) - π
   dE = V * sin(φ) / 2
   pc = rel_p * p0c
   E_old = sqrt(pc^2 + (tilde_m * p0c)^2)
