@@ -9,7 +9,8 @@ using GTPSA,
       MacroTools,
       Adapt,
       Accessors,
-      SpecialFunctions
+      SpecialFunctions,
+      Roots
 
 using KernelAbstractions
 using SIMD: SIMD
@@ -36,10 +37,13 @@ include("kernel.jl")
 
 include("kernels/alignment_kernel.jl")
 include("kernels/aperture_kernel.jl")
+include("kernels/beambeam_tracking.jl")
 include("kernels/coord_rotation.jl")
 include("modules/ExactTracking.jl") #; TRACKING_METHOD(::ExactTracking) = Exact
 include("modules/LinearTracking.jl") #; TRACKING_METHOD(::LinearTracking) = Linear
 include("modules/IntegrationTracking.jl") #; TRACKING_METHOD(::LinearTracking) = SplitIntegration, DriftKick, BendKick, SolenoidKick, MatrixKick
+import .ExactTracking: exact_drift!
+export exact_drift!
 
 # Empty tracking method to be imported+implemented by package extensions
 function track! end
