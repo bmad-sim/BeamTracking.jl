@@ -81,7 +81,7 @@ jobs:
       - name: Copy files with SCP
         uses: appleboy/scp-action@v0.1.7 # Or the latest version
         with:
-          host: ${{ env.PERLMUTTER_USER }}
+          host: ${{ env.PERLMUTTER_HOST }}
           username: ${{ secrets.PERLMUTTER_USER }}
           key: '~/.ssh/id_ed25519'
           source: '$RUNNER_TEMP/repo.tgz' # Files to copy from your repo
