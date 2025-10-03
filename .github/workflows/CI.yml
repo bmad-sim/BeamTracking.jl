@@ -90,7 +90,7 @@ jobs:
 
       - name: Copy source to Perlmutter
         run: |
-          scp -i $RUNNER_HOME/.ssh/id_ed25519 "$RUNNER_TEMP/repo.tgz" \
+          scp -i ~/.ssh/id_ed25519 "$RUNNER_TEMP/repo.tgz" \
             "${{ secrets.PERLMUTTER_USER }}@${{ env.PERLMUTTER_HOST }}:~/repo.tgz"
 
       - name: Submit Slurm GPU job
