@@ -68,7 +68,7 @@ jobs:
           tar -C "$GITHUB_WORKSPACE" --exclude-vcs -czf "$T" .
           ls -lh "$T"
 
-       - name: Install SSH Key
+      - name: Install SSH Key
         uses: shimataro/ssh-key-action@v2
         with:
           key: ${{ secrets.PERLMUTTER_SSH_KEY }}
