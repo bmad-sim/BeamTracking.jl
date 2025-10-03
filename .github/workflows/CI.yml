@@ -81,17 +81,21 @@ jobs:
       - name: Copy files with SCP
         uses: appleboy/scp-action@v0.1.7 # Or the latest version
         with:
-          host: ${{ env.PERLMUTTER_HOST }}
+          host: ${{ env.PERLMUTTER_USER }}
           username: ${{ secrets.PERLMUTTER_USER }}
-          key: ${{ secrets.PERLMUTTER_SSH_KEY }}
+          key: '~/.ssh/id_ed25519'
           source: '$RUNNER_TEMP/repo.tgz' # Files to copy from your repo
           target: '~/repo.tgz' # Destination on the server
           # port: 22 # Optional: if using a non-standard SSH port
 
+#      - name: Copy source to Perlmutter
+#        run: |
+#          scp -i $RUNNER_HOME/.ssh/id_ed25519 "$RUNNER_TEMP/repo.tgz" \
+#            "${{ secrets.PERLMUTTER_USER }}@${{ env.PERLMUTTER_HOST }}:~/repo.tgz"
+
       - name: Submit Slurm GPU job
         id: submit
         run: |
-          # (same submission script as I gave earlier)
           # creates sbatch file, submits, waits, produces lcov.info
           # writes job_meta with JOB_ID and WORKDIR
           # ...
