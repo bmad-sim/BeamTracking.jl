@@ -61,12 +61,12 @@ jobs:
       - name: Check out repo
         uses: actions/checkout@v4
 
-      - name: Package source tarball
-        shell: bash
-        run: |
-          T="$RUNNER_TEMP/repo.tgz"
-          tar -C "$GITHUB_WORKSPACE" --exclude-vcs -czf "$T" .
-          ls -lh "$T"
+#      - name: Package source tarball
+#        shell: bash
+#        run: |
+#          T="$RUNNER_TEMP/repo.tgz"
+#          tar -C "$GITHUB_WORKSPACE" --exclude-vcs -czf "$T" .
+#          ls -lh "$T"
 
       - name: Install SSH Key
         uses: shimataro/ssh-key-action@v2
@@ -84,7 +84,7 @@ jobs:
           host: ${{ env.PERLMUTTER_HOST }}
           username: ${{ secrets.PERLMUTTER_USER }}
           key: '~/.ssh/id_ed25519'
-          source: '$RUNNER_TEMP/repo.tgz' # Files to copy from your repo
+          source: "$GITHUB_WORKSPACE" # Files to copy from your repo
           target: '~/repo.tgz' # Destination on the server
           # port: 22 # Optional: if using a non-standard SSH port
 
