@@ -1,34 +1,31 @@
 name: CI
+
 on:
   push:
-    branches:
-      - main
+    branches: [ main ]
     tags: ['*']
   pull_request:
   workflow_dispatch:
+
 concurrency:
-  # Skip intermediate builds: always.
-  # Cancel intermediate builds: only if it is a pull request build.
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: ${{ startsWith(github.ref, 'refs/pull/') }}
+
 jobs:
+  # --- GitHub-hosted CI ---
   test:
     name: Julia ${{ matrix.version }} - ${{ matrix.os }} - ${{ matrix.arch }} - ${{ github.event_name }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 60
-    permissions: # needed to allow julia-actions/cache to proactively delete old caches that it has created
+    permissions:
       actions: write
       contents: read
     strategy:
       fail-fast: false
       matrix:
-        version:
-          - '1.11'
-          - 'lts'
-        os:
-          - ubuntu-latest
-        arch:
-          - x64
+        version: [ '1.11', 'lts' ]
+        os: [ ubuntu-latest ]
+        arch: [ x64 ]
     steps:
       - uses: actions/checkout@v5
       - uses: julia-actions/setup-julia@v2
@@ -43,3 +40,75 @@ jobs:
         with:
           files: lcov.info
           token: ${{ secrets.CODECOV_TOKEN }}
+
+  # --- New Perlmutter GPU CI job ---
+  perlmutter-gpu-tests:
+    name: Julia on Perlmutter GPU - ${{ github.event_name }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    permissions:
+      actions: write
+      contents: read
+
+    env:
+      PERLMUTTER_HOST: ${{ secrets.PERLMUTTER_HOST || 'perlmutter.nersc.gov' }}
+      NERSC_QOS: ${{ secrets.NERSC_QOS || 'regular' }}
+      JULIA_MODULE: ${{ secrets.JULIA_MODULE || 'julia/1.11.1' }}
+      JOB_TIME: ${{ secrets.JOB_TIME || '00:30:00' }}
+      JULIA_NUM_THREADS: "8"
+
+    steps:
+      - name: Check out repo
+        uses: actions/checkout@v4
+
+      - name: Package source tarball
+        run: tar --exclude-vcs -czf repo.tgz .
+
+      - name: Set up SSH
+        run: |
+          install -m 700 -d ~/.ssh
+          echo "${{ secrets.PERLMUTTER_SSH_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -t ed25519 "$PERLMUTTER_HOST" >> ~/.ssh/known_hosts
+
+      - name: Copy source to Perlmutter
+        run: scp -i ~/.ssh/id_ed25519 repo.tgz \
+          "${{ secrets.PERLMUTTER_USER }}@${{ env.PERLMUTTER_HOST }}:~/repo.tgz"
+
+      - name: Submit Slurm GPU job
+        id: submit
+        run: |
+          # (same submission script as I gave earlier)
+          # creates sbatch file, submits, waits, produces lcov.info
+          # writes job_meta with JOB_ID and WORKDIR
+          # ...
+          echo "job_id=..." >> "$GITHUB_OUTPUT"
+          echo "workdir=..." >> "$GITHUB_OUTPUT"
+
+      - name: Retrieve artifacts from Perlmutter
+        run: |
+          jid="${{ steps.submit.outputs.job_id }}"
+          wdir="${{ steps.submit.outputs.workdir }}"
+          scp -i ~/.ssh/id_ed25519 \
+            "${{ secrets.PERLMUTTER_USER }}@${{ env.PERLMUTTER_HOST }}:${wdir}/lcov.info" ./lcov.info || true
+          scp -i ~/.ssh/id_ed25519 \
+            "${{ secrets.PERLMUTTER_USER }}@${{ env.PERLMUTTER_HOST }}:${wdir}/slurm-${jid}.out" ./slurm-${jid}.out || true
+          scp -i ~/.ssh/id_ed25519 \
+            "${{ secrets.PERLMUTTER_USER }}@${{ env.PERLMUTTER_HOST }}:${wdir}/slurm-${jid}.err" ./slurm-${jid}.err || true
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          files: lcov.info
+          token: ${{ secrets.CODECOV_TOKEN }}
+          fail_ci_if_error: true
+
+      - name: Upload SLURM logs
+        uses: actions/upload-artifact@v4
+        with:
+          name: perlmutter-slurm-logs
+          path: |
+            slurm-*.out
+            slurm-*.err
+            lcov.info
+          if-no-files-found: warn
