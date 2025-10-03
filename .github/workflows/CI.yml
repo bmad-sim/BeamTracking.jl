@@ -41,7 +41,7 @@ jobs:
           files: lcov.info
           token: ${{ secrets.CODECOV_TOKEN }}
 
-  # --- New Perlmutter GPU CI job ---
+  # Perlmutter GPU CI job ---
   perlmutter-gpu-tests:
     name: Julia on Perlmutter GPU - ${{ github.event_name }}
     runs-on: ubuntu-latest
@@ -62,7 +62,11 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Package source tarball
-        run: tar --exclude-vcs -czf repo.tgz .
+        shell: bash
+        run: |
+          T="$RUNNER_TEMP/repo.tgz"
+          tar -C "$GITHUB_WORKSPACE" --exclude-vcs -czf "$T" .
+          ls -lh "$T"
 
       - name: Set up SSH
         run: |
@@ -72,8 +76,9 @@ jobs:
           ssh-keyscan -t ed25519 "$PERLMUTTER_HOST" >> ~/.ssh/known_hosts
 
       - name: Copy source to Perlmutter
-        run: scp -i ~/.ssh/id_ed25519 repo.tgz \
-          "${{ secrets.PERLMUTTER_USER }}@${{ env.PERLMUTTER_HOST }}:~/repo.tgz"
+        run: |
+          scp -i ~/.ssh/id_ed25519 "$RUNNER_TEMP/repo.tgz" \
+            "${{ secrets.PERLMUTTER_USER }}@${{ env.PERLMUTTER_HOST }}:~/repo.tgz"
 
       - name: Submit Slurm GPU job
         id: submit
