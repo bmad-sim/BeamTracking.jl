@@ -61,12 +61,12 @@ jobs:
       - name: Check out repo
         uses: actions/checkout@v4
 
-#      - name: Package source tarball
-#        shell: bash
-#        run: |
-#          T="$RUNNER_TEMP/repo.tgz"
-#          tar -C "$GITHUB_WORKSPACE" --exclude-vcs -czf "$T" .
-#          ls -lh "$T"
+      - name: Package source tarball
+        shell: bash
+        run: |
+          T="$RUNNER_TEMP/repo.tgz"
+          tar -C "$GITHUB_WORKSPACE" --exclude-vcs -czf "$T" .
+          ls -lh "$T"
 
       - name: Install SSH Key
         uses: shimataro/ssh-key-action@v2
@@ -78,20 +78,20 @@ jobs:
       - name: Add Server to Known Hosts
         run: ssh-keyscan -H ${{ env.PERLMUTTER_HOST }} >> ~/.ssh/known_hosts
 
-      - name: Copy files with SCP
-        uses: appleboy/scp-action@v0.1.7 # Or the latest version
-        with:
-          host: ${{ env.PERLMUTTER_HOST }}
-          username: ${{ secrets.PERLMUTTER_USER }}
-          key: '~/.ssh/id_ed25519'
-          source: "$GITHUB_WORKSPACE" # Files to copy from your repo
-          target: '~/repo.tgz' # Destination on the server
+#      - name: Copy files with SCP
+#        uses: appleboy/scp-action@v0.1.7 # Or the latest version
+#        with:
+#          host: ${{ env.PERLMUTTER_HOST }}
+#          username: ${{ secrets.PERLMUTTER_USER }}
+#          key: '~/.ssh/id_ed25519'
+#          source: "$GITHUB_WORKSPACE" # Files to copy from your repo
+#          target: '~/repo.tgz' # Destination on the server
           # port: 22 # Optional: if using a non-standard SSH port
 
-#      - name: Copy source to Perlmutter
-#        run: |
-#          scp -i $RUNNER_HOME/.ssh/id_ed25519 "$RUNNER_TEMP/repo.tgz" \
-#            "${{ secrets.PERLMUTTER_USER }}@${{ env.PERLMUTTER_HOST }}:~/repo.tgz"
+      - name: Copy source to Perlmutter
+        run: |
+          scp -i $RUNNER_HOME/.ssh/id_ed25519 "$RUNNER_TEMP/repo.tgz" \
+            "${{ secrets.PERLMUTTER_USER }}@${{ env.PERLMUTTER_HOST }}:~/repo.tgz"
 
       - name: Submit Slurm GPU job
         id: submit
