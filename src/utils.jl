@@ -167,6 +167,7 @@ function expq(v, compute)
 end
 
 
+#---------------------------------------------------------------------------------------------------
 """
 This function computes exp(-i/2 v⋅σ) as a quaternion, where σ is the 
 vector of Pauli matrices. If compute is false, it returns the identity quaternion.
@@ -186,28 +187,44 @@ function quat_mul(q1, q20, q2x, q2y, q2z)
   return (a3, b3, c3, d3)
 end
 
-#
-#= 
-This function should not be used because it is allocating
+#---------------------------------------------------------------------------------------------------
+
+function quat_mul(q1, q2)
+  return [
+    q1[1]*q2[1] - q1[2]*q2[2] - q1[3]*q2[3] - q1[4]*q2[4]
+    q1[1]*q2[2] + q1[2]*q2[1] + q1[3]*q2[4] - q1[4]*q2[3]
+    q1[1]*q2[3] - q1[2]*q2[4] + q1[3]*q2[1] + q1[4]*q2[2]
+    q1[1]*q2[4] + q1[2]*q2[3] - q1[3]*q2[2] + q1[4]*q2[1]
+  ]
+end
+
+
+#---------------------------------------------------------------------------------------------------
 
 """
-    function quat_rotate!(r, q)
+    function quat_rotate!(r, q) -> rotated_r
 
 Rotates vector `r` using quaternion `q`.
 """
 @inline function quat_rotate!(r, q)
 
-q0_inv = -[q[QX]*r[1] + q[QY]*r[2] + q[QZ]*r[3]]
+  w11 = 1 - 2*(q[QY]*q[QY] + q[QZ]*q[QZ])
+  w12 =     2*(q[QX]*q[QY] - q[QZ]*q[Q0])
+  w13 =     2*(q[QX]*q[QZ] + q[QY]*q[Q0])
 
-r = SA[q[Q0]*r[1] + q[QY]*r[3] - q[QZ]*r[2],
-       q[Q0]*r[2] + q[QZ]*r[1] - q[QX]*r[3],
-       q[Q0]*r[3] + q[QX]*r[2] - q[QY]*r[1]]
+  w21 =     2*(q[QX]*q[QY] + q[QZ]*q[Q0])
+  w22 = 1 - 2*(q[QX]*q[QX] + q[QZ]*q[QZ])
+  w23 =     2*(q[QY]*q[QZ] - q[QX]*q[Q0])
 
-r = SA[q[Q0]*r[1] + q[QY]*r[3] - q[QZ]*r[2] - q0_inv*q[QX],
-       q[Q0]*r[2] + q[QZ]*r[1] - q[QX]*r[3] - q0_inv*q[QY],
-       q[Q0]*r[3] + q[QX]*r[2] - q[QY]*r[1] - q0_inv*q[QZ]] / (q' * q)
+  w31 =     2*(q[QX]*q[QZ] - q[QY]*q[Q0])
+  w32 =     2*(q[QY]*q[QZ] + q[QX]*q[Q0])
+  w33 = 1 - 2*(q[QX]*q[QX] + q[QY]*q[QY])
+
+  return (w11*r[1] + w12*r[2] + w13*r[3],
+          w21*r[1] + w22*r[2] + w23*r[3],
+          w31*r[1] + w32*r[2] + w33*r[3])
 end
-=#
+
 
 # Rotation matrix
 
