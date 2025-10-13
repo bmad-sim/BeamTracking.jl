@@ -8,7 +8,7 @@ struct Exact end
 
 module ExactTracking
 using ..GTPSA, ..BeamTracking, ..StaticArrays, ..ReferenceFrameRotations, ..KernelAbstractions, ..SIMDMathFunctions
-using ..BeamTracking: XI, PXI, YI, PYI, ZI, PZI, Q0, QX, QY, QZ, STATE_ALIVE, STATE_LOST, @makekernel, Coords, vifelse, BeamTracking.coord_rotation!
+using ..BeamTracking: XI, PXI, YI, PYI, ZI, PZI, Q0, QX, QY, QZ, STATE_ALIVE, STATE_LOST, @makekernel, Coords, vifelse, BeamTracking.track_rotation!
 using ..BeamTracking: C_LIGHT
 const TRACKING_METHOD = Exact
 
@@ -324,11 +324,11 @@ end
 
 
 @makekernel fastgtpsa=true function exact_bend_with_rotation!(i, coords::Coords, e1, e2, theta, g, Kn0, w, w_inv, tilde_m, beta_0, L)
-  BeamTracking.coord_rotation!(i, coords, w, 0)
+  BeamTracking.track_rotation!(i, coords, w, 0)
   ExactTracking.linear_bend_fringe!(i, coords, Kn0*tan(e1))
   exact_bend!(i, coords, e1, e2, theta, g, Kn0, tilde_m, beta_0, L)
   ExactTracking.linear_bend_fringe!(i, coords, Kn0*tan(e2))
-  BeamTracking.coord_rotation!(i, coords, w_inv, 0)
+  BeamTracking.track_rotation!(i, coords, w_inv, 0)
 end
 
 
@@ -336,9 +336,9 @@ end
 @makekernel fastgtpsa=true function exact_curved_drift!(i, coords::Coords, e1, e2, theta, g, w, w_inv, a, tilde_m, beta_0, L) 
   exact_bend_with_rotation!(i, coords, 0, 0, theta, g, 0, w, w_inv, tilde_m, beta_0, L)
   if !isnothing(coords.q)
-    BeamTracking.coord_rotation!(i, coords, w, 0)
+    BeamTracking.track_rotation!(i, coords, w, 0)
     IntegrationTracking.rotate_spin!(i, coords, a, g, tilde_m, SA[0], SA[0], SA[0], L)
-    BeamTracking.coord_rotation!(i, coords, w_inv, 0)
+    BeamTracking.track_rotation!(i, coords, w_inv, 0)
   end
 end
 
@@ -418,7 +418,7 @@ end
     w32 = 2*(winv[QY]*winv[QZ] + winv[QX]*winv[Q0])
     w33 = 1 - 2*(winv[QX]*winv[QX] + winv[QY]*winv[QY])
     s_f = w31*v[i,XI] + w32*v[i,YI] - w33*dz
-    BeamTracking.coord_rotation!(i, coords, winv, dz)
+    BeamTracking.track_rotation!(i, coords, winv, -dz)
     exact_drift!(i, coords, beta_0, gamsqr_0, tilde_m, -s_f)
     new_z = v[i,ZI] + ((s_f + L) * rel_p * 
     sqrt((1 + tilde_m*tilde_m)/(rel_p*rel_p + tilde_m*tilde_m)))
