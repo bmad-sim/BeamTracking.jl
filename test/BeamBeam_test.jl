@@ -90,7 +90,6 @@ pzifinal9 = [  7.0000053459203e-01, 6.3787411781476e-07, 8.0000064784051e-01, 8.
         BeamTracking.launch!(bunch.coords, KernelCall(BeamTracking.track_beambeam!, (1.0e8, 4.0e11, 
                                                     1.0, 0.3, 0.2, 3.0, 1.0e12, 5, 0.0, 0.0, 0.0, 0.0, 
                                                     -100.0, 0.0, 1.1, 0.5, 1.3, 0.2, [0, 0.0, 0.0, 0.0, 0.0], 0.0)))
-        print(bunch.coords)
         @test v[:,BeamTracking.XI]  ≈ xifinal5
         @test v[:,BeamTracking.YI]  ≈ yifinal5
         @test v[:,BeamTracking.ZI]  ≈ zifinal5
