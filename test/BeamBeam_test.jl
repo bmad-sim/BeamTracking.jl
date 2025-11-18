@@ -1,37 +1,7 @@
-#(i, coords::Coords, p0c, charge,
-	# beta_0, tilde_m,
-	# sig_x_strong, sig_y_strong, sig_z_strong, N_particles,
-	# n_slices, z_offset)
-# (i, coords::Coords, p0c, E_strong, charge,
-	# sig_x_strong, sig_y_strong, sig_z_strong, N_particles,
-	# n_slices, z_offset)
-# using BeamTracking,
-#     Beamlines,
-#     JET,
-#     BenchmarkTools,
-#     GTPSA,
-#     StaticArrays,
-#     ReferenceFrameRotations,
-#     SIMD,
-#     KernelAbstractions
-# import KernelAbstractions: @kernel
-# using BeamTracking: Coords, KernelCall, Q0, QX, QY, QZ, STATE_ALIVE, STATE_LOST
-# using Beamlines: isactive
-#include("../src/kernels/BeamBeam_tracking.jl")
-#differentiation interface - 3rd order central finite difference
-
 using GTPSA
 using FiniteDifferences
 d_z = Descriptor(6, 2)
-# v_z = zeros(TPS64{d_z}, 6)
-# bunch_z = Bunch(v_z)
 b0 = Bunch(collect(transpose(@vars(d_z))), R_ref=-0.0017045090263411496, species=Species("electron"))
-
-# track_beambeam!(i, coords::Coords, p0c, E_strong, charge,
-# 	sig_x_strong, sig_y_strong, sig_z_strong, N_particles,
-# 	n_slices,x_offset,y_offset,x_pitch,y_pitch, z_offset,tilt, 
-# 	beta_a_strong, alpha_a_strong,
-# 	beta_b_strong, alpha_b_strong, crab, crab_tilt)
 
 xi  = [ 1.000]
 pxi = [ 0.100]
@@ -46,21 +16,6 @@ yifinal = [1.9940256568175e00]
 pyifinal = [2.0023330850389e-01]
 zifinal = [-9.9213481467006e-02]
 pzifinal = [9.0009482033428e-01]
-@testset "BeamBeamTracking" begin
-    @testset "BeamBeam" begin
-        v = [ xi pxi yi pyi zi pzi ]
-        bunch = Bunch(v)
-        BeamTracking.launch!(bunch.coords, KernelCall(BeamTracking.track_beambeam!, (1.0e8, 1.0e11, 
-                                                    1.0, 0.1, 0.1, 0.0, 1.0e14, 1, 0.0, 0.0, 0.0, 0.0, 
-                                                    100.0, 0.0, 1.0, 0.0, 1.0, 0.0, [0, 0.0, 0.0, 0.0, 0.0], 0.0)))
-        @test v[:,BeamTracking.XI]  ≈  xifinal
-        @test v[:,BeamTracking.YI]  ≈  yifinal
-        @test v[:,BeamTracking.ZI]  ≈  zifinal
-        @test v[:,BeamTracking.PXI] ≈ pxifinal
-        @test v[:,BeamTracking.PYI] ≈ pyifinal
-        @test v[:,BeamTracking.PZI] ≈ pzifinal
-    end
-end
 
 xi2  = [ 1.000, 2.000]
 pxi2 = [ 0.100, 0.200]
@@ -76,34 +31,6 @@ pyifinal2 = [2.6763162365240e-01, -1.2925815827078e-01]
 zifinal2 = [-1.0016187584062e-01, 5.0261547104211e-02]
 pzifinal2 = [9.0534337889019e-01, 9.5346678822124e-01]
 
-@testset "BeamBeamTracking" begin
-    @testset "BeamBeam" begin
-        v = [ xi pxi yi pyi zi pzi ]
-        bunch = Bunch(v)
-        BeamTracking.launch!(bunch.coords, KernelCall(BeamTracking.track_beambeam!, (1.0e8, 1.0e11, 
-                                                    1.0, 0.1, 0.1, 0.0, 1.0e14, 1, 0.0, 0.0, 0.0, 0.0, 
-                                                    100.0, 0.0, 1.0, 0.0, 1.0, 0.0, [0, 0.0, 0.0, 0.0, 0.0], 0.0)))
-        @test v[:,BeamTracking.XI]  ≈  xifinal
-        @test v[:,BeamTracking.YI]  ≈  yifinal
-        @test v[:,BeamTracking.ZI]  ≈  zifinal
-        @test v[:,BeamTracking.PXI] ≈ pxifinal
-        @test v[:,BeamTracking.PYI] ≈ pyifinal
-        @test v[:,BeamTracking.PZI] ≈ pzifinal
-
-        v = [ xi2 pxi2 yi2 pyi2 zi2 pzi2 ]
-        bunch = Bunch(v)
-        BeamTracking.launch!(bunch.coords, KernelCall(BeamTracking.track_beambeam!, (5.0e7, 7.0e9, 
-                                                    1.0, 0.1, 0.2, 2.0, 3.0e15, 2, 0.0, 0.0, 0.0, 0.0, 
-                                                    0.0, 0.0, 0.4, 1.2, 0.3, 1.1, [0, 0.0, 0.0, 0.0, 0.0], 0.0)))
-        @test v[:,BeamTracking.XI]  ≈  xifinal2
-        @test v[:,BeamTracking.YI]  ≈  yifinal2
-        @test v[:,BeamTracking.ZI]  ≈  zifinal2
-        @test v[:,BeamTracking.PXI] ≈ pxifinal2
-        @test v[:,BeamTracking.PYI] ≈ pyifinal2
-        @test v[:,BeamTracking.PZI] ≈ pzifinal2
-    end
-end
-
 xi5  = [ -2.0, -1.0, 0.0, 1.0, 2.0 ]
 pxi5 = [ -0.2, -0.1, 0.0, 0.1, 0.2 ]
 yi5  = [ -1.0, -0.5, 0.0, 0.5, 1.0 ]
@@ -117,46 +44,6 @@ yifinal5  = [ -9.9999272636527e-01, -4.9999683047563e-01, 0.0000000000000e00, 4.
 pyifinal5 = [ -9.9999725605715e-02, -4.9999872423511e-02, 0.0000000000000e00, 4.9999891831906e-02, 9.9999801293908e-02 ]
 zifinal5  = [ 1.9999880462514e-01, -9.9999755289907e-02, -4.6629919381053e-11, 1.0000016810021e-01, 2.0000056466353e-01 ]
 pzifinal5 = [ 7.9999970517411e-01,  8.9999971214914e-01, 9.9999971407675e-01, 1.0999997119234e00, 1.1999997066717e00 ]
-
-@testset "BeamBeamTracking" begin
-    @testset "BeamBeam (5 particles)" begin
-        v = [ xi pxi yi pyi zi pzi ]
-        bunch = Bunch(v)
-        BeamTracking.launch!(bunch.coords, KernelCall(BeamTracking.track_beambeam!, (1.0e8, 1.0e11, 
-                                                    1.0, 0.1, 0.1, 0.0, 1.0e14, 1, 0.0, 0.0, 0.0, 0.0, 
-                                                    100.0, 0.0, 1.0, 0.0, 1.0, 0.0, [0, 0.0, 0.0, 0.0, 0.0], 0.0)))
-        @test v[:,BeamTracking.XI]  ≈  xifinal
-        @test v[:,BeamTracking.YI]  ≈  yifinal
-        @test v[:,BeamTracking.ZI]  ≈  zifinal
-        @test v[:,BeamTracking.PXI] ≈ pxifinal
-        @test v[:,BeamTracking.PYI] ≈ pyifinal
-        @test v[:,BeamTracking.PZI] ≈ pzifinal
-        
-        v = [ xi2 pxi2 yi2 pyi2 zi2 pzi2 ]
-        bunch = Bunch(v)
-        BeamTracking.launch!(bunch.coords, KernelCall(BeamTracking.track_beambeam!, (5.0e7, 7.0e9, 
-                                                    1.0, 0.1, 0.2, 2.0, 3.0e15, 2, 0.0, 0.0, 0.0, 0.0, 
-                                                    0.0, 0.0, 0.4, 1.2, 0.3, 1.1, [0, 0.0, 0.0, 0.0, 0.0], 0.0)))
-        @test v[:,BeamTracking.XI]  ≈  xifinal2
-        @test v[:,BeamTracking.YI]  ≈  yifinal2
-        @test v[:,BeamTracking.ZI]  ≈  zifinal2
-        @test v[:,BeamTracking.PXI] ≈ pxifinal2
-        @test v[:,BeamTracking.PYI] ≈ pyifinal2
-        @test v[:,BeamTracking.PZI] ≈ pzifinal2
-        v = [ xi5 pxi5 yi5 pyi5 zi5 pzi5 ]
-        bunch = Bunch(v)
-        BeamTracking.launch!(bunch.coords, KernelCall(BeamTracking.track_beambeam!, (1.0e8, 4.0e11, 
-                                                    1.0, 0.3, 0.2, 3.0, 1.0e12, 5, 0.0, 0.0, 0.0, 0.0, 
-                                                    -100.0, 0.0, 1.1, 0.5, 1.3, 0.2, [0, 0.0, 0.0, 0.0, 0.0], 0.0)))
-        print(bunch.coords)
-        @test v[:,BeamTracking.XI]  ≈ xifinal5
-        @test v[:,BeamTracking.YI]  ≈ yifinal5
-        @test v[:,BeamTracking.ZI]  ≈ zifinal5
-        @test v[:,BeamTracking.PXI] ≈ pxifinal5
-        @test v[:,BeamTracking.PYI] ≈ pyifinal5
-        @test v[:,BeamTracking.PZI] ≈ pzifinal5
-    end
-end
 
 xi9  = [ -4.0, -3.0, -2.0, -1.0, 0.0, 1.0, 2.0, 3.0, 4.0]
 pxi9 = [ -0.4, -0.3, -0.2, -0.1, 0.0, 0.1, 0.2, 0.3, 0.4]
@@ -174,7 +61,7 @@ zifinal9  = [ 6.8010754934456e-06, -2.4998481784087e-01, -1.9999566201089e-01, -
 pzifinal9 = [  7.0000053459203e-01, 6.3787411781476e-07, 8.0000064784051e-01, 8.5000076817115e-01, 9.0000095905112e-01, 1.1000007621174e00, 1.1500006333232e00, 1.2000005527379e00, 1.2500004990846e00]
 
 @testset "BeamBeamTracking" begin
-    @testset "BeamBeam (10 particles)" begin
+    @testset "Particles" begin
         v = [ xi pxi yi pyi zi pzi ]
         bunch = Bunch(v)
         BeamTracking.launch!(bunch.coords, KernelCall(BeamTracking.track_beambeam!, (1.0e8, 1.0e11, 
