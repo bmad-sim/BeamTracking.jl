@@ -52,7 +52,8 @@ The strong beam is modeled as n Gaussian slices.
 	tilde_m = mc2 / p0c
 
 	beta_0 = pc / E_tot
-	gamsqr_0 = 1 / (1 - beta_0 * beta_0)
+    beta_ref = p0c/sqrt(p0c*p0c + mc2*mc2)
+	gamsqr_ref = 1 / (1 - beta_ref * beta_ref)
 
 	part_time1 = v[i, ZI] / (beta_0 * C_LIGHT)
 	
@@ -88,8 +89,8 @@ The strong beam is modeled as n Gaussian slices.
 		z_slice = z_slices[slice_idx]
 
 		slice_center = strong_beam_center(z_slice, crab, crab_tilt)
-		s_lab_collision = find_collision_point(i, coords, v, slice_center, 
-                                              beta_0, gamsqr_0, tilde_m, beta_strong,
+		s_lab_collision = find_collision_point(i, coords, v, slice_center,beta_ref, 
+                                              beta_0, gamsqr_ref, tilde_m, beta_strong,
                                               s_lab, s0_factor,s00,z_offset, part_time1, p0c,time,part_time0)
 
         del_s = s_lab_collision - s_lab
@@ -101,8 +102,7 @@ The strong beam is modeled as n Gaussian slices.
         dt = del_s / (beta_0 * C_LIGHT* ps_rel)
         time[] = time[] + dt
 
-        exact_drift!(i, coords, beta_0, gamsqr_0, tilde_m, del_s)
-
+        exact_drift!(i, coords, beta_ref, gamsqr_ref, tilde_m, del_s)
 		s_lab = s_lab_collision
 
 		dx = v[i, XI] - slice_center[1]
@@ -150,7 +150,6 @@ The strong beam is modeled as n Gaussian slices.
 		new_z = v[i, ZI] * (new_beta / beta_0)
 
 
-
 		v[i, ZI] = vifelse(alive, new_z, v[i, ZI])
         
 
@@ -162,12 +161,11 @@ The strong beam is modeled as n Gaussian slices.
 
         tilde_m = mc2 / p0c
         beta_0 = pc / E_tot
-        gamsqr_0 = 1 / (1 - beta_0 * beta_0)
 	end
 	# v[i,:] = offset_particle(i, v, x_offset, y_offset, 
     #                     z_offset, x_pitch, y_pitch, 
     #                     tilt, false)
-	exact_drift!(i, coords, beta_0, gamsqr_0, tilde_m, -s_lab)
+	exact_drift!(i, coords, beta_ref, gamsqr_ref, tilde_m, -s_lab)
 end
 
 """
@@ -351,7 +349,7 @@ Find the s-position where the weak particle and strong beam slice meet using Bre
 ## Returns
 - `s_lab`:         Lab frame s-position of collision
 """
-function find_collision_point(i, coords, v, slice_center, 
+function find_collision_point(i, coords, v, slice_center, beta_ref,
                              beta_0, gamsqr_0, tilde_m, beta_strong,
                              s_lab_current, s0_factor,s00, z_offset, part_time1, p0c,time0,part_time0)
 
@@ -389,7 +387,7 @@ function find_collision_point(i, coords, v, slice_center,
 
 	function collision_func(s_lab_target)
 		del_s = s_lab_target - s_lab[]
-		exact_drift!(i, coords, beta_0s, gamsqr_0, tilde_m, del_s)
+		exact_drift!(i, coords, beta_ref, gamsqr_0, tilde_m, del_s)
         dt = del_s / (beta_0s * C_LIGHT* ps_rel)
         time[] = time[] + dt
         s_lab[] = s_lab_target

@@ -42,7 +42,7 @@ xifinal5  = [ -1.9999928778399e00, -9.9999693422668e-01, 0.0000000000000e00, 9.9
 pxifinal5 = [ -1.9999971703503e-01, -9.9999869032728e-02, 0.0000000000000e00, 9.9999888995252e-02, 1.9999979566588e-01 ]
 yifinal5  = [ -9.9999272636527e-01, -4.9999683047563e-01, 0.0000000000000e00, 4.9999758493982e-01, 9.9999575931011e-01 ]
 pyifinal5 = [ -9.9999725605715e-02, -4.9999872423511e-02, 0.0000000000000e00, 4.9999891831906e-02, 9.9999801293908e-02 ]
-zifinal5  = [ 1.9999880462514e-01, -9.9999755289907e-02, -4.6629919381053e-11, 1.0000016810021e-01, 2.0000056466353e-01 ]
+zifinal5  = [ -1.9999880462514e-01, -9.9999755289907e-02, -4.6629919381053e-11, 1.0000016810021e-01, 2.0000056466353e-01 ]
 pzifinal5 = [ 7.9999970517411e-01,  8.9999971214914e-01, 9.9999971407675e-01, 1.0999997119234e00, 1.1999997066717e00 ]
 
 xi9  = [ -4.0, -3.0, -2.0, -1.0, 0.0, 1.0, 2.0, 3.0, 4.0]
@@ -85,6 +85,7 @@ pzifinal9 = [  7.0000053459203e-01, 6.3787411781476e-07, 8.0000064784051e-01, 8.
         @test v[:,BeamTracking.PXI] ≈ pxifinal2
         @test v[:,BeamTracking.PYI] ≈ pyifinal2
         @test v[:,BeamTracking.PZI] ≈ pzifinal2
+
         v = [ xi5 pxi5 yi5 pyi5 zi5 pzi5 ]
         bunch = Bunch(v)
         BeamTracking.launch!(bunch.coords, KernelCall(BeamTracking.track_beambeam!, (1.0e8, 4.0e11, 
@@ -92,7 +93,9 @@ pzifinal9 = [  7.0000053459203e-01, 6.3787411781476e-07, 8.0000064784051e-01, 8.
                                                     -100.0, 0.0, 1.1, 0.5, 1.3, 0.2, [0, 0.0, 0.0, 0.0, 0.0], 0.0)))
         @test v[:,BeamTracking.XI]  ≈ xifinal5
         @test v[:,BeamTracking.YI]  ≈ yifinal5
-        @test v[:,BeamTracking.ZI]  ≈ zifinal5
+        @test v[:,BeamTracking.ZI][1:2] ≈ zifinal5[1:2]
+        @test v[:,BeamTracking.ZI][3] ≈ zifinal5[3] (atol = 1e-14) #numbers too small for ≈
+        @test v[:,BeamTracking.ZI][3:5] ≈ zifinal5[3:5]
         @test v[:,BeamTracking.PXI] ≈ pxifinal5
         @test v[:,BeamTracking.PYI] ≈ pyifinal5
         @test v[:,BeamTracking.PZI] ≈ pzifinal5
@@ -135,7 +138,6 @@ end
 #         @test v[:,BeamTracking.PZI] ≈ pzifinal (rtol=5.e-3)
 #     end
 # end
-
 # bmad_Standard = [
 #   9.8560530586828e-01  -7.1254839096554e-01   0.0000000000000e+00   0.0000000000000e+00   0.0000000000000e+00   0.0000000000000e+00;
 #   2.8793087232209e-04   1.0143967665022e+00   0.0000000000000e+00   0.0000000000000e+00   0.0000000000000e+00   0.0000000000000e+00;
@@ -176,13 +178,20 @@ end
 #        0.0 0.0 5.7577333743205789e-05 9.9712117788321974e-01 0.0 0.0;
 #        0.0 0.0 0.0 0.0 1.0000000000013873e+00 9.4001777608643082e-07;
 #        0.0 0.0 0.0 0.0 1.1512986031609689e-09 1.0000000000015030e+00]
+# tps = [9.9712117788321974e-01 -1.3676029470219220e-01 0.0 0.0 0.0 0.0;
+#        5.7577333743205789e-05 1.0028792366337500e+00 0.0 0.0 0.0 0.0;
+#        0.0 0.0 9.9712117788321974e-01 -1.3676029470219220e-01 0.0 0.0;
+#        0.0 0.0 5.7577333743205789e-05 1.0028792366337500e+00 0.0 0.0;
+#        0.0 0.0 0.0 0.0 1.0000000000024711e+00 1.3163340048187155e-06;
+#        0.0 0.0 0.0 0.0 1.1512986031609689e-09 1.0000000000015030e+00]
 
 # # Define a function that takes two 6x6 matrices and returns their element-wise difference
 # function matrix_relative_difference(A::Matrix{<:Number}, B::Matrix{<:Number}; percent::Bool=false)
 #     @assert size(A) == size(B) "Matrices must have the same size"
 
 #     # Avoid divide-by-zero by using broadcasting and conditional replacement
-#     rel_diff = (B .- A) ./ A
+#     # rel_diff = (B .- A) ./ A
+#     rel_diff = abs.((B .- A))
 #     rel_diff[isnan.(rel_diff)] .= 0.0        # handle 0/0 cases
 #     rel_diff[isinf.(rel_diff)] .= 0.0        # handle division by zero
 
@@ -215,29 +224,6 @@ end
 
 
 
-# @testset "BeamBeamTracking" begin
-#     @testset "BeamBeam" begin
-#         v = [ xi pxi yi pyi zi pzi ]
-#         bunch = Bunch(v)
-#         BeamTracking.launch!(b0.coords, KernelCall(BeamTracking.track_beambeam!, (1.0e8, 1.0e11, 
-#                                                     1.0, 0.1, 0.1, 1.0, 1.0e14, 1, 0.0, 0.0, 0.0, 0.0, 
-#                                                     100.0, 0.0, 1.0, 0.0, 1.0, 0.0, [0, 0.0, 0.0, 0.0, 0.0], 0.0)))
-#         print(b0.coords)
-#         pretty_print_matrix(matrix_relative_difference(tps,tracking; percent=false), digits=6, label="Relative Difference between Tracking and TPS")
-#         pretty_print_matrix(matrix_relative_difference(tps,bmad_Standard; percent=false), digits=6, label="Relative Difference between Bmad Standard and TPS")
-#         pretty_print_matrix(matrix_relative_difference(tps,symp_Lie_PTC; percent=false), digits=6, label="Relative Difference between Symp Lie PTC and TPS")
-#         println(matrix_relative_difference(tps,tracking; percent=false))
-#         println(matrix_relative_difference(tps,bmad_Standard; percent=false))
-#         println(matrix_relative_difference(tps,symp_Lie_PTC; percent=false)) 
-#         @test v[:,BeamTracking.XI]  ≈  xifinal (rtol=5.e-4)
-#         @test v[:,BeamTracking.YI]  ≈  yifinal (rtol=5.e-4)
-#         @test v[:,BeamTracking.ZI]  ≈  zifinal (rtol=5.e-4)
-#         @test v[:,BeamTracking.PXI] ≈ pxifinal (rtol=5.e-4)
-#         @test v[:,BeamTracking.PYI] ≈ pyifinal (rtol=5.e-4)
-#         @test v[:,BeamTracking.PZI] ≈ pzifinal (rtol=5.e-4)
-#     end
-# end
-
 # v5 = [0.0 0.0 0.0 0.0 0.0 0.0]    # already Float64
 
 # function beambeam_map(x)
@@ -253,7 +239,7 @@ end
 #     return b.coords # flatten to a vector
 # end
 
-# function print_jacobian(J; digits=10, label="Jacobian")
+# function print_jacobian(J; digits=15, label="Jacobian")
 #     println("\n$label:")
 #     rows, cols = size(J)
 
@@ -292,11 +278,11 @@ end
 
 #         x0 = vec(v5)  # initial coordinate vector
 
-#         # J = jacobian(fdm, beambeam_map, x0)
-#         # print_jacobian(J[1][2:end, :])
-#         # print_jacobian(tps; label="TPS Jacobian")
+#         J = jacobian(fdm, beambeam_map, x0)
+#         print_jacobian(J[1][2:end, :])
+#         print_jacobian(tps; label="TPS Jacobian")
 #         print(b0.coords)
-#         # pretty_print_matrix(matrix_relative_difference(tps,J[1][2:end, :]; percent=false), digits=6, label="Relative Difference between FiniteDiff and TPS")
+#         pretty_print_matrix(matrix_relative_difference(tps,J[1][2:end, :]; percent=false), digits=15, label="Absolute Difference between FiniteDiff and TPS")
 #         @test v[:,BeamTracking.XI]  ≈  xifinal (rtol=5.e-4)
 #         @test v[:,BeamTracking.YI]  ≈  yifinal (rtol=5.e-4)
 #         @test v[:,BeamTracking.ZI]  ≈  zifinal (rtol=5.e-4)
