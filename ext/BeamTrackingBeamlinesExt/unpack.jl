@@ -4,7 +4,8 @@ function _track!(
   coords::Coords,
   bunch::Bunch,
   ele::Union{LineElement,BitsLineElement}, 
-  tm;
+  tm,
+  ramp_without_rf;
   kwargs...
 )
   # Unpack the line element (type unstable)
@@ -28,7 +29,7 @@ function _track!(
   end
 
   # Function barrier
-  universal!(i, coords, tm, bunch, L, R_ref, ap, bp, bm, pp, dp, rp, lp; kwargs...)
+  universal!(i, coords, tm, ramp_without_rf, bunch, L, R_ref, ap, bp, bm, pp, dp, rp, lp; kwargs...)
 end
 
 # Step 2: Push particles through -----------------------------------------
@@ -36,6 +37,7 @@ function universal!(
   i, 
   coords,
   tm,
+  ramp_without_rf, 
   bunch,
   L, 
   R_ref,
@@ -62,7 +64,7 @@ function universal!(
     R_ref_initial = bunch.R_ref
     R_ref_final = R_ref(bunch.t_ref)
     if !(R_ref_initial ≈ R_ref_final)
-      kc = push(kc, KernelCall(ExactTracking.update_P0!, (R_ref_initial, R_ref_final)))
+      kc = push(kc, KernelCall(ExactTracking.update_P0!, (R_ref_initial, R_ref_final, ramp_without_rf)))
       setfield!(bunch, :R_ref, R_ref_final)
     end
   end

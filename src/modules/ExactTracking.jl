@@ -12,17 +12,15 @@ using ..BeamTracking: XI, PXI, YI, PYI, ZI, PZI, Q0, QX, QY, QZ, STATE_ALIVE, ST
 using ..BeamTracking: C_LIGHT
 const TRACKING_METHOD = Exact
 
-# Update the reference energy of the canonical coordinates
-# BUG: z and pz are not updated correctly
-# Update the reference energy of the canonical coordinates
-# BUG: z and pz are not updated correctly
 
-@makekernel fastgtpsa=true function update_P0!(i, coords::Coords, R_ref_initial, R_ref_final)
+@makekernel fastgtpsa=true function update_P0!(i, coords::Coords, R_ref_initial, R_ref_final, ramp_without_rf)
   v = coords.v 
 
   v[i,PXI] = v[i,PXI] * R_ref_initial / R_ref_final
   v[i,PYI] = v[i,PYI] * R_ref_initial / R_ref_final
-  #v[i,PZI] = (R_ref_initial * (1 + v[i,PZI]) - R_ref_final) / R_ref_final
+  if !ramp_without_rf
+    v[i,PZI] = (R_ref_initial * (1 + v[i,PZI]) - R_ref_final) / R_ref_final
+  end
 end
 
 

@@ -10,11 +10,12 @@ include("utils.jl")
 
 function track!(
   bunch::Bunch, 
-  ele::LineElement; 
+  ele::LineElement;
+  ramp_particle_energy_without_rf::Bool=false,
   kwargs...
 )
   coords = bunch.coords
-  @noinline _track!(nothing, coords, bunch, ele, ele.tracking_method; kwargs...)
+  @noinline _track!(nothing, coords, bunch, ele, ele.tracking_method, ramp_particle_energy_without_rf; kwargs...)
   return bunch
 end
 
@@ -23,10 +24,10 @@ end
 # Would also allow you to do mix of outer and inner loop too, doing a sub-bunch of 
 # particles in parallel
 
-@makekernel fastgtpsa=false function outer_track!(i, b::Coords, bunch::Bunch, bl::Beamline)
+@makekernel fastgtpsa=false function outer_track!(i, b::Coords, bunch::Bunch, bl::Beamline, ramp_particle_energy_without_rf::Bool)
   for j in 1:length(bl.line)
     @inbounds ele = bl.line[j]
-    @noinline _track!(i, b, bunch, ele, ele.tracking_method)
+    @noinline _track!(i, b, bunch, ele, ele.tracking_method, ramp_particle_energy_without_rf)
   end
 end
 
@@ -34,6 +35,7 @@ function track!(
   bunch::Bunch, 
   bl::Beamline; 
   outer_particle_loop::Bool=false,
+  ramp_particle_energy_without_rf::Bool=false,
   kwargs...
 )
   if length(bl.line) == 0
@@ -44,10 +46,10 @@ function track!(
 
   if !outer_particle_loop
     for ele in bl.line
-      track!(bunch, ele; kwargs...)
+      track!(bunch, ele; ramp_particle_energy_without_rf, kwargs...)
     end
   else
-    kc = (KernelCall(outer_track!, (bunch, bl)),)
+    kc = (KernelCall(outer_track!, (bunch, bl, ramp_particle_energy_without_rf)),)
     launch!(bunch.coords, kc; kwargs...)
   end
 
@@ -58,7 +60,8 @@ end
 function track!(
   bunch::Bunch, 
   bbl::BitsBeamline{TM}; 
-  outer_particle_loop::Bool=false
+  outer_particle_loop::Bool=false,
+  ramp_particle_energy_without_rf::Bool=false
 ) where {TM}
 
   if length(bbl.params) == 0
@@ -77,7 +80,7 @@ function track!(
           i = start_i
           while true
             ele = BitsLineElement(bbl, i)
-            _track!(nothing, bunch.coords, bunch, ele, TM)
+            _track!(nothing, bunch.coords, bunch, ele, TM, ramp_particle_energy_without_rf)
             i += 1
             if i > length(bbl.rep) || bbl.rep[i] != 0
               break
@@ -88,7 +91,7 @@ function track!(
     else
       for i in 1:length(bbl.params)
         ele = BitsLineElement(bbl, i)
-        _track!(nothing, bunch.coords, bunch, ele, TM)
+        _track!(nothing, bunch.coords, bunch, ele, TM, ramp_particle_energy_without_rf)
       end
     end
   else
@@ -101,7 +104,8 @@ end
 function track!(
   bunch::Bunch, 
   bbl::BitsBeamline{TM}; 
-  outer_particle_loop::Bool=false
+  outer_particle_loop::Bool=false,
+  ramp_particle_energy_without_rf::Bool=false
 ) where {TM<:Beamlines.MultipleTrackingMethods}
   error("BitsBeamline tracking including different tracking methods per element not implemented yet")
 end

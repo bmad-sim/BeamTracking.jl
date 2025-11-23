@@ -872,7 +872,7 @@ zf_mn4  = [ 0., 3.140908277834687e-8, -3.1503450227072763e-8, 3.140908186274627e
     @test inv_rot_quaternion(dx_rot, dy_rot, dz_rot) ≈ Winv
 
     b0 = Bunch([0.01 0.02 0.03 0.04 0.05 0.06], R_ref=10.0)
-    ExactTracking.update_P0!(1, b0.coords, 10.0, 20.0)
+    ExactTracking.update_P0!(1, b0.coords, 10.0, 20.0, true)
     @test b0.coords.v ≈ [0.01 0.01 0.03 0.02 0.05 0.06] # pz is not changed for fake ramping
   end
 
