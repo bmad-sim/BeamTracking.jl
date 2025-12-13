@@ -2,6 +2,7 @@ using ..GTPSA, ..BeamTracking, ..StaticArrays, ..ReferenceFrameRotations, ..Kern
 using ..BeamTracking: XI, PXI, YI, PYI, ZI, PZI, Q0, QX, QY, QZ, STATE_ALIVE, STATE_LOST, @makekernel, Coords, BeamTracking.coord_rotation!
 using ..BeamTracking: C_LIGHT
 
+
 """
 	exact_beambeam!(i, coords::Coords, beta_0, gamsqr_0, tilde_m, 
 					sig_x_strong, sig_y_strong, N_particles, n_slices,
@@ -25,7 +26,7 @@ The strong beam is modeled as n Gaussian slices.
 - 'beta_b_strong' -- strong beam beta in plane b 
 - 'alpha_b_strong' -- strong beam alpha in plane b
 """
-@makekernel function track_beambeam!(i, coords::Coords, p0c, E_strong, charge,
+@makekernel fastgtpsa=true function track_beambeam_brent!(i, coords::Coords, p0c, E_strong, charge,
 	sig_x_strong, sig_y_strong, sig_z_strong, N_particles,
 	n_slices,x_offset,y_offset,x_pitch,y_pitch, z_offset,tilt, 
 	beta_a_strong, alpha_a_strong,
@@ -139,6 +140,201 @@ The strong beam is modeled as n Gaussian slices.
 		new_pz = v[i, PZI] + energy_change
 
 		v[i, PZI] = vifelse(alive, new_pz, v[i, PZI])
+
+		rel_p = 1 + v[i, PZI]
+		pc = rel_p*p0c 
+		mc2 = BeamTracking.massof(Species("electron"))
+		E_tot = sqrt(pc*pc + mc2*mc2)
+
+		tilde_m = mc2 / p0c
+		new_beta = pc / E_tot
+		new_z = v[i, ZI] * (new_beta / beta_0)
+
+
+		v[i, ZI] = vifelse(alive, new_z, v[i, ZI])
+        
+
+        
+        rel_p = 1 + v[i, PZI]
+        ps_02 = rel_p * rel_p - v[i, PXI] * v[i, PXI] - v[i, PYI] * v[i, PYI]
+        pc = rel_p*p0c 
+        E_tot = sqrt(pc*pc + mc2*mc2)
+
+        tilde_m = mc2 / p0c
+        beta_0 = pc / E_tot
+	end
+	# v[i,:] = offset_particle(i, v, x_offset, y_offset, 
+    #                     z_offset, x_pitch, y_pitch, 
+    #                     tilt, false)
+	exact_drift!(i, coords, beta_ref, gamsqr_ref, tilde_m, -s_lab)
+end
+
+"""
+	exact_beambeam!(i, coords::Coords, beta_0, gamsqr_0, tilde_m, 
+					sig_x_strong, sig_y_strong, N_particles, n_slices,
+					z_offset, beta_strong)
+
+Track a particle through a beam-beam interaction with exact tracking.
+The strong beam is modeled as n Gaussian slices.
+
+## Arguments
+- 'tilde_m'  -- mc2/p0c
+- 'p0c'      -- reference momentum
+- 'E_strong'    -- strong beam energy
+- 'sig_x_strong':  horizontal std of strong beam
+- 'sig_y_strong':  vertical std of strong beam
+- 'sig_z_strong':  length of strong beam
+- 'N_particles':   number of particles in strong bunch
+- 'n_slices':      number of slices to divide strong beam into
+- 'z_offset':      longitudinal offset of strong beam
+- 'beta_a_strong' -- strong beam beta in plane a 
+- 'alpha_a_strong' -- strong beam alpha in plane a
+- 'beta_b_strong' -- strong beam beta in plane b 
+- 'alpha_b_strong' -- strong beam alpha in plane b
+"""
+@makekernel function track_beambeam!(i, coords::Coords, p0c, E_strong, charge,
+	sig_x_strong, sig_y_strong, sig_z_strong, N_particles,
+	n_slices,x_offset,y_offset,x_pitch,y_pitch, z_offset,tilt, 
+	beta_a_strong, alpha_a_strong,
+	beta_b_strong, alpha_b_strong, crab, crab_tilt)
+
+	if(!isnothing(coords.q))
+		error("Spin tracking not implemented with beam-beam yet")
+	end
+
+	v = coords.v
+
+	rel_p = 1 + v[i, PZI]
+	ps_02 = rel_p * rel_p - v[i, PXI] * v[i, PXI] - v[i, PYI] * v[i, PYI]
+	good_momenta = (ps_02 > 0)
+	alive_at_start = (coords.state[i] == STATE_ALIVE)
+	coords.state[i] = vifelse(!good_momenta & alive_at_start, STATE_LOST, coords.state[i])
+	alive = (coords.state[i] == STATE_ALIVE)
+
+	pc = rel_p*p0c 
+	#change to coord species later
+	mc2 = BeamTracking.massof(Species("electron"))
+	E_tot = sqrt(pc*pc + mc2*mc2)
+
+	tilde_m = mc2 / p0c
+
+	beta_0 = pc / E_tot
+    beta_ref = p0c/sqrt(p0c*p0c + mc2*mc2)
+	gamsqr_ref = 1 / (1 - beta_ref * beta_ref)
+
+	part_time1 = v[i, ZI] / (beta_0 * C_LIGHT)
+	
+	mc2strong = BeamTracking.massof(Species("proton"))
+	pc_strong = sqrt(E_strong*E_strong - mc2strong*mc2strong)
+
+	beta_strong = pc_strong / E_strong
+
+	r_e = 1.4399645468825422e-9
+	bbi_const = -N_particles * charge * r_e / (2 * pi * p0c * (sig_x_strong + sig_y_strong))
+
+	z_slices = bbi_slice_positions(n_slices, sig_z_strong)
+
+	# For collision point calculation
+	s0_factor = beta_0 / (beta_0 + beta_strong)
+
+	# Begin at IP
+    part_time0 = -v[i,ZI]/(beta_0*C_LIGHT)
+    if length(v[i,ZI]) > 1
+	    s_lab = SIMD.Vec(zeros(length(v[i,ZI]))...)
+        # time = Ref(part_time0)
+        time = Ref(SIMD.Vec(zeros(length(v[i,ZI]))...))
+        time_root = Ref(part_time0)
+    else
+        s_lab = 0.0
+        # time = Ref(part_time0)
+        time = Ref(zero(v[i,ZI]))
+        # time_root = Ref(part_time0)
+    end
+	# v[i,:] = offset_particle(i, v, x_offset, y_offset, 
+    #                     z_offset, x_pitch, y_pitch, 
+    #                     tilt, true)
+
+	sigmaini = SA[sig_x_strong, sig_y_strong]
+    s00 = (z_offset + v[i,ZI]) * s0_factor
+	for slice_idx ∈ 1:n_slices
+
+		z_slice = z_slices[slice_idx]
+
+		slice_center = strong_beam_center(z_slice, crab, crab_tilt)
+		# s_lab_collision = find_collision_point(i, coords, v, slice_center,beta_ref, 
+        #                                       beta_0, gamsqr_ref, tilde_m, beta_strong,
+        #                                       s_lab, s0_factor,s00,z_offset, part_time1, p0c,time_root,part_time0)
+        
+        p_rel = 1 + v[i,PZI]
+        px_rel = v[i,PXI]/p_rel
+        py_rel = v[i,PYI]/p_rel
+
+        pxy2 = px_rel*px_rel + py_rel*py_rel
+        ps_rel = sqrt(1 - pxy2)
+        # dt = (s_lab_collision - s_lab)/(beta_0 * C_LIGHT* ps_rel)
+        # time_root[] = time_root[] + dt
+
+        p_l = p0c*sqrt((1 + v[i,PZI])*(1 + v[i,PZI]) - v[i,PXI]*v[i,PXI] - v[i,PYI]*v[i,PYI])
+        β_l = p_l / sqrt(p0c^2*(1 + v[i,PZI])*(1 + v[i,PZI]) + (mc2)*(mc2))
+        δt = ((z_offset + z_slice - (time[]+part_time0)*beta_strong*C_LIGHT)/C_LIGHT - s_lab/C_LIGHT)/(β_l + beta_strong)
+        # δt = ((z_offset + z_slice - (time[]+part_time0)*beta_strong*C_LIGHT)/C_LIGHT + beta_strong*(-(time[]) + v[i, ZI]/(beta_0*C_LIGHT)))/(β_l + beta_strong)
+
+        # δt = ((z_offset + z_slice - (time[])*beta_strong*C_LIGHT)/C_LIGHT - s_lab)/(β_l + beta_strong)
+        # time[] = time[] + δt
+
+        del_s = β_l * C_LIGHT * (δt)
+        s_lab = s_lab + del_s
+
+        dt = del_s / (beta_0 * C_LIGHT* ps_rel)
+
+        time[] = time[] + δt
+
+        # δt = (z_offset/C_LIGHT + beta_strong*v[i, ZI]/(beta_0*C_LIGHT))/(β_l + beta_strong)
+
+        # print("δt: ", δt, "\n")
+
+        exact_drift!(i, coords, beta_ref, gamsqr_ref, tilde_m, del_s)
+
+		# s_lab = s_lab_collision
+
+		dx = v[i, XI] - slice_center[1]
+		dy = v[i, YI] - slice_center[2]
+
+		px_old = v[i, PXI]
+		py_old = v[i, PYI]
+		sigma, bbi_const, dsigma_ds = strong_beam_sigma_calc(sigmaini[1], sigmaini[2], 
+                                s_lab,
+                                beta_a_strong, alpha_a_strong,
+                                beta_b_strong, alpha_b_strong,
+                                N_particles * charge * r_e, 
+                                p0c)
+        
+        
+		nk_x, nk_y, dnk_unscaled = bbi_kick_faddeeva(dx, dy, sigma)
+		coef = bbi_const / n_slices
+		kick_x = nk_x * coef
+		kick_y = nk_y * coef
+		dnk = (
+                (coef * dnk_unscaled[1][1], coef * dnk_unscaled[1][2]),
+                (coef * dnk_unscaled[2][1], coef * dnk_unscaled[2][2])
+            )
+
+		new_px = px_old + kick_x
+		new_py = py_old + kick_y
+
+		v[i, PXI] = vifelse(alive, new_px, v[i, PXI])
+		v[i, PYI] = vifelse(alive, new_py, v[i, PYI])
+
+
+		e_factor = 0.25 / rel_p
+		energy_change = e_factor * (kick_x * (kick_x + 2 * px_old) +
+									kick_y * (kick_y + 2 * py_old)) + 
+									0.5 * (dnk[1][1] * dsigma_ds[1] * sigma[1] + dnk[2][2] * dsigma_ds[2] * sigma[2])
+
+		new_pz = v[i, PZI] + energy_change
+
+		v[i, PZI] = vifelse(alive, new_pz, v[i, PZI])
+
 
 		rel_p = 1 + v[i, PZI]
 		pc = rel_p*p0c 
@@ -363,12 +559,12 @@ function find_collision_point(i, coords, v, slice_center, beta_ref,
 	s_body0 = -z_offset + s_lab_current
 	beta_0s = beta_0
 	if typeof(v[i,XI]) <: TPS
-		v[i,XI] = Float64(scalar.(v_save[1]))
-		v[i,PXI] = Float64(scalar.(v_save[2]))
-		v[i,YI] = Float64(scalar.(v_save[3]))
-		v[i,PYI] = Float64(scalar.(v_save[4]))
-		v[i,ZI] = Float64(scalar.(v_save[5]))
-		v[i,PZI] = Float64(scalar.(v_save[6]))
+		xi = Float64(scalar.(v_save[1]))
+		pxi = Float64(scalar.(v_save[2]))
+		yi = Float64(scalar.(v_save[3]))
+		pyi = Float64(scalar.(v_save[4]))
+		zi = Float64(scalar.(v_save[5]))
+		pzi = Float64(scalar.(v_save[6]))
 		beta_0s = Float64(scalar(beta_0))
 		p_l = Float64(scalar(p_l))
 		s_body = Ref(Float64(scalar(s_body0)))
@@ -377,18 +573,20 @@ function find_collision_point(i, coords, v, slice_center, beta_ref,
         ps_rel = Float64(scalar.(sqrt(1 - pxy2)))
         time = Ref(Float64(scalar(time0[])))
         part_time0 = Float64(scalar(part_time0))
+        coords = Bunch([xi pxi yi pyi zi pzi]).coords
 	else
         time = Ref(time0[])
         ps_rel = sqrt(1 - pxy2)
 		s_body = Ref(s_body0)
         s_lab = Ref(s_lab_current)
 		gamsqr_0s = gamsqr_0
+        coords = coords
 	end
 
 	function collision_func(s_lab_target)
 		del_s = s_lab_target - s_lab[]
-		exact_drift!(i, coords, beta_ref, gamsqr_0, tilde_m, del_s)
-        dt = del_s / (beta_0s * C_LIGHT* ps_rel)
+		#exact_drift!(i, coords, beta_ref, gamsqr_0, tilde_m, del_s)
+        dt = del_s / (beta_0s * C_LIGHT * ps_rel)
         time[] = time[] + dt
         s_lab[] = s_lab_target
 		s_body[] = s_body[] + del_s
@@ -411,8 +609,8 @@ function find_collision_point(i, coords, v, slice_center, beta_ref,
 		s_lab = s0
 	end
 	if typeof(v[i,XI]) <: TPS
-        dt = (s_lab[] - s_lab_current) / (beta_0 * C_LIGHT * sqrt(1 - pxy2))
-		s_lab = slice_center[3] - beta_strong * C_LIGHT * (time0[] + dt)
+        dt = (s_lab - s_lab_current) / (beta_0 * C_LIGHT * sqrt(1 - pxy2))
+		s_lab = -(slice_center[3] - beta_strong * C_LIGHT * (time0[] + dt))
 	end
 
 	# Restore original coordinates regardless of status
@@ -580,16 +778,31 @@ Beam-beam kick calculation using the Faddeeva complex error function.
 """
 
 function bbi_kick_faddeeva(dx, dy, sigma)
-    #function to compute (1 - exp(-a)) / a using Taylor expansion for small a
-	function one_minus_exp_over_a(a; nterms=10)
-		s = zero(a)
-		ak = one(a)          # a^0
-		for k in 0:(nterms-1)
-			s += ((-1)^k / factorial(k+1)) * ak
-			ak *= a 
-		end
-		return s
-	end
+
+    #function to compute (1 - exp(-a)) / a using Taylor expansion
+    function one_minus_exp_over_a(a)
+        ε = eps(Float64)
+        N_max = 100
+        N = 0
+        conv = false
+        ak = one(a) #a^0
+        result_amp = zero(a)
+        prev_amp = zero(a)
+        # Using FastGTPSA! for the following makes other kernels run out of temps
+        @FastGTPSA begin
+            while !conv && N < N_max
+                prev_amp = result_amp
+                result_amp += ((-1)^(N) / factorial(N+1)) * ak
+                ak *= a
+                N += 1
+                if normTPS(result_amp - prev_amp) < ε
+                    conv = true
+                end
+                prev_amp = result_amp
+            end
+        end
+        return result_amp
+    end
     sig_x, sig_y = sigma
 
     r_orig     = sig_y / sig_x
@@ -600,7 +813,7 @@ function bbi_kick_faddeeva(dx, dy, sigma)
     round_mask = abs(r_orig - 1.0) < 0.001
     amp = (x_norm_orig*x_norm_orig + y_norm_orig*y_norm_orig) / 2
     if typeof(amp) <: TPS
-        scale_round = 4 * pi * one_minus_exp_over_a(amp, nterms = amp.mo)
+        scale_round = 4 * pi * one_minus_exp_over_a(amp)
     else
         scale_round = 4 * pi * (1 - exp(-amp)) / amp
         scale_round = vifelse(amp > 30, 4 * pi / amp, scale_round)
@@ -610,6 +823,7 @@ function bbi_kick_faddeeva(dx, dy, sigma)
     # Round beam branch
     nkx_round = -x_norm_orig * scale_round
     nky_round = -y_norm_orig * scale_round
+    # println("nkx_round:", nkx_round)
 
     # Flipped / elliptical branch
     flipped   = r_orig > 1.0
@@ -970,6 +1184,171 @@ function tilt_coords(tilt_angle::Float64, orbit)
     return orbit_out
 end
 
+"""
+	exact_beambeam!(i, coords::Coords, beta_0, gamsqr_0, tilde_m, 
+					sig_x_strong, sig_y_strong, N_particles, n_slices,
+					z_offset, beta_strong)
+
+Track a particle through a beam-beam interaction with exact tracking.
+The strong beam is modeled as n Gaussian slices. Uses brents method for collision point finding.
+
+## Arguments
+- 'tilde_m'  -- mc2/p0c
+- 'p0c'      -- reference momentum
+- 'E_strong'    -- strong beam energy
+- 'sig_x_strong':  horizontal std of strong beam
+- 'sig_y_strong':  vertical std of strong beam
+- 'sig_z_strong':  length of strong beam
+- 'N_particles':   number of particles in strong bunch
+- 'n_slices':      number of slices to divide strong beam into
+- 'z_offset':      longitudinal offset of strong beam
+- 'beta_a_strong' -- strong beam beta in plane a 
+- 'alpha_a_strong' -- strong beam alpha in plane a
+- 'beta_b_strong' -- strong beam beta in plane b 
+- 'alpha_b_strong' -- strong beam alpha in plane b
+"""
+@makekernel fastgtpsa=true function track_beambeam_brent!(i, coords::Coords, p0c, E_strong, charge,
+	sig_x_strong, sig_y_strong, sig_z_strong, N_particles,
+	n_slices,x_offset,y_offset,x_pitch,y_pitch, z_offset,tilt, 
+	beta_a_strong, alpha_a_strong,
+	beta_b_strong, alpha_b_strong, crab, crab_tilt)
+
+	if(!isnothing(coords.q))
+		error("Spin tracking not implemented with beam-beam yet")
+	end
+
+	v = coords.v
+
+	rel_p = 1 + v[i, PZI]
+	ps_02 = rel_p * rel_p - v[i, PXI] * v[i, PXI] - v[i, PYI] * v[i, PYI]
+	good_momenta = (ps_02 > 0)
+	alive_at_start = (coords.state[i] == STATE_ALIVE)
+	coords.state[i] = vifelse(!good_momenta & alive_at_start, STATE_LOST, coords.state[i])
+	alive = (coords.state[i] == STATE_ALIVE)
+
+	pc = rel_p*p0c 
+	#change to coord species later
+	mc2 = BeamTracking.massof(Species("electron"))
+	E_tot = sqrt(pc*pc + mc2*mc2)
+
+	tilde_m = mc2 / p0c
+
+	beta_0 = pc / E_tot
+    beta_ref = p0c/sqrt(p0c*p0c + mc2*mc2)
+	gamsqr_ref = 1 / (1 - beta_ref * beta_ref)
+
+	part_time1 = v[i, ZI] / (beta_0 * C_LIGHT)
+	
+	mc2strong = BeamTracking.massof(Species("proton"))
+	pc_strong = sqrt(E_strong*E_strong - mc2strong*mc2strong)
+
+	beta_strong = pc_strong / E_strong
+
+	r_e = 1.4399645468825422e-9
+	bbi_const = -N_particles * charge * r_e / (2 * pi * p0c * (sig_x_strong + sig_y_strong))
+
+	z_slices = bbi_slice_positions(n_slices, sig_z_strong)
+
+	# For collision point calculation
+	s0_factor = beta_0 / (beta_0 + beta_strong)
+
+	# Begin at IP
+    part_time0 = -v[i,ZI]/(beta_0*C_LIGHT)
+    if length(v[i,ZI]) > 1
+	    s_lab = SIMD.Vec(zeros(length(v[i,ZI]))...)
+        time = Ref(part_time0)
+    else
+        s_lab = 0.0
+        time = Ref(part_time0)
+    end
+	# v[i,:] = offset_particle(i, v, x_offset, y_offset, 
+    #                     z_offset, x_pitch, y_pitch, 
+    #                     tilt, true)
+
+	sigmaini = SA[sig_x_strong, sig_y_strong]
+    s00 = (z_offset + v[i,ZI]) * s0_factor
+	for slice_idx ∈ 1:n_slices
+		z_slice = z_slices[slice_idx]
+
+		slice_center = strong_beam_center(z_slice, crab, crab_tilt)
+		s_lab_collision = find_collision_point(i, coords, v, slice_center,beta_ref, 
+                                              beta_0, gamsqr_ref, tilde_m, beta_strong,
+                                              s_lab, s0_factor,s00,z_offset, part_time1, p0c,time,part_time0)
+
+        del_s = s_lab_collision - s_lab
+        p_rel = 1 + v[i,PZI]
+        px_rel = v[i,PXI]/p_rel
+        py_rel = v[i,PYI]/p_rel
+        pxy2 = px_rel*px_rel + py_rel*py_rel
+        ps_rel = sqrt(1 - pxy2)
+        dt = del_s / (beta_0 * C_LIGHT* ps_rel)
+        time[] = time[] + dt
+
+        exact_drift!(i, coords, beta_ref, gamsqr_ref, tilde_m, del_s)
+		s_lab = s_lab_collision
+
+		dx = v[i, XI] - slice_center[1]
+		dy = v[i, YI] - slice_center[2]
+
+		px_old = v[i, PXI]
+		py_old = v[i, PYI]
+		sigma, bbi_const, dsigma_ds = strong_beam_sigma_calc(sigmaini[1], sigmaini[2], 
+                                s_lab,
+                                beta_a_strong, alpha_a_strong,
+                                beta_b_strong, alpha_b_strong,
+                                N_particles * charge * r_e, 
+                                p0c)
+		nk_x, nk_y, dnk_unscaled = bbi_kick_faddeeva(dx, dy, sigma)
+		coef = bbi_const / n_slices
+		kick_x = nk_x * coef
+		kick_y = nk_y * coef
+		dnk = (
+                (coef * dnk_unscaled[1][1], coef * dnk_unscaled[1][2]),
+                (coef * dnk_unscaled[2][1], coef * dnk_unscaled[2][2])
+            )
+
+		new_px = px_old + kick_x
+		new_py = py_old + kick_y
+
+		v[i, PXI] = vifelse(alive, new_px, v[i, PXI])
+		v[i, PYI] = vifelse(alive, new_py, v[i, PYI])
+
+		e_factor = 0.25 / rel_p
+		energy_change = e_factor * (kick_x * (kick_x + 2 * px_old) +
+									kick_y * (kick_y + 2 * py_old)) + 
+									0.5 * (dnk[1][1] * dsigma_ds[1] * sigma[1] + dnk[2][2] * dsigma_ds[2] * sigma[2])
+
+		new_pz = v[i, PZI] + energy_change
+
+		v[i, PZI] = vifelse(alive, new_pz, v[i, PZI])
+
+		rel_p = 1 + v[i, PZI]
+		pc = rel_p*p0c 
+		mc2 = BeamTracking.massof(Species("electron"))
+		E_tot = sqrt(pc*pc + mc2*mc2)
+
+		tilde_m = mc2 / p0c
+		new_beta = pc / E_tot
+		new_z = v[i, ZI] * (new_beta / beta_0)
+
+
+		v[i, ZI] = vifelse(alive, new_z, v[i, ZI])
+        
+
+        
+        rel_p = 1 + v[i, PZI]
+        ps_02 = rel_p * rel_p - v[i, PXI] * v[i, PXI] - v[i, PYI] * v[i, PYI]
+        pc = rel_p*p0c 
+        E_tot = sqrt(pc*pc + mc2*mc2)
+
+        tilde_m = mc2 / p0c
+        beta_0 = pc / E_tot
+	end
+	# v[i,:] = offset_particle(i, v, x_offset, y_offset, 
+    #                     z_offset, x_pitch, y_pitch, 
+    #                     tilt, false)
+	exact_drift!(i, coords, beta_ref, gamsqr_ref, tilde_m, -s_lab)
+end
 
 # Deprecated version without SIMD
 # function bbi_kick_faddeeva(dx, dy, sigma)
@@ -1257,3 +1636,4 @@ end
 #     print("Max iterations exceeded\n")
 #     return b, -2
 # end
+#
