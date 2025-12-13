@@ -1,13 +1,13 @@
 using GTPSA
 using FiniteDifferences
-d_z = Descriptor(6, 2)
+d_z = Descriptor(6, 1)
 b0 = Bunch(collect(transpose(@vars(d_z))), R_ref=-0.0017045090263411496, species=Species("electron"))
 
 xi  = [ 1.000]
 pxi = [ 0.100]
 yi  = [ 2.000]
 pyi = [ 0.200]
-zi  = [ -0.100]
+zi  = [ -0.1]
 pzi = [ 0.900]
 
 xifinal = [9.9701282840875e-01]
@@ -172,18 +172,12 @@ end
 #        0.0 0.0 0.0 0.0 1.0000000000016185e+00 9.3950165115153951e-07;
 #        0.0 0.0 0.0 0.0 -1.1510848234131111e-09 1.0000000000015028e+00]
 
-# tps = [1.0028792366337500e+00 -1.3676029470219220e-01 0.0 0.0 0.0 0.0;
-#        5.7577333743205789e-05 9.9712117788321974e-01 0.0 0.0 0.0 0.0;
-#        0.0 0.0 1.0028792366337500e+00 -1.3676029470219220e-01 0.0 0.0;
-#        0.0 0.0 5.7577333743205789e-05 9.9712117788321974e-01 0.0 0.0;
-#        0.0 0.0 0.0 0.0 1.0000000000013873e+00 9.4001777608643082e-07;
-#        0.0 0.0 0.0 0.0 1.1512986031609689e-09 1.0000000000015030e+00]
-# tps = [9.9712117788321974e-01 -1.3676029470219220e-01 0.0 0.0 0.0 0.0;
-#        5.7577333743205789e-05 1.0028792366337500e+00 0.0 0.0 0.0 0.0;
-#        0.0 0.0 9.9712117788321974e-01 -1.3676029470219220e-01 0.0 0.0;
-#        0.0 0.0 5.7577333743205789e-05 1.0028792366337500e+00 0.0 0.0;
-#        0.0 0.0 0.0 0.0 1.0000000000024711e+00 1.3163340048187155e-06;
-#        0.0 0.0 0.0 0.0 1.1512986031609689e-09 1.0000000000015030e+00]
+# tps = [9.9712168133475609e-01 -1.3672070286721549e-01 0.0 0.0 0.0 0.0;
+#        5.7577333743205789e-05 1.0028788221167801e+00 0.0 0.0 0.0 0.0;
+#        0.0 0.0 9.9712159228085262e-01 -1.3672092225046839e-01 0.0 0.0;
+#        0.0 0.0 5.7577333743205789e-05 1.0028788221167801e+00 0.0 0.0;
+#        0.0 0.0 0.0 0.0 1.0000000075181319e+00 5.6370171554165870e-07;
+#        0.0 0.0 0.0 0.0 -1.1512986031609689e-09 9.9999999999849687e-01]
 
 # # Define a function that takes two 6x6 matrices and returns their element-wise difference
 # function matrix_relative_difference(A::Matrix{<:Number}, B::Matrix{<:Number}; percent::Bool=false)
@@ -222,23 +216,6 @@ end
 #     end
 # end
 
-
-
-# v5 = [0.0 0.0 0.0 0.0 0.0 0.0]    # already Float64
-
-# function beambeam_map(x)
-#     b = Bunch(reshape(copy(x), 1, :))  # reshape into 1×6 matrix
-#     BeamTracking.launch!(b.coords, KernelCall(
-#         BeamTracking.track_beambeam!,
-#         (1.0e8, 1.0e11,
-#          1.0, 0.1, 0.1, 1.0, 1.0e14, 1,
-#          0.0, 0.0, 0.0, 0.0,
-#          100.0, 0.0, 1.0, 0.0, 1.0, 0.0,
-#          [0, 0.0, 0.0, 0.0, 0.0], 0.0)
-#     ))
-#     return b.coords # flatten to a vector
-# end
-
 # function print_jacobian(J; digits=15, label="Jacobian")
 #     println("\n$label:")
 #     rows, cols = size(J)
@@ -267,22 +244,46 @@ end
 #         println()
 #     end
 # end
+# function beambeam_map(x)
+#     b = Bunch(copy(x)) 
+#     BeamTracking.launch!(b.coords, KernelCall(
+#         BeamTracking.track_beambeam_brent!,
+#         (1.0e8, 1.0e11,
+#          1.0, 0.1, 0.1, 1.0, 1.0e14, 1,
+#          0.0, 0.0, 0.0, 0.0,
+#          100.0, 0.0, 1.0, 0.0, 1.0, 0.0,
+#          [0, 0.0, 0.0, 0.0, 0.0], 0.0)
+#     ))
+#     return b.coords 
+# end
+
+# d_z = Descriptor(6, 1)
+# v5 = [0.001 -0.001 0.003 0.0002 2.0 0.6]   
+
+
+
 # @testset "BeamBeamTracking" begin
 #     @testset "BeamBeam" begin
 #         v = [ xi pxi yi pyi zi pzi ]
 #         bunch = Bunch(v)
-#         BeamTracking.launch!(b0.coords, KernelCall(BeamTracking.track_beambeam!, (1.0e8, 1.0e11, 
-#                                                     1.0, 0.1, 0.1, 1.0, 1.0e14, 1, 0.0, 0.0, 0.0, 0.0, 
-#                                                     100.0, 0.0, 1.0, 0.0, 1.0, 0.0, [0, 0.0, 0.0, 0.0, 0.0], 0.0)))
-#         fdm = central_fdm(3, 1)  # third order, 1st derivative (Jacobian)
 
-#         x0 = vec(v5)  # initial coordinate vector
-
+#         x0 = vec(copy(v5))  # initial coordinate vector
+#         fdm = central_fdm(3, 1) 
 #         J = jacobian(fdm, beambeam_map, x0)
+
+
+#         b1 = Bunch(v5 + transpose(@vars(d_z)))
+
+#         BeamTracking.launch!(b1.coords, KernelCall(BeamTracking.track_beambeam!, (1.0e8, 1.0e11,
+#          1.0, 0.1, 0.1, 1.0, 1.0e14, 1,
+#          0.0, 0.0, 0.0, 0.0,
+#          100.0, 0.0, 1.0, 0.0, 1.0, 0.0,
+#          [0, 0.0, 0.0, 0.0, 0.0], 0.0)))
+
+
 #         print_jacobian(J[1][2:end, :])
-#         print_jacobian(tps; label="TPS Jacobian")
-#         print(b0.coords)
-#         pretty_print_matrix(matrix_relative_difference(tps,J[1][2:end, :]; percent=false), digits=15, label="Absolute Difference between FiniteDiff and TPS")
+#         print_jacobian(GTPSA.jacobian(b1.coords.v); label="TPS Jacobian")
+#         pretty_print_matrix(matrix_relative_difference(GTPSA.jacobian(b1.coords.v),J[1][2:end, :]; percent=false), digits=15, label="Absolute Difference between FiniteDiff and TPS")
 #         @test v[:,BeamTracking.XI]  ≈  xifinal (rtol=5.e-4)
 #         @test v[:,BeamTracking.YI]  ≈  yifinal (rtol=5.e-4)
 #         @test v[:,BeamTracking.ZI]  ≈  zifinal (rtol=5.e-4)
