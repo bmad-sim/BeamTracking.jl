@@ -173,19 +173,11 @@ The strong beam is modeled as n Gaussian slices.
 		tilde_m = mc2 / p0c
 		new_beta = pc / E_tot
 		new_z = v[i, ZI] * (new_beta / beta)
+        beta = new_beta
 
 
 		v[i, ZI] = vifelse(alive, new_z, v[i, ZI])
-        
 
-        
-        rel_p = 1 + v[i, PZI]
-        ps_02 = rel_p * rel_p - v[i, PXI] * v[i, PXI] - v[i, PYI] * v[i, PYI]
-        pc = rel_p*p0c 
-        E_tot = sqrt(pc*pc + mc2*mc2)
-
-        tilde_m = mc2 / p0c
-        beta = pc / E_tot
 	end
 	# v[i,:] = offset_particle(i, v, x_offset, y_offset, 
     #                     z_offset, x_pitch, y_pitch, 
