@@ -123,7 +123,7 @@
       mm = SA[]
       kn = SA[]
       ks = SA[]
-      return 0, 0, false, beta_0, gamsqr_0, tilde_m, E_ref, p0c, a, omega, E0_over_Rref, t0, mm, kn, ks, L
+      return 0, 0, false, beta_0, gamsqr_0, tilde_m, E_ref, p0c, a, omega, t0, E0_over_Rref, mm, kn, ks, L
     end
     
     # Scalar parameters

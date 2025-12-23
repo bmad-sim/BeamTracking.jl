@@ -287,28 +287,24 @@ end
 
 
 # =========== RF ============= #
-@inline function thick_pure_rf(tm::Union{Yoshida,DriftKick}, bunch, rf, omega, L)
+@inline function thick_pure_rf(tm::Union{Yoshida,DriftKick}, bunch, rf, omega, t0, L)
   R_ref = bunch.R_ref
   tilde_m, gamsqr_0, beta_0 = BeamTracking.drift_params(bunch.species, R_ref)
   E0_over_Rref = rf.voltage/L/R_ref
-  phi0 = rf.phi0
-  t0 = phi0/omega 
   E_ref = BeamTracking.R_to_E(bunch.species, R_ref)
   p0c = BeamTracking.R_to_pc(bunch.species, R_ref)
   q = chargeof(bunch.species)
   mc2 = massof(bunch.species)
   E0 = mc2/tilde_m/beta_0
-  params = (q, mc2, tm.radiation_damping_on, beta_0, gamsqr_0, tilde_m, E_ref, p0c, gyromagnetic_anomaly(bunch.species), omega, E0_over_Rref, t0, SA[], SA[], SA[])
+  params = (q, mc2, tm.radiation_damping_on, beta_0, gamsqr_0, tilde_m, E_ref, p0c, gyromagnetic_anomaly(bunch.species), omega, t0, E0_over_Rref, SA[], SA[], SA[])
   photon_params = nothing
   return integration_launcher(BeamTracking.cavity!, params, photon_params, tm, 0, 0, L)
 end
 
-@inline function thick_bmultipole_rf(tm::Union{Yoshida,DriftKick,SolenoidKick}, bunch, bm, rf, omega, L)
+@inline function thick_bmultipole_rf(tm::Union{Yoshida,DriftKick,SolenoidKick}, bunch, bm, rf, omega, t0, L)
   R_ref = bunch.R_ref
   tilde_m, gamsqr_0, beta_0 = BeamTracking.drift_params(bunch.species, R_ref)
   E0_over_Rref = rf.voltage/L/R_ref
-  phi0 = rf.phi0
-  t0 = phi0/omega
   mm = bm.order
   kn, ks = get_strengths(bm, L, R_ref)
   E_ref = BeamTracking.R_to_E(bunch.species, R_ref)
@@ -316,7 +312,7 @@ end
   q = chargeof(bunch.species)
   mc2 = massof(bunch.species)
   E0 = mc2/tilde_m/beta_0
-  params = (q, mc2, tm.radiation_damping_on, beta_0, gamsqr_0, tilde_m, E_ref, p0c, gyromagnetic_anomaly(bunch.species), omega, E0_over_Rref, t0, mm, kn, ks)
+  params = (q, mc2, tm.radiation_damping_on, beta_0, gamsqr_0, tilde_m, E_ref, p0c, gyromagnetic_anomaly(bunch.species), omega, t0, E0_over_Rref, mm, kn, ks)
   photon_params = ifelse(tm.radiation_fluctuations_on, (q, mc2, E0, 0, 0, mm, kn, ks), nothing)
   return integration_launcher(BeamTracking.cavity!, params, photon_params, tm, 0, 0, L)
 end

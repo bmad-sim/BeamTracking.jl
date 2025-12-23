@@ -4,7 +4,7 @@
 @inline pure_patch(tm::SciBmadStandard, bunch, patchparams, L) = pure_patch(Exact(), bunch, patchparams, L)
 @inline pure_map(tm::SciBmadStandard, bunch, mapparams, L) = pure_map(Exact(), bunch, mapparams, L)
 
-@inline pure_rf(tm::SciBmadStandard, bunch, rfparams, omega, L)                         = pure_rf(Yoshida(), bunch, rfparams, omega, L)                        
+@inline pure_rf(tm::SciBmadStandard, bunch, rfparams, omega, t0, L)                    = pure_rf(Yoshida(), bunch, rfparams, omega, t0, L)                        
 @inline pure_bsolenoid(tm::SciBmadStandard, bunch, bm0, L)                              = pure_bsolenoid(Yoshida(), bunch, bm0, L)                             
 @inline bsolenoid(tm::SciBmadStandard, bunch, bmultipoleparams, L)                      = bsolenoid(Yoshida(), bunch, bmultipoleparams, L)                     
 @inline pure_bdipole(tm::SciBmadStandard, bunch, bm1, L)                                = pure_bdipole(Yoshida(), bunch, bm1, L)                               
@@ -13,7 +13,7 @@
 @inline bquadrupole(tm::SciBmadStandard, bunch, bmultipoleparams, L)                    = bquadrupole(Yoshida(), bunch, bmultipoleparams, L)                   
 @inline pure_bmultipole(tm::SciBmadStandard, bunch, bmk, L)                             = pure_bmultipole(Yoshida(), bunch, bmk, L)                            
 @inline bmultipole(tm::SciBmadStandard, bunch, bmultipoleparams, L)                     = bmultipole(Yoshida(), bunch, bmultipoleparams, L)                    
-@inline bmultipole_rf(tm::SciBmadStandard, bunch, bmultipoleparams, rfparams, omega, L) = bmultipole_rf(Yoshida(), bunch, bmultipoleparams, rfparams, omega, L)
+@inline bmultipole_rf(tm::SciBmadStandard, bunch, bmultipoleparams, rfparams, omega, t0, L) = bmultipole_rf(Yoshida(), bunch, bmultipoleparams, rfparams, omega, t0, L)
 @inline bend_no_field(tm::SciBmadStandard, bunch, bendparams, L)                        = bend_no_field(Yoshida(), bunch, bendparams, L)                       
 @inline bend_pure_bsolenoid(tm::SciBmadStandard, bunch, bendparams, bm0, L)             = bend_pure_bsolenoid(Yoshida(), bunch, bendparams, bm0, L)            
 @inline bend_bsolenoid(tm::SciBmadStandard, bunch, bendparams, bmultipoleparams, L)     = bend_bsolenoid(Yoshida(), bunch, bendparams, bmultipoleparams, L)    

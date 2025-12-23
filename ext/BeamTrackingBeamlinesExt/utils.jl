@@ -156,3 +156,17 @@ function rf_omega(rfparams, circumference, species, R_ref)
     return 2*pi*rfparams.rf_frequency
   end
 end
+
+#---------------------------------------------------------------------------------------------------
+
+function rf_phi0(rfparams)
+  if rfparams.zero_phase == PhaseReference.BelowTransition
+    return rfparams.phi0 + 0.5*pi
+  elseif rfparams.zero_phase == PhaseReference.AboveTransition
+    return rfparams.phi0 - 0.5*pi
+  elseif rfparams.zero_phase == PhaseReference.Accelerating
+    return rfparams.phi0
+  else
+    error("RF parameter zero_phase value not set correctly.")
+  end
+end
