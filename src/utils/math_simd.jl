@@ -84,7 +84,7 @@ end
 Function to calculate `(1 - cos(x)) / x^2` to machine precision.
 This is usful if angle can be near zero where the direct evaluation of `(1 - cos(x))x^2` is inaccurate.
 """
-one_cos_norm(x) = 0.5 * sincu(0.5*x)^2
+one_cos_norm(x) = sincu(x/2)^2 / 2
 
 #=
 """

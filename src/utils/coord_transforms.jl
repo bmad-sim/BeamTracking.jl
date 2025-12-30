@@ -37,11 +37,11 @@ angle `ds*g_ref`.
   @FastGTPSA begin
     ang = ds * g_ref
     s, c = sincos(tilt_ref)
-    axis = (s, -c, 0.0)
+    axis = (s, -c, 0)
     q = rot_quat(axis, ang)
 
-    trq = rot_quat((0.0, 0.0, 1.0), tilt_ref)
-    r = (-ds * ang * one_cos_norm(ang), 0.0, ds * sincu(ang))
+    trq = rot_quat((0, 0, 1), tilt_ref)
+    r = (-ds * ang * one_cos_norm(ang), 0, ds * sincu(ang))
     r = quat_rotate(r, trq)
 
     return r, q
@@ -74,14 +74,14 @@ from the nominal bend entrance face (in branch coordinates) to the actual entran
 @inline function coord_alignment_bend_entering(x_off, y_off, z_off, x_rot, y_rot, tilt, g_ref, tilt_ref, ele_orient, L)
 
   # Start: Transform to coords at center of bend arc.
-  r, q = coord_bend_arc_transform(0.5*L, g_ref, tilt_ref)
+  r, q = coord_bend_arc_transform(L / 2, g_ref, tilt_ref)
   ## println("***A: $r  :: $q")
 
   # Translate to coords with origin at element chord midpoint.
-  ang2 = 0.5 * L * g_ref
+  ang2 = L * g_ref / 2
   one_c = one_cos_norm(ang2)
-  f = -0.25 * L^2 * g_ref * one_c
-  r = r .+ quat_rotate((f*cos(tilt_ref), f*sin(tilt_ref), 0.0), q)
+  f = -L^2 * g_ref * one_c / 4
+  r = r .+ quat_rotate((f*cos(tilt_ref), f*sin(tilt_ref), 0), q)
   ## println("***B: $r  :: $q")
 
   # Misalignment transform
@@ -92,17 +92,17 @@ from the nominal bend entrance face (in branch coordinates) to the actual entran
   ## println("***W: $r  :: $q")
 
   # Rotating by -tilt_ref
-  dq = rot_quaternion(0.0, 0.0, tilt_ref)
+  dq = rot_quaternion(0, 0, tilt_ref)
   q = quat_mul(q, dq)
   ## println("***X: $r  :: $q")
 
   # Translate from chord center to arc center.
-  dr = (0.25 * L^2 * g_ref * one_c, 0.0, 0.0)
+  dr = (L^2 * g_ref * one_c / 4, 0, 0)
   r = r .+ quat_rotate(dr, q)
   ## println("***Y: $r  :: $q")
 
   # Transform from arc center back to entrance face.
-  dr, dq = coord_bend_arc_transform(-0.5*L, g_ref, 0.0)
+  dr, dq = coord_bend_arc_transform(-L / 2, g_ref, 0)
   r, q = coord_concatenation(r, q, dr, dq)
   ## println("***Z: $r  :: $q")
   return r, q

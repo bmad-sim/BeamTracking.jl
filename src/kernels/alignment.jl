@@ -1,9 +1,9 @@
 @makekernel fastgtpsa=true function track_alignment_straight_entering!(i, coords::Coords,
                                             x_off, y_off, z_off, x_rot, y_rot, tilt, ele_orient, L)
   q = inv_rot_quaternion(x_rot, y_rot, tilt)
-  L2 = 0.5 * L * ele_orient
+  L2 = L * ele_orient / 2
 
-  translation!(i, coords, (x_off, y_off, 0.0), 0.0)
+  translation!(i, coords, (x_off, y_off, 0), 0)
   dz_new = rotation!(i, coords, q, -L2 - z_off)
   isochronous_drift!(i, coords, -dz_new - L2)
 end
@@ -15,7 +15,7 @@ end
 @makekernel fastgtpsa=true function track_alignment_straight_exiting!(i, coords::Coords,
                                             x_off, y_off, z_off, x_rot, y_rot, tilt, ele_orient, L)
   v = coords.v
-  L2 = 0.5 * L * ele_orient
+  L2 = L * ele_orient / 2
 
   q = rot_quaternion(x_rot, y_rot, tilt)
   dz_new = rotation!(i, coords, q, L2)
@@ -40,7 +40,7 @@ inverse of this transformation.
 """
 
 @makekernel fastgtpsa=true function track_coord_transform!(i, coords::Coords, r, q)
-  translation!(i, coords, (r[1], r[2], 0.0), 0.0)
+  translation!(i, coords, (r[1], r[2], 0), 0)
   dz_new = rotation!(i, coords, quat_inv(q), -r[3])
   ##println("***AA: $(coords.v[1,:]) :: $dz_new")
   isochronous_drift!(i, coords, -dz_new)

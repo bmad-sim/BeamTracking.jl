@@ -161,9 +161,9 @@ end
 
 function rf_phi0(rfparams)
   if rfparams.zero_phase == PhaseReference.BelowTransition
-    return rfparams.phi0 + 0.5*pi
+    return rfparams.phi0 + pi / 2
   elseif rfparams.zero_phase == PhaseReference.AboveTransition
-    return rfparams.phi0 - 0.5*pi
+    return rfparams.phi0 - pi / 2
   elseif rfparams.zero_phase == PhaseReference.Accelerating
     return rfparams.phi0
   else

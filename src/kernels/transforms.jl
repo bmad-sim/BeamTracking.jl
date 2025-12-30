@@ -71,6 +71,7 @@ Particle coordinate rotation. This rotates both `(x, y)` and `(px, py, pz)` phas
 Returned is the new longitudinal offset from the center of rotation.
 """
 @inline function rotation!(i, coords::Coords, q_inv, z_0) 
+  println(GTPSA.checktemps())
   @FastGTPSA begin @inbounds begin
     v = coords.v
     rel_p = 1 + v[i,PZI]
@@ -93,9 +94,10 @@ Returned is the new longitudinal offset from the center of rotation.
     w31 =     2*(q_inv[QX]*q_inv[QZ] - q_inv[QY]*q_inv[Q0])
     w32 =     2*(q_inv[QY]*q_inv[QZ] + q_inv[QX]*q_inv[Q0])
     w33 = 1 - 2*(q_inv[QX]*q_inv[QX] + q_inv[QY]*q_inv[QY])
-
+println(GTPSA.checktemps())
     x_0 = v[i,XI]
     y_0 = v[i,YI]
+    println(GTPSA.checktemps())
     new_x = w11*x_0 + w12*y_0 + w13*z_0
     new_y = w21*x_0 + w22*y_0 + w23*z_0
     new_z = w31*x_0 + w32*y_0 + w33*z_0
