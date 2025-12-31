@@ -146,8 +146,8 @@ It is assumed that the axis is properly normalized.
 - `q`    quaternion 4-vector.
 """
 function rot_quat(axis, angle)
-  s = sin(0.5*angle)
-  return (cos(0.5*angle), s*axis[1], s*axis[2], s*axis[3])
+  s = sin(0.5f0*angle)
+  return (cos(0.5f0*angle), s*axis[1], s*axis[2], s*axis[3])
 end
 
 
