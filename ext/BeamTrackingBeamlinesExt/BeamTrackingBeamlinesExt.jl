@@ -43,5 +43,6 @@ include("unpack.jl")
 include("scibmadstandard.jl")
 include("exact.jl")
 include("yoshida.jl")
+include("rungekutta.jl")
 
 end
