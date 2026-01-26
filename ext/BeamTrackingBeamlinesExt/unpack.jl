@@ -45,10 +45,11 @@ function universal!(
   kwargs...
 ) 
   beta_gamma_ref = R_to_beta_gamma(bunch.species, bunch.R_ref)
-  # Current KernelChain length is 6 because we have up to
-  # 2 aperture, 2 alignment, 1 body kernel, and 
-  # 1 kernel to update the particles' reference energy
-  kc = KernelChain(Val{6}(), RefState(bunch.t_ref, beta_gamma_ref))
+  # Current KernelChain length is 7 because we have up to
+  # 2 aperture, 2 alignment, 1 body kernel, 
+  # 1 kernel to update the particles' reference energy, and
+  # 1 kernel for IBS
+  kc = KernelChain(Val{7}(), RefState(bunch.t_ref, beta_gamma_ref))
 
   # Evolve time through whole element
   bunch.t_ref += L/beta_gamma_to_v(beta_gamma_ref)
@@ -78,6 +79,12 @@ function universal!(
     end
   elseif isactive(apertureparams)
     kc = push(kc, @inline(aperture(tm, bunch, apertureparams, true)))
+  end
+
+  if typeof(tm) <: AbstractYoshida && tm.ibs_num_particles > 0
+    bp = ifelse(isactive(bendparams), bendparams, nothing)
+    bmp = ifelse(isactive(bmultipoleparams), bmultipoleparams, nothing)
+    kc = push(kc, @inline(ibs_kick(tm, bunch, bp, bmp, L)))
   end
 
   if isactive(mapparams)    

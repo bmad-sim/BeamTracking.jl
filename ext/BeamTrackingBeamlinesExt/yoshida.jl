@@ -316,3 +316,66 @@ end
   photon_params = ifelse(tm.radiation_fluctuations_on, (q, mc2, E0, 0, 0, mm, kn, ks), nothing)
   return integration_launcher(BeamTracking.cavity!, params, photon_params, tm, 0, 0, L)
 end
+
+
+# =========== IBS ============= #
+@inline function ibs_kick(tm::AbstractYoshida, bunch, bendparams, bmultipoleparams, L)
+  R_ref = bunch.R_ref
+  if !isnothing(bmultipoleparams)
+    mm = bmultipoleparams.order
+    kn, ks = get_strengths(bmultipoleparams, L, R_ref)
+  else
+    mm = SA[]
+    kn = SA[]
+    ks = SA[]
+  end
+  if !isnothing(bendparams)
+    g = bendparams.g_ref
+    tilt_ref = bendparams.tilt_ref
+  else
+    g = 0
+    tilt_ref = 0
+  end
+  m = massof(bunch.species)/C_LIGHT^2*E_CHARGE
+  q = chargeof(bunch.species)*E_CHARGE
+  k = m*q^2/(4*pi*EPS_0)
+  N = tm.ibs_num_particles
+  tilde_m, gamsqr_0, _ = BeamTracking.drift_params(bunch.species, R_ref)
+  p0 = m*C_LIGHT/tilde_m
+  gamma_0 = sqrt(gamsqr_0)
+  means, sigma = mean_and_cov(bunch.coords)
+  L_inv = SA[1 0 0       0  0  0;
+             0 1 0       0  0  0;
+             0 0 gamma_0 0  0  0;
+             0 0 0       p0 0  0;
+             0 0 0       0  p0 0;
+             0 0 0       0  0  p0/gamma_0]
+  M_array = L_inv*sigma*L_inv 
+  M = SA[M_array[1,1] M_array[1,2] M_array[1,3] M_array[1,4] M_array[1,5] M_array[1,6];
+         M_array[2,1] M_array[2,2] M_array[2,3] M_array[2,4] M_array[2,5] M_array[2,6];
+         M_array[3,1] M_array[3,2] M_array[3,3] M_array[3,4] M_array[3,5] M_array[3,6];
+         M_array[4,1] M_array[4,2] M_array[4,3] M_array[4,4] M_array[4,5] M_array[4,6];
+         M_array[5,1] M_array[5,2] M_array[5,3] M_array[5,4] M_array[5,5] M_array[5,6];
+         M_array[6,1] M_array[6,2] M_array[6,3] M_array[6,4] M_array[6,5] M_array[6,6]]
+  M = Symmetric(M)
+  b_min = 4*k/(M[2,2] + M[4,4] + M[6,6])
+  b_max = sqrt(minimum((M[1,1], M[3,3], M[5,5])))
+  L_C = log(b_max/b_min)
+  det_M = det(M)
+  M_inv_sym = inv(M)
+  M_inv = SA[M_inv_sym[1,1] M_inv_sym[1,2] M_inv_sym[1,3] M_inv_sym[1,4] M_inv_sym[1,5] M_inv_sym[1,6];
+             M_inv_sym[2,1] M_inv_sym[2,2] M_inv_sym[2,3] M_inv_sym[2,4] M_inv_sym[2,5] M_inv_sym[2,6];
+             M_inv_sym[3,1] M_inv_sym[3,2] M_inv_sym[3,3] M_inv_sym[3,4] M_inv_sym[3,5] M_inv_sym[3,6];
+             M_inv_sym[4,1] M_inv_sym[4,2] M_inv_sym[4,3] M_inv_sym[4,4] M_inv_sym[4,5] M_inv_sym[4,6];
+             M_inv_sym[5,1] M_inv_sym[5,2] M_inv_sym[5,3] M_inv_sym[5,4] M_inv_sym[5,5] M_inv_sym[5,6];
+             M_inv_sym[6,1] M_inv_sym[6,2] M_inv_sym[6,3] M_inv_sym[6,4] M_inv_sym[6,5] M_inv_sym[6,6]]
+  C = SA[M_inv[2,2] M_inv[2,4] M_inv[2,6];
+         M_inv[4,2] M_inv[4,4] M_inv[4,6];
+         M_inv[6,2] M_inv[6,4] M_inv[6,6]]
+  C = Symmetric(C)
+  lambdas, vectors = eigen(C)
+  P = vectors'
+  integrals = IBS_integrals(lambdas[1], lambdas[2], lambdas[3])
+  params = (gamma_0, p0, N, k, L_C, m, det_M, integrals, P, M_inv, means, g, tilt_ref, mm, kn, ks, L)
+  return KernelCall(BeamTracking.ibs_damping_and_diffusion!, params)
+end

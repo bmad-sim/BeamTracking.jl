@@ -1,5 +1,5 @@
 """
-Computes the Carlson symmetric form RF(x,y,z) with error bounded by r.
+Computes the Carlson symmetric form R_F(x,y,z) with error bounded by r.
 The algorithm is from arXiv:math/9409227v1.
 """
 function Carlson_RF(x, y, z; r=1e-11)
@@ -31,7 +31,7 @@ end
 
 
 """
-Computes the Carlson symmetric form RD(x,y,z) with error bounded by r.
+Computes the Carlson symmetric form R_D(x,y,z) with error bounded by r.
 The algorithm is from arXiv:math/9409227v1.
 """
 function Carlson_RD(x, y, z; r=1e-11)
