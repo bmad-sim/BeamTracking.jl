@@ -19,7 +19,7 @@ kn: vector of normal multipole strengths scaled by Bρ0
 ks: vector of skew multipole strengths scaled by Bρ0
 L:  element length
 """
-@makekernel inbounds=false fastgtpsa=true function dkd_multipole!(i, coords::Coords, q, mc2, radiation_damping, beta_0, gamsqr_0, tilde_m, a, mm, kn, ks, L)
+@makekernel fastgtpsa=true function dkd_multipole!(i, coords::Coords, q, mc2, radiation_damping, beta_0, gamsqr_0, tilde_m, a, mm, kn, ks, L)
   knl = kn * L / 2
   ksl = ks * L / 2
 
@@ -67,7 +67,7 @@ values of ``ε``.
 - `tilde_m`: particle rest energy normalized to the reference value of ``pc``
 - `L`:       element length, in meters
 """
-@makekernel inbounds=false fastgtpsa=true function exact_drift!(i, coords::Coords, beta_0, gamsqr_0, tilde_m, L)
+@makekernel fastgtpsa=true function exact_drift!(i, coords::Coords, beta_0, gamsqr_0, tilde_m, L)
   v = coords.v
 
   rel_p = 1 + v[i,PZI]

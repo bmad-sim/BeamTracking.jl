@@ -4,7 +4,7 @@ coefficients kn and ks indexed by mm, i.e., knl[i] is the normal
 coefficient of order mm[i].
 """
 function omega_multipole(i, coords::Coords, a, g, tilde_m, mm, kn, ks, L)
-  @FastGTPSA begin @inbounds begin
+  @FastGTPSA begin# @inbounds begin
     v = coords.v
 
     if mm[1] == 0
@@ -22,7 +22,7 @@ function omega_multipole(i, coords::Coords, a, g, tilde_m, mm, kn, ks, L)
     e_vec = (bz_0, bz_0, bz_0)
 
     omega = omega_field(i, coords, a, g, tilde_m, ax, ay, e_vec, b_vec, L)
-  end end
+  end #end
 
   return omega
 end
@@ -32,7 +32,7 @@ end
 This function computes the integrated spin-precession vector using the fields.
 """
 function omega_field(i, coords::Coords, a, g, tilde_m, ax, ay, e_vec, b_vec, L)
-  @FastGTPSA begin @inbounds begin
+  @FastGTPSA begin# @inbounds begin
     v = coords.v
     px = v[i,PXI] - ax
     py = v[i,PYI] - ay
@@ -82,14 +82,14 @@ function omega_field(i, coords::Coords, a, g, tilde_m, ax, ay, e_vec, b_vec, L)
     oz = (b_perp_z + b_para_z + e_part_z) * L
 
     omega = (ox, oy, oz)
-  end end
+  end# end
   return omega
 end
 
 """
 This function rotates particle i's quaternion according to the multipoles present.
 """
-@makekernel inbounds=false fastgtpsa=true function rotate_spin!(i, coords::Coords, a, g, tilde_m, mm, kn, ks, L)
+@makekernel fastgtpsa=true function rotate_spin!(i, coords::Coords, a, g, tilde_m, mm, kn, ks, L)
   q2 = coords.q
   alive = (coords.state[i] == STATE_ALIVE)
   q1 = expq(omega_multipole(i, coords, a, g, tilde_m, mm, kn, ks, L), alive)
@@ -98,14 +98,14 @@ This function rotates particle i's quaternion according to the multipoles presen
 end
 
 
-@makekernel inbounds=false fastgtpsa=true function integrate_with_spin_thin!(i, coords::Coords, ker, params, a, g, tilde_m, mm, knl, ksl)
+@makekernel fastgtpsa=true function integrate_with_spin_thin!(i, coords::Coords, ker, params, a, g, tilde_m, mm, knl, ksl)
   rotate_spin!(i, coords, a, g, tilde_m, mm, knl, ksl, 1/2)
   ker(i, coords, params...)
   rotate_spin!(i, coords, a, g, tilde_m, mm, knl, ksl, 1/2)
 end
 
 
-@makekernel inbounds=false fastgtpsa=true function rotate_spin_field!(i, coords::Coords, a, g, tilde_m, ax, ay, e_vec, b_vec, L)
+@makekernel fastgtpsa=true function rotate_spin_field!(i, coords::Coords, a, g, tilde_m, ax, ay, e_vec, b_vec, L)
   q2 = coords.q
   alive = (coords.state[i] == STATE_ALIVE)
   q1 = expq(omega_field(i, coords, a, g, tilde_m, ax, ay, e_vec, b_vec, L), alive)

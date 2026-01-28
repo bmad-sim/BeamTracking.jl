@@ -28,7 +28,7 @@ properties, though I've not seen a proof of that claim.
        Moreover, and this is essential, the multipole
        coefficients must appear in ascending order.
 """
-@makekernel inbounds=false fastgtpsa=true function multipole_kick!(i, coords::Coords, ms, knl, ksl, excluding)
+@makekernel fastgtpsa=true function multipole_kick!(i, coords::Coords, ms, knl, ksl, excluding)
   v = coords.v
   alive = (coords.state[i] == STATE_ALIVE)
   bx, by = normalized_field(ms, knl, ksl, v[i,XI], v[i,YI], excluding)

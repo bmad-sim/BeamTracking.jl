@@ -1,7 +1,7 @@
 struct Map end 
 # Map tracking method, not necessarily symplectic
 
-@makekernel inbounds=false fastgtpsa=true function map!(i, coords::Coords, transport_map, L)
+@makekernel fastgtpsa=true function map!(i, coords::Coords, transport_map, L)
   v = coords.v
   q = coords.q
   alive = (coords.state[i] == STATE_ALIVE)

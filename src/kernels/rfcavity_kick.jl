@@ -1,4 +1,4 @@
-@makekernel inbounds=false fastgtpsa=true function cavity!(i, coords::Coords, q, mc2, radiation_damping, beta_0, gamsqr_0, tilde_m, E_ref, p0c, a, omega, t0, E0_over_Rref, mm, kn, ks, L)
+@makekernel fastgtpsa=true function cavity!(i, coords::Coords, q, mc2, radiation_damping, beta_0, gamsqr_0, tilde_m, E_ref, p0c, a, omega, t0, E0_over_Rref, mm, kn, ks, L)
   multipoles = (length(mm) > 0)
   sol = (multipoles && mm[1] == 0)
   if sol
@@ -38,7 +38,7 @@
 end
 
 
-@makekernel inbounds=false fastgtpsa=true function bmad_to_mad!(i, coords::Coords, beta_0, tilde_m, E_ref, p0c)
+@makekernel fastgtpsa=true function bmad_to_mad!(i, coords::Coords, beta_0, tilde_m, E_ref, p0c)
   v = coords.v
 
   rel_p = 1 + v[i,PZI]
@@ -55,7 +55,7 @@ end
 end
 
 
-@makekernel inbounds=false fastgtpsa=true function mad_to_bmad!(i, coords::Coords, beta_0, tilde_m, E_ref, p0c)
+@makekernel fastgtpsa=true function mad_to_bmad!(i, coords::Coords, beta_0, tilde_m, E_ref, p0c)
   v = coords.v
 
   E = E_ref + p0c*v[i,PZI]
@@ -71,7 +71,7 @@ end
 end
 
 
-@makekernel inbounds=false fastgtpsa=true function cavity_kick!(i, coords::Coords, beta_0, tilde_m, E_ref, p0c, omega, t0, E0_over_Rref, L)
+@makekernel fastgtpsa=true function cavity_kick!(i, coords::Coords, beta_0, tilde_m, E_ref, p0c, omega, t0, E0_over_Rref, L)
   v = coords.v
   alive = (coords.state[i] == STATE_ALIVE)
 
@@ -160,7 +160,7 @@ end
 """
 This function rotates particle i's quaternion in a cavity.
 """
-@makekernel inbounds=false fastgtpsa=true function rotate_spin_cavity!(i, coords::Coords, a, tilde_m, omega, t0, E0_over_Rref, mm, kn, ks, L)
+@makekernel fastgtpsa=true function rotate_spin_cavity!(i, coords::Coords, a, tilde_m, omega, t0, E0_over_Rref, mm, kn, ks, L)
   q2 = coords.q
   alive = (coords.state[i] == STATE_ALIVE)
   q1 = expq(omega_cavity(i, coords, a, tilde_m, omega, t0, E0_over_Rref, mm, kn, ks, L), alive)

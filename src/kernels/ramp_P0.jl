@@ -1,4 +1,4 @@
-@makekernel inbounds=false fastgtpsa=true function update_P0!(i, coords::Coords, p_over_q_ref_initial, p_over_q_ref_final, ramp_without_rf)
+@makekernel fastgtpsa=true function update_P0!(i, coords::Coords, p_over_q_ref_initial, p_over_q_ref_final, ramp_without_rf)
   v = coords.v 
   v[i,PXI] = v[i,PXI] * p_over_q_ref_initial / p_over_q_ref_final
   v[i,PYI] = v[i,PYI] * p_over_q_ref_initial / p_over_q_ref_final

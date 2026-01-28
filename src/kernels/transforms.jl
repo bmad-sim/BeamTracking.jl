@@ -8,7 +8,7 @@ as the particle drifts from beginning to end.
 ## Arguments
 - `L`:       element length, in meters
 """
-@makekernel inbounds=false fastgtpsa=true function isochronous_drift!(i, coords::Coords, L)
+@makekernel fastgtpsa=true function isochronous_drift!(i, coords::Coords, L)
   v = coords.v
 
   rel_p = 1 + v[i,PZI]
@@ -42,7 +42,7 @@ Transform phase-space particle coordinates when the coordinate system is transla
 - `dr`:      coordinate system translation.
 - `z0`       The particle longitudinal distance from the center of rotation. 
 """
-@makekernel inbounds=false fastgtpsa=true function translation!(i, coords::Coords, dr, z0)
+@makekernel fastgtpsa=true function translation!(i, coords::Coords, dr, z0)
   v = coords.v
   alive = (coords.state[i] == STATE_ALIVE)
 

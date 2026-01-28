@@ -15,7 +15,7 @@ kn: vector of normal multipole strengths scaled by Bρ0
 ks: vector of skew multipole strengths scaled by Bρ0
 L: element length
 """
-@makekernel inbounds=false fastgtpsa=true function mkm_quadrupole!(i, coords::Coords, q, mc2, radiation_damping, beta_0, gamsqr_0, tilde_m, a, w, w_inv, k1, mm, kn, ks, L)
+@makekernel fastgtpsa=true function mkm_quadrupole!(i, coords::Coords, q, mc2, radiation_damping, beta_0, gamsqr_0, tilde_m, a, w, w_inv, k1, mm, kn, ks, L)
   knl = kn * L / 2
   ksl = ks * L / 2
 
@@ -68,7 +68,7 @@ k1:  g / Bρ0 = g / (p0 / q)
          and (signed) reference magnetic p_over_q_ref.
 s: element length
 """
-@makekernel inbounds=false fastgtpsa=true function quadrupole_matrix!(i, coords::Coords, k1, s)
+@makekernel fastgtpsa=true function quadrupole_matrix!(i, coords::Coords, k1, s)
   v = coords.v
   alive = (coords.state[i] == STATE_ALIVE)
 
@@ -127,7 +127,7 @@ gamsqr_0: γ_0^2 = 1 + (βγ)_0^2
 tilde_m:  1 / (βγ)_0  # mc^2 / p0·c
 s: element length
 """
-@makekernel inbounds=false fastgtpsa=true function quadrupole_kick!(i, coords::Coords, beta_0, gamsqr_0, tilde_m, s)
+@makekernel fastgtpsa=true function quadrupole_kick!(i, coords::Coords, beta_0, gamsqr_0, tilde_m, s)
   v = coords.v
 
   P      = 1 + v[i,PZI]             # [scaled] total momentum, P/P0 = 1 + δ

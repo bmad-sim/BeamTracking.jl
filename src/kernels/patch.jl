@@ -1,4 +1,4 @@
-@makekernel inbounds=false fastgtpsa=true function patch_offset!(i, coords::Coords, tilde_m, dx, dy, dt)
+@makekernel fastgtpsa=true function patch_offset!(i, coords::Coords, tilde_m, dx, dy, dt)
   v = coords.v
   alive = (coords.state[i] == STATE_ALIVE)
   rel_p = 1 + v[i,PZI]
@@ -10,7 +10,7 @@
   v[i,ZI] = vifelse(alive, new_z, v[i,ZI])
 end
 
-@makekernel inbounds=false fastgtpsa=true function patch!(i, coords::Coords, beta_0, gamsqr_0, tilde_m, dt, dx, dy, dz, winv, L) 
+@makekernel fastgtpsa=true function patch!(i, coords::Coords, beta_0, gamsqr_0, tilde_m, dt, dx, dy, dz, winv, L) 
   v = coords.v
   rel_p = 1 + v[i,PZI]
   ps_02 = rel_p*rel_p - v[i,PXI]*v[i,PXI] - v[i,PYI]*v[i,PYI]
