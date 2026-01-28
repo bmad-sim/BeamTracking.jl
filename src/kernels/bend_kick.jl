@@ -21,7 +21,7 @@ Arguments
 - 'ks'       -- skew multipole strengths 
 - 'L'        -- length
 """
-@makekernel fastgtpsa=true function bkb_multipole!(i, coords::Coords, q, mc2, radiation_damping, tilde_m, beta_0, a, g, w, w_inv, k0, mm, kn, ks, L)
+@makekernel inbounds=false fastgtpsa=true function bkb_multipole!(i, coords::Coords, q, mc2, radiation_damping, tilde_m, beta_0, a, g, w, w_inv, k0, mm, kn, ks, L)
   knl = kn * L / 2
   ksl = ks * L / 2
 
@@ -68,7 +68,7 @@ provided, a linear hard-edge fringe map is applied at both ends.
 - 'beta_0'   -- p0c/E0
 - 'L'        -- length
 """
-@makekernel fastgtpsa=true function exact_bend!(i, coords::Coords, theta, g, Kn0, tilde_m, beta_0, L)
+@makekernel inbounds=false fastgtpsa=true function exact_bend!(i, coords::Coords, theta, g, Kn0, tilde_m, beta_0, L)
   v = coords.v
   rel_p = 1 + v[i,PZI]
 
@@ -133,7 +133,7 @@ provided, a linear hard-edge fringe map is applied at both ends.
 end
 
 
-@makekernel fastgtpsa=true function linear_bend_fringe!(i, coords::Coords, a, tilde_m, Ksol, Kn0, e, sign)
+@makekernel inbounds=false fastgtpsa=true function linear_bend_fringe!(i, coords::Coords, a, tilde_m, Ksol, Kn0, e, sign)
   v = coords.v
   alive = (coords.state[i] == STATE_ALIVE)
 
@@ -157,7 +157,7 @@ end
 end
 
 
-@makekernel fastgtpsa=true function exact_bend_with_rotation!(i, coords::Coords, e1, e2, theta, a, g, Kn0, w, w_inv, tilde_m, beta_0, L)
+@makekernel inbounds=false fastgtpsa=true function exact_bend_with_rotation!(i, coords::Coords, e1, e2, theta, a, g, Kn0, w, w_inv, tilde_m, beta_0, L)
   rotation!(i, coords, w, 0)
   linear_bend_fringe!(i, coords, a, tilde_m, 0, Kn0, e1, 1)
   exact_bend!(i, coords, theta, g, Kn0, tilde_m, beta_0, L)
@@ -167,7 +167,7 @@ end
 
 
 # This is separate because the spin can be transported exactly here
-@makekernel fastgtpsa=true function exact_curved_drift!(i, coords::Coords, e1, e2, theta, g, w, w_inv, a, tilde_m, beta_0, L) 
+@makekernel inbounds=false fastgtpsa=true function exact_curved_drift!(i, coords::Coords, e1, e2, theta, g, w, w_inv, a, tilde_m, beta_0, L) 
   exact_bend_with_rotation!(i, coords, 0, 0, theta, a, g, 0, w, w_inv, tilde_m, beta_0, L)
   if !isnothing(coords.q)
     rotation!(i, coords, w, 0)

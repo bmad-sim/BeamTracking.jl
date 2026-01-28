@@ -189,9 +189,9 @@ macro makekernel(args...)
     if isnothing(idx_inbounds) || kwargvals[idx_inbounds] # inbounds
       return quote
         @inline function $(fcn_name)($(args...))
-          @inbounds begin
+          #@inbounds begin
             $(body)
-          end
+         # end
         end
       end
     else # no inbounds
@@ -205,9 +205,10 @@ macro makekernel(args...)
     if isnothing(idx_inbounds) || kwargvals[idx_inbounds] # inbounds
       return quote
         @inline function $(fcn_name)($(args...))
-          @inbounds begin @FastGTPSA begin
+          #@inbounds begin 
+            @FastGTPSA begin
             $(body)
-          end end
+          end #end
         end
       end
     else # no inbounds

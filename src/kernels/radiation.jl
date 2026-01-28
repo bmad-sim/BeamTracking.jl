@@ -1,4 +1,4 @@
-@makekernel fastgtpsa=true function canonical_to_prime!(i, coords::Coords, g, ax, ay)
+@makekernel inbounds=false fastgtpsa=true function canonical_to_prime!(i, coords::Coords, g, ax, ay)
   v = coords.v
 
   rel_p = 1 + v[i,PZI]
@@ -24,7 +24,7 @@
 end
 
 
-@makekernel fastgtpsa=true function prime_to_canonical!(i, coords::Coords, g, ax, ay)
+@makekernel inbounds=false fastgtpsa=true function prime_to_canonical!(i, coords::Coords, g, ax, ay)
   v = coords.v
 
   h = 1 + g*v[i,XI]
@@ -47,7 +47,7 @@ end
 end
 
 
-@makekernel fastgtpsa=true function deterministic_radiation!(i, coords::Coords, q, mc2, E0, g, mm, kn, ks, L)
+@makekernel inbounds=false fastgtpsa=true function deterministic_radiation!(i, coords::Coords, q, mc2, E0, g, mm, kn, ks, L)
   v = coords.v
 
   if mm[1] == 0
@@ -99,7 +99,7 @@ end
 end
 
 
-@makekernel fastgtpsa=true function stochastic_radiation!(i, coords::Coords, q, mc2, E0, g, tilt_ref, mm, kn, ks, L)
+@makekernel inbounds=false fastgtpsa=true function stochastic_radiation!(i, coords::Coords, q, mc2, E0, g, tilt_ref, mm, kn, ks, L)
   v = coords.v
 
   w = rot_quaternion(0, 0, tilt_ref)

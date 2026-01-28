@@ -1,4 +1,4 @@
-@makekernel fastgtpsa=true function track_alignment_straight_entering!(i, coords::Coords,
+@makekernel inbounds=false fastgtpsa=true function track_alignment_straight_entering!(i, coords::Coords,
                                             x_off, y_off, z_off, x_rot, y_rot, tilt, ele_orient, L)
   q = inv_rot_quaternion(x_rot, y_rot, tilt)
   L2 = 0.5 * L * ele_orient
@@ -12,7 +12,7 @@ end
 
 #---------------------------------------------------------------------------------------------------
 
-@makekernel fastgtpsa=true function track_alignment_straight_exiting!(i, coords::Coords,
+@makekernel inbounds=false fastgtpsa=true function track_alignment_straight_exiting!(i, coords::Coords,
                                             x_off, y_off, z_off, x_rot, y_rot, tilt, ele_orient, L)
   v = coords.v
   L2 = 0.5 * L * ele_orient
@@ -39,7 +39,7 @@ the phase-space `z` coordinate) is zero.
 inverse of this transformation.
 """
 
-@makekernel fastgtpsa=true function track_coord_transform!(i, coords::Coords, r, q)
+@makekernel inbounds=false fastgtpsa=true function track_coord_transform!(i, coords::Coords, r, q)
   translation!(i, coords, (r[1], r[2], 0.0), 0.0)
   dz_new = rotation!(i, coords, quat_inv(q), -r[3])
   ##println("***AA: $(coords.v[1,:]) :: $dz_new")
