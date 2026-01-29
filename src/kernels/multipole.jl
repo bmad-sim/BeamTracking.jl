@@ -1,5 +1,5 @@
 """
-    multipole_kick!(i, coords, ms, knl, ksl)
+    multipole_kick!(i, coords, ms, knl, ksl, excluding)
 
 Track a beam of particles through a thin-lens multipole
 having integrated normal and skew strengths listed in the
@@ -15,27 +15,26 @@ multipole magnet. This method supposedly has good numerical
 properties, though I've not seen a proof of that claim.
 
 ## Arguments
- - ms:  vector of m values for non-zero multipole coefficients
- - knl: vector of normal integrated multipole strengths
- - ksl: vector of skew integrated multipole strengths
+ - ms:          vector of m values for non-zero multipole coefficients
+ - knl:         vector of normal integrated multipole strengths
+ - ksl:         vector of skew integrated multipole strengths
+ - excluding:   Multipole order to exclude. Set non-positive to not exclude anything.
 
-
-     NB: Here the j-th component of knl (ksl) denotes the
-       normal (skew) component of the multipole strength of
-       order ms[j] (after scaling by the reference Bρ).
-       For example, if ms[j] = 3, then knl[j] denotes the
-       normal integrated sextupole strength scaled by Bρo.
-       Moreover, and this is essential, the multipole
-       coefficients must appear in ascending order.
+ NB: Here the j-th component of knl (ksl) denotes the normal (skew) component of the multipole 
+   strength of order ms[j] (after scaling by the reference Bρ).
+   For example, if ms[j] = 3, then knl[j] denotes the normal integrated sextupole strength scaled by Bρo.
+   Moreover, and this is essential, the multipole coefficients must appear in ascending order.
 """
 @makekernel fastgtpsa=true function multipole_kick!(i, coords::Coords, ms, knl, ksl, excluding)
-  v = coords.v
-  alive = (coords.state[i] == STATE_ALIVE)
-  bx, by = normalized_field(ms, knl, ksl, v[i,XI], v[i,YI], excluding)
-  bx_0 = zero(bx)
-  by_0 = zero(by)
-  v[i,PXI] -= vifelse(alive, by, by_0)                   
-  v[i,PYI] += vifelse(alive, bx, bx_0)
+  if length(ms) != 0
+    v = coords.v
+    alive = (coords.state[i] == STATE_ALIVE)
+    bx, by = normalized_field(ms, knl, ksl, v[i,XI], v[i,YI], excluding)
+    bx_0 = zero(bx)
+    by_0 = zero(by)
+    v[i,PXI] -= vifelse(alive, by, by_0)                   
+    v[i,PYI] += vifelse(alive, bx, bx_0)
+  end
 end # function multipole_kick!()
 
 
