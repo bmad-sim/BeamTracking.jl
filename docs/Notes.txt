@@ -1,0 +1,17 @@
+Some notes for the Sagan cavity documentation:
+
+* Voltage is true voltage. That is, the energy change of a particle with charge q will be
+voltage*q. For example, if q is negative, a positive voltage with a positive phase factor 
+will result in an energy loss. This is different from Bmad where the energy change will
+be voltage*q/q_ref where q_ref is the reference charge.
+
+* The RF is applied over L_active. 
+
+* The multipoles and solenoid are applied over the whole length of the element.
+
+* If normalized multipoles/solenoid strength are used, the normalization for the multipoles 
+uses the reference momentum at the downstream end 
+
+* With standing wave cavities: 
+The pondermotive kick is ignored with `L_active` zero (Otherwise the kick would be infinite).
+A very small `L_active` will lead to unphysical results.

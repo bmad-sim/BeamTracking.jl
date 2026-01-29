@@ -11,6 +11,8 @@ function check_bl_bunch!(bl::Beamline, bunch::Bunch, notify::Bool=true)
   return
 end
 
+#---------------------------------------------------------------------------------------------------
+
 function check_species!(species_ref::Species, bunch::Bunch, notify=true)
   if isnullspecies(bunch.species)
     if isnullspecies(species_ref)
@@ -26,6 +28,8 @@ function check_species!(species_ref::Species, bunch::Bunch, notify=true)
   end
   return
 end
+
+#---------------------------------------------------------------------------------------------------
 
 function check_p_over_q_ref!(bl::Beamline, ref, bunch::Bunch, notify=true)
   t_ref = bunch.t_ref
@@ -64,6 +68,8 @@ get_n_multipoles(::BMultipoleParams{T,N}) where {T,N} = N
 
 make_static(a::StaticArray) = SVector(a)
 make_static(a) = a
+
+#---------------------------------------------------------------------------------------------------
 
 """
 
@@ -114,6 +120,21 @@ no loss in computing both but benefit of branchless.
   return np, sp
 end
 
+#---------------------------------------------------------------------------------------------------
+
+"""
+    get_strengths(bm, L, p_over_q_ref) -> Kn, Ks
+Get non-integrated magnetic multipole strength arrays. Also see get_integrated_strengths.
+
+(Kn' + im*Ks') = (Kn + im*Ks)*exp(-im*order*tilt)
+
+# Rotation:
+Kn' = Kn*cos(order*tilt) + Ks*sin(order*tilt)
+Ks' = Kn*-sin(order*tilt) + Ks*cos(order*tilt)
+
+This works for both BMultipole and BMultipoleParams. Branchless bc SIMD -> basically 
+no loss in computing both but benefit of branchless.
+"""
 @inline function get_integrated_strengths(bm, L, p_over_q_ref)
   bmn = getfield(bm, :n)
   bms = getfield(bm, :s)
