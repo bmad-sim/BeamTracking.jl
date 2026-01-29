@@ -1,5 +1,6 @@
 # ========== Yoshida ===========================
 abstract type AbstractYoshida end
+
 macro def_integrator_struct(name)
   quote
     struct $(esc(name)) <: AbstractYoshida
@@ -39,6 +40,19 @@ end
 @def_integrator_struct(SolenoidKick)
 @def_integrator_struct(DriftKick)
 
-
 # ========== Exact ===========================
 struct Exact end
+
+#---------------------------------------------------------------------------------------------------
+
+struct SaganCavity
+  n_cell::Int                # Negative => Use approx half wavelength between cells, Zero => single kick.
+  L_active::Float64          # Negative => Use L as the active length.
+  radiation_damping_on::Bool
+  radiation_fluctuations_on::Bool
+
+  function SaganCavity(; n_cell::Int = -1, L_active::Float64 = -1.0, 
+                             radiation_damping_on::Bool=false, radiation_fluctuations_on::Bool=false)
+    return new(n_cell, L_active, radiation_damping_on, radiation_fluctuations_on)
+  end
+end

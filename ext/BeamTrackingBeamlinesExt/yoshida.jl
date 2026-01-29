@@ -20,12 +20,6 @@
   end
 end
 
-@inline alignment(tm::AbstractYoshida, bunch, alignmentparams, bendparams, L, entering) =
-  alignment(Exact(), bunch, alignmentparams, bendparams, L, entering)
-
-@inline aperture(tm::AbstractYoshida, bunch, apertureparams, entering) =
-  aperture(Exact(), bunch, apertureparams, entering)
-
 # =========== STRAIGHT ELEMENTS ============= #
 # === Thin elements === #
 @inline function thin_pure_bdipole(tm::Yoshida, bunch, bm)

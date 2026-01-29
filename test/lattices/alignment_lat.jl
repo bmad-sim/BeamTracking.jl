@@ -1,7 +1,7 @@
 using BeamTracking
 using Beamlines
 
-@eles begin
+@elements begin
   drift1 = Drift(L = 2.0, x_offset = 0.1, y_offset = 0.2, z_offset = 0.3, 
                     x_rot = 0.04, y_rot = 0.05, tilt = 0.06, tracking_method = Exact())
 
