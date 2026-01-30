@@ -29,8 +29,6 @@ function check_species!(species_ref::Species, bunch::Bunch, notify=true)
   return
 end
 
-#---------------------------------------------------------------------------------------------------
-
 function check_p_over_q_ref!(bl::Beamline, ref, bunch::Bunch, notify=true)
   t_ref = bunch.t_ref
   if isnan(bunch.p_over_q_ref)
@@ -64,6 +62,8 @@ function check_p_over_q_ref!(bl::Beamline, ref, bunch::Bunch, notify=true)
   return
 end
 
+#---------------------------------------------------------------------------------------------------
+
 get_n_multipoles(::BMultipoleParams{T,N}) where {T,N} = N
 
 make_static(a::StaticArray) = SVector(a)
@@ -72,6 +72,8 @@ make_static(a) = a
 #---------------------------------------------------------------------------------------------------
 
 """
+    get_strengths(bm, L, p_over_q_ref) -> Kn, Ks
+Get non-integrated magnetic multipole strength arrays. Also see get_integrated_strengths.
 
 (Kn' + im*Ks') = (Kn + im*Ks)*exp(-im*order*tilt)
 
@@ -117,21 +119,6 @@ no loss in computing both but benefit of branchless.
   return np, sp
 end
 
-#---------------------------------------------------------------------------------------------------
-
-"""
-    get_strengths(bm, L, p_over_q_ref) -> Kn, Ks
-Get non-integrated magnetic multipole strength arrays. Also see get_integrated_strengths.
-
-(Kn' + im*Ks') = (Kn + im*Ks)*exp(-im*order*tilt)
-
-# Rotation:
-Kn' = Kn*cos(order*tilt) + Ks*sin(order*tilt)
-Ks' = Kn*-sin(order*tilt) + Ks*cos(order*tilt)
-
-This works for both BMultipole and BMultipoleParams. Branchless bc SIMD -> basically 
-no loss in computing both but benefit of branchless.
-"""
 @inline function get_integrated_strengths(bm, L, p_over_q_ref)
   if isconcretetype(eltype(bm.n))
     T = promote_type(eltype(bm.n),
@@ -169,7 +156,7 @@ end
 
 #---------------------------------------------------------------------------------------------------
 
-function rf_omega(rfparams, circumference, species, p_over_q_ref)
+function rf_omega_calc(rfparams, circumference, species, p_over_q_ref)
   if rfparams.harmon_master
     tilde_m, gamsqr_0, beta_0 = BeamTracking.drift_params(species, p_over_q_ref)
     return 2*pi*rfparams.harmon*C_LIGHT*beta_0/circumference
@@ -180,7 +167,23 @@ end
 
 #---------------------------------------------------------------------------------------------------
 
-function rf_phi0(rfparams)
+function rf_phi0_calc(rfparams, species)
+  chargeof(species) > 0 ? dphi = 0 : dphi = pi
+
+  if rfparams.zero_phase == PhaseReference.BelowTransition
+    return rfparams.phi0 + 0.5*pi + dphi
+  elseif rfparams.zero_phase == PhaseReference.AboveTransition
+    return rfparams.phi0 - 0.5*pi + dphi
+  elseif rfparams.zero_phase == PhaseReference.Accelerating
+    return rfparams.phi0 + dphi
+  else
+    error("RF parameter zero_phase value not set correctly.")
+  end
+end
+
+#---------------------------------------------------------------------------------------------------
+
+function rf_phi0_calc_old(rfparams, species)
   if rfparams.zero_phase == PhaseReference.BelowTransition
     return rfparams.phi0 + 0.5*pi
   elseif rfparams.zero_phase == PhaseReference.AboveTransition
@@ -189,5 +192,80 @@ function rf_phi0(rfparams)
     return rfparams.phi0
   else
     error("RF parameter zero_phase value not set correctly.")
+  end
+end
+
+#---------------------------------------------------------------------------------------------------
+
+"""
+    rf_step_calc(n_cell, L_active, rf_omega, L) -> n_cell_out, L_active_out
+
+For an element of length `L`, calculate the number of RF cells (kicks) `n_cell_out` and the active length 
+`L_active_out` given the input number of cells `n_cell` and the active length length `L_active`.
+
+If `L_active` is negative, `L_active_out` is set to the element length `L`.
+If `n_cell` is negative, `n_cell_out` is set so that the cell length is near half a wavelength.
+If `L_active` is zero, `n_cell_out` is set to zero.
+"""
+function rf_step_calc(n_cell, L_active, rf_omega, L)  
+  L_active < 0 ? L_act = L : L_act = L_active
+
+  if n_cell < 0
+    return round(rf_omega * L_act / (pi * C_LIGHT)), L_act
+  elseif L_active == 0
+    return 0, L_active
+  else
+    return n_cell, L_act
+  end
+end
+
+#---------------------------------------------------------------------------------------------------
+
+"""
+    get_multipole_fields(bmultipole, L, p_over_q)
+
+Routine to return multipole strengths.
+The returned strengths are length integrated if `L = 0` and are:
+- m_order, Bnl, Bsl, Bsol
+For non-zero `L`:
+- m_order, Bn, Bs, Bsol
+If there are no multipoles, zero length vectors are returned.
+"""
+function get_multipole_fields(bmultipole, L, p_over_q)
+  if !isactive(bmultipole)
+    return [], [], [], 0
+  end
+
+  m_order = bmultipole.order
+
+  if L == 0
+    knl, ksl = get_integrated_strengths(bmultipole, L, p_over_q)
+    m_order, knl, ksl, ksol = extract_solenoid_strength(m_order, knl, ksl) 
+    return m_order, knl/P0c_over_q, ksl*p_over_q, ksol*p_over_q
+  else
+    kn, ks = get_strengths(bmultipole, L, p_over_q)
+    m_order, kn, ks, ksol = extract_solenoid_strength(m_order, kn, ks) 
+    return m_order, kn*p_over_q, ks*p_over_q, ksol*p_over_q
+  end
+end
+
+#---------------------------------------------------------------------------------------------------
+
+"""
+    extract_solenoid_strength(m_order, kn, ks) -> m_order_out, kn_out, ks_out, ksol_out
+
+Extract the solenoid strength from multipole strength arrays and return the arrays without
+the solenoid strength along with the solenoid strength `ksol_out` which is a scalar.
+The input strengths may be integrated or non-integrated and the returned strengths are of
+the same type.
+ 
+"""
+function extract_solenoid_strength(m_order, kn, ks)
+  if length(m_order) == 0
+    return m_order, kn, kl, 0.0
+  elseif m_order[1] == 0
+    return m_order[2:end], kn[2:end], ks[2:end], kn[1]
+  else
+    return m_order, kn, ks, 0.0
   end
 end

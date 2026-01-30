@@ -18,7 +18,7 @@ using KernelAbstractions
 import GTPSA: sincu, sinhcu
 
 export Bunch, State, ParticleView, Time, TimeDependentParam
-export Yoshida, Yoshida, MatrixKick, BendKick, SolenoidKick, DriftKick, Exact
+export Yoshida, MatrixKick, BendKick, SolenoidKick, DriftKick, Exact, SaganCavity
 export track!
 
 
@@ -44,11 +44,11 @@ include("kernels/quadrupole_kick.jl")
 include("kernels/radiation.jl")
 include("kernels/ramp_P0.jl")
 include("kernels/rfcavity_kick.jl")
+include("kernels/sagan_cavity.jl")
 include("kernels/solenoid_kick.jl")
 include("kernels/spin.jl")
 include("kernels/transforms.jl")
 include("kernels/yoshida.jl")
-
 
 # Empty tracking method to be imported+implemented by package extensions
 function track! end
