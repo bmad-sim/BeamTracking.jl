@@ -53,10 +53,12 @@ function test_matrix(
   # 1) Correctness
   # println(GTPSA.jacobian(coords.v)[1:6,1:6])
   @test isapprox(GTPSA.jacobian(coords.v)[1:6,1:6], scalar.(M_expected); kwargs...)
+
   # 2) Type stability
   if type_stable
     @test_opt kernel_call.kernel(1, coords, kernel_call.args...)
   end
+
   # 3) No scalar allocations
   if no_scalar_allocs
     v = repeat([0.1 0.2 0.3 0.4 0.5 0.6], 2)
@@ -198,6 +200,7 @@ function quaternion_coeffs_approx_equal(q_expected, q_calculated, ϵ)
   return all_ok
 end
 
+include("sagan_cavity_tracking_test.jl")
 include("batch_test.jl")
 include("time_test.jl")
 include("BeamlinesExt_test.jl")
