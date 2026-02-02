@@ -264,7 +264,7 @@ function get_multipole_fields(bmultipole, L, p_over_q)
   if L == 0
     knl, ksl = get_integrated_strengths(bmultipole, L, p_over_q)
     m_order, knl, ksl, ksol = extract_solenoid_strength(m_order, knl, ksl) 
-    return m_order, knl/P0c_over_q, ksl*p_over_q, ksol*p_over_q
+    return m_order, knl/p_over_q, ksl*p_over_q, ksol*p_over_q
   else
     kn, ks = get_strengths(bmultipole, L, p_over_q)
     m_order, kn, ks, ksol = extract_solenoid_strength(m_order, kn, ks) 

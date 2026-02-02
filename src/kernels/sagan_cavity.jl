@@ -2,20 +2,20 @@
 # "thin" means L_active is zero
 
 @makekernel fastgtpsa=true function sagan_cavity_thin!(i, coords::Coords, radiation_damping_on, 
-                                      mass, q, E0_ref, dE_ref,
-                                      t_ref, m_order, BsolL, BnL, BsL, q_voltage, rf_omega, t_phi0, L)
+                                      mass, q, E0_ref, dE_ref, t_ref, 
+                                      m_order, BnL, BsL, BsolL, a, q_voltage, rf_omega, t_phi0, L)
   L_out = L / 2           # Length outside of active region
   P0c = sqrt(E0_ref^2 - mass^2)
   q_over_p_ref = q * C_LIGHT / P0c
 
   # Outside Drift
   if L == 0
-    f = q_over_pt_ref / 2
+    f = q_over_p_ref / 2
     multipole_kick!(i, coords, m_order, BnL*f, BsL*f, -1)
   else
     f = q_over_p_ref / L_out
     sagan_cavity_outside_drift!(i, coords, radiation_damping_on, q,
-                                            m_order, BnL*f, BsL*f, Bsol*f, mass, P0c, L_out)
+                                            m_order, BnL*f, BsL*f, BsolL*f, a, mass, P0c, L_out)
   end
 
   # Energy kick
@@ -29,12 +29,12 @@
 
   # Outside Drift
   if L == 0
-    f = q_over_pt_ref / 2
+    f = q_over_p_ref / 2
     multipole_kick!(i, coords, m_order, BnL*f, BsL*f, -1)
   else
     f = q_over_p_ref / L_out
     sagan_cavity_outside_drift!(i, coords, radiation_damping_on,  q,
-                                            m_order, BnL*f, BsL*f, Bsol*f, mass, P0c, L_out)
+                                            m_order, BnL*f, BsL*f, BsolL*f, a, mass, P0c, L_out)
   end
 end
 
@@ -43,7 +43,7 @@ end
 @makekernel fastgtpsa=true function sagan_cavity_thick!(i, coords::Coords, 
               radiation_damping_on, traveling_wave, 
               mass, q, E0_ref, dE_ref, t_ref, n_cell, m_order, Bn, Bs, Bsol, 
-              q_voltage, rf_omega, t_phi0, L_active, L)
+              a, q_voltage, rf_omega, t_phi0, L_active, L)
 
   L_out = (L - L_active) / 2           # Length outside of active region
   q_gradient = q_voltage / L_active    # Effective gradient
@@ -52,7 +52,7 @@ end
 
   # Outside Drift
   sagan_cavity_outside_drift!(i, coords, radiation_damping_on, q,
-                m_order, Bn*q_over_p_ref, Bs*q_over_p_ref, Bsol*q_over_p_ref, mass, P0c, L_out)
+                m_order, Bn*q_over_p_ref, Bs*q_over_p_ref, Bsol*q_over_p_ref, a, mass, P0c, L_out)
 
   # Fringe kick at beginning. 
   sagan_cavity_fringe!(i, coords, q_gradient, rf_omega, t_phi0, t_ref, mass, P0c, +1)
@@ -62,7 +62,7 @@ end
 
   if n_cell == 0
     sagan_cavity_inside_drift!(i, coords, radiation_damping_on, traveling_wave, q, q_gradient, 
-              m_order, Bn*q_over_p_ref, Bs*q_over_p_ref, Bsol*q_over_p_ref, mass, P0c, L_active/2)
+              m_order, Bn*q_over_p_ref, Bs*q_over_p_ref, Bsol*q_over_p_ref, a, mass, P0c, L_active/2)
     sagan_cavity_kick!(i, coords, q_voltage, rf_omega, t_phi0, t_ref, mass, P0c)
     dP0c = dpc_given_dE(P0c, dE_ref, mass)
     reference_energy_shift!(i, coords, P0c, dP0c)
@@ -70,7 +70,7 @@ end
     q_over_p_ref = q * C_LIGHT / P0c
 
     sagan_cavity_inside_drift!(i, coords, radiation_damping_on, traveling_wave, q, q_gradient, 
-                   m_order, Bn*q_over_p_ref, Bs*q_over_p_ref, Bsol*q_over_p_ref, mass, P0c, L_active/2)
+                   m_order, Bn*q_over_p_ref, Bs*q_over_p_ref, Bsol*q_over_p_ref, a, mass, P0c, L_active/2)
 
   else
     for i_step = 0:n_cell
@@ -87,7 +87,7 @@ end
       # Drift
       if i_step == n_cell; break; end
       sagan_cavity_inside_drift!(i, coords, radiation_damping_on, traveling_wave, q, q_gradient, 
-          m_order, Bn*q_over_p_ref, Bs*q_over_p_ref, Bsol*q_over_p_ref, mass, P0c, L_active/n_cell)
+          m_order, Bn*q_over_p_ref, Bs*q_over_p_ref, Bsol*q_over_p_ref, a, mass, P0c, L_active/n_cell)
     end
   end
 
@@ -96,14 +96,14 @@ end
 
   # Outside Drift
   sagan_cavity_outside_drift!(i, coords, radiation_damping_on, q,
-              m_order, Bn*q_over_p_ref, Bs*q_over_p_ref, Bsol*q_over_p_ref, mass, P0c, L_out)
+              m_order, Bn*q_over_p_ref, Bs*q_over_p_ref, Bsol*q_over_p_ref, a, mass, P0c, L_out)
 end
 
 #---------------------------------------------------------------------------------------------------
 # The "inside" drift is the same as the "outside" drift with the addition of the pondermotive kick.
 
 @makekernel fastgtpsa=true function sagan_cavity_inside_drift!(i, coords::Coords, 
-        radiation_damping_on, traveling_wave, q, q_gradient, m_order, Kn, Ks, Ksol, mass, P0c, L)
+        radiation_damping_on, traveling_wave, q, q_gradient, m_order, Kn, Ks, Ksol, a, mass, P0c, L)
 
   beta0 = P0c / sqrt(P0c^2 + mass^2)
   gamma0 = P0c / (mass * beta0)
@@ -115,7 +115,7 @@ end
 
   # Drift
   sagan_cavity_outside_drift!(i, coords, radiation_damping_on, q, 
-                                    m_order, Kn, Ks, Ksol, mass, P0c, L)
+                                    m_order, Kn, Ks, Ksol, a, mass, P0c, L)
 
   # 1/2 pondermotive kick
   # The pondermotive force only occurs if there is a EM wave in the opposite direction from the direction of travel.
@@ -128,13 +128,13 @@ end
 # The "outside" drift does not have the pondermotive kick that the "inside" drift does.
 
 @makekernel fastgtpsa=true function sagan_cavity_outside_drift!(i, coords::Coords, 
-                                     radiation_damping_on, q, m_order, Kn, Ks, Ksol, mass, P0c, L)
+                                     radiation_damping_on, q, m_order, Kn, Ks, Ksol, a, mass, P0c, L)
   beta0 = P0c / sqrt(P0c^2 + mass^2)
   gamma0 = P0c / (mass * beta0)
 
   # 1/2 Multipole kick    
   multipole_kick_with_rad!(i, coords, radiation_damping_on,
-                                  q, m_order, Kn, Ks, mass, P0c, beta0, L/2)
+                                  q, m_order, Kn, Ks, a, mass, P0c, beta0, L/2)
   # Drift
   if Ksol == 0
     exact_drift!(i, coords, beta0, gamma0*gamma0, mass/P0c, L)
@@ -144,7 +144,7 @@ end
 
   # 1/2 Multipole kick
   multipole_kick_with_rad!(i, coords, radiation_damping_on,
-                                  q, m_order, Kn, Ks, mass, P0c, beta0, L/2)
+                                  q, m_order, Kn, Ks, a, mass, P0c, beta0, L/2)
 end
 
 #---------------------------------------------------------------------------------------------------
@@ -229,7 +229,7 @@ end
 
 
 @makekernel fastgtpsa=true function multipole_kick_with_rad!(i, coords::Coords, 
-                  radiation_damping_on, q_charge, m_order, Kn, Ks, mass, P0c, beta0, L)
+                  radiation_damping_on, q_charge, m_order, Kn, Ks, a, mass, P0c, beta0, L)
   L2 = L / 2
   if radiation_damping_on
     deterministic_radiation!(i, coords, q_charge, mass, P0c/beta0, 0, m_order, Kn, Ks, L2)
@@ -305,6 +305,6 @@ end
 
 function dpc_given_dE(old_pc, dE, mass)
   rad = dE^2 + 2*sqrt(old_pc^2 + mass^2) * dE + old_pc^2
-  if rad < 0; (return nothing); end
+  if rad < 0; error("Change in reference energy too negative."); end
   return sqrt(rad) - old_pc
 end
