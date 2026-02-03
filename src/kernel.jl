@@ -55,21 +55,23 @@ _generic_kernel!(i, coords, kc) = __generic_kernel!(i, coords, kc.chain, kc.ref)
 
 @unroll function __generic_kernel!(i, coords::Coords, chain, ref)
   @unroll for kcall in chain
+    @show kcall.kernel
     args = process_args(i, coords, kcall.args, ref)
+    @show args
     (kcall.kernel)(i, coords, args...)
   end
   return nothing
 end
 
 function process_args(i, coords, args, ref)
-  if !isnothing(ref) && static_timecheck(args) 
+  # We need to add batch evaluation here
+  #if !isnothing(ref) && true #static_timecheck(args) 
     let t = compute_time(coords.v[i,ZI], coords.v[i,PZI], ref)
-      new_args = map(arg->teval(arg, t), args)
       return map(arg->teval(arg, t), args)
     end
-  else
-    return args
-  end
+  #else
+  #  return args
+  #end
 end
 
 # Generic function to launch a kernel on the bunch coordinates matrix

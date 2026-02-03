@@ -57,7 +57,7 @@ end
 
 
 function atan2(y::SIMD.Vec{N, T}, x::SIMD.Vec{N, T}) where {N, T}
-  arctan = atan(y/x)
+  arctan = atan((y/x)::SIMD.Vec{N,T})::SIMD.Vec{N,T}
   return vifelse(x > 0, arctan,
          vifelse((x < 0)  & (y >= 0),  arctan + SIMD.Vec{N, T}(T(pi)),
          vifelse((x < 0)  & (y < 0),   arctan - SIMD.Vec{N, T}(T(pi)),

@@ -22,8 +22,8 @@ Arguments
 - 'L'        -- length
 """
 @makekernel fastgtpsa=true function bkb_multipole!(i, coords::Coords, q, mc2, radiation_damping, tilde_m, beta_0, a, g, w, w_inv, k0, mm, kn, ks, L)
-  knl = kn * L / 2
-  ksl = ks * L / 2
+  knl = kn .* L ./ 2
+  ksl = ks .* L ./ 2
 
   E0 = mc2/tilde_m/beta_0 # could probably exclude beta_0 because ultrarelativistic radiation
 

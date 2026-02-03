@@ -246,7 +246,7 @@ function universal!(
 
   # Evolve time through whole element
   bunch.t_ref += L/beta_gamma_to_v(beta_gamma_ref)
-  
+  return kc
   # noinline necessary here for small binaries and faster execution
   @noinline launch!(coords, kc; kwargs...)
   return nothing
