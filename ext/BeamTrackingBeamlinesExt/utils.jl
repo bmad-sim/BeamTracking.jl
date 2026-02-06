@@ -68,6 +68,7 @@ get_n_multipoles(::BMultipoleParams{T,N}) where {T,N} = N
 
 make_static(a::StaticArray) = SVector(a)
 make_static(a) = a
+const emptySA = SVector{1, Int32}[]
 
 #---------------------------------------------------------------------------------------------------
 
@@ -244,51 +245,9 @@ end
 
 #---------------------------------------------------------------------------------------------------
 
-"""
-    get_multipole_fields(bmultipole, L, p_over_q)
-
-Routine to return multipole strengths.
-The returned strengths are length integrated if `L = 0` and are:
-- m_order, Bnl, Bsl, Bsol
-For non-zero `L`:
-- m_order, Bn, Bs, Bsol
-If there are no multipoles, zero length vectors are returned.
-"""
-function get_multipole_fields(bmultipole, L, p_over_q)
-  if !isactive(bmultipole)
-    return [], [], [], 0
-  end
-
-  m_order = bmultipole.order
-
-  if L == 0
-    knl, ksl = get_integrated_strengths(bmultipole, L, p_over_q)
-    m_order, knl, ksl, ksol = extract_solenoid_strength(m_order, knl, ksl) 
-    return m_order, knl/p_over_q, ksl*p_over_q, ksol*p_over_q
+function update_bunch_time(tm, bunch, v_ref, L)
+  if typeof(tm) == SaganCavity
   else
-    kn, ks = get_strengths(bmultipole, L, p_over_q)
-    m_order, kn, ks, ksol = extract_solenoid_strength(m_order, kn, ks) 
-    return m_order, kn*p_over_q, ks*p_over_q, ksol*p_over_q
-  end
-end
-
-#---------------------------------------------------------------------------------------------------
-
-"""
-    extract_solenoid_strength(m_order, kn, ks) -> m_order_out, kn_out, ks_out, ksol_out
-
-Extract the solenoid strength from multipole strength arrays and return the arrays without
-the solenoid strength along with the solenoid strength `ksol_out` which is a scalar.
-The input strengths may be integrated or non-integrated and the returned strengths are of
-the same type.
- 
-"""
-function extract_solenoid_strength(m_order, kn, ks)
-  if length(m_order) == 0
-    return m_order, kn, kl, 0.0
-  elseif m_order[1] == 0
-    return m_order[2:end], kn[2:end], ks[2:end], kn[1]
-  else
-    return m_order, kn, ks, 0.0
+    bunch.t_ref += L/v_ref
   end
 end

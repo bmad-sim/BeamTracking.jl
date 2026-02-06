@@ -3,7 +3,7 @@
 
 @makekernel fastgtpsa=true function sagan_cavity_thin!(i, coords::Coords, radiation_damping_on, 
                                       mass, q, E0_ref, dE_ref, t_ref, 
-                                      m_order, BnL, BsL, BsolL, a, q_voltage, rf_omega, t_phi0, L)
+                                      m_order, BnL, BsL, a, q_voltage, rf_omega, t_phi0, L)
   L_out = L / 2           # Length outside of active region
   P0c = sqrt(E0_ref^2 - mass^2)
   q_over_p_ref = q * C_LIGHT / P0c
@@ -15,7 +15,7 @@
   else
     f = q_over_p_ref / L_out
     sagan_cavity_outside_drift!(i, coords, radiation_damping_on, q,
-                                            m_order, BnL*f, BsL*f, BsolL*f, a, mass, P0c, L_out)
+                                            m_order, BnL*f, BsL*f, a, mass, P0c, L_out)
   end
 
   # Energy kick
@@ -34,7 +34,7 @@
   else
     f = q_over_p_ref / L_out
     sagan_cavity_outside_drift!(i, coords, radiation_damping_on,  q,
-                                            m_order, BnL*f, BsL*f, BsolL*f, a, mass, P0c, L_out)
+                                            m_order, BnL*f,  BsL*f, a, mass, P0c, L_out)
   end
 end
 
@@ -42,7 +42,7 @@ end
 
 @makekernel fastgtpsa=true function sagan_cavity_thick!(i, coords::Coords, 
               radiation_damping_on, traveling_wave, 
-              mass, q, E0_ref, dE_ref, t_ref, n_cell, m_order, Bn, Bs, Bsol, 
+              mass, q, E0_ref, dE_ref, t_ref, n_cell, m_order, Bn, Bs, 
               a, q_voltage, rf_omega, t_phi0, L_active, L)
 
   L_out = (L - L_active) / 2           # Length outside of active region
@@ -52,7 +52,7 @@ end
 
   # Outside Drift
   sagan_cavity_outside_drift!(i, coords, radiation_damping_on, q,
-                m_order, Bn*q_over_p_ref, Bs*q_over_p_ref, Bsol*q_over_p_ref, a, mass, P0c, L_out)
+                         m_order, Bn*q_over_p_ref, Bs*q_over_p_ref, a, mass, P0c, L_out)
 
   # Fringe kick at beginning. 
   sagan_cavity_fringe!(i, coords, q_gradient, rf_omega, t_phi0, t_ref, mass, P0c, +1)
@@ -62,7 +62,7 @@ end
 
   if n_cell == 0
     sagan_cavity_inside_drift!(i, coords, radiation_damping_on, traveling_wave, q, q_gradient, 
-              m_order, Bn*q_over_p_ref, Bs*q_over_p_ref, Bsol*q_over_p_ref, a, mass, P0c, L_active/2)
+              m_order, Bn*q_over_p_ref, Bs*q_over_p_ref, a, mass, P0c, L_active/2)
     sagan_cavity_kick!(i, coords, q_voltage, rf_omega, t_phi0, t_ref, mass, P0c)
     dP0c = dpc_given_dE(P0c, dE_ref, mass)
     reference_energy_shift!(i, coords, P0c, dP0c)
@@ -70,7 +70,7 @@ end
     q_over_p_ref = q * C_LIGHT / P0c
 
     sagan_cavity_inside_drift!(i, coords, radiation_damping_on, traveling_wave, q, q_gradient, 
-                   m_order, Bn*q_over_p_ref, Bs*q_over_p_ref, Bsol*q_over_p_ref, a, mass, P0c, L_active/2)
+                             m_order, Bn*q_over_p_ref, Bs*q_over_p_ref, a, mass, P0c, L_active/2)
 
   else
     for i_step = 0:n_cell
@@ -87,7 +87,7 @@ end
       # Drift
       if i_step == n_cell; break; end
       sagan_cavity_inside_drift!(i, coords, radiation_damping_on, traveling_wave, q, q_gradient, 
-          m_order, Bn*q_over_p_ref, Bs*q_over_p_ref, Bsol*q_over_p_ref, a, mass, P0c, L_active/n_cell)
+          m_order, Bn*q_over_p_ref, Bs*q_over_p_ref, a, mass, P0c, L_active/n_cell)
     end
   end
 
@@ -96,14 +96,14 @@ end
 
   # Outside Drift
   sagan_cavity_outside_drift!(i, coords, radiation_damping_on, q,
-              m_order, Bn*q_over_p_ref, Bs*q_over_p_ref, Bsol*q_over_p_ref, a, mass, P0c, L_out)
+                          m_order, Bn*q_over_p_ref, Bs*q_over_p_ref, a, mass, P0c, L_out)
 end
 
 #---------------------------------------------------------------------------------------------------
 # The "inside" drift is the same as the "outside" drift with the addition of the pondermotive kick.
 
 @makekernel fastgtpsa=true function sagan_cavity_inside_drift!(i, coords::Coords, 
-        radiation_damping_on, traveling_wave, q, q_gradient, m_order, Kn, Ks, Ksol, a, mass, P0c, L)
+        radiation_damping_on, traveling_wave, q, q_gradient, m_order, Kn, Ks, a, mass, P0c, L)
 
   beta0 = P0c / sqrt(P0c^2 + mass^2)
   gamma0 = P0c / (mass * beta0)
@@ -115,7 +115,7 @@ end
 
   # Drift
   sagan_cavity_outside_drift!(i, coords, radiation_damping_on, q, 
-                                    m_order, Kn, Ks, Ksol, a, mass, P0c, L)
+                                    m_order, Kn, Ks, a, mass, P0c, L)
 
   # 1/2 pondermotive kick
   # The pondermotive force only occurs if there is a EM wave in the opposite direction from the direction of travel.
@@ -128,23 +128,30 @@ end
 # The "outside" drift does not have the pondermotive kick that the "inside" drift does.
 
 @makekernel fastgtpsa=true function sagan_cavity_outside_drift!(i, coords::Coords, 
-                                     radiation_damping_on, q, m_order, Kn, Ks, Ksol, a, mass, P0c, L)
+                                     radiation_damping_on, q, m_order, Kn, Ks, a, mass, P0c, L)
   beta0 = P0c / sqrt(P0c^2 + mass^2)
   gamma0 = P0c / (mass * beta0)
+  length(m_order) > 0 ? has_multipoles = true : has_multipoles = false
+  has_sol = (has_multipoles && m_order[1] == 0)
 
-  # 1/2 Multipole kick    
-  multipole_kick_with_rad!(i, coords, radiation_damping_on,
+  # 1/2 Multipole kick
+  if has_multipoles
+    multipole_kick_with_rad!(i, coords, radiation_damping_on,
                                   q, m_order, Kn, Ks, a, mass, P0c, beta0, L/2)
+  end
+
   # Drift
-  if Ksol == 0
-    exact_drift!(i, coords, beta0, gamma0*gamma0, mass/P0c, L)
+  if has_sol
+    exact_solenoid!(i, coords, Kn[1], beta0, gamma0*gamma0, mass/P0c, L)
   else
-    exact_solenoid!(i, coords, Ksol, beta0, gamma0*gamma0, mass/P0c, L)
+    exact_drift!(i, coords, beta0, gamma0*gamma0, mass/P0c, L)
   end
 
   # 1/2 Multipole kick
-  multipole_kick_with_rad!(i, coords, radiation_damping_on,
+  if has_multipoles
+    multipole_kick_with_rad!(i, coords, radiation_damping_on,
                                   q, m_order, Kn, Ks, a, mass, P0c, beta0, L/2)
+  end
 end
 
 #---------------------------------------------------------------------------------------------------
@@ -166,7 +173,7 @@ end
   rad = dE^2 + 2*sqrt(Pc*Pc + mass^2) * dE + Pc*Pc
   coords.state[i] = vifelse(rad < 0, STATE_LOST_PZ, coords.state[i])
   alive = (coords.state[i] == STATE_ALIVE)
-  sqrt_rad = sqrt(vifelse(alive, rad, 1))
+  sqrt_rad = vifelse(alive, sqrt(abs(rad)), 1.0)
   pz = vifelse(alive, pz + (sqrt_rad - Pc)/P0c, pz)  
 
   v[i,PZI] = vifelse(alive, v[i,PZI] + dE/P0c, v[i,PZI])
@@ -214,7 +221,7 @@ edge = +1 => entering, edge = -1 => exiting
   rad = dE^2 + 2*sqrt(Pc*Pc + mass^2) * dE + Pc*Pc
   coords.state[i] = vifelse(rad < 0, STATE_LOST_PZ, coords.state[i])
   alive = (coords.state[i] == STATE_ALIVE)
-  sqrt_rad = sqrt(vifelse(alive, rad, 1))
+  sqrt_rad = vifelse(alive, sqrt(abs(rad)), 1.0)
   pz = vifelse(alive, pz + (sqrt_rad - Pc)/P0c, pz)  
 
   f = edge * ez_field / (2 * P0c)
