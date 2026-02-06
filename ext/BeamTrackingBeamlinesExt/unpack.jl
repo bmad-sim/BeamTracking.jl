@@ -130,6 +130,7 @@ function universal!(
     dE_ref = beamlineparams.dE_ref
     E0 = E_ref - dE_ref
     t_phi0 = rf_phi0_calc(rfparams, beamlineparams.beamline.species_ref) / rf_omega
+
     kc = push(kc, @inline(sagan_cavity(tm, bunch, bmultipoleparams, rfparams, E0, dE_ref, rf_omega, t_phi0, L)))
 
     if L != 0
@@ -275,9 +276,7 @@ function universal!(
   end
 
   # Evolve time through whole element
-  if typeof(tm) != SaganCavity
-    bunch.t_ref += L/beta_gamma_to_v(beta_gamma_ref)
-  end
+  update_bunch_time(tm, bunch, beta_gamma_to_v(beta_gamma_ref), L)
 
   # noinline necessary here for small binaries and faster execution
   @noinline launch!(coords, kc; kwargs...)
