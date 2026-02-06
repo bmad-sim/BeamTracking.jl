@@ -42,3 +42,34 @@ end
 
 # ========== Exact ===========================
 struct Exact end
+
+# ========== Explicit RK4 Tracking ==========
+struct RungeKutta
+  ds_step::Float64
+  n_steps::Int
+end
+
+DEFAULT_RK4_DS_STEP = 0.2
+function RungeKutta(; ds_step::Union{Float64, Nothing}=nothing, n_steps::Union{Int, Nothing}=nothing)
+  # Get actual values (use provided or sentinel)
+  _ds_step = ds_step === nothing ? -1.0 : ds_step
+  _n_steps = n_steps === nothing ? -1 : n_steps
+  
+  # Error if both are explicitly set to positive values
+  if _ds_step > 0 && _n_steps > 0
+    error("Only one of ds_step or n_steps should be specified")
+  end
+  
+  # If user sets n_steps (and it's positive), set ds_step to negative
+  if _n_steps > 0
+    return RungeKutta(-1.0, _n_steps)
+  end
+  
+  # If user sets ds_step (and it's positive), set n_steps to -1
+  if _ds_step > 0
+    return RungeKutta(_ds_step, -1)
+  end
+  
+  # Fallback: use defaults if both are negative/not set
+  return RungeKutta(DEFAULT_RK4_DS_STEP, -1)
+end
