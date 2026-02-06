@@ -170,7 +170,7 @@ end
   t = t_phi0 + t_ref - v[i,ZI] / C_LIGHT
   dE = q_voltage * cos(rf_omega * t)
 
-  rad = dE^2 + 2*sqrt(Pc*Pc + mass^2) * dE + Pc*Pc
+  rad = dE*dE + 2*sqrt(Pc*Pc + mass^2) * dE + Pc*Pc
   coords.state[i] = vifelse(rad < 0, STATE_LOST_PZ, coords.state[i])
   alive = (coords.state[i] == STATE_ALIVE)
   sqrt_rad = vifelse(alive, sqrt(abs(rad)), 1.0)
@@ -218,7 +218,7 @@ edge = +1 => entering, edge = -1 => exiting
   dez_dz_field = q_gradient * sin(phase) * rf_omega / C_LIGHT
   dE = -edge * dez_dz_field * (v[i,XI]*v[i,XI] + v[i,YI]*v[i,YI]) / 4
 
-  rad = dE^2 + 2*sqrt(Pc*Pc + mass^2) * dE + Pc*Pc
+  rad = dE*dE + 2*sqrt(Pc*Pc + mass^2) * dE + Pc*Pc
   coords.state[i] = vifelse(rad < 0, STATE_LOST_PZ, coords.state[i])
   alive = (coords.state[i] == STATE_ALIVE)
   sqrt_rad = vifelse(alive, sqrt(abs(rad)), 1.0)
@@ -311,7 +311,7 @@ end
 #---------------------------------------------------------------------------------------------------
 
 function dpc_given_dE(old_pc, dE, mass)
-  rad = dE^2 + 2*sqrt(old_pc^2 + mass^2) * dE + old_pc^2
+  rad = dE*dE + 2*sqrt(old_pc*old_pc + mass^2) * dE + old_pc*old_pc
   if rad < 0; error("Change in reference energy too negative."); end
   return sqrt(rad) - old_pc
 end
