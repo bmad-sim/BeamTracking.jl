@@ -200,10 +200,10 @@ function quaternion_coeffs_approx_equal(q_expected, q_calculated, ϵ)
   return all_ok
 end
 
+include("BeamlinesExt_test.jl")
 include("sagan_cavity_tracking_test.jl")
 include("batch_test.jl")
 include("time_test.jl")
-include("BeamlinesExt_test.jl")
 include("alignment_tracking_test.jl")
 include("aperture_tracking_test.jl")
 include("ExactTracking_test.jl")

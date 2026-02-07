@@ -245,9 +245,32 @@ end
 
 #---------------------------------------------------------------------------------------------------
 
-function update_bunch_time(tm, bunch, v_ref, L)
-  if typeof(tm) == SaganCavity
+function bunch_dt_ref(tm, bunch, rfparams, beamlineparams, L)
+  beta_gamma_ref = R_to_beta_gamma(bunch.species, bunch.p_over_q_ref)
+   L / beta_gamma_to_v(beta_gamma_ref)
+end
+
+
+function bunch_dt_ref(tm::SaganCavity, bunch, rfparams, beamlineparams, L)
+  if L == 0; return 0; end
+
+  rf_omega = rf_omega_calc(rfparams, beamlineparams.beamline.line[end].s_downstream, bunch.species, bunch.p_over_q_ref)
+  n_cell, L_active = rf_step_calc(tm.n_cell, tm.L_active, rf_omega, L)
+  L_outer = (L - L_active) / 2
+  E1_ref = R_to_E(bunch.species, bunch.p_over_q_ref)
+  dE_ref = beamlineparams.dE_ref
+  E0_ref = E1_ref - dE_ref
+  dt_ref = (L_outer/E_to_beta(bunch.species, E0_ref) + L_outer/E_to_beta(bunch.species, E0_ref)) / C_LIGHT
+
+  if n_cell == 0
+    L_inner = L_active / 2
+    dt_ref += (L_inner/E_to_beta(bunch.species, E0_ref) + L_inner/E_to_beta(bunch.species, E0_ref)) / C_LIGHT
   else
-    bunch.t_ref += L/v_ref
+    for i_step = 1:n_cell
+      E_now_ref = E0_ref + (i_step-0.5) * dE_ref / n_cell
+      dt_ref += L_active / (C_LIGHT * E_to_beta(bunch.species, E_now_ref) * n_cell)
+    end
   end
+
+  return dt_ref
 end

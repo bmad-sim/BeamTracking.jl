@@ -120,52 +120,14 @@ function universal!(
       kc = push(kc, @inline(pure_patch(tm, bunch, patchparams, L)))
     end
 
-  elseif typeof(tm) == SaganCavity
+  elseif !isnothing(rfparams)   # Need to handle the case if Voltage = 0 but dE_ref is finite
     if isactive(bendparams)
       error("Tracking through a LineElement containing both RFParams and BendParams not currently defined")
     end
-
-    rf_omega = rf_omega_calc(rfparams, beamlineparams.beamline.line[end].s_downstream, bunch.species, bunch.p_over_q_ref)
-    E_ref = R_to_E(bunch.species, p_over_q_ref)
-    dE_ref = beamlineparams.dE_ref
-    E0 = E_ref - dE_ref
-    t_phi0 = rf_phi0_calc(rfparams, beamlineparams.beamline.species_ref) / rf_omega
-
-    kc = push(kc, @inline(sagan_cavity(tm, bunch, bmultipoleparams, rfparams, E0, dE_ref, rf_omega, t_phi0, L)))
-
-    if L != 0
-      n_cell, L_active = rf_step_calc(tm.n_cell, tm.L_active, rf_omega, L)
-      L_outer = (L - L_active) / 2
-      dt_ref = (L_outer/E_to_beta(bunch.species, E0) + L_outer/E_to_beta(bunch.species, E_ref)) / C_LIGHT
-
-      if n_cell == 0
-        L_inner = L_active / 2
-        dt_ref += (L_inner/E_to_beta(bunch.species, E0) + L_inner/E_to_beta(bunch.species, E_ref)) / C_LIGHT
-      else
-        for i_step = 1:n_cell
-          E_now = E0 + (i_step-0.5) * dE_ref / n_cell
-          dt_ref += L_active / (C_LIGHT * E_to_beta(bunch.species, E_now) * n_cell)
-        end
-      end
-
-      bunch.t_ref += dt_ref
-    end
-
-  elseif isactive(rfparams)
     !rfparams.is_crabcavity || error("Crab cavities not yet supported for tracking")
-    rf_omega = rf_omega_calc(rfparams, beamlineparams.beamline.line[end].s_downstream, bunch.species, bunch.p_over_q_ref)
-    t_phi0 = rf_phi0_calc_old(rfparams, beamlineparams.beamline.species_ref) / rf_omega
 
-    if isactive(bendparams)
-      error("Tracking through a LineElement containing both RFParams and BendParams not currently defined")
-    end
-
-    if !isactive(bmultipoleparams)
-      kc = push(kc, @inline(pure_rf(tm, bunch, rfparams, rf_omega, t_phi0, L)))
-    else
-      kc = push(kc, @inline(bmultipole_rf(tm, bunch, bmultipoleparams, rfparams, rf_omega, t_phi0, L)))
-    end
-
+    kc = push(kc, @inline(RFcavity(tm, bunch, bmultipoleparams, rfparams, beamlineparams, L)))
+    
   elseif isactive(bendparams)
     if bendparams.edge1_int != 0 || bendparams.edge2_int != 0; error("edge1_int and edge2_int not yet handled for tracking"); end
     # Bend
@@ -276,7 +238,7 @@ function universal!(
   end
 
   # Evolve time through whole element
-  update_bunch_time(tm, bunch, beta_gamma_to_v(beta_gamma_ref), L)
+  bunch.t_ref += bunch_dt_ref(tm, bunch, rfparams, beamlineparams, L)
 
   # noinline necessary here for small binaries and faster execution
   @noinline launch!(coords, kc; kwargs...)
