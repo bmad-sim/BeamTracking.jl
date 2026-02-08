@@ -210,25 +210,26 @@ edge = +1 => entering, edge = -1 => exiting
 
   pz = v[i,PZI]
   Pc = (1 + pz) * P0c
-  
-  to_energy_coords!(i, coords, mass, P0c)
-  t = t_phi0 + t_ref - v[i,ZI] / C_LIGHT
+
+  m_over_pc = mass / ((1 + v[i,PZI]) * P0c)
+  beta = 1 / sqrt(1 + m_over_pc * m_over_pc)
+  t = t_phi0 + t_ref - v[i,ZI] / (beta * C_LIGHT)
   phase = rf_omega * t
   ez_field = q_gradient * cos(phase) 
   dez_dz_field = q_gradient * sin(phase) * rf_omega / C_LIGHT
   dE = -edge * dez_dz_field * (v[i,XI]*v[i,XI] + v[i,YI]*v[i,YI]) / 4
-
   rad = dE*dE + 2*sqrt(Pc*Pc + mass^2) * dE + Pc*Pc
   coords.state[i] = vifelse(rad < 0, STATE_LOST_PZ, coords.state[i])
   alive = (coords.state[i] == STATE_ALIVE)
   sqrt_rad = vifelse(alive, sqrt(abs(rad)), 1.0)
   pz = vifelse(alive, pz + (sqrt_rad - Pc)/P0c, pz)  
 
+
+  to_energy_coords!(i, coords, mass, P0c)
   f = edge * ez_field / (2 * P0c)
   v[i,PXI] = vifelse(alive, v[i,PXI] - f * v[i,XI], v[i,PXI])
   v[i,PYI] = vifelse(alive, v[i,PYI] - f * v[i,YI], v[i,PYI])
   ## Note: v[i,PZI] will be set in to_momentum_coords!
-
   to_momentum_coords!(i, coords, mass, P0c, pz)
 end
 
