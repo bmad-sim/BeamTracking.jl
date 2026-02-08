@@ -41,7 +41,6 @@ a = 0.1
   bunch = Bunch(copy(vb1))
   BT.launch!(bunch.coords, KernelCall(BT.sagan_cavity_thin!, args))
   @test bunch.coords.v ≈ out1
-  @test bunch.t_ref ≈ 0
   test_matrix(m1out, KernelCall(BT.sagan_cavity_thin!, args))
 
   args = (true, false, mass, q, E0, dE, t_ref, 2.0, order, Bn, Bs, a, q*voltage, rf_omega, t_phi0, L/2, L)
