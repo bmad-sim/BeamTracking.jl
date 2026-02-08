@@ -35,7 +35,7 @@ end
 
 mutable struct Bunch{B,T,C<:Coords}
   species::Species # Species
-  R_ref::B         # Defines normalization of phase space coordinates
+  p_over_q_ref::B         # Defines normalization of phase space coordinates
   t_ref::T         # Reference time
   const coords::C  # GPU compatible structure of particles
 end
@@ -45,33 +45,33 @@ Adapt.@adapt_structure Coords
 
 get_N_particle(bunch::Bunch) = size(bunch.coords.v, 1)
 
-function Bunch(N::Integer; R_ref=NaN, t_ref=0., species=Species(), spin=false)
+function Bunch(N::Integer; p_over_q_ref=NaN, t_ref=0., species=Species(), spin=false)
   v = rand(N,6)
   q = spin ? rand(N,4) : nothing
   state = similar(v, UInt8, N)
   state .= STATE_ALIVE
-  return Bunch(species, R_ref, t_ref, Coords(state, v, q))
+  return Bunch(species, p_over_q_ref, t_ref, Coords(state, v, q))
 end
 
-function Bunch(v::AbstractMatrix, q=nothing; R_ref=NaN, t_ref=0., species=Species())
+function Bunch(v::AbstractMatrix, q=nothing; p_over_q_ref=NaN, t_ref=0., species=Species())
   size(v, 2) == 6 || error("The number of columns must be equal to 6")
   N_particle = size(v, 1)
   state = similar(v, UInt8, N_particle)
   state .= STATE_ALIVE
-  return Bunch(species, R_ref, t_ref, Coords(state, v, q))
+  return Bunch(species, p_over_q_ref, t_ref, Coords(state, v, q))
 end
 
-function Bunch(v::AbstractVector, q=nothing; R_ref=NaN, t_ref=0., species=Species())
+function Bunch(v::AbstractVector, q=nothing; p_over_q_ref=NaN, t_ref=0., species=Species())
   length(v) == 6 || error("Bunch accepts a N x 6 matrix of N particle coordinates,
                             or alternatively a single particle as a vector. Received 
                             a vector of length $(length(v))")
-  return Bunch(reshape(v, (1,6)), q; R_ref=R_ref, t_ref=t_ref, species=species)
+  return Bunch(reshape(v, (1,6)), q; p_over_q_ref=p_over_q_ref, t_ref=t_ref, species=species)
 end
 
 struct ParticleView{B,T,S,V,Q}
   index::Int
   species::Species
-  R_ref::B  
+  p_over_q_ref::B  
   t_ref::T   
   state::S
   v::V
@@ -82,5 +82,5 @@ end
 function ParticleView(bunch::Bunch, i=1)
   v = bunch.coords.v
   q = bunch.coords.q
-  return ParticleView(i, bunch.species, bunch.R_ref, bunch.t_ref, bunch.coords.state[i], view(v, :, i), isnothing(q) ? q : view(q, :, i))
+  return ParticleView(i, bunch.species, bunch.p_over_q_ref, bunch.t_ref, bunch.coords.state[i], view(v, :, i), isnothing(q) ? q : view(q, :, i))
 end

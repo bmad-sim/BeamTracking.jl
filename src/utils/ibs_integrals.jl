@@ -70,7 +70,7 @@ end
 """
 Computes the three integrals used in the computation of IBS kicks.
 """
-function IBS_integrals(λ1, λ2, λ3)
+function ibs_integrals(λ1, λ2, λ3)
   if λ1 ≈ λ2 ≈ λ3
     I = 4*pi/(3*λ1)
     return I, I, I

@@ -21,6 +21,7 @@ import GTPSA: sincu, sinhcu
 
 export Bunch, State, ParticleView, Time, TimeDependentParam
 export Yoshida, Yoshida, MatrixKick, BendKick, SolenoidKick, DriftKick, Exact
+export NoEnd, BothEnds, EntranceEnd, ExitEnd
 export track!
 
 
@@ -52,7 +53,7 @@ include("kernels/solenoid_kick.jl")
 include("kernels/spin.jl")
 include("kernels/transforms.jl")
 include("kernels/yoshida.jl")
-include("kernels/ibs.jl")
+include("kernels/ibs_kick.jl")
 
 
 # Empty tracking method to be imported+implemented by package extensions

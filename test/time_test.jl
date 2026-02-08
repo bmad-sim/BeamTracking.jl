@@ -45,9 +45,9 @@ function test_time(
   bl_minus = Beamline([ele_minus], E_ref=E_ref, species_ref=species)
   bl_time = Beamline([ele_time], E_ref=E_ref, species_ref=species)
 
-  b0_plus = Bunch(deepcopy(v), deepcopy(q); R_ref=bl_plus.R_ref, species=bl_plus.species_ref)
-  b0_minus = Bunch(deepcopy(v), deepcopy(q); R_ref=bl_minus.R_ref, species=bl_minus.species_ref)
-  b0_time = Bunch(vcat(v,v), vcat(q,q); R_ref=bl_time.R_ref, species=bl_time.species_ref)
+  b0_plus = Bunch(deepcopy(v), deepcopy(q); p_over_q_ref=bl_plus.p_over_q_ref, species=bl_plus.species_ref)
+  b0_minus = Bunch(deepcopy(v), deepcopy(q); p_over_q_ref=bl_minus.p_over_q_ref, species=bl_minus.species_ref)
+  b0_time = Bunch(vcat(v,v), vcat(q,q); p_over_q_ref=bl_time.p_over_q_ref, species=bl_time.species_ref)
   b0_time.coords.v[2,5] += -BeamTracking.C_LIGHT*pi
 
   track!(b0_plus, bl_plus)

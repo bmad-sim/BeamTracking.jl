@@ -126,20 +126,20 @@ function test_map(
 
 
   #= LineElement tracking test
-    if haskey(kwargs, :R_ref) && haskey(kwargs, :species)
-      R_ref = kwargs[:R_ref]
+    if haskey(kwargs, :p_over_q_ref) && haskey(kwargs, :species)
+      p_over_q_ref = kwargs[:p_over_q_ref]
     elseif haskey(kwargs, :E) && haskey(kwargs, :species)
-      R_ref = BeamTracking.E_to_R(kwargs[:species], kwargs[:E])
+      p_over_q_ref = BeamTracking.E_to_R(kwargs[:species], kwargs[:E])
     elseif haskey(kwargs, :p0c) && haskey(kwargs, :species)
-      R_ref = BeamTracking.E_to_R(kwargs[:species], sqrt(kwargs[:p0c]^2 + massof(kwargs[:species])^2))
+      p_over_q_ref = BeamTracking.E_to_R(kwargs[:species], sqrt(kwargs[:p0c]^2 + massof(kwargs[:species])^2))
     else
-      error("`R_ref`, `E` or `p0c`, as well as `species` must both be provided as keyword arguments")
+      error("`p_over_q_ref`, `E` or `p0c`, as well as `species` must both be provided as keyword arguments")
     end
     
     if !haskey(kwargs, :ele)
       error("ele must be provided as a keyword argument")
     else
-      coords = Bunch(v, species=kwargs[:species], R_ref=R_ref)
+      coords = Bunch(v, species=kwargs[:species], p_over_q_ref=p_over_q_ref)
       v = track!(coords, kwargs[:ele]).v
       @test coeffs_approx_equal(v_expected, v, tol)
     end

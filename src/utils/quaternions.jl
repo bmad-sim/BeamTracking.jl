@@ -31,7 +31,7 @@ function sincos_quaternion(x::TPS{T}) where {T}
   #sq = one(x)
   # Using FastGTPSA! for the following makes other kernels run out of temps
   @FastGTPSA begin
-    if x < 0.1
+    if x < ε #0.1
       while !(conv_sin && conv_cos) && N < N_max
         y = -y*x/((2*N)*(2*N - 1))
         result_sin = prev_sin + y/(2*N + 1)

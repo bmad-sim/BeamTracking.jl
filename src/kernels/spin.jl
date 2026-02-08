@@ -7,11 +7,6 @@ function omega_multipole(i, coords::Coords, a, g, tilde_m, mm, kn, ks, L)
   @FastGTPSA begin @inbounds begin
     v = coords.v
 
-    rel_p = 1 + v[i,PZI]
-    beta_gamma = rel_p / tilde_m
-    gamma = sqrt(1 + beta_gamma*beta_gamma)
-    beta = beta_gamma / gamma
-
     if mm[1] == 0
       ax = -v[i,YI] * kn[1] / 2
       ay =  v[i,XI] * kn[1] / 2
@@ -26,7 +21,7 @@ function omega_multipole(i, coords::Coords, a, g, tilde_m, mm, kn, ks, L)
     b_vec = (bx, by, bz)
     e_vec = (bz_0, bz_0, bz_0)
 
-    omega = omega_field(i, coords, a, g, beta, gamma, ax, ay, e_vec, b_vec, L)
+    omega = omega_field(i, coords, a, g, tilde_m, ax, ay, e_vec, b_vec, L)
   end end
 
   return omega
@@ -36,12 +31,15 @@ end
 """
 This function computes the integrated spin-precession vector using the fields.
 """
-function omega_field(i, coords::Coords, a, g, beta, gamma, ax, ay, e_vec, b_vec, L)
+function omega_field(i, coords::Coords, a, g, tilde_m, ax, ay, e_vec, b_vec, L)
   @FastGTPSA begin @inbounds begin
     v = coords.v
     px = v[i,PXI] - ax
     py = v[i,PYI] - ay
     rel_p = 1 + v[i,PZI]
+    beta_gamma = rel_p / tilde_m
+    gamma = sqrt(1 + beta_gamma*beta_gamma)
+    beta = beta_gamma / gamma
 
     pl2 = rel_p*rel_p - px*px - py*py
     pl2_0 = zero(pl2)
@@ -104,4 +102,13 @@ end
   rotate_spin!(i, coords, a, g, tilde_m, mm, knl, ksl, 1/2)
   ker(i, coords, params...)
   rotate_spin!(i, coords, a, g, tilde_m, mm, knl, ksl, 1/2)
+end
+
+
+@makekernel fastgtpsa=true function rotate_spin_field!(i, coords::Coords, a, g, tilde_m, ax, ay, e_vec, b_vec, L)
+  q2 = coords.q
+  alive = (coords.state[i] == STATE_ALIVE)
+  q1 = expq(omega_field(i, coords, a, g, tilde_m, ax, ay, e_vec, b_vec, L), alive)
+  q3 = quat_mul(q1, q2[i,Q0], q2[i,QX], q2[i,QY], q2[i,QZ])
+  q2[i,Q0], q2[i,QX], q2[i,QY], q2[i,QZ] = q3
 end

@@ -133,30 +133,42 @@ provided, a linear hard-edge fringe map is applied at both ends.
 end
 
 
-@makekernel fastgtpsa=true function linear_bend_fringe!(i, coords::Coords, f)
+@makekernel fastgtpsa=true function linear_bend_fringe!(i, coords::Coords, a, tilde_m, Ksol, Kn0, e, sign)
   v = coords.v
-
   alive = (coords.state[i] == STATE_ALIVE)
-  new_px = v[i,PXI] + v[i,XI]f
-  new_py = v[i,PYI] - v[i,YI]f
+
+  f = Kn0*tan(e)
+
+  if !isnothing(coords.q)
+    b_vec = (-v[i,YI]*f - sign*v[i,XI]*Ksol/2, -v[i,XI]*f - sign*v[i,YI]*Ksol/2, sign*v[i,YI]*Kn0)
+    ax = -v[i,YI]*Ksol/2
+    ay =  v[i,XI]*Ksol/2
+    rotate_spin_field!(i, coords, a, 0, tilde_m, ax, ay, (0, 0, 0), b_vec, 1/2)
+  end
+
+  new_px = v[i,PXI] + f*v[i,XI]
+  new_py = v[i,PYI] - f*v[i,YI]
   v[i,PXI] = vifelse(alive, new_px, v[i,PXI])
   v[i,PYI] = vifelse(alive, new_py, v[i,PYI])
+
+  if !isnothing(coords.q)
+    rotate_spin_field!(i, coords, a, 0, tilde_m, ax, ay, (0, 0, 0), b_vec, 1/2)
+  end
 end
 
 
-
-@makekernel fastgtpsa=true function exact_bend_with_rotation!(i, coords::Coords, e1, e2, theta, g, Kn0, w, w_inv, tilde_m, beta_0, L)
+@makekernel fastgtpsa=true function exact_bend_with_rotation!(i, coords::Coords, e1, e2, theta, a, g, Kn0, w, w_inv, tilde_m, beta_0, L)
   rotation!(i, coords, w, 0)
-  linear_bend_fringe!(i, coords, Kn0*tan(e1))
+  linear_bend_fringe!(i, coords, a, tilde_m, 0, Kn0, e1, 1)
   exact_bend!(i, coords, theta, g, Kn0, tilde_m, beta_0, L)
-  linear_bend_fringe!(i, coords, Kn0*tan(e2))
+  linear_bend_fringe!(i, coords, a, tilde_m, 0, Kn0, e2, -1)
   rotation!(i, coords, w_inv, 0)
 end
 
 
 # This is separate because the spin can be transported exactly here
 @makekernel fastgtpsa=true function exact_curved_drift!(i, coords::Coords, e1, e2, theta, g, w, w_inv, a, tilde_m, beta_0, L) 
-  exact_bend_with_rotation!(i, coords, 0, 0, theta, g, 0, w, w_inv, tilde_m, beta_0, L)
+  exact_bend_with_rotation!(i, coords, 0, 0, theta, a, g, 0, w, w_inv, tilde_m, beta_0, L)
   if !isnothing(coords.q)
     rotation!(i, coords, w, 0)
     rotate_spin!(i, coords, a, g, tilde_m, SA[0], SA[0], SA[0], L)

@@ -1,9 +1,9 @@
 """
-Computes the mean vector and covariance matrix.
+Computes the mean coordinate vector and covariance matrix.
 """
 function mean_and_cov(coords)
   v = coords.v 
-  mu = mean(v; dims=1)
-  sigma = cov(v; dims=1, corrected=false)
+  mu = SVector{6}(mean(v; dims=1))
+  sigma = SMatrix{6,6}(cov(v; dims=1, corrected=false))
   return mu, sigma
 end

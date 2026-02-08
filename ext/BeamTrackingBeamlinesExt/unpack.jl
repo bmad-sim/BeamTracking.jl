@@ -4,6 +4,7 @@ function _track!(
   bunch::Bunch,
   ele::LineElement, 
   tm,
+  scalar_params,
   ramp_without_rf;
   kwargs...
 )
@@ -20,10 +21,23 @@ function _track!(
   mp = deval(ele.MapParams)
   rp = deval(ele.RFParams)
   lp = deval(ele.BeamlineParams)
-  R_ref = lp.beamline.R_ref
+  p_over_q_ref = lp.beamline.p_over_q_ref
+
+  if scalar_params
+    L = scalarize(L)
+    ap = scalarize(ap)
+    bp = scalarize(bp)
+    bm = scalarize(bm)
+    pp = scalarize(pp)
+    dp = scalarize(dp)
+    mp = scalarize(mp)
+    rp = scalarize(rp)
+    lp = scalarize(lp)
+    p_over_q_ref = scalarize(p_over_q_ref)
+  end
 
   # Function barrier
-  universal!(coords, tm, ramp_without_rf, bunch, L, R_ref, ap, bp, bm, pp, dp, rp, lp, mp; kwargs...)
+  universal!(coords, tm, ramp_without_rf, bunch, L, p_over_q_ref, ap, bp, bm, pp, dp, rp, lp, mp; kwargs...)
 end
 
 # Step 2: Push particles through -----------------------------------------
@@ -33,7 +47,7 @@ function universal!(
   ramp_without_rf, 
   bunch,
   L, 
-  R_ref,
+  p_over_q_ref,
   alignmentparams,
   bendparams,
   bmultipoleparams,
@@ -44,23 +58,23 @@ function universal!(
   mapparams;
   kwargs...
 ) 
-  beta_gamma_ref = R_to_beta_gamma(bunch.species, bunch.R_ref)
+  beta_gamma_ref = R_to_beta_gamma(bunch.species, bunch.p_over_q_ref)
   # Current KernelChain length is 7 because we have up to
   # 2 aperture, 2 alignment, 1 body kernel, 
-  # 1 kernel to update the particles' reference energy, and
-  # 1 kernel for IBS
+  # 1 kernel to update the particles' reference energy,
+  # and 1 for IBS
   kc = KernelChain(Val{7}(), RefState(bunch.t_ref, beta_gamma_ref))
 
   # Evolve time through whole element
   bunch.t_ref += L/beta_gamma_to_v(beta_gamma_ref)
 
   # Ramping
-  if R_ref isa TimeDependentParam
-    R_ref_initial = bunch.R_ref
-    R_ref_final = R_ref(bunch.t_ref)
-    if !(R_ref_initial ≈ R_ref_final)
-      kc = push(kc, KernelCall(BeamTracking.update_P0!, (R_ref_initial, R_ref_final, ramp_without_rf)))
-      setfield!(bunch, :R_ref, R_ref_final)
+  if p_over_q_ref isa TimeDependentParam
+    p_over_q_ref_initial = bunch.p_over_q_ref
+    p_over_q_ref_final = p_over_q_ref(bunch.t_ref)
+    if !(p_over_q_ref_initial ≈ p_over_q_ref_final)
+      kc = push(kc, KernelCall(BeamTracking.update_P0!, (p_over_q_ref_initial, p_over_q_ref_final, ramp_without_rf)))
+      setfield!(bunch, :p_over_q_ref, p_over_q_ref_final)
     end
   end
 
@@ -81,7 +95,7 @@ function universal!(
     kc = push(kc, @inline(aperture(tm, bunch, apertureparams, true)))
   end
 
-  if typeof(tm) <: AbstractYoshida && tm.ibs_num_particles > 0
+  if tm.ibs_num_particles > 0 && L > 0
     bp = ifelse(isactive(bendparams), bendparams, nothing)
     bmp = ifelse(isactive(bmultipoleparams), bmultipoleparams, nothing)
     kc = push(kc, @inline(ibs_kick(tm, bunch, bp, bmp, L)))
@@ -118,7 +132,7 @@ function universal!(
 
   elseif isactive(rfparams)
     !rfparams.is_crabcavity || error("Crab cavities not yet supported for tracking")
-    omega = rf_omega(rfparams, beamlineparams.beamline.line[end].s_downstream, bunch.species, bunch.R_ref)
+    omega = rf_omega(rfparams, beamlineparams.beamline.line[end].s_downstream, bunch.species, bunch.p_over_q_ref)
     t0 = rf_phi0(rfparams) / omega
 
     if isactive(bendparams)

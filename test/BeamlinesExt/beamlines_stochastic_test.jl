@@ -3,14 +3,14 @@ using Random
 @testset "Stochastic radiation" begin
   Random.seed!(0)
 
-  R_ref = BeamTracking.E_to_R(Species("electron"), 18e9)
+  p_over_q_ref = BeamTracking.E_to_R(Species("electron"), 18e9)
   bend = SBend(g = 0.01, L = 2.0, 
   tracking_method = Yoshida(order = 2, num_steps = 1, 
   radiation_damping_on = true, radiation_fluctuations_on = true))
-  line = Beamline([bend], species_ref = Species("electron"), R_ref = R_ref)
+  line = Beamline([bend], species_ref = Species("electron"), p_over_q_ref = p_over_q_ref)
 
   v0 = [0.01 0.02 0.03 0.04 0.05 0.06]
-  b0 = Bunch(copy(v0), species = line.species_ref, R_ref = line.R_ref)
+  b0 = Bunch(copy(v0), species = line.species_ref, p_over_q_ref = line.p_over_q_ref)
   track!(b0, line)
 
   @test b0.coords.v ≈ 
@@ -23,7 +23,7 @@ using Random
 
   bend.tracking_method = Yoshida(order = 2, num_steps = 2, 
   radiation_damping_on = true, radiation_fluctuations_on = true)
-  b0 = Bunch(copy(v0), species = line.species_ref, R_ref = line.R_ref)
+  b0 = Bunch(copy(v0), species = line.species_ref, p_over_q_ref = line.p_over_q_ref)
   track!(b0, line)
 
   @test b0.coords.v ≈ 
@@ -36,7 +36,7 @@ using Random
 
   bend.tracking_method = Yoshida(order = 4, num_steps = 1,
   radiation_damping_on = true, radiation_fluctuations_on = true)
-  b0 = Bunch(copy(v0), species = line.species_ref, R_ref = line.R_ref)
+  b0 = Bunch(copy(v0), species = line.species_ref, p_over_q_ref = line.p_over_q_ref)
   track!(b0, line)
 
   @test b0.coords.v ≈ 
@@ -49,7 +49,7 @@ using Random
 
   bend.tracking_method = Yoshida(order = 4, num_steps = 2, 
   radiation_damping_on = true, radiation_fluctuations_on = true)
-  b0 = Bunch(copy(v0), species = line.species_ref, R_ref = line.R_ref)
+  b0 = Bunch(copy(v0), species = line.species_ref, p_over_q_ref = line.p_over_q_ref)
   track!(b0, line)
 
   @test b0.coords.v ≈ 
@@ -62,7 +62,7 @@ using Random
 
   bend.tracking_method = Yoshida(order = 6, num_steps = 1,
   radiation_damping_on = true, radiation_fluctuations_on = true)
-  b0 = Bunch(copy(v0), species = line.species_ref, R_ref = line.R_ref)
+  b0 = Bunch(copy(v0), species = line.species_ref, p_over_q_ref = line.p_over_q_ref)
   track!(b0, line)
 
   @test b0.coords.v ≈ 
@@ -75,7 +75,7 @@ using Random
 
   bend.tracking_method = Yoshida(order = 6, num_steps = 2, 
   radiation_damping_on = true, radiation_fluctuations_on = true)
-  b0 = Bunch(copy(v0), species = line.species_ref, R_ref = line.R_ref)
+  b0 = Bunch(copy(v0), species = line.species_ref, p_over_q_ref = line.p_over_q_ref)
   track!(b0, line)
   
   @test b0.coords.v ≈
@@ -88,7 +88,7 @@ using Random
 
   bend.tracking_method = Yoshida(order = 8, num_steps = 1, 
   radiation_damping_on = true, radiation_fluctuations_on = true)
-  b0 = Bunch(copy(v0), species = line.species_ref, R_ref = line.R_ref)
+  b0 = Bunch(copy(v0), species = line.species_ref, p_over_q_ref = line.p_over_q_ref)
   track!(b0, line)
 
   @test b0.coords.v ≈
@@ -101,7 +101,7 @@ using Random
 
   bend.tracking_method = Yoshida(order = 8, num_steps = 2, 
   radiation_damping_on = true, radiation_fluctuations_on = true)
-  b0 = Bunch(copy(v0), species = line.species_ref, R_ref = line.R_ref)
+  b0 = Bunch(copy(v0), species = line.species_ref, p_over_q_ref = line.p_over_q_ref)
   track!(b0, line)
 
   @test b0.coords.v ≈

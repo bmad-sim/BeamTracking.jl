@@ -777,7 +777,7 @@ zf_mn4  = [ 0., 3.140908277834687e-8, -3.1503450227072763e-8, 3.140908186274627e
     L = 0.5
     theta = g * L 
     k0 = 1.001
-    test_matrix(exact_bend_1, KernelCall(BeamTracking.exact_bend_with_rotation!, (0, 0, theta, g, k0, I, I, tilde_m, beta_0, L)))
+    test_matrix(exact_bend_1, KernelCall(BeamTracking.exact_bend_with_rotation!, (0, 0, theta, 0, g, k0, I, I, tilde_m, beta_0, L)))
 
     exact_bend_2 = 
       [ 0.1139493927324543E+01  0.6225083696592777E+00 0.0000000000000000E+00 0.0000000000000000E+00 0.0000000000000000E+00 -0.1231653667943533E-15   
@@ -790,7 +790,7 @@ zf_mn4  = [ 0., 3.140908277834687e-8, -3.1503450227072763e-8, 3.140908186274627e
     k0 = 0
     L = 0.5
     theta = g * L
-    test_matrix(exact_bend_2, KernelCall(BeamTracking.exact_bend_with_rotation!, (0, 0, theta, g, k0, I, I, tilde_m, beta_0, L)))
+    test_matrix(exact_bend_2, KernelCall(BeamTracking.exact_bend_with_rotation!, (0, 0, theta, 0, g, k0, I, I, tilde_m, beta_0, L)))
 
     exact_bend_3 = 
       [ 0.1000000000000000E+01 0.5598925109558526E+00 0.0000000000000000E+00 0.0000000000000000E+00 0.0000000000000000E+00 0.1330944687907870E+00  
@@ -803,7 +803,7 @@ zf_mn4  = [ 0., 3.140908277834687e-8, -3.1503450227072763e-8, 3.140908186274627e
     g = 0
     L = 0.5
     theta = g * L
-    test_matrix(exact_bend_3, KernelCall(BeamTracking.exact_bend_with_rotation!, (0, 0, theta, g, k0, I, I, tilde_m, beta_0, L)))
+    test_matrix(exact_bend_3, KernelCall(BeamTracking.exact_bend_with_rotation!, (0, 0, theta, 0, g, k0, I, I, tilde_m, beta_0, L)))
 
     exact_bend_4 = 
       [ 0.1127528195871212E+01  0.6609770864392946E+00 0.0000000000000000E+00 0.0000000000000000E+00 0.0000000000000000E+00 -0.1472939489803990E+00   
@@ -816,7 +816,7 @@ zf_mn4  = [ 0., 3.140908277834687e-8, -3.1503450227072763e-8, 3.140908186274627e
     g = 0.4
     L = 0.5
     theta = g * L
-    test_matrix(exact_bend_4, KernelCall(BeamTracking.exact_bend_with_rotation!, (0, 0, theta, g, k0, I, I, tilde_m, beta_0, L)))
+    test_matrix(exact_bend_4, KernelCall(BeamTracking.exact_bend_with_rotation!, (0, 0, theta, 0, g, k0, I, I, tilde_m, beta_0, L)))
 
     exact_bend_5 = 
       [ 0.1283686050523820E+01 0.7804509524043607E+00 0.0000000000000000E+00 0.0000000000000000E+00 0.0000000000000000E+00  0.1379043012645095E+00  
@@ -829,7 +829,7 @@ zf_mn4  = [ 0., 3.140908277834687e-8, -3.1503450227072763e-8, 3.140908186274627e
     g = -0.8
     L = 0.5
     theta = g * L
-    test_matrix(exact_bend_5, KernelCall(BeamTracking.exact_bend_with_rotation!, (0, 0, theta, g, k0, I, I, tilde_m, beta_0, L)))
+    test_matrix(exact_bend_5, KernelCall(BeamTracking.exact_bend_with_rotation!, (0, 0, theta, 0, g, k0, I, I, tilde_m, beta_0, L)))
 
     exact_bend_6 = 
       [ 0.9005939074669641E+00 0.4858928367401870E+00 0.0000000000000000E+00 0.0000000000000000E+00 0.0000000000000000E+00 -0.1117303574601966E+00  
@@ -842,7 +842,7 @@ zf_mn4  = [ 0., 3.140908277834687e-8, -3.1503450227072763e-8, 3.140908186274627e
     g = -1
     L = 0.5
     theta = g * L
-    test_matrix(exact_bend_6, KernelCall(BeamTracking.exact_bend_with_rotation!, (0, 0, theta, g, k0, I, I, tilde_m, beta_0, L)))
+    test_matrix(exact_bend_6, KernelCall(BeamTracking.exact_bend_with_rotation!, (0, 0, theta, 0, g, k0, I, I, tilde_m, beta_0, L)))
   end
 
 
@@ -871,11 +871,11 @@ zf_mn4  = [ 0., 3.140908277834687e-8, -3.1503450227072763e-8, 3.140908186274627e
     # Test inv_rot_quaternion function
     @test inv_rot_quaternion(dx_rot, dy_rot, dz_rot) ≈ Winv
 
-    b0 = Bunch([0.01 0.02 0.03 0.04 0.05 0.06], R_ref=10.0)
+    b0 = Bunch([0.01 0.02 0.03 0.04 0.05 0.06], p_over_q_ref=10.0)
     BeamTracking.update_P0!(1, b0.coords, 10.0, 20.0, true)
     @test b0.coords.v ≈ [0.01 0.01 0.03 0.02 0.05 0.06] # pz is not changed for fake ramping
 
-    b0 = Bunch([0.01 0.02 0.03 0.04 0.05 0.06], R_ref=10.0)
+    b0 = Bunch([0.01 0.02 0.03 0.04 0.05 0.06], p_over_q_ref=10.0)
     BeamTracking.update_P0!(1, b0.coords, 10.0, 20.0, false)
     @test b0.coords.v ≈ [0.01 0.01 0.03 0.02 0.05 -0.47]
   end
