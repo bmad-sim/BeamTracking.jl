@@ -7,6 +7,7 @@ function omega_multipole(i, coords::Coords, a, g, tilde_m, mm, kn, ks, L)
   @FastGTPSA begin @inbounds begin
     v = coords.v
 
+    # Vector potential is (ax, ay, 0)
     if mm[1] == 0
       ax = -v[i,YI] * kn[1] / 2
       ay =  v[i,XI] * kn[1] / 2
@@ -19,7 +20,7 @@ function omega_multipole(i, coords::Coords, a, g, tilde_m, mm, kn, ks, L)
     bz_0 = zero(kn[1])
     bz = mm[1] == 0 ? kn[1] : bz_0
     b_vec = (bx, by, bz)
-    e_vec = (bz_0, bz_0, bz_0)
+    e_vec = (bz_0, bz_0, bz_0)   # No electric field for now.
 
     omega = omega_field(i, coords, a, g, tilde_m, ax, ay, e_vec, b_vec, L)
   end end
