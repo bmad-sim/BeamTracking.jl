@@ -35,6 +35,7 @@ include("batch.jl")
 include("kernel.jl")
 include("tracking_methods.jl")
 
+include("kernels/kernel_utils.jl")
 include("kernels/alignment.jl")
 include("kernels/aperture.jl")
 include("kernels/bend_kick.jl")

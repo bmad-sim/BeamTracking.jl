@@ -11,11 +11,11 @@
   # Outside Drift
   if L == 0
     f = q_over_p_ref / 2
-    multipole_kick!(i, coords, m_order, BnL*f, BsL*f, -1)
+    multipole_and_spin_kick!(i, coords, m_order, BnL .* f, BsL .* f, a, mass/P0c, L)
   else
     f = q_over_p_ref / L_out
     sagan_cavity_outside_drift!(i, coords, radiation_damping_on, q,
-                                            m_order, BnL*f, BsL*f, a, mass, P0c, L_out)
+                                            m_order, BnL .* f, BsL .* f, a, mass, P0c, L_out)
   end
 
   # Energy kick
@@ -30,11 +30,11 @@
   # Outside Drift
   if L == 0
     f = q_over_p_ref / 2
-    multipole_kick!(i, coords, m_order, BnL*f, BsL*f, -1)
+    multipole_and_spin_kick!(i, coords, m_order, BnL .* f, BsL .* f, a, mass/P0c, L)
   else
     f = q_over_p_ref / L_out
     sagan_cavity_outside_drift!(i, coords, radiation_damping_on,  q,
-                                            m_order, BnL*f,  BsL*f, a, mass, P0c, L_out)
+                                            m_order, BnL .* f ,  BsL .* f, a, mass, P0c, L_out)
   end
 end
 
@@ -52,7 +52,7 @@ end
 
   # Outside Drift
   sagan_cavity_outside_drift!(i, coords, radiation_damping_on, q,
-                         m_order, Bn*q_over_p_ref, Bs*q_over_p_ref, a, mass, P0c, L_out)
+                         m_order, Bn .* q_over_p_ref, Bs .* q_over_p_ref, a, mass, P0c, L_out)
 
   # Fringe kick at beginning. 
   sagan_cavity_fringe!(i, coords, q_gradient, rf_omega, t_phi0, t_ref, mass, P0c, +1)
@@ -62,7 +62,7 @@ end
 
   if n_cell == 0
     sagan_cavity_inside_drift!(i, coords, radiation_damping_on, traveling_wave, q, q_gradient, 
-              m_order, Bn*q_over_p_ref, Bs*q_over_p_ref, a, mass, P0c, L_active/2)
+              m_order, Bn .* q_over_p_ref, Bs .* q_over_p_ref, a, mass, P0c, L_active/2)
     sagan_cavity_kick!(i, coords, q_voltage, rf_omega, t_phi0, t_ref, mass, P0c)
     dP0c = dpc_given_dE(P0c, dE_ref, mass)
     reference_energy_shift!(i, coords, P0c, dP0c)
@@ -70,7 +70,7 @@ end
     q_over_p_ref = q * C_LIGHT / P0c
 
     sagan_cavity_inside_drift!(i, coords, radiation_damping_on, traveling_wave, q, q_gradient, 
-                             m_order, Bn*q_over_p_ref, Bs*q_over_p_ref, a, mass, P0c, L_active/2)
+                             m_order, Bn .* q_over_p_ref, Bs .* q_over_p_ref, a, mass, P0c, L_active/2)
 
   else
     for i_step = 0:n_cell
@@ -87,7 +87,7 @@ end
       # Drift
       if i_step == n_cell; break; end
       sagan_cavity_inside_drift!(i, coords, radiation_damping_on, traveling_wave, q, q_gradient, 
-          m_order, Bn*q_over_p_ref, Bs*q_over_p_ref, a, mass, P0c, L_active/n_cell)
+          m_order, Bn .* q_over_p_ref, Bs .* q_over_p_ref, a, mass, P0c, L_active/n_cell)
     end
   end
 
@@ -96,7 +96,7 @@ end
 
   # Outside Drift
   sagan_cavity_outside_drift!(i, coords, radiation_damping_on, q,
-                          m_order, Bn*q_over_p_ref, Bs*q_over_p_ref, a, mass, P0c, L_out)
+                          m_order, Bn .* q_over_p_ref, Bs .* q_over_p_ref, a, mass, P0c, L_out)
 end
 
 #---------------------------------------------------------------------------------------------------
@@ -242,13 +242,7 @@ end
     deterministic_radiation!(i, coords, q_charge, mass, P0c/beta0, 0, m_order, Kn, Ks, L2)
   end
 
-  if isnothing(coords.q)
-    multipole_kick!(i, coords, m_order, Kn*L, Ks*L, -1)
-  else
-    multipole_kick!(i, coords, m_order, Kn*L2, Ks*L2, -1)
-    rotate_spin!(i, coords, a, 0, mass/P0c, m_order, Kn, Ks, L)
-    multipole_kick!(i, coords, m_order, Kn*L2, Ks*L2, -1)
-  end
+  multipole_and_spin_kick!(i, coords, m_order, Kn.*L,  Ks.*L, a, mass/P0c, L)
 
   if radiation_damping_on
     deterministic_radiation!(i, coords, q_charge, mass, P0c/beta0, 0, m_order, Kn, Ks, L2)
