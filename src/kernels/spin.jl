@@ -91,6 +91,10 @@ function omega_field(i, coords::Coords, a, g, tilde_m, ax, ay, e_vec, b_vec, L)
       ox = (b_perp_x + b_para_x + e_part_x) * L        
       oy = (b_perp_y + b_para_y + e_part_y + g) * L
       oz = (b_perp_z + b_para_z + e_part_z) * L
+    else
+      ox = (b_perp_x + b_para_x + e_part_x)
+      oy = (b_perp_y + b_para_y + e_part_y + g)
+      oz = (b_perp_z + b_para_z + e_part_z)
     end
 
     omega = (ox, oy, oz)

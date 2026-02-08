@@ -55,7 +55,7 @@ end
                          m_order, Bn .* q_over_p_ref, Bs .* q_over_p_ref, a, mass, P0c, L_out)
 
   # Fringe kick at beginning. 
-  sagan_cavity_fringe!(i, coords, q_gradient, rf_omega, t_phi0, t_ref, mass, P0c, +1)
+  sagan_cavity_fringe!(i, coords, a, q_gradient, rf_omega, t_phi0, t_ref, mass, P0c, +1)
 
   # Body Loop
   # n_cell == 0 => single kick in center
@@ -92,7 +92,7 @@ end
   end
 
   # Fringe kick at end
-  sagan_cavity_fringe!(i, coords, q_gradient, rf_omega, t_phi0, t_ref, mass, P0c, -1)
+  sagan_cavity_fringe!(i, coords, a, q_gradient, rf_omega, t_phi0, t_ref, mass, P0c, -1)
 
   # Outside Drift
   sagan_cavity_outside_drift!(i, coords, radiation_damping_on, q,
@@ -189,22 +189,33 @@ end
   inv_rel_p = 1 / (1 + v[i,PZI])
   coef = q_gradient^2 * L / (8 * P0c^2) * inv_rel_p
 
-  v[i,PXI] = vifelse(alive, v[i,PXI] - coef * v[i,XI], v[i,PXI])
-  v[i,PYI] = vifelse(alive, v[i,PYI] - coef * v[i,YI], v[i,PYI])
-  v[i,ZI]  = vifelse(alive, v[i,ZI]  - coef * inv_rel_p * (v[i,XI]*v[i,XI]+v[i,YI]*v[i,YI])/2, v[i,ZI])
+  if isnothing(coords.q)
+    v[i,PXI] = vifelse(alive, v[i,PXI] - coef * v[i,XI], v[i,PXI])
+    v[i,PYI] = vifelse(alive, v[i,PYI] - coef * v[i,YI], v[i,PYI])
+    v[i,ZI]  = vifelse(alive, v[i,ZI]  - coef * inv_rel_p * (v[i,XI]*v[i,XI]+v[i,YI]*v[i,YI])/2, v[i,ZI])
+  else
+    coef = coef / 2
+    v[i,PXI] = vifelse(alive, v[i,PXI] - coef * v[i,XI], v[i,PXI])
+    v[i,PYI] = vifelse(alive, v[i,PYI] - coef * v[i,YI], v[i,PYI])
+    v[i,ZI]  = vifelse(alive, v[i,ZI]  - coef * inv_rel_p * (v[i,XI]*v[i,XI]+v[i,YI]*v[i,YI])/2, v[i,ZI])
+
+    v[i,PXI] = vifelse(alive, v[i,PXI] - coef * v[i,XI], v[i,PXI])
+    v[i,PYI] = vifelse(alive, v[i,PYI] - coef * v[i,YI], v[i,PYI])
+    v[i,ZI]  = vifelse(alive, v[i,ZI]  - coef * inv_rel_p * (v[i,XI]*v[i,XI]+v[i,YI]*v[i,YI])/2, v[i,ZI])
+  end
 end
 
 #---------------------------------------------------------------------------------------------------
 
 """
-    sagan_cavity_fringe!(i, coords::Coords, q_gradient, rf_omega, t_phi0, t_ref, mass, P0c, edge)
+    sagan_cavity_fringe!(i, coords::Coords, a, q_gradient, rf_omega, t_phi0, t_ref, mass, P0c, edge)
 
 Fringe kick due to forward traveling wave.
 
 edge = +1 => entering, edge = -1 => exiting
 """
 @makekernel fastgtpsa=true function sagan_cavity_fringe!(i, coords,
-                                      q_gradient, rf_omega, t_phi0, t_ref, mass, P0c, edge)
+                                      a, q_gradient, rf_omega, t_phi0, t_ref, mass, P0c, edge)
   v = coords.v
   alive = (coords.state[i] == STATE_ALIVE)
 
@@ -223,7 +234,18 @@ edge = +1 => entering, edge = -1 => exiting
   alive = (coords.state[i] == STATE_ALIVE)
   sqrt_rad = vifelse(alive, sqrt(abs(rad)), 1.0)
   pz = vifelse(alive, pz + (sqrt_rad - Pc)/P0c, pz)  
+  # Spin
 
+  if !isnothing(coords.q)
+    f = -edge * ez_field / 4
+    e_field = (f*v[i,XI], f*v[i,YI], 0)
+    b_field = (0, 0, 0)
+    a_potential = 0
+    g_bend = 0
+    rotate_spin_field!(i, coords, a, g_bend, mass/P0c, a_potential, a_potential, e_field, b_field, 0)
+  end
+
+  # Fringe
 
   to_energy_coords!(i, coords, mass, P0c)
   f = edge * ez_field / (2 * P0c)
@@ -231,6 +253,11 @@ edge = +1 => entering, edge = -1 => exiting
   v[i,PYI] = vifelse(alive, v[i,PYI] - f * v[i,YI], v[i,PYI])
   ## Note: v[i,PZI] will be set in to_momentum_coords!
   to_momentum_coords!(i, coords, mass, P0c, pz)
+
+  # Spin
+  if !isnothing(coords.q)
+    rotate_spin_field!(i, coords, a, g_bend, mass/P0c, a_potential, a_potential, e_field, b_field, 0)
+  end
 end
 
 #---------------------------------------------------------------------------------------------------
