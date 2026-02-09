@@ -19,7 +19,7 @@
   end
 
   # Energy kick
-  sagan_cavity_kick!(i, coords, q_voltage, rf_omega, t_phi0, t_ref, mass, P0c)
+  sagan_cavity_kick!(i, coords, a, q_voltage, rf_omega, t_phi0, t_ref, mass, P0c)
 
   # Reference energy shift
   dP0c = dpc_given_dE(P0c, dE_ref, mass)
@@ -63,7 +63,7 @@ end
   if n_cell == 0
     sagan_cavity_inside_drift!(i, coords, radiation_damping_on, traveling_wave, q, q_gradient, 
               m_order, Bn .* q_over_p_ref, Bs .* q_over_p_ref, a, mass, P0c, L_active/2)
-    sagan_cavity_kick!(i, coords, q_voltage, rf_omega, t_phi0, t_ref, mass, P0c)
+    sagan_cavity_kick!(i, coords, a, q_voltage, rf_omega, t_phi0, t_ref, mass, P0c)
     dP0c = dpc_given_dE(P0c, dE_ref, mass)
     reference_energy_shift!(i, coords, P0c, dP0c)
     P0c += dP0c
@@ -77,7 +77,7 @@ end
       i_step == 0 || i_step == n_cell ? kick_factor = 2 : kick_factor = 1
 
       # Longitudinal kick
-      sagan_cavity_kick!(i, coords, q_voltage/(n_cell*kick_factor), rf_omega, t_phi0, t_ref, mass, P0c)
+      sagan_cavity_kick!(i, coords, a, q_voltage/(n_cell*kick_factor), rf_omega, t_phi0, t_ref, mass, P0c)
 
       # Reference energy shift
       dP0c = dpc_given_dE(P0c, dE_ref/(n_cell*kick_factor), mass)
@@ -110,7 +110,7 @@ end
 
   # 1/2 pondermotive kick
   if !traveling_wave
-    rf_pondermotive_kick!(i, coords, q_gradient, P0c, L/2)
+    rf_pondermotive_kick!(i, coords, q_gradient, a, mass, P0c, L/2)
   end
 
   # Drift
@@ -120,7 +120,7 @@ end
   # 1/2 pondermotive kick
   # The pondermotive force only occurs if there is a EM wave in the opposite direction from the direction of travel.
   if !traveling_wave
-    rf_pondermotive_kick!(i, coords, q_gradient, P0c, L/2)
+    rf_pondermotive_kick!(i, coords, q_gradient, a, mass, P0c, L/2)
   end
 end
 
@@ -157,19 +157,30 @@ end
 #---------------------------------------------------------------------------------------------------
 
 @makekernel fastgtpsa=true function sagan_cavity_kick!(i, coords::Coords, 
-                            q_voltage, rf_omega, t_phi0, t_ref, mass, P0c)
+                            a, q_voltage, rf_omega, t_phi0, t_ref, mass, P0c)
   v = coords.v
   alive = (coords.state[i] == STATE_ALIVE)
 
-  # Energy kick
   pz = v[i,PZI]
   Pc = (1 + pz) * P0c
-
-  to_energy_coords!(i, coords, mass, P0c)
-
-  t = t_phi0 + t_ref - v[i,ZI] / C_LIGHT
+  m_over_pc = mass / ((1 + v[i,PZI]) * P0c)
+  beta = 1 / sqrt(1 + m_over_pc * m_over_pc)
+  t = t_phi0 + t_ref - v[i,ZI] / (beta * C_LIGHT)
   dE = q_voltage * cos(rf_omega * t)
 
+  # 
+
+  if !isnothing(coords.q)
+    e_field = (0, 0, dE)
+    b_field = (0, 0, 0)
+    a_potential = 0
+    g_bend = 0
+    rotate_spin_field!(i, coords, a, g_bend, mass/P0c, a_potential, a_potential, e_field, b_field, 0)
+  end
+
+  # Energy kick
+
+  to_energy_coords!(i, coords, beta)
   rad = dE*dE + 2*sqrt(Pc*Pc + mass^2) * dE + Pc*Pc
   coords.state[i] = vifelse(rad < 0, STATE_LOST_PZ, coords.state[i])
   alive = (coords.state[i] == STATE_ALIVE)
@@ -178,11 +189,18 @@ end
 
   v[i,PZI] = vifelse(alive, v[i,PZI] + dE/P0c, v[i,PZI])
   to_momentum_coords!(i, coords, mass, P0c, pz)
+
+  #
+
+  if !isnothing(coords.q)
+    rotate_spin_field!(i, coords, a, g_bend, mass/P0c, a_potential, a_potential, e_field, b_field, 0)
+  end
+
 end
 
 #---------------------------------------------------------------------------------------------------
 
-@makekernel fastgtpsa=true function rf_pondermotive_kick!(i, coords, q_gradient, P0c, L)
+@makekernel fastgtpsa=true function rf_pondermotive_kick!(i, coords, q_gradient, a, mass, P0c, L)
   v = coords.v
   alive = (coords.state[i] == STATE_ALIVE)
 
@@ -198,6 +216,13 @@ end
     v[i,PXI] = vifelse(alive, v[i,PXI] - coef * v[i,XI], v[i,PXI])
     v[i,PYI] = vifelse(alive, v[i,PYI] - coef * v[i,YI], v[i,PYI])
     v[i,ZI]  = vifelse(alive, v[i,ZI]  - coef * inv_rel_p * (v[i,XI]*v[i,XI]+v[i,YI]*v[i,YI])/2, v[i,ZI])
+
+    e_field = (0, 0, 0)
+    b_field = (0, 0, 0)
+    a_potential = 0
+    g_bend = 0
+    rotate_spin_field!(i, coords, a, g_bend, mass/P0c, a_potential, a_potential, e_field, b_field, L)
+
 
     v[i,PXI] = vifelse(alive, v[i,PXI] - coef * v[i,XI], v[i,PXI])
     v[i,PYI] = vifelse(alive, v[i,PYI] - coef * v[i,YI], v[i,PYI])
@@ -247,7 +272,7 @@ edge = +1 => entering, edge = -1 => exiting
 
   # Fringe
 
-  to_energy_coords!(i, coords, mass, P0c)
+  to_energy_coords!(i, coords, beta)
   f = edge * ez_field / (2 * P0c)
   v[i,PXI] = vifelse(alive, v[i,PXI] - f * v[i,XI], v[i,PXI])
   v[i,PYI] = vifelse(alive, v[i,PYI] - f * v[i,YI], v[i,PYI])
@@ -280,16 +305,13 @@ end
 #---------------------------------------------------------------------------------------------------
 
 """
-    to_energy_coords!(i, coords::Coords, mass, P0c)
+    to_energy_coords!(i, coords::Coords, beta)
 
 Convert from `(z, pz)` to `(c(t_ref - t), E/P0c)` coords.
 """
-@makekernel fastgtpsa=true function to_energy_coords!(i, coords::Coords, mass, P0c)
+@makekernel fastgtpsa=true function to_energy_coords!(i, coords::Coords, beta)
   v = coords.v
   alive = (coords.state[i] == STATE_ALIVE)
-
-  m_over_pc = mass / ((1 + v[i,PZI]) * P0c)
-  beta = 1 / sqrt(1 + m_over_pc * m_over_pc)
   v[i,ZI]  = vifelse(alive, v[i,ZI]/ beta, v[i,ZI])
   v[i,PZI] = vifelse(alive, (1 + v[i,PZI]) / beta, v[i,PZI])
 end
