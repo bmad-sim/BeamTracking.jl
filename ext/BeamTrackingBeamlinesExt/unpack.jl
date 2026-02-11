@@ -69,7 +69,8 @@ function universal!(
     p_over_q_ref_initial = bunch.p_over_q_ref
     p_over_q_ref_final = p_over_q_ref(bunch.t_ref)
     if !(p_over_q_ref_initial ≈ p_over_q_ref_final)
-      kc = push(kc, KernelCall(BeamTracking.update_P0!, (p_over_q_ref_initial, p_over_q_ref_final, ramp_without_rf)))
+      kc = push(kc, KernelCall(BeamTracking.reference_momentum_shift!, (p_over_q_ref_initial, 
+                                       p_over_q_ref_final-p_over_q_ref_initial, !ramp_without_rf)))
       setfield!(bunch, :p_over_q_ref, p_over_q_ref_final)
     end
   end
@@ -237,11 +238,12 @@ function universal!(
     kc = push(kc, @inline(aperture(tm, bunch, apertureparams, false)))
   end
 
+  # noinline necessary here for small binaries and faster execution
+  @noinline launch!(coords, kc; kwargs...)
+
   # Evolve time through whole element
   bunch.t_ref += bunch_dt_ref(tm, bunch, rfparams, beamlineparams, L)
 
-  # noinline necessary here for small binaries and faster execution
-  @noinline launch!(coords, kc; kwargs...)
   return nothing
 end
 

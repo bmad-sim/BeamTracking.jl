@@ -178,9 +178,9 @@ function rf_phi0_calc(rfparams, species)
   chargeof(species) > 0 ? dphi = 0 : dphi = pi
 
   if rfparams.zero_phase == PhaseReference.BelowTransition
-    return rfparams.phi0 + 0.5*pi + dphi
+    return rfparams.phi0 + pi/2 + dphi
   elseif rfparams.zero_phase == PhaseReference.AboveTransition
-    return rfparams.phi0 - 0.5*pi + dphi
+    return rfparams.phi0 - pi/2 + dphi
   elseif rfparams.zero_phase == PhaseReference.Accelerating
     return rfparams.phi0 + dphi
   else
@@ -262,15 +262,15 @@ function bunch_dt_ref(tm::SaganCavity, bunch, rfP, beamlineP, L)
   E1_ref = R_to_E(species, p1_over_q_ref)
   dE_ref = beamlineP.dE_ref
   E0_ref = E1_ref - dE_ref
-  dt_ref = L_outer/E_to_c_beta(species, E0_ref) + L_outer/E_to_c_beta(species, E1_ref)
+  dt_ref = L_outer/E_to_v(species, E0_ref) + L_outer/E_to_v(species, E1_ref)
 
   if n_cell == 0
     L_inner = L_active / 2
-    dt_ref += L_inner/E_to_c_beta(species, E0_ref) + L_inner/E_to_c_beta(species, E1_ref)
+    dt_ref += L_inner/E_to_v(species, E0_ref) + L_inner/E_to_v(species, E1_ref)
   else
     for i_step = 1:n_cell
-      E_now_ref = E0_ref + (i_step-0.5) * dE_ref / n_cell
-      dt_ref += L_active / (n_cell * E_to_c_beta(species, E_now_ref))
+      E_now_ref = E0_ref + (i_step - 1/2) * dE_ref / n_cell
+      dt_ref += L_active / (n_cell * E_to_v(species, E_now_ref))
     end
   end
 
