@@ -10,7 +10,7 @@ function omega_multipole(i, coords::Coords, a, g, tilde_m, mm, kn, ks, L)
   @FastGTPSA begin @inbounds begin
     v = coords.v
 
-    # Vector potential is (ax, ay, 0)
+    # Vector potential is (ax, ay, does-no-matter)
     if mm[1] == 0 && L != 0
       ax = -v[i,YI] * kn[1] / 2
       ay =  v[i,XI] * kn[1] / 2
@@ -37,9 +37,22 @@ end
 
 
 """
+    omega_field(i, coords::Coords, a, g, tilde_m, ax, ay, e_vec, b_vec, L) -> omega_vec
+
 This function computes the integrated spin-precession vector using the fields.
 
-If `L` is zero, `e_vec` and `b_vec` are taken to be the integrated fields.
+## Input:
+
+- `a`         Anomalous magnetic moment.
+- `g`         Reference bend strength 1/radius when in a bend element.
+- `tilde_m    Normalized mass `mass / P0c`
+- `ax`, `ay`  Transverse vector potential components.
+- `e_vec`     Normalized electric field `e_field * q / P_ref`
+- `b_vec`     Normalized magnetic field `b_field * q / P_ref`
+- `L`         Length over which to integrate. If `L` is zero, `e_vec` and `b_vec` are taken to be the integrated fields.
+
+## Output:
+- `omega_vec  3D Rotation tuple. 
 """
 function omega_field(i, coords::Coords, a, g, tilde_m, ax, ay, e_vec, b_vec, L)
   @FastGTPSA begin @inbounds begin

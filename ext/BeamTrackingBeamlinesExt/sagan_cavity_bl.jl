@@ -19,24 +19,26 @@ function RFcavity(tm::SaganCavity, bunch, bmultipoleP, rfP, beamlineP, L)
 
   if L_active == 0
     if isnothing(bmultipoleP)
-      return KernelCall(BeamTracking.sagan_cavity_thin!, (tm.radiation_damping_on, 
-                         mass, q, E0_ref, dE_ref,
-                         t_ref, emptySA, emptySA, emptySA, a, q*rfP.voltage, rf_omega, t_phi0, L))
+      return KernelCall(BeamTracking.sagan_cavity_thin!,
+                   (tm.radiation_damping_on, tm.radiation_fluctuations_on, mass, q, E0_ref, dE_ref,
+                   t_ref, emptySA, emptySA, emptySA, a, q*rfP.voltage, rf_omega, t_phi0, L))
     else
       BnL, BsL = get_integrated_strengths(bmultipoleP, L, p0_over_q_ref)
-      return KernelCall(BeamTracking.sagan_cavity_thin!, (tm.radiation_damping_on, 
-                         mass, q, E0_ref, dE_ref,
-                         t_ref, bmultipoleP.order, BnL, BsL, a, q*rfP.voltage, rf_omega, t_phi0, L))
+      return KernelCall(BeamTracking.sagan_cavity_thin!, 
+                   (tm.radiation_damping_on,  tm.radiation_fluctuations_on, mass, q, E0_ref, dE_ref,
+                   t_ref, bmultipoleP.order, BnL, BsL, a, q*rfP.voltage, rf_omega, t_phi0, L))
     end
 
   else
     if isnothing(bmultipoleP)
-      return KernelCall(BeamTracking.sagan_cavity_thick!, (tm.radiation_damping_on, rfP.traveling_wave, 
+      return KernelCall(BeamTracking.sagan_cavity_thick!, 
+                (tm.radiation_damping_on, tm.radiation_fluctuations_on, rfP.traveling_wave, 
                 mass, q, E0_ref, dE_ref, t_ref, n_cell, emptySA, emptySA, emptySA, a,
                 q*rfP.voltage, rf_omega, t_phi0, L_active, L))
     else
       Bn, Bs = get_strengths(bmultipoleP, L, p0_over_q_ref)
-      return KernelCall(BeamTracking.sagan_cavity_thick!, (tm.radiation_damping_on, rfP.traveling_wave, 
+      return KernelCall(BeamTracking.sagan_cavity_thick!, 
+                (tm.radiation_damping_on,  tm.radiation_fluctuations_on, rfP.traveling_wave, 
                 mass, q, E0_ref, dE_ref, t_ref, n_cell, bmultipoleP.order, Bn, Bs, a,
                 q*rfP.voltage, rf_omega, t_phi0, L_active, L))
     end

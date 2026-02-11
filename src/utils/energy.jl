@@ -1,6 +1,6 @@
 # Particle energy conversions =============================================================
 E_to_R(species::Species, E) = @FastGTPSA massof(species)*sinh(acosh(E/massof(species)))/C_LIGHT/chargeof(species) 
-E_to_c_beta(species::Species, E) = @FastGTPSA sqrt(E^2 - massof(species)^2) * C_LIGHT / E
+E_to_v(species::Species, E) = @FastGTPSA sqrt(E^2 - massof(species)^2) * C_LIGHT / E
 
 R_to_E(species::Species, R) = @FastGTPSA sqrt((R*C_LIGHT*chargeof(species))^2 + massof(species)^2)
 R_to_gamma(species::Species, R) = @FastGTPSA sqrt((R*C_LIGHT/massof(species))^2+1)

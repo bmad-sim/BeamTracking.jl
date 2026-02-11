@@ -26,24 +26,24 @@ rf_omega = 1e9
 t_phi0 = 0.1
 a = 0.1
 
-# sagan_cavity_thin!(i, coords::Coords, radiation_damping_on, 
+# sagan_cavity_thin!(i, coords::Coords, radiation_damping_on, radiation_fluctuations_on,
 #                                      mass, q, E0_ref, dE_ref,
 #                                      t_ref, m_order, BnL, BsL, a, q_voltage, rf_omega, t_phi0, L)
 
-# sagan_cavity_thick!(i, coords::Coords, radiation_damping_on, traveling_wave, 
+# sagan_cavity_thick!(i, coords::Coords, radiation_damping_on, radiation_fluctuations_on, traveling_wave, 
 #              mass, q, E0_ref, dE_ref, t_ref, n_cell, m_order, Bn, Bs, 
 #              a, q_voltage, rf_omega, t_phi0, L_active, L)
 
 
 
 @testset "SaganCavityKernel" begin
-  args = (true, mass, q, E0, dE, t_ref, order, Bn*L, Bs*L, a, q*voltage, rf_omega, t_phi0, L)
+  args = (true, false, mass, q, E0, dE, t_ref, order, Bn*L, Bs*L, a, q*voltage, rf_omega, t_phi0, L)
   bunch = Bunch(copy(vb1))
   BT.launch!(bunch.coords, KernelCall(BT.sagan_cavity_thin!, args))
   @test bunch.coords.v ≈ out1
   test_matrix(m1out, KernelCall(BT.sagan_cavity_thin!, args))
 
-  args = (true, false, mass, q, E0, dE, t_ref, 2.0, order, Bn, Bs, a, q*voltage, rf_omega, t_phi0, L/2, L)
+  args = (true, false, false, mass, q, E0, dE, t_ref, 2.0, order, Bn, Bs, a, q*voltage, rf_omega, t_phi0, L/2, L)
   bunch = Bunch(copy(vb1))
   BT.launch!(bunch.coords, KernelCall(BT.sagan_cavity_thick!, args))
   @test bunch.coords.v ≈ out2
