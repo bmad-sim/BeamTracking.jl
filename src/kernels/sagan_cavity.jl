@@ -187,7 +187,7 @@ end
   rad = dE*dE + 2*sqrt(Pc*Pc + mass^2) * dE + Pc*Pc
   coords.state[i] = vifelse(rad < 0, STATE_LOST_PZ, coords.state[i])
   alive = (coords.state[i] == STATE_ALIVE)
-  sqrt_rad = vifelse(alive, sqrt(abs(rad)), 1.0)
+  sqrt_rad = vifelse(alive, sqrt(abs(rad)), one(rad))
   pz = vifelse(alive, pz + (sqrt_rad - Pc)/P0c, pz)  
 
   v[i,PZI] = vifelse(alive, v[i,PZI] + dE/P0c, v[i,PZI])
@@ -235,13 +235,14 @@ edge = +1 => entering, edge = -1 => exiting
   beta = 1 / sqrt(1 + m_over_pc * m_over_pc)
   t = t_phi0 + t_ref - v[i,ZI] / (beta * C_LIGHT)
   phase = rf_omega * t
-  ez_field = q_gradient * cos(phase) 
-  dez_dz_field = q_gradient * sin(phase) * rf_omega / C_LIGHT
+  sin_phase, cos_phase = sincos(phase)
+  ez_field = q_gradient * cos_phase
+  dez_dz_field = q_gradient * sin_phase * rf_omega / C_LIGHT
   dE = -edge * dez_dz_field * (v[i,XI]*v[i,XI] + v[i,YI]*v[i,YI]) / 4
   rad = dE*dE + 2*sqrt(Pc*Pc + mass^2) * dE + Pc*Pc
   coords.state[i] = vifelse(rad < 0, STATE_LOST_PZ, coords.state[i])
   alive = (coords.state[i] == STATE_ALIVE)
-  sqrt_rad = vifelse(alive, sqrt(abs(rad)), 1.0)
+  sqrt_rad = vifelse(alive, sqrt(abs(rad)), one(rad))
   pz = vifelse(alive, pz + (sqrt_rad - Pc)/P0c, pz)  
   # Spin
 
