@@ -1,7 +1,6 @@
 #---------------------------------------------------------------------------------------------------
 
-#@inline 
-function RFcavity(tm::SaganCavity, bunch, bmultipoleP, rfP, beamlineP, L)
+@inline function RFcavity(tm::SaganCavity, bunch, bmultipoleP, rfP, beamlineP, L)
   species = bunch.species
   p1_over_q_ref = beamlineP.beamline.p_over_q_ref
   rf_omega = rf_omega_calc(rfP, beamlineP.beamline.line[end].s_downstream, species, p1_over_q_ref)
