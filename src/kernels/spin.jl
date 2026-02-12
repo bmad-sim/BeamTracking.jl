@@ -1,13 +1,17 @@
 """
-This function computes the integrated spin-precession vector using the multipole 
+This function computes the integrated spin-precession vector using the magnetic multipole 
 coefficients kn and ks indexed by mm, i.e., knl[i] is the normal 
 coefficient of order mm[i].
+
+If `L` is zero, `kn` and `ks` are taken to be the integrated fields and any solenoid
+component is ignored.
 """
 function omega_multipole(i, coords::Coords, a, g, tilde_m, mm, kn, ks, L)
   @FastGTPSA begin @inbounds begin
     v = coords.v
 
-    if mm[1] == 0
+    # Vector potential is (ax, ay, does-no-matter)
+    if mm[1] == 0 && L != 0
       ax = -v[i,YI] * kn[1] / 2
       ay =  v[i,XI] * kn[1] / 2
     else
@@ -17,9 +21,13 @@ function omega_multipole(i, coords::Coords, a, g, tilde_m, mm, kn, ks, L)
 
     bx, by = normalized_field(mm, kn, ks, v[i,XI], v[i,YI], -1)
     bz_0 = zero(kn[1])
-    bz = mm[1] == 0 ? kn[1] : bz_0
-    b_vec = (bx, by, bz)
-    e_vec = (bz_0, bz_0, bz_0)
+    if mm[1] == 0 && L != 0
+      b_vec = (bx, by, kn[1])
+    else
+      b_vec = (bx, by, bz_0)
+    end
+
+    e_vec = (bz_0, bz_0, bz_0)   # No electric multipole component
 
     omega = omega_field(i, coords, a, g, tilde_m, ax, ay, e_vec, b_vec, L)
   end end
@@ -29,7 +37,22 @@ end
 
 
 """
+    omega_field(i, coords::Coords, a, g, tilde_m, ax, ay, e_vec, b_vec, L) -> omega_vec
+
 This function computes the integrated spin-precession vector using the fields.
+
+## Input:
+
+- `a`         Anomalous magnetic moment.
+- `g`         Reference bend strength 1/radius when in a bend element.
+- `tilde_m    Normalized mass `mass / P0c`
+- `ax`, `ay`  Transverse vector potential components.
+- `e_vec`     Normalized electric field `e_field * q / P_ref`
+- `b_vec`     Normalized magnetic field `b_field * q / P_ref`
+- `L`         Length over which to integrate. If `L` is zero, `e_vec` and `b_vec` are taken to be the integrated fields.
+
+## Output:
+- `omega_vec  3D Rotation tuple. 
 """
 function omega_field(i, coords::Coords, a, g, tilde_m, ax, ay, e_vec, b_vec, L)
   @FastGTPSA begin @inbounds begin
@@ -77,9 +100,15 @@ function omega_field(i, coords::Coords, a, g, tilde_m, ax, ay, e_vec, b_vec, L)
     e_part_y = (pl*e_vec[1] - px*e_vec[3]) * coeff3
     e_part_z = (px*e_vec[2] - py*e_vec[1]) * coeff3
 
-    ox = (b_perp_x + b_para_x + e_part_x) * L        
-    oy = (b_perp_y + b_para_y + e_part_y + g) * L
-    oz = (b_perp_z + b_para_z + e_part_z) * L
+    if L != 0
+      ox = (b_perp_x + b_para_x + e_part_x) * L        
+      oy = (b_perp_y + b_para_y + e_part_y + g) * L
+      oz = (b_perp_z + b_para_z + e_part_z) * L
+    else
+      ox = (b_perp_x + b_para_x + e_part_x)
+      oy = (b_perp_y + b_para_y + e_part_y + g)
+      oz = (b_perp_z + b_para_z + e_part_z)
+    end
 
     omega = (ox, oy, oz)
   end end

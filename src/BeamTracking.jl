@@ -20,8 +20,7 @@ import GTPSA: sincu, sinhcu
 
 export Bunch, State, ParticleView, Time, TimeDependentParam, BatchParam
 export Yoshida, Yoshida, MatrixKick, BendKick, SolenoidKick, DriftKick, Exact
-export Fringe
-export track!
+export Fringe, SaganCavity, track!
 
 
 include("utils/coord_transforms.jl")
@@ -36,6 +35,7 @@ include("batch.jl")
 include("kernel.jl")
 include("tracking_methods.jl")
 
+include("kernels/kernel_utils.jl")
 include("kernels/alignment.jl")
 include("kernels/aperture.jl")
 include("kernels/bend_kick.jl")
@@ -47,11 +47,11 @@ include("kernels/quadrupole_kick.jl")
 include("kernels/radiation.jl")
 include("kernels/ramp_P0.jl")
 include("kernels/rfcavity_kick.jl")
+include("kernels/sagan_cavity.jl")
 include("kernels/solenoid_kick.jl")
 include("kernels/spin.jl")
 include("kernels/transforms.jl")
 include("kernels/yoshida.jl")
-
 
 # Empty tracking method to be imported+implemented by package extensions
 function track! end
