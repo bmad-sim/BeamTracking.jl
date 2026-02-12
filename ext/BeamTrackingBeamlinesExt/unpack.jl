@@ -316,7 +316,7 @@ end
 
 
 # === Elements thin vs thick check === #
-@inline pure_rf(tm, bunch, rfparams, rf_omega, t_phi0, L)                          = L == 0 ? thin_pure_rf(tm, bunch, rfparams, rf_omega, t_phi0)                         : thick_pure_rf(tm, bunch, rfparams, rf_omega, t_phi0, L)
+@inline pure_rf(tm, bunch, rfparams, beamlineparams, L)                          = L == 0 ? thin_pure_rf(tm, bunch, rfparams, beamlineparams)                         : thick_pure_rf(tm, bunch, rfparams, beamlineparams, L)
 @inline pure_bsolenoid(tm, bunch, bm0, L)                                   = L == 0 ? thin_pure_bsolenoid(tm, bunch, bm0)                                  : thick_pure_bsolenoid(tm, bunch, bm0, L)      
 @inline bsolenoid(tm, bunch, bmultipoleparams, L)                           = L == 0 ? thin_bsolenoid(tm, bunch, bmultipoleparams)                          : thick_bsolenoid(tm, bunch, bmultipoleparams, L)       
 @inline pure_bdipole(tm, bunch, bm1, L)                                     = L == 0 ? thin_pure_bdipole(tm, bunch, bm1)                                    : thick_pure_bdipole(tm, bunch, bm1, L)          
@@ -325,7 +325,7 @@ end
 @inline bquadrupole(tm, bunch, bmultipoleparams, L)                         = L == 0 ? thin_bquadrupole(tm, bunch, bmultipoleparams)                        : thick_bquadrupole(tm, bunch, bmultipoleparams, L)           
 @inline pure_bmultipole(tm, bunch, bmk, L)                                  = L == 0 ? thin_pure_bmultipole(tm, bunch, bmk)                                 : thick_pure_bmultipole(tm, bunch, bmk, L)                   
 @inline bmultipole(tm, bunch, bmultipoleparams, L)                          = L == 0 ? thin_bmultipole(tm, bunch, bmultipoleparams)                         : thick_bmultipole(tm, bunch, bmultipoleparams, L)
-@inline bmultipole_rf(tm, bunch, bmultipoleparams, rfparams, rf_omega, t_phi0, L)  = L == 0 ? thin_bmultipole_rf(tm, bunch, bmultipoleparams, rfparams, rf_omega, t_phi0) : thick_bmultipole_rf(tm, bunch, bmultipoleparams, rfparams, rf_omega, t_phi0, L)                           
+@inline bmultipole_rf(tm, bunch, bmultipoleparams, rfparams, beamlineparams, L)  = L == 0 ? thin_bmultipole_rf(tm, bunch, bmultipoleparams, rfparams, beamlineparams) : thick_bmultipole_rf(tm, bunch, bmultipoleparams, rfparams, beamlineparams, L)        
 @inline bend_no_field(tm, bunch, bendparams, L)                             = L == 0 ? thin_bend_no_field(tm, bunch, bendparams)                            : thick_bend_no_field(tm, bunch, bendparams, L)
 @inline bend_pure_bsolenoid(tm, bunch, bendparams, bm0, L)                  = L == 0 ? thin_bend_pure_bsolenoid(tm, bunch, bendparams, bm0)                 : thick_bend_pure_bsolenoid(tm, bunch, bendparams, bm0, L)      
 @inline bend_bsolenoid(tm, bunch, bendparams, bmultipoleparams, L)          = L == 0 ? thin_bend_bsolenoid(tm, bunch, bendparams, bmultipoleparams)         : thick_bend_bsolenoid(tm, bunch, bendparams, bmultipoleparams, L)         
