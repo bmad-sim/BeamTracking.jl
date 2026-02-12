@@ -4,7 +4,7 @@ using Beamlines: isactive, deval, unsafe_getparams, isnullspecies
 using BeamTracking: R_to_E, R_to_beta_gamma, R_to_gamma, R_to_pc, R_to_v, 
                     beta_gamma_to_v, E_to_R, E_to_v,
                     @makekernel, Coords, KernelCall, KernelChain, push, TimeDependentParam, RefState, 
-                    launch!, AbstractYoshida, rot_quaternion, inv_rot_quaternion, atan2, SaganCavity,
+                    launch!, AbstractYoshida, rot_quaternion, inv_rot_quaternion, atan2, 
                     get_N_particle
                     
 import BeamTracking: track!
