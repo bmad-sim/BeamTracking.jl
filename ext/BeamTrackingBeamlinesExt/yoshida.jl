@@ -292,8 +292,10 @@ end
 
 
 # =========== RF ============= #
-@inline function thick_pure_rf(tm::Union{Yoshida,DriftKick}, bunch, rf, omega, t0, L)
+@inline function thick_pure_rf(tm::Union{Yoshida,DriftKick}, bunch, rf, beamline, L)
   p_over_q_ref = bunch.p_over_q_ref
+  omega = rf_omega_calc(rf, beamline.beamline.line[end].s_downstream, bunch.species, p_over_q_ref)
+  t0 = rf_phi0_calc_old(rf, beamline.beamline.species_ref) / omega
   tilde_m, gamsqr_0, beta_0 = BeamTracking.drift_params(bunch.species, p_over_q_ref)
   E0_over_Rref = rf.voltage/L/p_over_q_ref
   E_ref = BeamTracking.R_to_E(bunch.species, p_over_q_ref)
@@ -306,8 +308,10 @@ end
   return integration_launcher(BeamTracking.cavity!, params, photon_params, tm, nothing, L)
 end
 
-@inline function thick_bmultipole_rf(tm::Union{Yoshida,DriftKick,SolenoidKick}, bunch, bm, rf, omega, t0, L)
+@inline function thick_bmultipole_rf(tm::Union{Yoshida,DriftKick,SolenoidKick}, bunch, bm, rf, beamline, L)
   p_over_q_ref = bunch.p_over_q_ref
+  omega = rf_omega_calc(rf, beamline.beamline.line[end].s_downstream, bunch.species, p_over_q_ref)
+  t0 = rf_phi0_calc_old(rf, beamline.beamline.species_ref) / omega
   tilde_m, gamsqr_0, beta_0 = BeamTracking.drift_params(bunch.species, p_over_q_ref)
   E0_over_Rref = rf.voltage/L/p_over_q_ref
   mm = bm.order
