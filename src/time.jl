@@ -74,13 +74,10 @@ Base.isinf(::TimeDependentParam) = false
 @inline teval(f::TimeFunction, t) = f(t)
 @inline teval(f, t) = f
 
-# === THIS BLOCK WAS WRITTEN BY CLAUDE ===
+# === THIS BLOCK WAS PARTIALLY WRITTEN BY CLAUDE ===
 # Generated function for arbitrary-length tuples
 @generated function teval(f::T, t) where {T<:Tuple}
     N = length(T.parameters)
-    if N == 0
-        return :(())
-    end
     # Use getfield with literal integer arguments
     exprs = [:(teval(Base.getfield(f, $i), t)) for i in 1:N]
     return :(tuple($(exprs...)))

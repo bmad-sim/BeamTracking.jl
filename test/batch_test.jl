@@ -137,6 +137,98 @@ end
   test_batch((;Bn0L=Kn0, Kn1L=Kn1, Bn3=Kn3), (;L=0))
   test_batch((;Bn0L=Kn0, Kn1L=Kn1, Bn3=Kn3), (;L=0))
 
+  # Test MapParams with batch:
+  function map(v, q, p)
+    x  = p[1]*v[1] + p[2]*v[2]
+    px = p[3]*v[3] + p[4]*v[4]
+    return ((x, px, v[3], v[4], v[5], v[6]), q)
+  end
+
+  ele_batch = LineElement(
+    transport_map=map, 
+    transport_map_params=(
+      BatchParam(Float64[1,2,3,4]), 
+      BatchParam(Float64[5,6,7,8]), 
+      BatchParam(Float64[9,10,11,12]),
+      BatchParam(Float64[13,14,15,16])
+    )
+  )
+
+  ele_1 = LineElement(
+    transport_map=map, 
+    transport_map_params=(
+      1.,
+      5.,
+      9.,
+      13.,
+    )
+  )
+
+  ele_2 = LineElement(
+    transport_map=map, 
+    transport_map_params=(
+      2.,
+      6.,
+      10.,
+      14.,
+    )
+  )
+
+  ele_3 = LineElement(
+    transport_map=map, 
+    transport_map_params=(
+      3.,
+      7.,
+      11.,
+      15.,
+    )
+  )
+  
+  ele_4 = LineElement(
+    transport_map=map, 
+    transport_map_params=(
+      4.,
+      8.,
+      12.,
+      16.,
+    )
+  )
+
+  v = repeat((rand(1,6).-0.5)*1e-4, 4, 1) 
+  E_ref = 5e9
+  species = Species("electron")
+
+  bl_1 = Beamline([ele_1], E_ref=E_ref, species_ref=species)
+  bl_2 = Beamline([ele_2], E_ref=E_ref, species_ref=species)
+  bl_3 = Beamline([ele_3], E_ref=E_ref, species_ref=species)
+  bl_4 = Beamline([ele_4], E_ref=E_ref, species_ref=species)
+  bl_batch = Beamline([ele_batch], E_ref=E_ref, species_ref=species)
+
+  b0_1 = Bunch(v[1,:]', nothing; p_over_q_ref=bl_1.p_over_q_ref, species=bl_1.species_ref)
+  b0_2 = Bunch(v[1,:]', nothing; p_over_q_ref=bl_2.p_over_q_ref, species=bl_2.species_ref)
+  b0_3 = Bunch(v[1,:]', nothing; p_over_q_ref=bl_3.p_over_q_ref, species=bl_3.species_ref)
+  b0_4 = Bunch(v[1,:]', nothing; p_over_q_ref=bl_4.p_over_q_ref, species=bl_4.species_ref)
+
+
+  b0_batch = Bunch(v, nothing; p_over_q_ref=bl_batch.p_over_q_ref, species=bl_batch.species_ref)
+
+  track!(b0_1, bl_1)
+  track!(b0_2, bl_2)
+  track!(b0_3, bl_3)
+  track!(b0_4, bl_4)
+
+  # Ensure branchlessness of parameters with explicit SIMD
+  if (VERSION < v"1.11" && Sys.ARCH == :x86_64)
+    use_explicit_SIMD=false
+  else
+    use_explicit_SIMD=true
+  end
+  track!(b0_batch, bl_batch; use_explicit_SIMD=use_explicit_SIMD) 
+  
+  @test b0_batch.coords.v[1,:]' ≈ b0_1.coords.v
+  @test b0_batch.coords.v[2,:]' ≈ b0_2.coords.v
+  @test b0_batch.coords.v[3,:]' ≈ b0_3.coords.v
+  @test b0_batch.coords.v[4,:]' ≈ b0_4.coords.v
   #=
   # Aperture:
   # let's make a time-dependent aperture which oscillates but will allow both
