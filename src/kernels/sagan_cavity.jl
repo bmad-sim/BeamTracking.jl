@@ -2,7 +2,7 @@
 # "thin" means L_active is zero
 
 @makekernel fastgtpsa=true function sagan_cavity_thin!(i, coords::Coords, 
-                                      radiation_damping_on, radiation_fluctuations_on,
+                                      val_rad_damping_on, val_rad_fluctuations_on,
                                       mass, q, E0_ref, dE_ref, t_ref, 
                                       m_order, BnL, BsL, a, q_voltage, rf_omega, t_phi0, L)
   L_out = L / 2           # Length outside of active region
@@ -15,7 +15,7 @@
     multipole_and_spin_kick!(i, coords, m_order, BnL .* f, BsL .* f, a, mass/P0c, L)
   else
     f = q_over_p_ref / L_out
-    sagan_cavity_outside_drift!(i, coords, radiation_damping_on, radiation_fluctuations_on,
+    sagan_cavity_outside_drift!(i, coords, val_rad_damping_on, val_rad_fluctuations_on,
                                             q, m_order, BnL .* f, BsL .* f, a, mass, P0c, L_out)
   end
 
@@ -34,7 +34,7 @@
     multipole_and_spin_kick!(i, coords, m_order, BnL .* f, BsL .* f, a, mass/P0c, L)
   else
     f = q_over_p_ref / L_out
-    sagan_cavity_outside_drift!(i, coords, radiation_damping_on, radiation_fluctuations_on,
+    sagan_cavity_outside_drift!(i, coords, val_rad_damping_on, val_rad_fluctuations_on,
                                          q, m_order, BnL .* f ,  BsL .* f, a, mass, P0c, L_out)
   end
 end
@@ -42,7 +42,7 @@ end
 #---------------------------------------------------------------------------------------------------
 
 @makekernel fastgtpsa=true function sagan_cavity_thick!(i, coords::Coords, 
-              radiation_damping_on, radiation_fluctuations_on, traveling_wave, 
+              val_rad_damping_on, val_rad_fluctuations_on, val_traveling_wave, 
               mass, q, E0_ref, dE_ref, t_ref, n_cell, m_order, Bn, Bs, 
               a, q_voltage, rf_omega, t_phi0, L_active, L)
 
@@ -52,7 +52,7 @@ end
   q_over_p_ref = q * C_LIGHT / P0c
 
   # Outside Drift
-  sagan_cavity_outside_drift!(i, coords, radiation_damping_on, radiation_fluctuations_on,
+  sagan_cavity_outside_drift!(i, coords, val_rad_damping_on, val_rad_fluctuations_on,
                     q, m_order, Bn .* q_over_p_ref, Bs .* q_over_p_ref, a, mass, P0c, L_out)
 
   # Fringe kick at beginning. 
@@ -62,7 +62,7 @@ end
   # n_cell == 0 => single kick in center
 
   if n_cell == 0
-    sagan_cavity_inside_drift!(i, coords, radiation_damping_on, radiation_fluctuations_on, traveling_wave,
+    sagan_cavity_inside_drift!(i, coords, val_rad_damping_on, val_rad_fluctuations_on, val_traveling_wave,
               q, q_gradient, m_order, Bn .* q_over_p_ref, Bs .* q_over_p_ref, a, mass, P0c, L_active/2)
     sagan_cavity_kick!(i, coords, a, q_voltage, rf_omega, t_phi0, t_ref, mass, P0c)
     dP0c = dpc_given_dE(P0c, dE_ref, mass)
@@ -70,7 +70,7 @@ end
     P0c += dP0c
     q_over_p_ref = q * C_LIGHT / P0c
 
-    sagan_cavity_inside_drift!(i, coords, radiation_damping_on, radiation_fluctuations_on, traveling_wave,
+    sagan_cavity_inside_drift!(i, coords, val_rad_damping_on, val_rad_fluctuations_on, val_traveling_wave,
                 q, q_gradient, m_order, Bn .* q_over_p_ref, Bs .* q_over_p_ref, a, mass, P0c, L_active/2)
 
   else
@@ -87,7 +87,7 @@ end
 
       # Drift
       if i_step == n_cell; break; end
-      sagan_cavity_inside_drift!(i, coords, radiation_damping_on, radiation_fluctuations_on, traveling_wave,
+      sagan_cavity_inside_drift!(i, coords, val_rad_damping_on, val_rad_fluctuations_on, val_traveling_wave,
            q, q_gradient, m_order, Bn .* q_over_p_ref, Bs .* q_over_p_ref, a, mass, P0c, L_active/n_cell)
     end
   end
@@ -96,17 +96,16 @@ end
   sagan_cavity_fringe!(i, coords, a, q_gradient, rf_omega, t_phi0, t_ref, mass, P0c, -1)
 
   # Outside Drift
-  sagan_cavity_outside_drift!(i, coords, radiation_damping_on, radiation_fluctuations_on,
+  sagan_cavity_outside_drift!(i, coords, val_rad_damping_on, val_rad_fluctuations_on,
                       q, m_order, Bn .* q_over_p_ref, Bs .* q_over_p_ref, a, mass, P0c, L_out)
 end
 
 #---------------------------------------------------------------------------------------------------
 # The "inside" drift is the same as the "outside" drift with the addition of the pondermotive kick.
 
-@makekernel fastgtpsa=true function sagan_cavity_inside_drift!(i, coords::Coords, 
-                        radiation_damping_on, radiation_fluctuations_on, traveling_wave, 
-                        q, q_gradient, m_order, Kn, Ks, a, mass, P0c, L)
-
+function sagan_cavity_inside_drift!(i, coords::Coords, 
+                        val_rad_damping_on, val_rad_fluctuations_on, ::Val{traveling_wave}, 
+                        q, q_gradient, m_order, Kn, Ks, a, mass, P0c, L) where {traveling_wave}
   beta0 = P0c / sqrt(P0c^2 + mass^2)
   gamma0 = P0c / (mass * beta0)
 
@@ -116,7 +115,7 @@ end
   end
 
   # Drift
-  sagan_cavity_outside_drift!(i, coords, radiation_damping_on, radiation_fluctuations_on, 
+  sagan_cavity_outside_drift!(i, coords, val_rad_damping_on, val_rad_fluctuations_on, 
                                                             q, m_order, Kn, Ks, a, mass, P0c, L)
 
   # 1/2 pondermotive kick
@@ -130,7 +129,7 @@ end
 # The "outside" drift does not have the pondermotive kick that the "inside" drift does.
 
 @makekernel fastgtpsa=true function sagan_cavity_outside_drift!(i, coords::Coords, 
-                                     radiation_damping_on, radiation_fluctuations_on, 
+                                     val_rad_damping_on, val_rad_fluctuations_on, 
                                      q, m_order, Kn, Ks, a, mass, P0c, L)
   beta0 = P0c / sqrt(P0c^2 + mass^2)
   gamma0 = P0c / (mass * beta0)
@@ -139,7 +138,7 @@ end
 
   # 1/2 Multipole kick
   if has_multipoles
-    multipole_kick_with_rad!(i, coords, radiation_damping_on, radiation_fluctuations_on, 
+    multipole_kick_with_rad!(i, coords, val_rad_damping_on, val_rad_fluctuations_on, 
                                   q, m_order, Kn, Ks, a, mass, P0c, beta0, L/2)
   end
 
@@ -152,7 +151,7 @@ end
 
   # 1/2 Multipole kick
   if has_multipoles
-    multipole_kick_with_rad!(i, coords, radiation_damping_on, radiation_fluctuations_on, 
+    multipole_kick_with_rad!(i, coords, val_rad_damping_on, val_rad_fluctuations_on, 
                                   q, m_order, Kn, Ks, a, mass, P0c, beta0, L/2)
   end
 end
@@ -273,26 +272,26 @@ end
 #---------------------------------------------------------------------------------------------------
 
 
-@makekernel fastgtpsa=true function multipole_kick_with_rad!(i, coords::Coords, 
-                  radiation_damping_on, radiation_fluctuations_on, 
-                  q, m_order, Kn, Ks, a, mass, P0c, beta0, L)
+function multipole_kick_with_rad!(i, coords::Coords, 
+                  ::Val{rad_damping_on}, ::Val{rad_fluctuations_on}, 
+                  q, m_order, Kn, Ks, a, mass, P0c, beta0, L) where {rad_damping_on, rad_fluctuations_on}
   L2 = L / 2
-  if radiation_damping_on
+  if rad_damping_on
     deterministic_radiation!(i, coords, q, mass, P0c/beta0, 0, m_order, Kn, Ks, L2)
   end
 
-  if radiation_fluctuations_on
+  if rad_fluctuations_on
     E0 = sqrt(P0c^2 + mass^2)
     stochastic_radiation!(i, coords, q, mass, E0, 0, 0, m_order, Kn, Ks, L2)
   end
 
   multipole_and_spin_kick!(i, coords, m_order, Kn.*L,  Ks.*L, a, mass/P0c, L)
 
-  if radiation_fluctuations_on
+  if rad_fluctuations_on
     stochastic_radiation!(i, coords, q, mass, E0, 0, 0, m_order, Kn, Ks, L2)
   end
 
-  if radiation_damping_on
+  if rad_damping_on
     deterministic_radiation!(i, coords, q, mass, P0c/beta0, 0, m_order, Kn, Ks, L2)
   end
 end
