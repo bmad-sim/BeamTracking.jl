@@ -38,7 +38,7 @@ end
   q_over_p_ref = q * C_LIGHT / P0c
 
   # Outside Drift
-  f = q_over_p_ref / 2
+  f = q_over_p_ref
   sagan_cavity_outside_drift!(i, coords, val_rad_damping_on, val_rad_fluctuations_on,
                                             q, m_order, Bn .* f, Bs .* f, a, mass, P0c, L_out)
 
@@ -52,7 +52,7 @@ end
   q_over_p_ref = q * C_LIGHT / P0c
 
   # Outside Drift
-  f = q_over_p_ref / 2
+  f = q_over_p_ref
   sagan_cavity_outside_drift!(i, coords, val_rad_damping_on, val_rad_fluctuations_on,
                                          q, m_order, Bn .* f ,  Bs .* f, a, mass, P0c, L_out)
 end
