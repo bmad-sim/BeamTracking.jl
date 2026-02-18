@@ -1,23 +1,46 @@
 #---------------------------------------------------------------------------------------------------
-# "thin" means L_active is zero
+# Here both L_active and L are zero
 
-@makekernel fastgtpsa=true function sagan_cavity_thin!(i, coords::Coords, 
+@makekernel fastgtpsa=true function sagan_cavity_zero_L!(i, coords::Coords, 
                                       val_rad_damping_on, val_rad_fluctuations_on,
                                       mass, q, E0_ref, dE_ref, t_ref, 
-                                      m_order, BnL, BsL, a, q_voltage, rf_omega, t_phi0, L)
+                                      m_order, BnL, BsL, a, q_voltage, rf_omega, t_phi0)
+  P0c = sqrt(E0_ref^2 - mass^2)
+  q_over_p_ref = q * C_LIGHT / P0c
+
+  # Multipole kick
+  f = q_over_p_ref / 2
+  multipole_and_spin_kick!(i, coords, m_order, BnL .* f, BsL .* f, a, mass/P0c)
+
+  # Energy kick
+  sagan_cavity_kick!(i, coords, a, q_voltage, rf_omega, t_phi0, t_ref, mass, P0c)
+
+  # Reference energy shift
+  dP0c = dpc_given_dE(P0c, dE_ref, mass)
+  reference_momentum_shift!(i, coords, P0c, dP0c, true)
+  P0c += dP0c
+  q_over_p_ref = q * C_LIGHT / P0c
+
+  # Multipole kick
+  f = q_over_p_ref / 2
+  multipole_and_spin_kick!(i, coords, m_order, BnL .* f, BsL .* f, a, mass/P0c)
+end
+
+#---------------------------------------------------------------------------------------------------
+# Here L_active is zero and L is nonzero. Note: The case L_active > L is not allowed.
+
+@makekernel fastgtpsa=true function sagan_cavity_zero_L_active!(i, coords::Coords, 
+                                      val_rad_damping_on, val_rad_fluctuations_on,
+                                      mass, q, E0_ref, dE_ref, t_ref, 
+                                      m_order, Bn, Bs, a, q_voltage, rf_omega, t_phi0, L)
   L_out = L / 2           # Length outside of active region
   P0c = sqrt(E0_ref^2 - mass^2)
   q_over_p_ref = q * C_LIGHT / P0c
 
   # Outside Drift
-  if L == 0
-    f = q_over_p_ref / 2
-    multipole_and_spin_kick!(i, coords, m_order, BnL .* f, BsL .* f, a, mass/P0c, L)
-  else
-    f = q_over_p_ref / L_out
-    sagan_cavity_outside_drift!(i, coords, val_rad_damping_on, val_rad_fluctuations_on,
-                                            q, m_order, BnL .* f, BsL .* f, a, mass, P0c, L_out)
-  end
+  f = q_over_p_ref / 2
+  sagan_cavity_outside_drift!(i, coords, val_rad_damping_on, val_rad_fluctuations_on,
+                                            q, m_order, Bn .* f, Bs .* f, a, mass, P0c, L_out)
 
   # Energy kick
   sagan_cavity_kick!(i, coords, a, q_voltage, rf_omega, t_phi0, t_ref, mass, P0c)
@@ -29,17 +52,13 @@
   q_over_p_ref = q * C_LIGHT / P0c
 
   # Outside Drift
-  if L == 0
-    f = q_over_p_ref / 2
-    multipole_and_spin_kick!(i, coords, m_order, BnL .* f, BsL .* f, a, mass/P0c, L)
-  else
-    f = q_over_p_ref / L_out
-    sagan_cavity_outside_drift!(i, coords, val_rad_damping_on, val_rad_fluctuations_on,
-                                         q, m_order, BnL .* f ,  BsL .* f, a, mass, P0c, L_out)
-  end
+  f = q_over_p_ref / 2
+  sagan_cavity_outside_drift!(i, coords, val_rad_damping_on, val_rad_fluctuations_on,
+                                         q, m_order, Bn .* f ,  Bs .* f, a, mass, P0c, L_out)
 end
 
 #---------------------------------------------------------------------------------------------------
+# Here both L_active and L are non-zero
 
 @makekernel fastgtpsa=true function sagan_cavity_thick!(i, coords::Coords, 
               val_rad_damping_on, val_rad_fluctuations_on, val_traveling_wave, 

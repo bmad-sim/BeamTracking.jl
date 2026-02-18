@@ -37,13 +37,14 @@ function _track!(
   end
 
   # Function barrier
-  universal!(coords, tm, ramp_without_rf, bunch, L, p_over_q_ref, ap, bp, bm, pp, dp, rp, lp, mp; kwargs...)
+  universal!(coords, tm, ele.name, ramp_without_rf, bunch, L, p_over_q_ref, ap, bp, bm, pp, dp, rp, lp, mp; kwargs...)
 end
 
 # Step 2: Push particles through -----------------------------------------
 function universal!(
   coords,
   tm,
+  ele_name,
   ramp_without_rf, 
   bunch,
   L, 

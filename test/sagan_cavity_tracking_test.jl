@@ -39,9 +39,9 @@ a = 0.1
 @testset "SaganCavityKernel" begin
   args = (Val{true}(), Val{false}(), mass, q, E0, dE, t_ref, order, Bn*L, Bs*L, a, q*voltage, rf_omega, t_phi0, L)
   bunch = Bunch(copy(vb1))
-  BT.launch!(bunch.coords, KernelCall(BT.sagan_cavity_thin!, args))
+  BT.launch!(bunch.coords, KernelCall(BT.sagan_cavity_zero_L_active!, args))
   @test bunch.coords.v ≈ out1
-  test_matrix(m1out, KernelCall(BT.sagan_cavity_thin!, args))
+  test_matrix(m1out, KernelCall(BT.sagan_cavity_zero_L_active!, args))
 
   args = (Val{true}(), Val{false}(), Val{false}(), mass, q, E0, dE, t_ref, 2.0, order, Bn, Bs, a, q*voltage, rf_omega, t_phi0, L/2, L)
   bunch = Bunch(copy(vb1))

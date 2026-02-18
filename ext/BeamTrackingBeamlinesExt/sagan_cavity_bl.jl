@@ -13,19 +13,32 @@
   mass = massof(species)
   q = chargeof(species)
   n_cell, L_active = rf_step_calc(tm.n_cell, tm.L_active, rf_omega, L)
+  L_active <= L * (1 + eps(L)) || error("Cavity cannot have L_active ($L_active) greater than L ($L)." )
   t_ref = 0    # bunch.t_ref ## Relative time tracking assumed for now.
   a = gyromagnetic_anomaly(species)
 
-  if L_active == 0
+  if L == 0
     if isnothing(bmultipoleP)
-      return KernelCall(BeamTracking.sagan_cavity_thin!,
+      return KernelCall(BeamTracking.sagan_cavity_zero_L!,
+                   (Val{tm.radiation_damping_on}(), Val{tm.radiation_fluctuations_on}(), mass, q, E0_ref, dE_ref,
+                   t_ref, emptySA, emptySA, emptySA, a, q*rfP.voltage, rf_omega, t_phi0))
+    else
+      BnL, BsL = get_integrated_strengths(bmultipoleP, L, p0_over_q_ref)
+      return KernelCall(BeamTracking.sagan_cavity_zero_L!, 
+                   (Val{tm.radiation_damping_on}(),  Val{tm.radiation_fluctuations_on}(), mass, q, E0_ref, dE_ref,
+                   t_ref, bmultipoleP.order, BnL, BsL, a, q*rfP.voltage, rf_omega, t_phi0))
+    end
+
+  elseif L_active == 0
+    if isnothing(bmultipoleP)
+      return KernelCall(BeamTracking.sagan_cavity_zero_L_active!,
                    (Val{tm.radiation_damping_on}(), Val{tm.radiation_fluctuations_on}(), mass, q, E0_ref, dE_ref,
                    t_ref, emptySA, emptySA, emptySA, a, q*rfP.voltage, rf_omega, t_phi0, L))
     else
-      BnL, BsL = get_integrated_strengths(bmultipoleP, L, p0_over_q_ref)
-      return KernelCall(BeamTracking.sagan_cavity_thin!, 
+      Bn, Bs = get_strengths(bmultipoleP, L, p0_over_q_ref)
+      return KernelCall(BeamTracking.sagan_cavity_zero_L_active!, 
                    (Val{tm.radiation_damping_on}(),  Val{tm.radiation_fluctuations_on}(), mass, q, E0_ref, dE_ref,
-                   t_ref, bmultipoleP.order, BnL, BsL, a, q*rfP.voltage, rf_omega, t_phi0, L))
+                   t_ref, bmultipoleP.order, Bn, Bs, a, q*rfP.voltage, rf_omega, t_phi0, L))
     end
 
   else
