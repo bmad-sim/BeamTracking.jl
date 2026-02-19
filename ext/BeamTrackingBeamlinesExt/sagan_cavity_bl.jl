@@ -23,15 +23,14 @@
     if isnothing(bmultipoleP)
       return KernelCall(BeamTracking.sagan_cavity_zero_L!,
                    (Val{tm.radiation_damping_on}(), Val{tm.radiation_fluctuations_on}(), mass, q, E0_ref, dE_ref,
-                   t_ref, Val{false}(), Val{false}(), emptySA, emptySA, emptySA, a, q*rfP.voltage, rf_omega, t_phi0))
+                   t_ref, Val{false}(), emptySA, emptySA, emptySA, a, q*rfP.voltage, rf_omega, t_phi0))
     else
       m_order = bmultipoleP.order
       KnL, KsL = get_integrated_strengths(bmultipoleP, L, p0q)
       has_mult = (length(m_order) > 0)
-      has_sol = (has_mult && m_order[1] == 0)
       return KernelCall(BeamTracking.sagan_cavity_zero_L!, 
                    (Val{tm.radiation_damping_on}(), Val{tm.radiation_fluctuations_on}(), mass, q, E0_ref, dE_ref,
-                   t_ref, Val{has_mult}(), Val{has_sol}(), m_order, KnL.*p0q, KsL.*p0q, a, q*rfP.voltage, rf_omega, t_phi0))
+                   t_ref, Val{has_mult}(), m_order, KnL.*p0q, KsL.*p0q, a, q*rfP.voltage, rf_omega, t_phi0))
     end
 
   elseif L_active == 0

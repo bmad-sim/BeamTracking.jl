@@ -1,17 +1,19 @@
 #---------------------------------------------------------------------------------------------------
 # Here both L_active and L are zero
 
-@makekernel fastgtpsa=true function sagan_cavity_zero_L!(i, coords::Coords, 
+function sagan_cavity_zero_L!(i, coords::Coords, 
                                       val_rad_damping_on, val_rad_fluctuations_on,
                                       mass, q, E0_ref, dE_ref, t_ref, 
-                                      val_has_mult, val_has_sol, m_order, BnL, BsL, 
-                                      a, q_voltage, rf_omega, t_phi0)
+                                      ::Val{has_mult}, m_order, BnL, BsL, 
+                                      a, q_voltage, rf_omega, t_phi0) where {has_mult}
   P0c = sqrt(E0_ref^2 - mass^2)
   q_over_p_ref = q * C_LIGHT / P0c
 
   # Multipole kick
-  f = q_over_p_ref / 2
-  multipole_and_spin_kick!(i, coords, m_order, BnL .* f, BsL .* f, a, mass/P0c)
+  if has_mult
+    f = q_over_p_ref / 2
+    multipole_and_spin_kick!(i, coords, m_order, BnL .* f, BsL .* f, a, mass/P0c)
+  end
 
   # Energy kick
   sagan_cavity_kick!(i, coords, a, q_voltage, rf_omega, t_phi0, t_ref, mass, P0c)
@@ -23,8 +25,10 @@
   q_over_p_ref = q * C_LIGHT / P0c
 
   # Multipole kick
-  f = q_over_p_ref / 2
-  multipole_and_spin_kick!(i, coords, m_order, BnL .* f, BsL .* f, a, mass/P0c)
+  if has_mult
+    f = q_over_p_ref / 2
+    multipole_and_spin_kick!(i, coords, m_order, BnL .* f, BsL .* f, a, mass/P0c)
+  end
 end
 
 #---------------------------------------------------------------------------------------------------
@@ -34,7 +38,7 @@ end
                         val_rad_damping_on, val_rad_fluctuations_on,
                         mass, q, E0_ref, dE_ref, t_ref, 
                         val_has_mult, val_has_sol, m_order, Bn, Bs, a, q_voltage, rf_omega, t_phi0, L)
-  L_out = L / 2           # Length outside of active region
+  L_out = L / 2    # Length outside of active region
   P0c = sqrt(E0_ref^2 - mass^2)
   q_over_p_ref = q * C_LIGHT / P0c
 
@@ -203,7 +207,7 @@ end
     b_field = (0, 0, 0)
     a_potential = 0
     g_bend = 0
-    rotate_spin_field!(i, coords, a, g_bend, mass/P0c, a_potential, a_potential, e_field, b_field, 0)
+    rotate_spin_field!(i, coords, a, g_bend, mass/P0c, a_potential, a_potential, e_field, b_field, 1)
   end
 
   # Energy kick
@@ -221,7 +225,7 @@ end
   #
 
   if !isnothing(coords.q)
-    rotate_spin_field!(i, coords, a, g_bend, mass/P0c, a_potential, a_potential, e_field, b_field, 0)
+    rotate_spin_field!(i, coords, a, g_bend, mass/P0c, a_potential, a_potential, e_field, b_field, 1)
   end
 
 end
@@ -277,7 +281,7 @@ edge = +1 => entering, edge = -1 => exiting
     b_field = (0, 0, 0)
     a_potential = 0
     g_bend = 0
-    rotate_spin_field!(i, coords, a, g_bend, mass/P0c, a_potential, a_potential, e_field, b_field, 0)
+    rotate_spin_field!(i, coords, a, g_bend, mass/P0c, a_potential, a_potential, e_field, b_field, 1)
   end
 
   # Fringe
@@ -291,7 +295,7 @@ edge = +1 => entering, edge = -1 => exiting
 
   # Spin
   if !isnothing(coords.q)
-    rotate_spin_field!(i, coords, a, g_bend, mass/P0c, a_potential, a_potential, e_field, b_field, 0)
+    rotate_spin_field!(i, coords, a, g_bend, mass/P0c, a_potential, a_potential, e_field, b_field, 1)
   end
 end
 
