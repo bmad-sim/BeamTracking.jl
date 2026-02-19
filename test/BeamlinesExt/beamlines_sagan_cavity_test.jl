@@ -21,12 +21,19 @@ import BeamTracking as BT
 v1 = [0.01  0.02  0.03  0.04  0.05  0.1]
 quat1 = [1.0  0.0  0.0  0.0]
 
-out1 = [0.999879019609318 -0.013956320891476926 0.006867821712547262 1.6649560539635442e-5]
-out2 = [0.9992430796286998 -0.034793882383567926 0.017396941191783963 0.0]
-out3 = [0.9988275160446326 0.04329982163574608 -0.02164991081787304 0.0]
-out4 = [0.9997215710364805 -0.021105078144390207 0.010552539072195104 0.0]
-out5 = [NaN NaN NaN NaN]
-out6 = [0.9992383937064061 0.03506860505271674 -0.017112084756381873 4.514408242576583e-5]
+qout1 = [0.999879019609318 -0.013956320891476926 0.006867821712547262 1.6649560539635442e-5]
+qout2 = [0.9992430796286998 -0.034793882383567926 0.017396941191783963 0.0]
+qout3 = [0.9988275160446326 0.04329982163574608 -0.02164991081787304 0.0]
+qout4 = [0.9997215710364805 -0.021105078144390207 0.010552539072195104 0.0]
+qout5 = [0.9997167730429309 -0.02057260451935547 0.011964164145470267 2.0401452485922347e-5]
+qout6 = [0.9992383937064061 0.03506860505271674 -0.017112084756381873 4.514408242576583e-5]
+
+out1 = [0.04217873136425864 0.01829391337404973 0.09332500470086044 0.0361983273702167 0.06606835704543228 0.14023826463265046]
+out2 = [0.04194241427584856 0.018231932600906685 0.09388482855169711 0.03646386520181337 0.06713366175549244 0.3270142635510056]
+out3 = [0.01 0.018382799381485956 0.03 0.03676559876297191 0.04895340854206434 -0.27490000696709455]
+out4 = [0.01 0.018048002564646365 0.03 0.03609600512929273 0.05054378625481679 0.20674145046402864]
+out5 = [0.04013970763517789 0.020737423284025818 0.09048039163044863 0.04343792365678535 0.06860289956211306 0.3329611939763494]
+out6 = [0.05411818209039813 0.017031536764595845 0.11975670804339537 0.03399302609195471 0.03855654036685451 -0.2129528915963015]
 
 R0 = BT.E_to_R(species, E0)
 
@@ -34,49 +41,37 @@ R0 = BT.E_to_R(species, E0)
   ele = sc1
   b1 = Bunch(deepcopy(v1), deepcopy(quat1), species=species, p_over_q_ref = BT.E_to_R(species, ele.E_ref-ele.dE_ref))
   track!(b1, ele)
-  # println(b1.coords.v)
   @test b1.coords.v ≈ out1
-  println(b1.coords.q)
   @test b1.t_ref ≈ 6.924402749004665e-9
 
   ele = sc2
   b1 = Bunch(deepcopy(v1), deepcopy(quat1), species=species, p_over_q_ref = BT.E_to_R(species, ele.E_ref-ele.dE_ref))
   track!(b1, ele)
-  # println(b1.coords.v)
   @test b1.coords.v ≈ out2
-  println(b1.coords.q)
   @test b1.t_ref ≈ 6.8812160436549985e-9
 
   ele = sc3
   b1 = Bunch(deepcopy(v1), deepcopy(quat1), species=species, p_over_q_ref = BT.E_to_R(species, ele.E_ref-ele.dE_ref))
   track!(b1, ele)
-  # println(b1.coords.v)
   @test b1.coords.v ≈ out3
-  println(b1.coords.q)
   @test b1.t_ref ≈ 0
 
   ele = sc4
   b1 = Bunch(deepcopy(v1), deepcopy(quat1), species=species, p_over_q_ref = BT.E_to_R(species, ele.E_ref-ele.dE_ref))
   track!(b1, ele)
-  # println(b1.coords.v)
   @test b1.coords.v ≈ out4
-  println(b1.coords.q)
   @test b1.t_ref ≈ 0
 
   ele = sc5
   b1 = Bunch(deepcopy(v1), deepcopy(quat1), species=species, p_over_q_ref = BT.E_to_R(species, ele.E_ref-ele.dE_ref))
   track!(b1, ele)
-  # println(b1.coords.v)
   @test b1.coords.v ≈ out5
-  println(b1.coords.q)
   @test b1.t_ref ≈ 6.88028440803943e-9
 
   ele = sc6
   b1 = Bunch(deepcopy(v1), deepcopy(quat1), species=species, p_over_q_ref = BT.E_to_R(species, ele.E_ref-ele.dE_ref))
   track!(b1, ele)
-  # println(b1.coords.v)
   @test b1.coords.v ≈ out6
-  println(b1.coords.q)
   @test b1.t_ref ≈ 6.862133443570331e-9
 end
 

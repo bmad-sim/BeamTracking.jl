@@ -28,7 +28,7 @@ L:  element length
     deterministic_radiation!(     i, coords, q, mc2, E0, 0, mm, kn, ks, L / 2)
   end
 
-  multipole_and_spin_kick!(i, coords, mm, kn .* L, ks .* L, a, tilde_m, L)
+  multipole_and_spin_kick!(i, coords, mm, kn, ks, a, tilde_m, L)
 
   if radiation_damping
     deterministic_radiation!(     i, coords, q, mc2, E0, 0, mm, kn, ks, L / 2)

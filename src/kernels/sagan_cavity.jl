@@ -315,7 +315,7 @@ function multipole_kick_with_rad!(i, coords::Coords,
     stochastic_radiation!(i, coords, q, mass, E0, 0, 0, m_order, Kn, Ks, L2)
   end
 
-  multipole_and_spin_kick!(i, coords, m_order, Kn.*L,  Ks.*L, a, mass/P0c, L)
+  multipole_and_spin_kick!(i, coords, m_order, Kn,  Ks, a, mass/P0c, L)
 
   if rad_fluctuations_on
     stochastic_radiation!(i, coords, q, mass, E0, 0, 0, m_order, Kn, Ks, L2)

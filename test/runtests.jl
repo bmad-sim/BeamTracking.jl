@@ -30,7 +30,8 @@ function test_matrix(
   type_stable=VERSION >= v"1.11", 
   no_scalar_allocs=!(any(t->eltype(t) <: TPS, kernel_call.args)), # only for non-parametric 
   rtol=nothing, 
-  atol=nothing
+  atol=nothing,
+  printit = false
 )
   # Initialize bunch without spin
   v = transpose(@vars(D1))
@@ -51,7 +52,7 @@ function test_matrix(
   end
 
   # 1) Correctness
-  # println(GTPSA.jacobian(coords.v)[1:6,1:6])
+  if printit; println(GTPSA.jacobian(coords.v)[1:6,1:6]); end
   @test isapprox(GTPSA.jacobian(coords.v)[1:6,1:6], scalar.(M_expected); kwargs...)
 
   # 2) Type stability
