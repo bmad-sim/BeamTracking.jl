@@ -7,7 +7,7 @@
   E1_ref = R_to_E(species, p1_over_q_ref)
   dE_ref = beamlineP.dE_ref
   E0_ref = E1_ref - dE_ref
-  p0_over_q_ref = E_to_R(species, E0_ref)
+  p0q = E_to_R(species, E0_ref)
   t_phi0 = rf_phi0_calc(rfP, beamlineP.beamline.species_ref) / rf_omega
 
   mass = massof(species)
@@ -17,41 +17,52 @@
   t_ref = 0    # bunch.t_ref ## Relative time tracking assumed for now.
   a = gyromagnetic_anomaly(species)
 
+  #
+
   if L == 0
     if isnothing(bmultipoleP)
       return KernelCall(BeamTracking.sagan_cavity_zero_L!,
                    (Val{tm.radiation_damping_on}(), Val{tm.radiation_fluctuations_on}(), mass, q, E0_ref, dE_ref,
-                   t_ref, emptySA, emptySA, emptySA, a, q*rfP.voltage, rf_omega, t_phi0))
+                   t_ref, Val{false}(), Val{false}(), emptySA, emptySA, emptySA, a, q*rfP.voltage, rf_omega, t_phi0))
     else
-      BnL, BsL = get_integrated_strengths(bmultipoleP, L, p0_over_q_ref)
+      m_order = bmultipoleP.order
+      KnL, KsL = get_integrated_strengths(bmultipoleP, L, p0q)
+      has_mult = (length(m_order) > 0)
+      has_sol = (has_mult && m_order[1] == 0)
       return KernelCall(BeamTracking.sagan_cavity_zero_L!, 
-                   (Val{tm.radiation_damping_on}(),  Val{tm.radiation_fluctuations_on}(), mass, q, E0_ref, dE_ref,
-                   t_ref, bmultipoleP.order, BnL, BsL, a, q*rfP.voltage, rf_omega, t_phi0))
+                   (Val{tm.radiation_damping_on}(), Val{tm.radiation_fluctuations_on}(), mass, q, E0_ref, dE_ref,
+                   t_ref, Val{has_mult}(), Val{has_sol}(), m_order, KnL.*p0q, KsL.*p0q, a, q*rfP.voltage, rf_omega, t_phi0))
     end
 
   elseif L_active == 0
     if isnothing(bmultipoleP)
       return KernelCall(BeamTracking.sagan_cavity_zero_L_active!,
                    (Val{tm.radiation_damping_on}(), Val{tm.radiation_fluctuations_on}(), mass, q, E0_ref, dE_ref,
-                   t_ref, emptySA, emptySA, emptySA, a, q*rfP.voltage, rf_omega, t_phi0, L))
+                   t_ref, Val{false}(), Val{false}(), emptySA, emptySA, emptySA, a, q*rfP.voltage, rf_omega, t_phi0, L))
     else
-      Bn, Bs = get_strengths(bmultipoleP, L, p0_over_q_ref)
+      m_order = bmultipoleP.order
+      Kn, Ks = get_strengths(bmultipoleP, L, p0q)
+      has_mult = (length(m_order) > 0)
+      has_sol = (has_mult && m_order[1] == 0)
       return KernelCall(BeamTracking.sagan_cavity_zero_L_active!, 
-                   (Val{tm.radiation_damping_on}(),  Val{tm.radiation_fluctuations_on}(), mass, q, E0_ref, dE_ref,
-                   t_ref, bmultipoleP.order, Bn, Bs, a, q*rfP.voltage, rf_omega, t_phi0, L))
+                   (Val{tm.radiation_damping_on}(), Val{tm.radiation_fluctuations_on}(), mass, q, E0_ref, dE_ref,
+                   t_ref, Val{has_mult}(), Val{has_sol}(), m_order, Kn.*p0q, Ks.*p0q, a, q*rfP.voltage, rf_omega, t_phi0, L))
     end
 
   else
     if isnothing(bmultipoleP)
       return KernelCall(BeamTracking.sagan_cavity_thick!, 
                 (Val{tm.radiation_damping_on}(), Val{tm.radiation_fluctuations_on}(), Val{rfP.traveling_wave}(), 
-                mass, q, E0_ref, dE_ref, t_ref, n_cell, emptySA, emptySA, emptySA, a,
-                q*rfP.voltage, rf_omega, t_phi0, L_active, L))
+                mass, q, E0_ref, dE_ref, t_ref, n_cell, Val{false}(), Val{false}(), emptySA, emptySA, emptySA, 
+                a, q*rfP.voltage, rf_omega, t_phi0, L_active, L))
     else
-      Bn, Bs = get_strengths(bmultipoleP, L, p0_over_q_ref)
+      m_order = bmultipoleP.order
+      Kn, Ks = get_strengths(bmultipoleP, L, p0q)
+      has_mult = (length(m_order) > 0)
+      has_sol = (has_mult && m_order[1] == 0)
       return KernelCall(BeamTracking.sagan_cavity_thick!, 
-                (Val{tm.radiation_damping_on}(),  Val{tm.radiation_fluctuations_on}(), Val{rfP.traveling_wave}(), 
-                mass, q, E0_ref, dE_ref, t_ref, n_cell, bmultipoleP.order, Bn, Bs, a,
+                (Val{tm.radiation_damping_on}(), Val{tm.radiation_fluctuations_on}(), Val{rfP.traveling_wave}(), 
+                mass, q, E0_ref, dE_ref, t_ref, n_cell, Val{has_mult}(), Val{has_sol}(), m_order, Kn.*p0q, Ks.*p0q, a,
                 q*rfP.voltage, rf_omega, t_phi0, L_active, L))
     end
   end

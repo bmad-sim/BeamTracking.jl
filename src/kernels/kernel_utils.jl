@@ -1,5 +1,5 @@
 
-@makekernel fastgtpsa=true function multipole_and_spin_kick!(i, coords, mm, knL, ksL, a, tilde_m)
+@makekernel function multipole_and_spin_kick!(i, coords, mm, knL, ksL, a, tilde_m)
   if isnothing(coords.q)
     multipole_kick!(i, coords, mm, knL, ksL, -1)
   else
@@ -11,7 +11,7 @@ end
 
 # This version assumes L is no zero
 
-@makekernel fastgtpsa=true function multipole_and_spin_kick!(i, coords, mm, knL, ksL, a, tilde_m, L)
+@makekernel function multipole_and_spin_kick!(i, coords, mm, knL, ksL, a, tilde_m, L)
   if isnothing(coords.q)
     multipole_kick!(i, coords, mm, knL, ksL, -1)
   else

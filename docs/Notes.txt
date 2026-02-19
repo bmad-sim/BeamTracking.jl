@@ -15,3 +15,21 @@ uses the reference momentum at the downstream end
 * With standing wave cavities: 
 The pondermotive kick is ignored with `L_active` zero (Otherwise the kick would be infinite).
 A very small `L_active` will lead to unphysical results.
+
+* L_active cannot be greater than L.
+
+* zero L_active means that the fringe and pondermotive forces will not be applied. Note that
+with fixed voltage, decreasing L_active towards zero will produce huge fringe and pondermotive forces.
+This means that tracking results with L_active tiny will be quite different from tracking 
+results with L_active zero.
+
+
+----------------------------------------------------------------------------------------------------
+
+Other notes:
+
+* Something like:
+  if rad < 0; error("Change in reference energy too negative."); end
+with the advent of batch parameters, almost everything is (potentially) a vector operation.
+So this should be rewriten using vifelse.
+  

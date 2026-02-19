@@ -4,7 +4,8 @@
 @makekernel fastgtpsa=true function sagan_cavity_zero_L!(i, coords::Coords, 
                                       val_rad_damping_on, val_rad_fluctuations_on,
                                       mass, q, E0_ref, dE_ref, t_ref, 
-                                      m_order, BnL, BsL, a, q_voltage, rf_omega, t_phi0)
+                                      val_has_mult, val_has_sol, m_order, BnL, BsL, 
+                                      a, q_voltage, rf_omega, t_phi0)
   P0c = sqrt(E0_ref^2 - mass^2)
   q_over_p_ref = q * C_LIGHT / P0c
 
@@ -30,9 +31,9 @@ end
 # Here L_active is zero and L is nonzero. Note: The case L_active > L is not allowed.
 
 @makekernel fastgtpsa=true function sagan_cavity_zero_L_active!(i, coords::Coords, 
-                                      val_rad_damping_on, val_rad_fluctuations_on,
-                                      mass, q, E0_ref, dE_ref, t_ref, 
-                                      m_order, Bn, Bs, a, q_voltage, rf_omega, t_phi0, L)
+                        val_rad_damping_on, val_rad_fluctuations_on,
+                        mass, q, E0_ref, dE_ref, t_ref, 
+                        val_has_mult, val_has_sol, m_order, Bn, Bs, a, q_voltage, rf_omega, t_phi0, L)
   L_out = L / 2           # Length outside of active region
   P0c = sqrt(E0_ref^2 - mass^2)
   q_over_p_ref = q * C_LIGHT / P0c
@@ -40,7 +41,7 @@ end
   # Outside Drift
   f = q_over_p_ref
   sagan_cavity_outside_drift!(i, coords, val_rad_damping_on, val_rad_fluctuations_on,
-                                            q, m_order, Bn .* f, Bs .* f, a, mass, P0c, L_out)
+                    val_has_mult, val_has_sol, m_order, Bn .* f, Bs .* f, q, a, mass, P0c, L_out)
 
   # Energy kick
   sagan_cavity_kick!(i, coords, a, q_voltage, rf_omega, t_phi0, t_ref, mass, P0c)
@@ -54,7 +55,7 @@ end
   # Outside Drift
   f = q_over_p_ref
   sagan_cavity_outside_drift!(i, coords, val_rad_damping_on, val_rad_fluctuations_on,
-                                         q, m_order, Bn .* f ,  Bs .* f, a, mass, P0c, L_out)
+                    val_has_mult, val_has_sol, m_order, Bn .* f, Bs .* f, q, a, mass, P0c, L_out)
 end
 
 #---------------------------------------------------------------------------------------------------
@@ -62,7 +63,8 @@ end
 
 @makekernel fastgtpsa=true function sagan_cavity_thick!(i, coords::Coords, 
               val_rad_damping_on, val_rad_fluctuations_on, val_traveling_wave, 
-              mass, q, E0_ref, dE_ref, t_ref, n_cell, m_order, Bn, Bs, 
+              mass, q, E0_ref, dE_ref, t_ref, n_cell, 
+              val_has_mult, val_has_sol, m_order, Bn, Bs, 
               a, q_voltage, rf_omega, t_phi0, L_active, L)
 
   L_out = (L - L_active) / 2           # Length outside of active region
@@ -72,7 +74,8 @@ end
 
   # Outside Drift
   sagan_cavity_outside_drift!(i, coords, val_rad_damping_on, val_rad_fluctuations_on,
-                    q, m_order, Bn .* q_over_p_ref, Bs .* q_over_p_ref, a, mass, P0c, L_out)
+          val_has_mult, val_has_sol, m_order, Bn .* q_over_p_ref, Bs .* q_over_p_ref, 
+          q, a, mass, P0c, L_out)
 
   # Fringe kick at beginning. 
   sagan_cavity_fringe!(i, coords, a, q_gradient, rf_omega, t_phi0, t_ref, mass, P0c, +1)
@@ -82,7 +85,8 @@ end
 
   if n_cell == 0
     sagan_cavity_inside_drift!(i, coords, val_rad_damping_on, val_rad_fluctuations_on, val_traveling_wave,
-              q, q_gradient, m_order, Bn .* q_over_p_ref, Bs .* q_over_p_ref, a, mass, P0c, L_active/2)
+              val_has_mult, val_has_sol, m_order, Bn .* q_over_p_ref, Bs .* q_over_p_ref, 
+              q, q_gradient, a, mass, P0c, L_active/2)
     sagan_cavity_kick!(i, coords, a, q_voltage, rf_omega, t_phi0, t_ref, mass, P0c)
     dP0c = dpc_given_dE(P0c, dE_ref, mass)
     reference_momentum_shift!(i, coords, P0c, dP0c, true)
@@ -90,7 +94,8 @@ end
     q_over_p_ref = q * C_LIGHT / P0c
 
     sagan_cavity_inside_drift!(i, coords, val_rad_damping_on, val_rad_fluctuations_on, val_traveling_wave,
-                q, q_gradient, m_order, Bn .* q_over_p_ref, Bs .* q_over_p_ref, a, mass, P0c, L_active/2)
+                val_has_mult, val_has_sol, m_order, Bn .* q_over_p_ref, Bs .* q_over_p_ref, 
+                q, q_gradient, a, mass, P0c, L_active/2)
 
   else
     for i_step = 0:n_cell
@@ -107,7 +112,8 @@ end
       # Drift
       if i_step == n_cell; break; end
       sagan_cavity_inside_drift!(i, coords, val_rad_damping_on, val_rad_fluctuations_on, val_traveling_wave,
-           q, q_gradient, m_order, Bn .* q_over_p_ref, Bs .* q_over_p_ref, a, mass, P0c, L_active/n_cell)
+           val_has_mult, val_has_sol, m_order, Bn .* q_over_p_ref, Bs .* q_over_p_ref, 
+           q, q_gradient, a, mass, P0c, L_active/n_cell)
     end
   end
 
@@ -116,7 +122,8 @@ end
 
   # Outside Drift
   sagan_cavity_outside_drift!(i, coords, val_rad_damping_on, val_rad_fluctuations_on,
-                      q, m_order, Bn .* q_over_p_ref, Bs .* q_over_p_ref, a, mass, P0c, L_out)
+              val_has_mult, val_has_sol, m_order, Bn .* q_over_p_ref, Bs .* q_over_p_ref, 
+              q, a, mass, P0c, L_out)
 end
 
 #---------------------------------------------------------------------------------------------------
@@ -124,7 +131,8 @@ end
 
 function sagan_cavity_inside_drift!(i, coords::Coords, 
                         val_rad_damping_on, val_rad_fluctuations_on, ::Val{traveling_wave}, 
-                        q, q_gradient, m_order, Kn, Ks, a, mass, P0c, L) where {traveling_wave}
+                        val_has_mult, val_has_sol, m_order, Kn, Ks, 
+                        q, q_gradient, a, mass, P0c, L) where {traveling_wave}
   beta0 = P0c / sqrt(P0c^2 + mass^2)
   gamma0 = P0c / (mass * beta0)
 
@@ -135,7 +143,7 @@ function sagan_cavity_inside_drift!(i, coords::Coords,
 
   # Drift
   sagan_cavity_outside_drift!(i, coords, val_rad_damping_on, val_rad_fluctuations_on, 
-                                                            q, m_order, Kn, Ks, a, mass, P0c, L)
+                                    val_has_mult, val_has_sol, m_order, Kn, Ks, q, a, mass, P0c, L)
 
   # 1/2 pondermotive kick
   # The pondermotive force only occurs if there is a EM wave in the opposite direction from the direction of travel.
@@ -147,21 +155,20 @@ end
 #---------------------------------------------------------------------------------------------------
 # The "outside" drift does not have the pondermotive kick that the "inside" drift does.
 
-@makekernel fastgtpsa=true function sagan_cavity_outside_drift!(i, coords::Coords, 
-                                     val_rad_damping_on, val_rad_fluctuations_on, 
-                                     q, m_order, Kn, Ks, a, mass, P0c, L)
+function sagan_cavity_outside_drift!(i, coords::Coords, 
+                        val_rad_damping_on, val_rad_fluctuations_on, 
+                        ::Val{has_mult}, ::Val{has_sol}, m_order, Kn, Ks, 
+                        q, a, mass, P0c, L) where {has_mult, has_sol}
   beta0 = P0c / sqrt(P0c^2 + mass^2)
   gamma0 = P0c / (mass * beta0)
-  has_multipoles = (length(m_order) > 0)
-  has_sol = (has_multipoles && m_order[1] == 0)
 
   # 1/2 Multipole kick
-  if has_multipoles
+  if has_mult
     multipole_kick_with_rad!(i, coords, val_rad_damping_on, val_rad_fluctuations_on, 
                                   q, m_order, Kn, Ks, a, mass, P0c, beta0, L/2)
   end
 
-  # Drift
+  # Solenoid or Drift
   if has_sol
     exact_solenoid!(i, coords, Kn[1], beta0, gamma0*gamma0, mass/P0c, L)
   else
@@ -169,7 +176,7 @@ end
   end
 
   # 1/2 Multipole kick
-  if has_multipoles
+  if has_mult
     multipole_kick_with_rad!(i, coords, val_rad_damping_on, val_rad_fluctuations_on, 
                                   q, m_order, Kn, Ks, a, mass, P0c, beta0, L/2)
   end
@@ -350,7 +357,6 @@ end
 #---------------------------------------------------------------------------------------------------
 
 function dpc_given_dE(old_pc, dE, mass)
-  rad = dE*dE + 2*sqrt(old_pc*old_pc + mass^2) * dE + old_pc*old_pc
-  if rad < 0; error("Change in reference energy too negative."); end
-  return sqrt(rad) - old_pc
+  rad = dE*dE + 2*sqrt(old_pc*old_pc + mass^2) * dE
+  return rad/(sqrt(rad + old_pc*old_pc) + old_pc)
 end
