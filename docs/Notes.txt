@@ -23,6 +23,9 @@ with fixed voltage, decreasing L_active towards zero will produce huge fringe an
 This means that tracking results with L_active tiny will be quite different from tracking 
 results with L_active zero.
 
+* n_cell is ignored if L_active is zero.
+* n_cell = 0 gives one kick at the center
+* n_cell > 0 gives a kick at the edges of the cell with the first and last kicks being half strength.
 
 ----------------------------------------------------------------------------------------------------
 
