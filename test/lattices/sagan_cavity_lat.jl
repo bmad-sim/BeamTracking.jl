@@ -24,7 +24,14 @@ end
   m2 = Marker(E_ref = E0, species_ref = species)
 end
 
+@elements begin
+  sc7 = RFCavity(L = 2.0, voltage = 0.2*E0, rf_frequency =1e9, dE_ref = 0.1*E0, Ksol = 0.01, Kn1L = 0.001,
+                  tracking_method = SaganCavity(n_cell = 3, L_active = 0.0), zero_phase = PhaseReference.BelowTransition)
+  m3 = Marker(E_ref = E0, species_ref = species)
+end
+
 lat = Lattice([m, sc1, sc2, sc3])
 lat2 = Lattice([m2, sc4, sc5, sc6])
+lat3 = Lattice([m3, sc7])
 
 ;
