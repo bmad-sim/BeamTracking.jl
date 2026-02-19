@@ -13,11 +13,10 @@ using BeamTracking: Coords, KernelCall, Q0, QX, QY, QZ, STATE_ALIVE, STATE_LOST,
       STATE_LOST_NEG_X, STATE_LOST_POS_X, STATE_LOST_NEG_Y, STATE_LOST_POS_Y, STATE_LOST_PZ, STATE_LOST_Z,
       rot_quaternion, inv_rot_quaternion, atan2, sincu, sinhcu, sincuc, expq, atan2,
       quat_mul, quat_rotate, gaussian_random
-using Beamlines: isactive
 
 include("../lattices/sagan_cavity_lat.jl")
 import BeamTracking as BT
-printit = true
+printit = false
 
 v1 = [0.01  0.02  0.03  0.04  0.05  0.1]
 quat1 = [1.0  0.0  0.0  0.0]
@@ -106,11 +105,6 @@ end
 
 
 
-# Test spin
-# Test multipoles
-# Test zero length
-# standing/traveling waves
+
 # dE_ref
-# differing n_steps
-# differing n_cell
-# non-zero starting orbit
+

@@ -40,6 +40,7 @@ L = 2.0
 mass = 1e6
 q = -2
 E0 = 1e7
+P0c = sqrt(E0^2 - mass^2)
 dE = 1e6
 E1 = E0 + dE
 p_over_q = sqrt(E1^2 - mass^2) / (C_LIGHT * q)
@@ -55,21 +56,21 @@ a = 0.1
 #
 
 @testset "SaganCavityKernel" begin
-  args = (Val{true}(), Val{false}(), mass, q, E0, dE, t_ref, Val{true}(), order, Bn, Bs, a, q*voltage, rf_omega, t_phi0)
+  args = (Val{true}(), Val{false}(), mass, q, P0c, dE, t_ref, Val{true}(), order, Bn, Bs, a, q*voltage, rf_omega, t_phi0)
   bunch = Bunch(copy(vb1), deepcopy(quat1))
   BT.launch!(bunch.coords, KernelCall(BT.sagan_cavity_zero_L!, args))
   @test bunch.coords.v ≈ out1
   @test bunch.coords.q ≈ qout1
   test_matrix(m1out, KernelCall(BT.sagan_cavity_zero_L!, args), printit = printit)
 
-  args = (Val{true}(), Val{false}(), mass, q, E0, dE, t_ref, Val{true}(), Val{true}(), order, Bn, Bs, a, q*voltage, rf_omega, t_phi0, L)
+  args = (Val{true}(), Val{false}(), mass, q, P0c, dE, t_ref, Val{true}(), Val{true}(), order, Bn, Bs, a, q*voltage, rf_omega, t_phi0, L)
   bunch = Bunch(copy(vb1), deepcopy(quat1))
   BT.launch!(bunch.coords, KernelCall(BT.sagan_cavity_zero_L_active!, args))
   @test bunch.coords.v ≈ out2
   @test bunch.coords.q ≈ qout2
   test_matrix(m2out, KernelCall(BT.sagan_cavity_zero_L_active!, args))
 
-  args = (Val{true}(), Val{false}(), Val{false}(), mass, q, E0, dE, t_ref, 2.0, Val{true}(), Val{true}(), order, Bn, Bs, a, q*voltage, rf_omega, t_phi0, L/2, L)
+  args = (Val{true}(), Val{false}(), Val{false}(), mass, q, P0c, dE, t_ref, 2.0, Val{true}(), Val{true}(), order, Bn, Bs, a, q*voltage, rf_omega, t_phi0, L/2, L)
   bunch = Bunch(copy(vb1), deepcopy(quat1))
   BT.launch!(bunch.coords, KernelCall(BT.sagan_cavity_thick!, args))
   @test bunch.coords.v ≈ out3

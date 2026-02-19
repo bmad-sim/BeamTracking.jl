@@ -3,10 +3,11 @@
 
 function sagan_cavity_zero_L!(i, coords::Coords, 
                                       val_rad_damping_on, val_rad_fluctuations_on,
-                                      mass, q, E0_ref, dE_ref, t_ref, 
+                                      mass, q, P0c, dE_ref, t_ref, 
                                       ::Val{has_mult}, m_order, BnL, BsL, 
                                       a, q_voltage, rf_omega, t_phi0) where {has_mult}
-  P0c = sqrt(E0_ref^2 - mass^2)
+  @inbounds begin
+
   q_over_p_ref = q * C_LIGHT / P0c
 
   # Multipole kick
@@ -29,6 +30,9 @@ function sagan_cavity_zero_L!(i, coords::Coords,
     f = q_over_p_ref / 2
     multipole_and_spin_kick!(i, coords, m_order, BnL .* f, BsL .* f, a, mass/P0c)
   end
+
+  return nothing
+  end
 end
 
 #---------------------------------------------------------------------------------------------------
@@ -36,10 +40,9 @@ end
 
 @makekernel fastgtpsa=true function sagan_cavity_zero_L_active!(i, coords::Coords, 
                         val_rad_damping_on, val_rad_fluctuations_on,
-                        mass, q, E0_ref, dE_ref, t_ref, 
+                        mass, q, P0c, dE_ref, t_ref, 
                         val_has_mult, val_has_sol, m_order, Bn, Bs, a, q_voltage, rf_omega, t_phi0, L)
   L_out = L / 2    # Length outside of active region
-  P0c = sqrt(E0_ref^2 - mass^2)
   q_over_p_ref = q * C_LIGHT / P0c
 
   # Outside Drift
@@ -67,13 +70,12 @@ end
 
 @makekernel fastgtpsa=true function sagan_cavity_thick!(i, coords::Coords, 
               val_rad_damping_on, val_rad_fluctuations_on, val_traveling_wave, 
-              mass, q, E0_ref, dE_ref, t_ref, n_cell, 
+              mass, q, P0c, dE_ref, t_ref, n_cell, 
               val_has_mult, val_has_sol, m_order, Bn, Bs, 
               a, q_voltage, rf_omega, t_phi0, L_active, L)
 
   L_out = (L - L_active) / 2           # Length outside of active region
   q_gradient = q_voltage / L_active    # Effective gradient
-  P0c = sqrt(E0_ref^2 - mass^2)
   q_over_p_ref = q * C_LIGHT / P0c
 
   # Outside Drift

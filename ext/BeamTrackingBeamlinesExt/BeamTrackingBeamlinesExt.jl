@@ -9,8 +9,6 @@ using BeamTracking: R_to_E, R_to_beta_gamma, R_to_gamma, R_to_pc, R_to_v,
                     
 import BeamTracking: track!
 
-include("utils.jl")
-
 function track!(
   bunch::Bunch, 
   ele::LineElement;
@@ -42,10 +40,11 @@ function track!(
   return bunch
 end
 
-include("unpack.jl")
-include("scibmadstandard.jl")
-include("exact.jl")
-include("yoshida.jl")
+include("utils_bl.jl")
+include("unpack_bl.jl")
+include("scibmadstandard_bl.jl")
+include("exact_bl.jl")
+include("yoshida_bl.jl")
 include("sagan_cavity_bl.jl")
 include("general_bl.jl")
 
