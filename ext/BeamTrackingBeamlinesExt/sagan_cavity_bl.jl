@@ -14,7 +14,7 @@
   p0q = E_to_R(species, E0_ref)
   t_phi0 = rf_phi0_calc(rfP, beamlineP.beamline.species_ref) / rf_omega
 
-  n_cell, L_active = rf_step_calc(tm.n_cell, tm.L_active, rf_omega, L)
+  num_cells, L_active = rf_step_calc(tm.num_cells, tm.L_active, rf_omega, L)
   L_active <= L * (1 + eps(L)) || error("Cavity cannot have L_active ($L_active) greater than L ($L)." )
   t_ref = 0    # bunch.t_ref ## Relative time tracking assumed for now.
   a = gyromagnetic_anomaly(species)
@@ -54,7 +54,7 @@
     if isnothing(bmultipoleP)
       return KernelCall(BeamTracking.sagan_cavity_thick!, 
                 (Val{tm.radiation_damping_on}(), Val{tm.radiation_fluctuations_on}(), Val{rfP.traveling_wave}(), 
-                mass, q, P0c, dE_ref, t_ref, n_cell, Val{false}(), Val{false}(), SA{Int32}[], SA{Int32}[], SA{Int32}[], 
+                mass, q, P0c, dE_ref, t_ref, num_cells, Val{false}(), Val{false}(), SA{Int32}[], SA{Int32}[], SA{Int32}[], 
                 a, q*rfP.voltage/L_active, rf_omega, t_phi0, L_active, L))
     else
       m_order = bmultipoleP.order
@@ -63,7 +63,7 @@
       has_sol = (has_mult && m_order[1] == 0)
       return KernelCall(BeamTracking.sagan_cavity_thick!, 
                 (Val{tm.radiation_damping_on}(), Val{tm.radiation_fluctuations_on}(), Val{rfP.traveling_wave}(), 
-                mass, q, P0c, dE_ref, t_ref, n_cell, Val{has_mult}(), Val{has_sol}(), m_order, Kn.*p0q, Ks.*p0q, a,
+                mass, q, P0c, dE_ref, t_ref, num_cells, Val{has_mult}(), Val{has_sol}(), m_order, Kn.*p0q, Ks.*p0q, a,
                 q*rfP.voltage/L_active, rf_omega, t_phi0, L_active, L))
     end
   end

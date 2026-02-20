@@ -26,15 +26,13 @@ properties, though I've not seen a proof of that claim.
    Moreover, and this is essential, the multipole coefficients must appear in ascending order.
 """
 @makekernel fastgtpsa=true function multipole_kick!(i, coords::Coords, ms, knl, ksl, excluding)
-  if length(ms) != 0
-    v = coords.v
-    alive = (coords.state[i] == STATE_ALIVE)
-    bx, by = normalized_field(ms, knl, ksl, v[i,XI], v[i,YI], excluding)
-    bx_0 = zero(bx)
-    by_0 = zero(by)
-    v[i,PXI] -= vifelse(alive, by, by_0)                   
-    v[i,PYI] += vifelse(alive, bx, bx_0)
-  end
+  v = coords.v
+  alive = (coords.state[i] == STATE_ALIVE)
+  bx, by = normalized_field(ms, knl, ksl, v[i,XI], v[i,YI], excluding)
+  bx_0 = zero(bx)
+  by_0 = zero(by)
+  v[i,PXI] -= vifelse(alive, by, by_0)                   
+  v[i,PYI] += vifelse(alive, bx, bx_0)
 end # function multipole_kick!()
 
 

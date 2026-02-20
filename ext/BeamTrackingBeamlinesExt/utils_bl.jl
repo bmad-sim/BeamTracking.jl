@@ -221,24 +221,24 @@ end
 
 #---------------------------------------------------------------------------------------------------
 """
-    rf_step_calc(n_cell, L_active, rf_omega, L) -> n_cell_out, L_active_out
+    rf_step_calc(num_cells, L_active, rf_omega, L) -> num_cells_out, L_active_out
 
-For an element of length `L`, calculate the number of RF cells (kicks) `n_cell_out` and the active length 
-`L_active_out` given the input number of cells `n_cell` and the active length length `L_active`.
+For an element of length `L`, calculate the number of RF cells (kicks) `num_cells_out` and the active length 
+`L_active_out` given the input number of cells `num_cells` and the active length length `L_active`.
 
 If `L_active` is negative, `L_active_out` is set to the element length `L`.
-If `n_cell` is negative, `n_cell_out` is set so that the cell length is near half a wavelength.
-If `L_active` is zero, `n_cell_out` is set to zero.
+If `num_cells` is negative, `num_cells_out` is set so that the cell length is near half a wavelength.
+If `L_active` is zero, `num_cells_out` is set to zero.
 """
-function rf_step_calc(n_cell, L_active, rf_omega, L)  
+function rf_step_calc(num_cells, L_active, rf_omega, L)  
   L_active < 0 ? L_act = L : L_act = L_active
 
-  if n_cell < 0
+  if num_cells < 0
     return round(rf_omega * L_act / (pi * C_LIGHT)), L_act
   elseif L_active == 0
     return 0, L_active
   else
-    return n_cell, L_act
+    return num_cells, L_act
   end
 end
 
@@ -256,20 +256,20 @@ function bunch_dt_ref(tm::SaganCavity, bunch, rfP, beamlineP, L)
   species = bunch.species
   p1_over_q_ref = beamlineP.beamline.p_over_q_ref
   rf_omega = rf_omega_calc(rfP, beamlineP.beamline.line[end].s_downstream, species, p1_over_q_ref)
-  n_cell, L_active = rf_step_calc(tm.n_cell, tm.L_active, rf_omega, L)
+  num_cells, L_active = rf_step_calc(tm.num_cells, tm.L_active, rf_omega, L)
   L_outer = (L - L_active) / 2
   E1_ref = R_to_E(species, p1_over_q_ref)
   dE_ref = beamlineP.dE_ref
   E0_ref = E1_ref - dE_ref
   dt_ref = L_outer/E_to_v(species, E0_ref) + L_outer/E_to_v(species, E1_ref)
 
-  if n_cell == 0
+  if num_cells == 0
     L_inner = L_active / 2
     dt_ref += L_inner/E_to_v(species, E0_ref) + L_inner/E_to_v(species, E1_ref)
   else
-    for i_step = 1:n_cell
-      E_now_ref = E0_ref + (i_step - 1/2) * dE_ref / n_cell
-      dt_ref += L_active / (n_cell * E_to_v(species, E_now_ref))
+    for i_step = 1:num_cells
+      E_now_ref = E0_ref + (i_step - 1/2) * dE_ref / num_cells
+      dt_ref += L_active / (num_cells * E_to_v(species, E_now_ref))
     end
   end
 
