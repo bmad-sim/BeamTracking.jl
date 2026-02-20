@@ -37,13 +37,14 @@ function _track!(
   end
 
   # Function barrier
-  universal!(coords, tm, ramp_without_rf, bunch, L, p_over_q_ref, ap, bp, bm, pp, dp, rp, lp, mp; kwargs...)
+  universal!(coords, tm, ele, ramp_without_rf, bunch, L, p_over_q_ref, ap, bp, bm, pp, dp, rp, lp, mp; kwargs...)
 end
 
 # Step 2: Push particles through -----------------------------------------
 function universal!(
   coords,
   tm,
+  ele,
   ramp_without_rf, 
   bunch,
   L, 
@@ -119,7 +120,7 @@ function universal!(
       kc = push(kc, @inline(pure_patch(tm, bunch, patchparams, L)))
     end
 
-  elseif !isnothing(rfparams)   # Need to handle the case if Voltage = 0 but dE_ref is finite
+  elseif isactive(rfparams)
     if isactive(bendparams)
       error("Tracking through a LineElement containing both RFParams and BendParams not currently defined")
     end
@@ -240,11 +241,107 @@ function universal!(
   @noinline launch!(coords, kc; kwargs...)
 
   # Evolve time through whole element
-  bunch.t_ref += bunch_dt_ref(tm, bunch, rfparams, beamlineparams, L)
+  bunch.t_ref += L / beta_gamma_to_v(beta_gamma_ref)
 
   return nothing
 end
 
+#---------------------------------------------------------------------------------------------------
+# universal! for SaganCavity tracking.
+
+function universal!(coords, tm::SaganCavity, ele, ramp_without_rf, bunch, L,
+  p_over_q_ref, alignmentparams, bendparams, bmultipoleparams, patchparams, apertureparams,
+  rfparams, beamlineparams, mapparams; kwargs...) 
+
+  !isactive(mapparams) || error("SaganCavity Tracking through element $ele_name with MapParams is undefined")
+  !isactive(patchparams) || error("SaganCavity Tracking through element $ele_name with PatchParams is undefined")
+  !isactive(patchparams) || error("SaganCavity Tracking through element $ele_name with BendParams is undefined")
+  isactive(rfparams) || error("SaganCavity Tracking through element $ele_name without RFParams is undefined")
+
+  beta_gamma_ref = R_to_beta_gamma(bunch.species, bunch.p_over_q_ref)
+  kc = KernelChain(Val{6}(), RefState(bunch.t_ref, beta_gamma_ref))
+
+  # Ramping
+  if p_over_q_ref isa TimeDependentParam
+    p_over_q_ref_initial = bunch.p_over_q_ref
+    p_over_q_ref_final = p_over_q_ref(bunch.t_ref)
+    if !(p_over_q_ref_initial ≈ p_over_q_ref_final)
+      kc = push(kc, KernelCall(BeamTracking.reference_momentum_shift!, (p_over_q_ref_initial, 
+                                       p_over_q_ref_final-p_over_q_ref_initial, !ramp_without_rf)))
+      setfield!(bunch, :p_over_q_ref, p_over_q_ref_final)
+    end
+  end
+
+  # Entrance aperture and alignment
+  if isactive(alignmentparams)
+    if isactive(apertureparams)
+      if apertureparams.aperture_shifts_with_body
+        kc = push(kc, @inline(alignment(tm, bunch, alignmentparams, bendparams, L, true)))
+        kc = push(kc, @inline(aperture(tm, bunch, apertureparams, true)))
+      else
+        kc = push(kc, @inline(aperture(tm, bunch, apertureparams, true)))
+        kc = push(kc, @inline(alignment(tm, bunch, alignmentparams, bendparams, L, true)))
+      end
+    else
+      kc = push(kc, @inline(alignment(tm, bunch, alignmentparams, bendparams, L, true)))
+    end
+  elseif isactive(apertureparams)
+    kc = push(kc, @inline(aperture(tm, bunch, apertureparams, true)))
+  end
+
+  # Cavity tracking
+  kc = push(kc, @inline(sagan_cavity(tm, bunch, ele.name, bmultipoleparams, rfparams, beamlineparams, L)))
+
+  # Exit aperture and alignment
+  if isactive(alignmentparams)
+    if isactive(apertureparams)
+      if apertureparams.aperture_shifts_with_body
+        kc = push(kc, @inline(aperture(tm, bunch, apertureparams, false)))
+        kc = push(kc, @inline(alignment(tm, bunch, alignmentparams, bendparams, L, false)))
+      else
+        kc = push(kc, @inline(alignment(tm, bunch, alignmentparams, bendparams, L, false)))
+        kc = push(kc, @inline(aperture(tm, bunch, apertureparams, false)))
+      end
+    else
+      kc = push(kc, @inline(alignment(tm, bunch, alignmentparams, bendparams, L, false)))
+    end
+  elseif isactive(apertureparams)
+    kc = push(kc, @inline(aperture(tm, bunch, apertureparams, false)))
+  end
+
+  # noinline necessary here for small binaries and faster execution
+  @noinline launch!(coords, kc; kwargs...)
+
+  # reference time change
+  if L != 0
+    species = bunch.species
+    p1_over_q_ref = beamlineparams.beamline.p_over_q_ref
+    rf_omega = rf_omega_calc(rfparams, beamlineparams.beamline.line[end].s_downstream, species, p1_over_q_ref)
+    num_cells, L_active = rf_step_calc(tm.num_cells, tm.L_active, rf_omega, L)
+    L_outer = (L - L_active) / 2
+    E1_ref = R_to_E(species, p1_over_q_ref)
+    dE_ref = beamlineparams.dE_ref
+    E0_ref = E1_ref - dE_ref
+    dt_ref = L_outer/E_to_v(species, E0_ref) + L_outer/E_to_v(species, E1_ref)
+ 
+    if num_cells == 0
+      L_inner = L_active / 2
+      dt_ref += L_inner/E_to_v(species, E0_ref) + L_inner/E_to_v(species, E1_ref)
+    else
+      for i_step = 1:num_cells
+        E_now_ref = E0_ref + (i_step - 1/2) * dE_ref / num_cells
+        dt_ref += L_active / (num_cells * E_to_v(species, E_now_ref))
+      end
+    end
+
+    bunch.t_ref += dt_ref
+  end
+
+  return nothing
+
+end
+
+#---------------------------------------------------------------------------------------------------
 
 # === Drift === #
 @inline drift(tm, bunch, L) = error("Undefined for tracking method $tm")

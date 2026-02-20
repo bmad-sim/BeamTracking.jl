@@ -241,37 +241,3 @@ function rf_step_calc(num_cells, L_active, rf_omega, L)
     return num_cells, L_act
   end
 end
-
-#---------------------------------------------------------------------------------------------------
-
-function bunch_dt_ref(tm, bunch, rfP, beamlineP, L)
-  beta_gamma_ref = R_to_beta_gamma(bunch.species, bunch.p_over_q_ref)
-   L / beta_gamma_to_v(beta_gamma_ref)
-end
-
-
-function bunch_dt_ref(tm::SaganCavity, bunch, rfP, beamlineP, L)
-  if L == 0; return 0; end
-
-  species = bunch.species
-  p1_over_q_ref = beamlineP.beamline.p_over_q_ref
-  rf_omega = rf_omega_calc(rfP, beamlineP.beamline.line[end].s_downstream, species, p1_over_q_ref)
-  num_cells, L_active = rf_step_calc(tm.num_cells, tm.L_active, rf_omega, L)
-  L_outer = (L - L_active) / 2
-  E1_ref = R_to_E(species, p1_over_q_ref)
-  dE_ref = beamlineP.dE_ref
-  E0_ref = E1_ref - dE_ref
-  dt_ref = L_outer/E_to_v(species, E0_ref) + L_outer/E_to_v(species, E1_ref)
-
-  if num_cells == 0
-    L_inner = L_active / 2
-    dt_ref += L_inner/E_to_v(species, E0_ref) + L_inner/E_to_v(species, E1_ref)
-  else
-    for i_step = 1:num_cells
-      E_now_ref = E0_ref + (i_step - 1/2) * dE_ref / num_cells
-      dt_ref += L_active / (num_cells * E_to_v(species, E_now_ref))
-    end
-  end
-
-  return dt_ref
-end

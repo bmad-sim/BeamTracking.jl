@@ -1,6 +1,6 @@
 #---------------------------------------------------------------------------------------------------
 
-@inline function RFcavity(tm::SaganCavity, bunch, bmultipoleP, rfP, beamlineP, L)
+@inline function sagan_cavity(tm::SaganCavity, bunch, ele_name, bmultipoleP, rfP, beamlineP, L)
   species = bunch.species
   mass = massof(species)
   q = chargeof(species)
@@ -15,7 +15,7 @@
   t_phi0 = rf_phi0_calc(rfP, beamlineP.beamline.species_ref) / rf_omega
 
   num_cells, L_active = rf_step_calc(tm.num_cells, tm.L_active, rf_omega, L)
-  L_active <= L * (1 + eps(L)) || error("Cavity cannot have L_active ($L_active) greater than L ($L)." )
+  L_active <= L * (1 + eps(L)) || error("Cavity $ele_name, cannot have L_active ($L_active) greater than L ($L)." )
   t_ref = 0    # bunch.t_ref ## Relative time tracking assumed for now.
   a = gyromagnetic_anomaly(species)
 
