@@ -6,13 +6,10 @@ function sagan_cavity_zero_L!(i, coords::Coords,
                                       mass, q, P0c, dE_ref, t_ref, 
                                       ::Val{has_mult}, m_order, BnL, BsL, 
                                       a, q_voltage, rf_omega, t_phi0) where {has_mult}
-  @inbounds begin
-
-  q_over_p_ref = q * C_LIGHT / P0c
-
+@inbounds begin
   # Multipole kick
   if has_mult
-    f = q_over_p_ref / 2
+    f = q * C_LIGHT / (2 * P0c)    # q_over_p_ref / 2
     multipole_and_spin_kick!(i, coords, m_order, BnL .* f, BsL .* f, a, mass/P0c)
   end
 
@@ -23,16 +20,13 @@ function sagan_cavity_zero_L!(i, coords::Coords,
   dP0c = dpc_given_dE(P0c, dE_ref, mass)
   reference_momentum_shift!(i, coords, P0c, dP0c, true)
   P0c += dP0c
-  q_over_p_ref = q * C_LIGHT / P0c
 
   # Multipole kick
   if has_mult
-    f = q_over_p_ref / 2
+    f = q * C_LIGHT / (2 * P0c)    # q_over_p_ref / 2
     multipole_and_spin_kick!(i, coords, m_order, BnL .* f, BsL .* f, a, mass/P0c)
   end
-
-  return nothing
-  end
+end
 end
 
 #---------------------------------------------------------------------------------------------------
@@ -42,13 +36,11 @@ end
                         val_rad_damping_on, val_rad_fluctuations_on,
                         mass, q, P0c, dE_ref, t_ref, 
                         val_has_mult, val_has_sol, m_order, Bn, Bs, a, q_voltage, rf_omega, t_phi0, L)
-  L_out = L / 2    # Length outside of active region
-  q_over_p_ref = q * C_LIGHT / P0c
 
   # Outside Drift
-  f = q_over_p_ref
+  f = q * C_LIGHT / P0c    # q_over_p_ref
   sagan_cavity_outside_drift!(i, coords, val_rad_damping_on, val_rad_fluctuations_on,
-                    val_has_mult, val_has_sol, m_order, Bn .* f, Bs .* f, q, a, mass, P0c, L_out)
+                    val_has_mult, val_has_sol, m_order, Bn .* f, Bs .* f, q, a, mass, P0c, L/2)
 
   # Energy kick
   sagan_cavity_kick!(i, coords, a, q_voltage, rf_omega, t_phi0, t_ref, mass, P0c)
@@ -57,12 +49,11 @@ end
   dP0c = dpc_given_dE(P0c, dE_ref, mass)
   reference_momentum_shift!(i, coords, P0c, dP0c, true)
   P0c += dP0c
-  q_over_p_ref = q * C_LIGHT / P0c
 
   # Outside Drift
-  f = q_over_p_ref
+  f = q * C_LIGHT / P0c    # q_over_p_ref
   sagan_cavity_outside_drift!(i, coords, val_rad_damping_on, val_rad_fluctuations_on,
-                    val_has_mult, val_has_sol, m_order, Bn .* f, Bs .* f, q, a, mass, P0c, L_out)
+                    val_has_mult, val_has_sol, m_order, Bn .* f, Bs .* f, q, a, mass, P0c, L/2)
 end
 
 #---------------------------------------------------------------------------------------------------
@@ -72,16 +63,13 @@ end
               val_rad_damping_on, val_rad_fluctuations_on, val_traveling_wave, 
               mass, q, P0c, dE_ref, t_ref, n_cell, 
               val_has_mult, val_has_sol, m_order, Bn, Bs, 
-              a, q_voltage, rf_omega, t_phi0, L_active, L)
-
-  L_out = (L - L_active) / 2           # Length outside of active region
-  q_gradient = q_voltage / L_active    # Effective gradient
-  q_over_p_ref = q * C_LIGHT / P0c
+              a, q_gradient, rf_omega, t_phi0, L_active, L)
 
   # Outside Drift
+  q_over_p_ref = q * C_LIGHT / P0c
   sagan_cavity_outside_drift!(i, coords, val_rad_damping_on, val_rad_fluctuations_on,
           val_has_mult, val_has_sol, m_order, Bn .* q_over_p_ref, Bs .* q_over_p_ref, 
-          q, a, mass, P0c, L_out)
+          q, a, mass, P0c, (L-L_active)/2)
 
   # Fringe kick at beginning. 
   sagan_cavity_fringe!(i, coords, a, q_gradient, rf_omega, t_phi0, t_ref, mass, P0c, +1)
@@ -93,7 +81,7 @@ end
     sagan_cavity_inside_drift!(i, coords, val_rad_damping_on, val_rad_fluctuations_on, val_traveling_wave,
               val_has_mult, val_has_sol, m_order, Bn .* q_over_p_ref, Bs .* q_over_p_ref, 
               q, q_gradient, a, mass, P0c, L_active/2)
-    sagan_cavity_kick!(i, coords, a, q_voltage, rf_omega, t_phi0, t_ref, mass, P0c)
+    sagan_cavity_kick!(i, coords, a, q_gradient*L_active, rf_omega, t_phi0, t_ref, mass, P0c)
     dP0c = dpc_given_dE(P0c, dE_ref, mass)
     reference_momentum_shift!(i, coords, P0c, dP0c, true)
     P0c += dP0c
@@ -108,12 +96,13 @@ end
       i_step == 0 || i_step == n_cell ? kick_factor = 2 : kick_factor = 1
 
       # Longitudinal kick
-      sagan_cavity_kick!(i, coords, a, q_voltage/(n_cell*kick_factor), rf_omega, t_phi0, t_ref, mass, P0c)
+      sagan_cavity_kick!(i, coords, a, q_gradient*L_active/(n_cell*kick_factor), rf_omega, t_phi0, t_ref, mass, P0c)
 
       # Reference energy shift
       dP0c = dpc_given_dE(P0c, dE_ref/(n_cell*kick_factor), mass)
       reference_momentum_shift!(i, coords, P0c, dP0c, true)
       P0c += dP0c
+      q_over_p_ref = q * C_LIGHT / P0c
 
       # Drift
       if i_step == n_cell; break; end
@@ -129,7 +118,7 @@ end
   # Outside Drift
   sagan_cavity_outside_drift!(i, coords, val_rad_damping_on, val_rad_fluctuations_on,
               val_has_mult, val_has_sol, m_order, Bn .* q_over_p_ref, Bs .* q_over_p_ref, 
-              q, a, mass, P0c, L_out)
+              q, a, mass, P0c, (L-L_active)/2)
 end
 
 #---------------------------------------------------------------------------------------------------
@@ -139,9 +128,6 @@ function sagan_cavity_inside_drift!(i, coords::Coords,
                         val_rad_damping_on, val_rad_fluctuations_on, ::Val{traveling_wave}, 
                         val_has_mult, val_has_sol, m_order, Kn, Ks, 
                         q, q_gradient, a, mass, P0c, L) where {traveling_wave}
-  beta0 = P0c / sqrt(P0c^2 + mass^2)
-  gamma0 = P0c / (mass * beta0)
-
   # 1/2 pondermotive kick
   if !traveling_wave
     rf_pondermotive_kick!(i, coords, q_gradient, a, mass, P0c, L/2)
@@ -229,7 +215,6 @@ end
   if !isnothing(coords.q)
     rotate_spin_field!(i, coords, a, g_bend, mass/P0c, a_potential, a_potential, e_field, b_field, 1)
   end
-
 end
 
 #---------------------------------------------------------------------------------------------------

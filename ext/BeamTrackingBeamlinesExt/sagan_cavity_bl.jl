@@ -55,7 +55,7 @@
       return KernelCall(BeamTracking.sagan_cavity_thick!, 
                 (Val{tm.radiation_damping_on}(), Val{tm.radiation_fluctuations_on}(), Val{rfP.traveling_wave}(), 
                 mass, q, P0c, dE_ref, t_ref, n_cell, Val{false}(), Val{false}(), SA{Int32}[], SA{Int32}[], SA{Int32}[], 
-                a, q*rfP.voltage, rf_omega, t_phi0, L_active, L))
+                a, q*rfP.voltage/L_active, rf_omega, t_phi0, L_active, L))
     else
       m_order = bmultipoleP.order
       Kn, Ks = get_strengths(bmultipoleP, L, p0q)
@@ -64,7 +64,7 @@
       return KernelCall(BeamTracking.sagan_cavity_thick!, 
                 (Val{tm.radiation_damping_on}(), Val{tm.radiation_fluctuations_on}(), Val{rfP.traveling_wave}(), 
                 mass, q, P0c, dE_ref, t_ref, n_cell, Val{has_mult}(), Val{has_sol}(), m_order, Kn.*p0q, Ks.*p0q, a,
-                q*rfP.voltage, rf_omega, t_phi0, L_active, L))
+                q*rfP.voltage/L_active, rf_omega, t_phi0, L_active, L))
     end
   end
 end
