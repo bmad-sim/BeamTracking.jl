@@ -354,13 +354,10 @@ function lane2vec(lane::SIMD.VecRange{N}) where {N}
   end
 end
 
-# === THIS BLOCK WAS WRITTEN BY CLAUDE ===
+# === THIS BLOCK WAS PARTIALLY WRITTEN BY CLAUDE ===
 # Generated function for arbitrary-length tuples
 @generated function beval(f::T, t) where {T<:Tuple}
   N = length(T.parameters)
-  if N == 0
-      return :(())
-  end
   # Use getfield with literal integer arguments
   exprs = [:(beval(Base.getfield(f, $i), t)) for i in 1:N]
   return :(tuple($(exprs...)))

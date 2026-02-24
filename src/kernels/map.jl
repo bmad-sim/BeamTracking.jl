@@ -1,7 +1,7 @@
 struct Map end 
 # Map tracking method, not necessarily symplectic
 
-@makekernel fastgtpsa=true function map!(i, coords::Coords, transport_map, L)
+@makekernel fastgtpsa=true function map!(i, coords::Coords, transport_map, transport_map_params, L)
   v = coords.v
   q = coords.q
   alive = (coords.state[i] == STATE_ALIVE)
@@ -13,8 +13,11 @@ struct Map end
   else
     q_in = nothing
   end
-
-  v_out, q_out = transport_map(v_in, q_in)
+  if isnothing(transport_map_params) # For non-breaking
+    v_out, q_out = transport_map(v_in, q_in)
+  else
+    v_out, q_out = transport_map(v_in, q_in, transport_map_params)
+  end
   v[i,XI]  = vifelse(alive, v_out[XI],  v[i,XI])
   v[i,PXI] = vifelse(alive, v_out[PXI], v[i,PXI])
   v[i,YI]  = vifelse(alive, v_out[YI],  v[i,YI])

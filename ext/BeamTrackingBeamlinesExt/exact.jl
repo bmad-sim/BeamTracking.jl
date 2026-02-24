@@ -117,30 +117,5 @@ end
   return KernelCall(BeamTracking.exact_curved_drift!, (e1, e2, theta, g, w, w_inv, gyromagnetic_anomaly(bunch.species), tilde_m, beta_0, L))
 end
 
-@inline pure_map(tm::Exact, bunch, mapparams, L) = KernelCall(BeamTracking.map!, (mapparams.transport_map, L))
+@inline pure_map(tm::Exact, bunch, mapparams, L) = KernelCall(BeamTracking.map!, (mapparams.transport_map, mapparams.transport_map_params, L))
 
-#=
-@inline function bend_entrance_fringe(tm::Exact, bunch, bendparams, bmp, L)
-  e1 = bendparams.e1
-  tilt = bendparams.tilt_ref
-  w = rot_quaternion(0,0,-tilt)
-  w_inv = inv_rot_quaternion(0,0,-tilt)
-  mm = bmp.order
-  kn, ks = get_strengths(bmp, L, bunch.p_over_q_ref)
-  (mm[1] == 1 && ks[1] ≈ 0) || error("A skew dipole field cannot be used in an exact bend")
-  Kn0 = ifelse(mm[1] == 1, kn[1], 0)
-  return KernelCall(BeamTracking.linear_bend_fringe!, (e1, Kn0, w, w_inv))
-end
-
-@inline function bend_exit_fringe(tm::Exact, bunch, bendparams, bmp, L)
-  e2 = bendparams.e2
-  tilt = bendparams.tilt_ref
-  w = rot_quaternion(0,0,-tilt)
-  w_inv = inv_rot_quaternion(0,0,-tilt)
-  mm = bmp.order
-  kn, ks = get_strengths(bmp, L, bunch.p_over_q_ref)
-  (mm[1] == 1 && ks[1] ≈ 0) || error("A skew dipole field cannot be used in an exact bend")
-  Kn0 = ifelse(mm[1] == 1, kn[1], 0)
-  return KernelCall(BeamTracking.linear_bend_fringe!, (e2, Kn0, w, w_inv))
-end
-=#

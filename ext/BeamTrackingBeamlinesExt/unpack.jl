@@ -92,9 +92,7 @@ function universal!(
   end
 
   if isactive(mapparams)    
-    if isactive(alignmentparams)
-      error("Tracking through a LineElement containing both MapParams and AlignmentParams is undefined")
-    elseif isactive(bendparams)
+    if isactive(bendparams)
       error("Tracking through a LineElement containing both MapParams and BendParams not currently defined")
     elseif isactive(bmultipoleparams)
       error("Tracking through a LineElement containing both MapParams and BMultipoleParams not currently defined")
