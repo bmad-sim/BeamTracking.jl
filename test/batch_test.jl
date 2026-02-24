@@ -204,6 +204,9 @@ end
     # Test 4: No batch params - static_batchcheck returns false
     test_struct_no_batch = TestStruct(1.0, 2.0)
     @test BeamTracking.static_batchcheck(test_struct_no_batch) == false
+
+    # Test 5: batch_lower returns same object when no fields changed
+    @test BeamTracking.batch_lower(test_struct_no_batch) === test_struct_no_batch
     
     # Test 5: Nested structs
     struct OuterStruct{T}
@@ -225,5 +228,4 @@ end
       @test evaluated.scale == 2.0
     end
   end
-  
 end
