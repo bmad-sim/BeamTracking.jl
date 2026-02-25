@@ -18,7 +18,7 @@ function omega_multipole(i, coords::Coords, a, g, tilde_m, mm, kn, ks, L)
 
     bx, by = normalized_field(mm, kn, ks, v[i,XI], v[i,YI], -1)
     zero_0 = zero(kn[1])
-    if mm[1] == 0 && L != 0
+    if mm[1] == 0
       b_vec = (bx, by, kn[1])
     else
       b_vec = (bx, by, zero_0)
