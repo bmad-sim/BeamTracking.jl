@@ -59,8 +59,8 @@ end # function multipole_kick!()
 
         $([quote
             for m in ms[$(j+1)]-1:-1:ms[$j]
-                t  = (by * x - bx * y) / m
-                bx = (by * y + bx * x) / m
+                t  = @FastGTPSA (by * x - bx * y) / m
+                bx = @FastGTPSA (by * y + bx * x) / m
                 by = t
             end
 
@@ -69,8 +69,8 @@ end # function multipole_kick!()
         end for j in N-1:-1:1]...)
 
         for m in ms[1]-1:-1:2
-            t  = (by * x - bx * y) / m
-            bx = (by * y + bx * x) / m
+            t  = @FastGTPSA (by * x - bx * y) / m
+            bx = @FastGTPSA (by * y + bx * x) / m
             by = t
         end
 
