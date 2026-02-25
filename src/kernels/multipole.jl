@@ -31,14 +31,7 @@ properties, though I've not seen a proof of that claim.
 @makekernel fastgtpsa=true function multipole_kick!(i, coords::Coords, ms, knl, ksl, excluding)
   v = coords.v
   alive = (coords.state[i] == STATE_ALIVE)
-  @show ms
-  @show knl
-  @show ksl
-  @show v[i,XI]
-  @show v[i,YI]
-  @show excluding
   bx, by = normalized_field(ms, knl, ksl, v[i,XI], v[i,YI], excluding)
-  @show bx, by
   bx_0 = zero(bx)
   by_0 = zero(by)
   v[i,PXI] -= vifelse(alive, by, by_0)                   
@@ -76,7 +69,7 @@ end # function multipole_kick!()
                 end
             end
         end for j in N-1:-1:1]...)
-        
+
         return bx, by
     end
 end
