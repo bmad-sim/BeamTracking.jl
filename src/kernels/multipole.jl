@@ -31,7 +31,14 @@ properties, though I've not seen a proof of that claim.
 @makekernel fastgtpsa=true function multipole_kick!(i, coords::Coords, ms, knl, ksl, excluding)
   v = coords.v
   alive = (coords.state[i] == STATE_ALIVE)
+  @show ms
+  @show knl
+  @show ksl
+  @show v[i,XI]
+  @show v[i,YI]
+  @show excluding
   bx, by = normalized_field(ms, knl, ksl, v[i,XI], v[i,YI], excluding)
+  @show bx, by
   bx_0 = zero(bx)
   by_0 = zero(by)
   v[i,PXI] -= vifelse(alive, by, by_0)                   
@@ -55,27 +62,25 @@ end # function multipole_kick!()
         knl_0 = zero($T)
         ksl_0 = zero($T)
         add = (ms[$N] != excluding && ms[$N] > 0)
-        by = vifelse(add, convert($T, knl[$N]) * one($T), knl_0)
-        bx = vifelse(add, convert($T, ksl[$N]) * one($T), ksl_0)
+        by = vifelse(add, knl[$N] * one($T), knl_0)
+        bx = vifelse(add, ksl[$N] * one($T), ksl_0)
 
         $([quote
-            for m in ms[$(j+1)]-1:-1:ms[$j]
-                t  = @FastGTPSA (by * x - bx * y) / m
-                bx = @FastGTPSA (by * y + bx * x) / m
+            for m in ms[$(j+1)]-1:-1:max(ms[$j], 1)
+                t  = (by * x - bx * y) / m
+                bx = (by * y + bx * x) / m
                 by = t
+                if m == ms[$j]
+                  by += vifelse(ms[$j] != excluding, knl[$j] * one($T), knl_0)
+                  bx += vifelse(ms[$j] != excluding, ksl[$j] * one($T), ksl_0)
+                end
             end
-
-            by += vifelse(ms[$j] != excluding, convert($T, knl[$j]), knl_0)
-            bx += vifelse(ms[$j] != excluding, convert($T, ksl[$j]), ksl_0)
         end for j in N-1:-1:1]...)
-
-        for m in ms[1]-1:-1:2
-            t  = @FastGTPSA (by * x - bx * y) / m
-            bx = @FastGTPSA (by * y + bx * x) / m
-            by = t
-        end
-
+        
         return bx, by
     end
 end
 # === END CLAUDE ===
+
+
+
