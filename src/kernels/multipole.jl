@@ -59,13 +59,15 @@ end # function multipole_kick!()
         bx = vifelse(add, ksl[$N] * one($T), ksl_0)
 
         $([quote
+            curknl = knl[$j] * one($T)
+            curksl = ksl[$j] * one($T)
             for m in ms[$(j+1)]-1:-1:max(ms[$j], 1)
-                t  = (by * x - bx * y) / m
-                bx = (by * y + bx * x) / m
+                t  = @FastGTPSA (by * x - bx * y) / m
+                bx = @FastGTPSA (by * y + bx * x) / m
                 by = t
                 if m == ms[$j]
-                  by += vifelse(ms[$j] != excluding, knl[$j] * one($T), knl_0)
-                  bx += vifelse(ms[$j] != excluding, ksl[$j] * one($T), ksl_0)
+                  by += vifelse(ms[$j] != excluding, curknl, knl_0)
+                  bx += vifelse(ms[$j] != excluding, curksl, ksl_0)
                 end
             end
         end for j in N-1:-1:1]...)
