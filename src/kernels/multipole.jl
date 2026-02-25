@@ -47,10 +47,9 @@ end # function multipole_kick!()
 @generated function normalized_field(ms, knl, ksl, x, y, excluding)
     # Compute the promoted type at compile time
     N = length(ms) # ms will always be StaticArray - Int array of the indicies
-    knltype = knl <: NTuple || knl <: SArray ? eltype(knl) : promote_type(ntuple(i -> fieldtype(knl, i), N)...)
-    ksltype = ksl <: NTuple || ksl <: SArray ? eltype(ksl) : promote_type(ntuple(i -> fieldtype(ksl, i), N)...)
-    knltype = map(t->t isa SIMD.Vec ? eltype(t) : t, knltype)
-    ksltype = map(t->t isa SIMD.Vec ? eltype(t) : t, ksltype)
+    _process_arg(_a, _i) = (_t = fieldtype(_a, _i); _t <: SIMD.Vec ? eltype(_t) : _t)
+    knltype = knl <: NTuple || knl <: SArray ? eltype(knl) : promote_type(ntuple(i -> _process_arg(knl, i), N)...)
+    ksltype = ksl <: NTuple || ksl <: SArray ? eltype(ksl) : promote_type(ntuple(i -> _process_arg(ksl, i), N)...)
     T = promote_type(x, y, knltype, ksltype)
     quote
         knl_0 = zero($T)
