@@ -48,8 +48,8 @@ end # function multipole_kick!()
     # Compute the promoted type at compile time
     N = length(ms) # ms will always be StaticArray - Int array of the indicies
     _process_arg(_t) = (_t <: SIMD.Vec ? eltype(_t) : _t)
-    knltype = knl <: NTuple || knl <: SArray ? eltype(knl) : promote_type(ntuple(i -> _process_arg(fieldtype(knl, i)), N)...)
-    ksltype = ksl <: NTuple || ksl <: SArray ? eltype(ksl) : promote_type(ntuple(i -> _process_arg(fieldtype(ksl, i)), N)...)
+    knltype = knl <: NTuple || knl <: SArray ? _process_arg(eltype(knl)) : promote_type(ntuple(i -> _process_arg(fieldtype(knl, i)), N)...)
+    ksltype = ksl <: NTuple || ksl <: SArray ? _process_arg(eltype(ksl)) : promote_type(ntuple(i -> _process_arg(fieldtype(ksl, i)), N)...)
     T = promote_type(_process_arg(x), _process_arg(y), knltype, ksltype)
     quote
         knl_0 = zero($T)
