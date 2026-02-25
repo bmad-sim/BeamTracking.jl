@@ -39,35 +39,42 @@ properties, though I've not seen a proof of that claim.
 end # function multipole_kick!()
 
 
-function normalized_field(ms, knl, ksl, x, y, excluding)
-  """
-  Returns (bx, by), the transverse components of the magnetic field divided
-  by the reference rigidty.
-  """
-  @FastGTPSA begin
-    jm = length(ms)
-    m  = ms[jm]
-    add = (m != excluding && m > 0)
-    knl_0 = zero(knl[jm]*x)
-    ksl_0 = zero(ksl[jm]*y)
-    by_0 = knl[jm]*one(x)
-    bx_0 = ksl[jm]*one(y)
-    by = vifelse(add, by_0, knl_0)
-    bx = vifelse(add, bx_0, ksl_0)
-    jm -= 1
-    while 2 <= m
-      m -= 1
-      t  = (by * x - bx * y) / m
-      bx = (by * y + bx * x) / m
-      by = t
-      add = (0 < jm && m == ms[jm])
-      idx = max(1, jm) 
-      new_by = by + vifelse(m != excluding, knl[idx], knl_0)
-      new_bx = bx + vifelse(m != excluding, ksl[idx], ksl_0)
-      by = vifelse(add, new_by, by)
-      bx = vifelse(add, new_bx, bx)
-      jm -= add
+# === THIS BLOCK WAS PARTIALLY WRITTEN BY CLAUDE ===
+# Generated function to unroll the ms, knl, ksl SArrays/tuples
+# this is needed for type stability if the knl, ksl arrays are 
+# NOT NTuples NOR SArrays, and have different eltypes. Also
+# small performance benefit for unrolling and using for loops.
+@generated function normalized_field(ms, knl, ksl, x, y, excluding)
+    # Compute the promoted type at compile time
+    N = length(ms) # ms will always be StaticArray - Int array of the indicies
+    knltype = knl <: NTuple || knl <: SArray ? eltype(knl) : promote_type(ntuple(i -> fieldtype(knl, i), N)...)
+    ksltype = ksl <: NTuple || ksl <: SArray ? eltype(ksl) : promote_type(ntuple(i -> fieldtype(ksl, i), N)...)
+    T = promote_type(x, y, knltype, ksltype)
+    quote
+        knl_0 = zero($T)
+        ksl_0 = zero($T)
+        add = (ms[$N] != excluding && ms[$N] > 0)
+        by = vifelse(add, convert($T, knl[$N]) * one($T), knl_0)
+        bx = vifelse(add, convert($T, ksl[$N]) * one($T), ksl_0)
+
+        $([quote
+            for m in ms[$(j+1)]-1:-1:ms[$j]
+                t  = (by * x - bx * y) / m
+                bx = (by * y + bx * x) / m
+                by = t
+            end
+
+            by += vifelse(ms[$j] != excluding, convert($T, knl[$j]), knl_0)
+            bx += vifelse(ms[$j] != excluding, convert($T, ksl[$j]), ksl_0)
+        end for j in N-1:-1:1]...)
+
+        for m in ms[1]-1:-1:2
+            t  = (by * x - bx * y) / m
+            bx = (by * y + bx * x) / m
+            by = t
+        end
+
+        return bx, by
     end
-  end
-  return bx, by
 end
+# === END CLAUDE ===
