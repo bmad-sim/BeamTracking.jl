@@ -1,12 +1,13 @@
+#---------------------------------------------------------------------------------------------------
 """
-This function computes the integrated spin-precession vector using the multipole 
-coefficients kn and ks indexed by mm, i.e., knl[i] is the normal 
-coefficient of order mm[i].
+This function computes the integrated spin-precession vector using the magnetic multipole 
+coefficients kn and ks indexed by mm.
 """
 function omega_multipole(i, coords::Coords, a, g, tilde_m, mm, kn, ks, L)
   @FastGTPSA begin @inbounds begin
     v = coords.v
 
+    # Vector potential is (ax, ay, does-no-matter)
     if mm[1] == 0
       ax = -v[i,YI] * kn[1] / 2
       ay =  v[i,XI] * kn[1] / 2
@@ -16,10 +17,14 @@ function omega_multipole(i, coords::Coords, a, g, tilde_m, mm, kn, ks, L)
     end
 
     bx, by = normalized_field(mm, kn, ks, v[i,XI], v[i,YI], -1)
-    bz_0 = zero(kn[1])
-    bz = mm[1] == 0 ? kn[1] : bz_0
-    b_vec = (bx, by, bz)
-    e_vec = (bz_0, bz_0, bz_0)
+    zero_0 = zero(kn[1])
+    if mm[1] == 0
+      b_vec = (bx, by, kn[1])
+    else
+      b_vec = (bx, by, zero_0)
+    end
+
+    e_vec = (zero_0, zero_0, zero_0)   # No electric multipole component
 
     omega = omega_field(i, coords, a, g, tilde_m, ax, ay, e_vec, b_vec, L)
   end end
@@ -27,9 +32,45 @@ function omega_multipole(i, coords::Coords, a, g, tilde_m, mm, kn, ks, L)
   return omega
 end
 
+"""
+This function computes the integrated spin-precession vector using the integrated magnetic multipole 
+coefficients KnL and KsL indexed by mm.
+
+Any solenoid component is ignored.
+"""
+function omega_multipole(i, coords::Coords, a, g, tilde_m, mm, KnL, KsL)
+  @FastGTPSA begin @inbounds begin
+    v = coords.v
+
+    bx, by = normalized_field(mm, KnL, KsL, v[i,XI], v[i,YI], -1)
+    zero_0 = zero(KnL[1])
+    b_vec = (bx, by, zero_0)
+    e_vec = (zero_0, zero_0, zero_0)   # No electric multipole component
+
+    omega = omega_field(i, coords, a, g, tilde_m, zero(v[i,XI]), zero(v[i,XI]), e_vec, b_vec, 1)
+  end end
+
+  return omega
+end
+
+#---------------------------------------------------------------------------------------------------
 
 """
+    omega_field(i, coords::Coords, a, g, tilde_m, ax, ay, e_vec, b_vec, L) -> omega_vec
+
 This function computes the integrated spin-precession vector using the fields.
+
+## Input:
+
+- `a`         Anomalous magnetic moment.
+- `g`         Reference bend strength 1/radius when in a bend element.
+- `tilde_m    Normalized mass `mass / P0c`
+- `ax`, `ay`  Transverse vector potential components.
+- `e_vec`     Normalized electric field `e_field * q / P_ref`
+- `b_vec`     Normalized magnetic field `b_field * q / P_ref`
+
+## Output:
+- `omega_vec  3D Rotation tuple. 
 """
 function omega_field(i, coords::Coords, a, g, tilde_m, ax, ay, e_vec, b_vec, L)
   @FastGTPSA begin @inbounds begin
@@ -86,17 +127,27 @@ function omega_field(i, coords::Coords, a, g, tilde_m, ax, ay, e_vec, b_vec, L)
   return omega
 end
 
+#---------------------------------------------------------------------------------------------------
 """
 This function rotates particle i's quaternion according to the multipoles present.
 """
-@makekernel fastgtpsa=true function rotate_spin!(i, coords::Coords, a, g, tilde_m, mm, kn, ks, L)
+@makekernel fastgtpsa=true function rotate_spin!(i, coords::Coords, a, g, tilde_m, mm, KnL, KsL)
   q2 = coords.q
   alive = (coords.state[i] == STATE_ALIVE)
-  q1 = expq(omega_multipole(i, coords, a, g, tilde_m, mm, kn, ks, L), alive)
+  q1 = expq(omega_multipole(i, coords, a, g, tilde_m, mm, KnL, KsL), alive)
   q3 = quat_mul(q1, q2[i,Q0], q2[i,QX], q2[i,QY], q2[i,QZ])
   q2[i,Q0], q2[i,QX], q2[i,QY], q2[i,QZ] = q3
 end
 
+@makekernel fastgtpsa=true function rotate_spin!(i, coords::Coords, a, g, tilde_m, mm, Kn, Ks, L)
+  q2 = coords.q
+  alive = (coords.state[i] == STATE_ALIVE)
+  q1 = expq(omega_multipole(i, coords, a, g, tilde_m, mm, Kn, Ks, L), alive)
+  q3 = quat_mul(q1, q2[i,Q0], q2[i,QX], q2[i,QY], q2[i,QZ])
+  q2[i,Q0], q2[i,QX], q2[i,QY], q2[i,QZ] = q3
+end
+
+#---------------------------------------------------------------------------------------------------
 
 @makekernel fastgtpsa=true function integrate_with_spin_thin!(i, coords::Coords, ker, params, a, g, tilde_m, mm, knl, ksl)
   rotate_spin!(i, coords, a, g, tilde_m, mm, knl, ksl, 1/2)

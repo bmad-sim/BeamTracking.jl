@@ -48,7 +48,7 @@ ms2 = [
   0.0 0.0 0.0 0.0 0.0 1.0]
 
 # track_alignment_straight! args: (x_off, y_off, z_off, x_rot, y_rot, tilt, ele_orient, L)
-# track_alignment_bend! args: (x_off, y_off, z_off,   x_rot, y_rot, tilt,   g_ref, tilt_ref, ele_orient, L)
+# track_alignment_bend! args: (x_off, y_off, z_off, x_rot, y_rot, tilt, g_ref, tilt_ref, ele_orient, L)
 
 @testset "AlignmentKernel" begin
   # bend tests
