@@ -100,11 +100,11 @@ The strong beam is modeled as n Gaussian slices.
 		z_slice = z_slices[slice_idx]
 
 		slice_center = strong_beam_center(z_slice, crab, crab_tilt)
-
         
         p_rel = 1 + v[i,PZI]
         px_rel = v[i,PXI]/p_rel
         py_rel = v[i,PYI]/p_rel
+
 
         pxy2 = px_rel*px_rel + py_rel*py_rel
         ps_rel = sqrt(1 - pxy2)
@@ -139,9 +139,9 @@ The strong beam is modeled as n Gaussian slices.
                                 N_particles * charge * r_e, 
                                 p0c)
         
-        
 		nk_x, nk_y, dnk_unscaled = bbi_kick_faddeeva(dx, dy, sigma)
 		coef = bbi_const / n_slices
+
 		kick_x = nk_x * coef
 		kick_y = nk_y * coef
 		dnk = (
@@ -151,6 +151,7 @@ The strong beam is modeled as n Gaussian slices.
 
 		new_px = px_old + kick_x
 		new_py = py_old + kick_y
+
 
 		v[i, PXI] = vifelse(alive, new_px, v[i, PXI])
 		v[i, PYI] = vifelse(alive, new_py, v[i, PYI])
@@ -213,238 +214,6 @@ function strong_beam_center(z::Float64, crab::Vector{Float64}, crab_tilt::Float6
     return [center_x, center_y, center_z]
 end
 
-
-"""
-    super_zbrent(func, x1, x2, rel_tol, abs_tol)
-
-SIMD-vectorized Brent's method for root finding.
-Finds roots for multiple particles simultaneously, continuing until all particles converge.
-
-The x-tolerance is: x-tolerance = |x_root| * rel_tol + abs_tol
-
-## Arguments
-- `func`:     Function whose root is to be found. func(x) should return (value, status)
-              Both x and value can be SIMD vectors
-- `x1`, `x2`: Bracket values (can be scalars or SIMD vectors)
-- `rel_tol`:  Relative tolerance for root
-- `abs_tol`:  Absolute tolerance for root
-
-## Returns
-- `(x_zero, status)` where status is:
-    - 0:  Normal convergence (all particles)
-    - -1: Root not bracketed (any particle)
-    - -2: Max iterations exceeded (any particle)
-"""
-function super_zbrent(func, x1, x2, rel_tol, abs_tol)
-    itmax = 100
-    
-    a = x1
-    b = x2
-    fa, status = func(a)
-    if status != 0
-        return typeof(a)(NaN), status
-    end
-    fb, status = func(b)
-    if status != 0
-        return typeof(b)(NaN), status
-    end
-    z0 = zero(fa) # Vec of zeros of same type
-    # Check if root is bracketed (for each particle in SIMD vector)
-    not_bracketed = ((fa > z0) & (fb > z0)) | ((fa < z0) & (fb < z0))
-    if any(not_bracketed)
-        return typeof(b)(NaN), -1
-    end
-    
-    c = b
-    fc = fb
-    d = zero(b)
-    e = zero(b)
-    
-    # Track convergence for each particle (as SIMD Vec)
-    converged = zero(b) == zero(b)  # Creates Vec{N, Bool} with all false
-    
-    for iter in 1:itmax
-        same_sign = ((fb > z0) & (fc > z0)) | ((fb < z0) & (fc < z0))
-        c = vifelse(same_sign, a, c)
-        fc = vifelse(same_sign, fa, fc)
-        d = vifelse(same_sign, b - a, d)
-        e = vifelse(same_sign, d, e)
-        
-        swap = abs(fc) < abs(fb)
-        a_new = vifelse(swap, b, a)
-        b_new = vifelse(swap, c, b)
-        c_new = vifelse(swap, a_new, c)
-        fa_new = vifelse(swap, fb, fa)
-        fb_new = vifelse(swap, fc, fb)
-        fc_new = vifelse(swap, fa_new, fc)
-        
-        a = a_new
-        b = b_new
-        c = c_new
-        fa = fa_new
-        fb = fb_new
-        fc = fc_new
-        
-        # Convergence check
-        tol1 = 0.5 * (rel_tol * abs(b) + abs_tol)
-        xm = 0.5 * (c - b)
-        
-        # Check which particles have converged
-        converged_this_iter = (abs(xm) <= tol1) | (fb == z0)
-        converged = converged | converged_this_iter
-        
-        if all(converged)
-            x_zero = (b * fc - c * fb) / (fc - fb)
-            x_zero = vifelse(fb == z0, b, x_zero)
-            return x_zero, 0
-        end
-        
-        use_interp = (abs(e) >= tol1) & (abs(fa) > abs(fb))
-        
-        s = fb / fa
-        
-        is_secant = a == c
-        
-        p_secant = 2.0 * xm * s
-        q_secant = 1.0 - s
-        
-        q_iq = fa / fc
-        r_iq = fb / fc
-        p_iq = s * (2.0 * xm * q_iq * (q_iq - r_iq) - (b - a) * (r_iq - 1.0))
-        q_iq_final = (q_iq - 1.0) * (r_iq - 1.0) * (s - 1.0)
-        
-        p = vifelse(is_secant, p_secant, p_iq)
-        q = vifelse(is_secant, q_secant, q_iq_final)
-        
-        q = vifelse(p > 0.0, -q, q)
-        p = abs(p)
-        
-        accept_interp = 2.0 * p < min(3.0 * xm * q - abs(tol1 * q), abs(e * q))
-        
-        e_new = vifelse(use_interp & accept_interp, d, xm)
-        d_new = vifelse(use_interp & accept_interp, p / q, xm)
-        
-        e = e_new
-        d = d_new
-        
-        a = b
-        fa = fb
-        
-        large_step = abs(d) > tol1
-        b = vifelse(large_step, b + d, b + sign(xm) * tol1)
-        
-        fb, status = func(b)
-        if status != 0
-            print("Function status error: ", status, "\n")
-            return b, status
-        end
-    end
-    
-    # Max iterations exceeded
-    print("Max iterations exceeded\n")
-    return b, -2
-end
-
-"""
-    find_collision_point(i, coords, v, slice_center, beta_0, gamsqr_0, tilde_m, 
-                        beta_strong, s_lab_current, s0_factor)
-
-Find the s-position where the weak particle and strong beam slice meet using Brent's method.
-
-## Arguments
-- `i`:             Particle index
-- `coords`:        Coordinate structure
-- `v`:             Particle coordinate array
-- `slice_center`:  [x,y,z] position of strong beam slice
-- `beta_0`:        Reference beta
-- `gamsqr_0`:      Squared Lorentz factor
-- `tilde_m`:       Normalized mass
-- `beta_strong`:   Strong beam beta
-- `s_lab_current`: Current s-position in lab frame
-- `s0_factor`:     Velocity ratio factor
-
-## Returns
-- `s_lab`:         Lab frame s-position of collision
-"""
-function find_collision_point(i, coords, v, slice_center, beta_ref,
-                             beta_0, gamsqr_0, tilde_m, beta_strong,
-                             s_lab_current, s0_factor,s00, z_offset, part_time1, p0c,time0,part_time0)
-
-	p_l = sqrt((1 + v[i,PZI])*(1 + v[i,PZI]) - v[i,PXI]*v[i,PXI] - v[i,PYI]*v[i,PYI])
-    p_rel = 1 + v[i,PZI]
-    px_rel = v[i,PXI]/p_rel
-    py_rel = v[i,PYI]/p_rel
-    pxy2 = px_rel*px_rel + py_rel*py_rel
-
-	v_save = SA[v[i,XI], v[i,PXI], v[i,YI], v[i,PYI], v[i,ZI], v[i,PZI]]
-	s_body0 = -z_offset + s_lab_current
-	beta_0s = beta_0
-	if typeof(v[i,XI]) <: TPS
-		xi = Float64(scalar.(v_save[1]))
-		pxi = Float64(scalar.(v_save[2]))
-		yi = Float64(scalar.(v_save[3]))
-		pyi = Float64(scalar.(v_save[4]))
-		zi = Float64(scalar.(v_save[5]))
-		pzi = Float64(scalar.(v_save[6]))
-		beta_0s = Float64(scalar(beta_0))
-		p_l = Float64(scalar(p_l))
-		s_body = Ref(Float64(scalar(s_body0)))
-        s_lab = Ref(Float64(scalar(s_lab_current)))
-		gamsqr_0s = Float64(scalar(gamsqr_0))
-        ps_rel = Float64(scalar.(sqrt(1 - pxy2)))
-        time = Ref(Float64(scalar(time0[])))
-        part_time0 = Float64(scalar(part_time0))
-        coords = Bunch([xi pxi yi pyi zi pzi]).coords
-	else
-        time = Ref(time0[])
-        ps_rel = sqrt(1 - pxy2)
-		s_body = Ref(s_body0)
-        s_lab = Ref(s_lab_current)
-		gamsqr_0s = gamsqr_0
-        coords = coords
-	end
-
-	function collision_func(s_lab_target)
-		del_s = s_lab_target - s_lab[]
-		#exact_drift!(i, coords, beta_ref, gamsqr_0, tilde_m, del_s)
-        dt = del_s / (beta_0s * C_LIGHT * ps_rel)
-        time[] = time[] + dt
-        s_lab[] = s_lab_target
-		s_body[] = s_body[] + del_s
-        
-		s_slice = slice_center[3] - beta_strong * C_LIGHT * (time[])
-		return s_body[] - s_slice, 0
-	end
-	# Initial guess for s_lab
-	if typeof(v[i,XI]) <: TPS
-		s0 = Float64(scalar(s00 + slice_center[3] * s0_factor))
-	
-    else
-        s0 = s00 + slice_center[3] * s0_factor
-    end
-	ds = max(abs(slice_center[3]) * 0.1, 1.0) 
-	
-	s_lab, status = super_zbrent(collision_func, s0 - ds, s0 + ds, 1e-12, 1e-12)
-	if status != 0
-		# If root finding failed, return to initial guess
-		s_lab = s0
-	end
-	if typeof(v[i,XI]) <: TPS
-        dt = (s_lab - s_lab_current) / (beta_0 * C_LIGHT * sqrt(1 - pxy2))
-		s_lab = -(slice_center[3] - beta_strong * C_LIGHT * (time0[] + dt))
-	end
-
-	# Restore original coordinates regardless of status
-	v[i,XI] = v_save[1]
-	v[i,PXI] = v_save[2]
-	v[i,YI] = v_save[3]
-	v[i,PYI] = v_save[4]
-	v[i,ZI] = v_save[5]
-	v[i,PZI] = v_save[6]
-
-	return s_lab
-	
-end
 
 """
 	bbi_slice_positions(n_slices, sig_z)
@@ -609,17 +378,18 @@ function bbi_kick_faddeeva(dx, dy, sigma)
         ak = one(a) #a^0
         result_amp = zero(a)
         prev_amp = zero(a)
-        # Using FastGTPSA! for the following makes other kernels run out of temps
+        coef = 1
         @FastGTPSA begin
             while !conv && N < N_max
-                prev_amp = result_amp
-                result_amp += ((-1)^(N) / factorial(N+1)) * ak
-                ak *= a
-                N += 1
+                result_amp += coef * ak
+
                 if normTPS(result_amp - prev_amp) < ε
                     conv = true
                 end
                 prev_amp = result_amp
+                ak *= a
+                N += 1
+                coef *= -1/(N + 1)
             end
         end
         return result_amp
@@ -634,11 +404,14 @@ function bbi_kick_faddeeva(dx, dy, sigma)
     round_mask = abs(r_orig - 1.0) < 0.001
     amp = (x_norm_orig*x_norm_orig + y_norm_orig*y_norm_orig) / 2
     if typeof(amp) <: TPS
-        scale_round = 4 * pi * one_minus_exp_over_a(amp)
+        if amp < 0.01
+            scale_round = 4 * pi * one_minus_exp_over_a(amp)
+        else
+            scale_round = 4 * pi * (1 - exp(-amp)) / amp
+        end
     else
         scale_round = 4 * pi * (1 - exp(-amp)) / amp
-        scale_round = vifelse(amp > 30, 4 * pi / amp, scale_round)
-        scale_round = vifelse(amp < 1e-4, 4 * pi, scale_round)
+        scale_round = vifelse(amp < eps(typeof(amp[1])), 4 * pi, scale_round)
     end
 
     # Round beam branch
@@ -672,6 +445,8 @@ function bbi_kick_faddeeva(dx, dy, sigma)
 
     N = length(dx)
 
+    #TODO: Make custom erf to calculate Faddeeva in SIMD without needing to convert to split-complex form.
+
     # NTuple for lane-wise Faddeeva 
     f_real = ntuple(_ -> 0.0, N)
     f_imag = ntuple(_ -> 0.0, N)
@@ -688,12 +463,23 @@ function bbi_kick_faddeeva(dx, dy, sigma)
     w2real = ntuple(_ -> 0.0, N)
     w2imag = ntuple(_ -> 0.0, N)
     # Compute Faddeeva per lane
+
+
     for i in 1:N
-        z1 = Complex(zr1[i], zi1[i])
-        z2 = Complex(zr2[i], zi2[i])
+        if (typeof(zr1) <: TPS)
+            z1 = zr1 + zi1*1.0im
+            z2 = zr2 + zi2*1.0im
+            arg = (1 - r_f^2) * (u^2 + v^2)
+        else
+            z1 = Complex(zr1[i], zi1[i])
+            z2 = Complex(zr2[i], zi2[i])
+            arg = (1 - r_f[i]^2) * (u[i]^2 + v[i]^2)
+        end
+        # z1 = zr1[i] + zi1[i]*1.0im
+        # z2 = Complex(zr2[i], zi2[i])
         w1 = exp(-z1^2) * erfc(-im*z1)
         w2 = exp(-z2^2) * erfc(-im*z2)
-        arg = (1 - r_f[i]^2) * (u[i]^2 + v[i]^2)
+        # arg = (1 - r_f[i]^2) * (u[i]^2 + v[i]^2)
         expon = exp(-arg)
         f = w1 - expon * w2
         f_real = Base.setindex(f_real, real(f), i)
@@ -1181,290 +967,234 @@ The strong beam is modeled as n Gaussian slices. Uses brent's method for collisi
 	exact_drift!(i, coords, beta_ref, gamsqr_ref, tilde_m, -s_lab)
 end
 
-# Deprecated version without SIMD
-# function bbi_kick_faddeeva(dx, dy, sigma)
-	
-# 	#function to compute (1 - exp(-a)) / a using Taylor expansion for small a
-# 	function one_minus_exp_over_a(a; nterms=10)
-# 		s = zero(a)
-# 		ak = one(a)          # a^0
-# 		for k in 0:(nterms-1)
-# 			s += ((-1)^k / factorial(k+1)) * ak
-# 			ak *= a 
-# 		end
-# 		return s
-# 	end
-# 	sig_x, sig_y = sigma
-#     print("sig_x: ", sig_x, " sig_y: ", sig_y, "\n")
-# 	r = sig_y / sig_x
-#     print("r: ", r, "\n")
-# 	x_norm = dx / sig_x
-#     print("x_norm: ", x_norm, "\n")
-# 	y_norm = dy / sig_y
-#     print("y_norm: ", y_norm, "\n")
+"""
+    super_zbrent(func, x1, x2, rel_tol, abs_tol)
 
-# 	# Round beam case
-# 	if abs(r - 1.0) < 0.001
-# 		amp = (x_norm*x_norm + y_norm*y_norm) / 2
+SIMD-vectorized Brent's method for root finding.
+Finds roots for multiple particles simultaneously, continuing until all particles converge.
 
-# 		if typeof(amp) <: TPS
-# 			scale = 4 * pi * one_minus_exp_over_a(amp, nterms = amp.mo)
-# 			dnk = SA[-scale 0.0;
-# 		          0.0 -scale]
-# 			return -x_norm * scale, -y_norm * scale, dnk
-# 		end
-# 		scale = 4 * pi * (1 - exp(-amp)) / amp
-# 		scale = vifelse(amp > 30, 4 * pi / amp, scale)
-# 		scale = vifelse(amp < 1e-4, 4 * pi, scale)
-# 		dnk = SA[-scale 0.0;
-# 		          0.0 -scale]
-# 		return -x_norm * scale, -y_norm * scale, dnk
-# 	end
+The x-tolerance is: x-tolerance = |x_root| * rel_tol + abs_tol
 
-# 	# Ensure r < 1 (swap if needed)
-# 	flipped = (r > 1)
-# 	if flipped
-# 		r = 1 / r
-# 		x_norm, y_norm = y_norm, x_norm
-# 		sig_x, sig_y = sig_y, sig_x
-# 	end
+## Arguments
+- `func`:     Function whose root is to be found. func(x) should return (value, status)
+              Both x and value can be SIMD vectors
+- `x1`, `x2`: Bracket values (can be scalars or SIMD vectors)
+- `rel_tol`:  Relative tolerance for root
+- `abs_tol`:  Absolute tolerance for root
 
-# 	denom = 1 / sqrt(2 * (1 - r^2))
-# 	scale = 4 * sqrt(pi^3) * denom * (1 + r)
-#     print("scale: ", scale, "\n")
-# 	u = abs(x_norm) * denom
-# 	v = abs(y_norm) * denom
-# 	sx = sign(x_norm)
-# 	sy = sign(y_norm)
-
-# 	z1 = complex(u, r * v)
-# 	z2 = complex(r * u, v)
-
-# 	# Faddeeva function: w(z) = exp(-z²) * erfc(-i*z)
-# 	w1 = exp(-z1^2) * erfc(-im * z1)
-# 	w2 = exp(-z2^2) * erfc(-im * z2)
-
-# 	arg = (1 - r^2) * (u^2 + v^2)
-# 	expon = exp(-arg)
-
-
-# 	f = w1 - expon * w2
-
-# 	nk_x = -scale * sx * imag(f)
-# 	nk_y = -scale * sy * real(f)
-
-#     # Compute derivatives using Faddeeva derivative: dw/dz = -2z*w(z) + 2i/sqrt(π)
-	
-# 	dw1_dz1 = -2.0 * z1 * w1 + 2.0im / sqrt(pi)
-# 	dw2_dz2 = -2.0 * z2 * w2 + 2.0im / sqrt(pi)
-	
-# 	df_du = dw1_dz1 - expon * (r * dw2_dz2 - 2.0 * (1 - r*r) * u * w2)
-# 	df_dv = im * r * dw1_dz1 - expon * (im * dw2_dz2 - 2.0 * (1 - r*r) * v * w2)
-	
-# 	# Convert to derivatives with respect to x_norm and y_norm
-# 	# u = |x_norm| / denom, v = |y_norm| / denom
-# 	# du/dx_norm = sign(x_norm) / denom
-# 	# dv/dy_norm = sign(y_norm) / denom
-	
-# 	du_dx = sx * denom
-# 	dv_dy = sy * denom
-	
-# 	# nk_x = -scale * sx * imag(f)
-# 	# nk_y = -scale * sy * real(f)
-	
-# 	dnk_x_dx_norm = -scale * sx * imag(df_du) * du_dx
-# 	dnk_x_dy_norm = -scale * sx * imag(df_dv) * dv_dy
-# 	dnk_y_dx_norm = -scale * sy * real(df_du) * du_dx
-# 	dnk_y_dy_norm = -scale * sy * real(df_dv) * dv_dy
-	
-# 	# Convert to derivatives with respect to dx and dy (not normalized)
-# 	# x_norm = dx / sig_x  =>  dx_norm/dx = 1/sig_x
-# 	# y_norm = dy / sig_y  =>  dy_norm/dy = 1/sig_y
-	
-# 	dnk_x_dx = dnk_x_dx_norm / sig_x
-# 	dnk_x_dy = dnk_x_dy_norm / sig_y
-# 	dnk_y_dx = dnk_y_dx_norm / sig_x
-# 	dnk_y_dy = dnk_y_dy_norm / sig_y
-	
-# 	if flipped
-# 		nk_x, nk_y = nk_y, nk_x
-# 		# Swap the Jacobian rows and columns
-# 		dnk = SA[dnk_y_dy dnk_y_dx;
-# 		         dnk_x_dy dnk_x_dx]
-# 	else
-# 		dnk = SA[dnk_x_dx dnk_x_dy;
-# 		         dnk_y_dx dnk_y_dy]
-# 	end
-
-#     print("dnk: ", dnk, "\n")
-
-# 	return nk_x, nk_y, dnk
-# end
-
-# Deprecated Julia implementation of Brent's method for root finding, NO SIMD
-# """
-#     super_zbrent(func, x1, x2, rel_tol, abs_tol)
-
-# Julia implementation of Brent's method for root finding, based on Bmad's super_zbrent.
-# Finds the root of a function within the bracket [x1, x2].
-
-# The x-tolerance is: x-tolerance = |x_root| * rel_tol + abs_tol
-
-# ## Arguments
-# - `func`:     Function whose root is to be found. func(x) should return (value, status)
-# - `x1`, `x2`: Bracket values (x2 does not have to be larger than x1)
-# - `rel_tol`:  Relative tolerance for root
-# - `abs_tol`:  Absolute tolerance for root
-
-# ## Returns
-# - `(x_zero, status)` where status is:
-#     - 0:  Normal convergence
-#     - -1: Root not bracketed
-#     - -2: Max iterations exceeded
-#     - Other: Set by func
-# """
-# function super_zbrent(func, x1, x2, rel_tol, abs_tol)
-#     itmax = 100
+## Returns
+- `(x_zero, status)` where status is:
+    - 0:  Normal convergence (all particles)
+    - -1: Root not bracketed (any particle)
+    - -2: Max iterations exceeded (any particle)
+"""
+function super_zbrent(func, x1, x2, rel_tol, abs_tol)
+    itmax = 100
     
-#     a = x1
-#     print("a: ", a, "\n")
-#     b = x2
-#     print("b: ", b, "\n")
-#     fa, status = func(a)
-#     print("fa: ", fa, " status: ", status, "\n")
-#     if status != 0
-#         return NaN, status
-#     end
-#     fb, status = func(b)
-#     print("fb: ", fb, " status: ", status, "\n")
-#     if status != 0
-#         return NaN, status
-#     end
+    a = x1
+    b = x2
+    fa, status = func(a)
+    if status != 0
+        return typeof(a)(NaN), status
+    end
+    fb, status = func(b)
+    if status != 0
+        return typeof(b)(NaN), status
+    end
+    z0 = zero(fa) # Vec of zeros of same type
+    # Check if root is bracketed (for each particle in SIMD vector)
+    not_bracketed = ((fa > z0) & (fb > z0)) | ((fa < z0) & (fb < z0))
+    if any(not_bracketed)
+        return typeof(b)(NaN), -1
+    end
     
-#     # Check if root is bracketed
-#     if (fa > 0 && fb > 0) || (fa < 0 && fb < 0)
-#         return NaN, -1
-#     end
+    c = b
+    fc = fb
+    d = zero(b)
+    e = zero(b)
     
-#     c = b
-#     print("c: ", c, "\n")
-#     fc = fb
-#     print("fc: ", fc, "\n")
-#     d = 0.0
-#     e = 0.0
+    # Track convergence for each particle (as SIMD Vec)
+    converged = zero(b) == zero(b)  # Creates Vec{N, Bool} with all false
     
-#     for iter in 1:itmax
-#         if (fb > 0 && fc > 0) || (fb < 0 && fc < 0)
-#             c = a
-#             print("c updated: ", c, "\n")
-#             fc = fa
-#             print("fc updated: ", fc, "\n")
-#             d = b - a
-#             print("d updated: ", d, "\n")
-#             e = d
-#             print("e updated: ", e, "\n")
-#         end
+    for iter in 1:itmax
+        same_sign = ((fb > z0) & (fc > z0)) | ((fb < z0) & (fc < z0))
+        c = vifelse(same_sign, a, c)
+        fc = vifelse(same_sign, fa, fc)
+        d = vifelse(same_sign, b - a, d)
+        e = vifelse(same_sign, d, e)
         
-#         if abs(fc) < abs(fb)
-#             a = b
-#             print("a updated: ", a, "\n")
-#             b = c
-#             print("b updated: ", b, "\n")
-#             c = a
-#             print("c updated: ", c, "\n")
-#             fa = fb
-#             print("fa updated: ", fa, "\n")
-#             fb = fc
-#             print("fb updated: ", fb, "\n")
-#             fc = fa
-#             print("fc updated: ", fc, "\n")
-#         end
+        swap = abs(fc) < abs(fb)
+        a_new = vifelse(swap, b, a)
+        b_new = vifelse(swap, c, b)
+        c_new = vifelse(swap, a_new, c)
+        fa_new = vifelse(swap, fb, fa)
+        fb_new = vifelse(swap, fc, fb)
+        fc_new = vifelse(swap, fa_new, fc)
         
-#         tol1 = 0.5 * (rel_tol * abs(b) + abs_tol)
-#         print("tol1: ", tol1, "\n")
-#         xm = 0.5 * (c - b)
-#         print("xm: ", xm, "\n")
+        a = a_new
+        b = b_new
+        c = c_new
+        fa = fa_new
+        fb = fb_new
+        fc = fc_new
         
-#         if abs(xm) <= tol1 || fb == 0.0
-#             # Converged
-#             if fb == 0
-#                 print("Root found exactly at b: ", b, "\n")
-#                 return b, 0
-#             else
-#                 # Linear interpolation for final value
-#                 print("Converged with tolerance at b: ", b, "\n")
-#                 x_zero = (b * fc - c * fb) / (fc - fb)
-#                 return x_zero, 0
-#             end
-#         end
+        # Convergence check
+        tol1 = 0.5 * (rel_tol * abs(b) + abs_tol)
+        xm = 0.5 * (c - b)
         
-#         if abs(e) >= tol1 && abs(fa) > abs(fb)
-#             s = fb / fa
-#             print("s: ", s, "\n")
-#             if a == c
-#                 p = 2.0 * xm * s
-#                 print("p (secant): ", p, "\n")
-#                 q = 1.0 - s
-#                 print("q (secant): ", q, "\n")
-#             else
-#                 q = fa / fc
-#                 print("q (inverse quadratic): ", q, "\n")
-#                 r = fb / fc
-#                 print("r (inverse quadratic): ", r, "\n")
-#                 p = s * (2.0 * xm * q * (q - r) - (b - a) * (r - 1.0))
-#                 print("p (inverse quadratic): ", p, "\n")
-#                 q = (q - 1.0) * (r - 1.0) * (s - 1.0)
-#                 print("q (inverse quadratic updated): ", q, "\n")
-#             end
-            
-#             if p > 0.0
-#                 q = -q
-#                 print("q adjusted: ", q, "\n")
-#             end
-#             p = abs(p)
-#             print("p abs: ", p, "\n")
-            
-#             if 2.0 * p < min(3.0 * xm * q - abs(tol1 * q), abs(e * q))
-#                 e = d
-#                 print("e updated for interpolation: ", e, "\n")
-#                 d = p / q
-#                 print("d updated for interpolation: ", d, "\n")
-#             else
-#                 d = xm
-#                 print("d set to xm: ", d, "\n")
-#                 e = d
-#                 print("e set to d: ", e, "\n")
-#             end
-#         else
-#             d = xm
-#             print("d set to xm (bisection): ", d, "\n")
-#             e = d
-#             print("e set to d (bisection): ", e, "\n")
-#         end
+        # Check which particles have converged
+        converged_this_iter = (abs(xm) <= tol1) | (fb == z0)
+        converged = converged | converged_this_iter
         
-#         a = b
-#         print("a updated to b: ", a, "\n")
-#         fa = fb
-#         print("fa updated to fb: ", fa, "\n")
+        if all(converged)
+            x_zero = (b * fc - c * fb) / (fc - fb)
+            x_zero = vifelse(fb == z0, b, x_zero)
+            return x_zero, 0
+        end
         
-#         if abs(d) > tol1
-#             b = b + d
-#             print("b updated with d: ", b, "\n")
-#         else
-#             b = b + sign(xm) * tol1
-#             print("b updated with tol1: ", b, "\n")
-#         end
+        use_interp = (abs(e) >= tol1) & (abs(fa) > abs(fb))
         
-#         fb, status = func(b)
-#         print("new fb: ", fb, " status: ", status, "\n")
-#         if status != 0
-#             print("Function status error: ", status, "\n")
-#             return b, status
-#         end
-#     end
+        s = fb / fa
+        
+        is_secant = a == c
+        
+        p_secant = 2.0 * xm * s
+        q_secant = 1.0 - s
+        
+        q_iq = fa / fc
+        r_iq = fb / fc
+        p_iq = s * (2.0 * xm * q_iq * (q_iq - r_iq) - (b - a) * (r_iq - 1.0))
+        q_iq_final = (q_iq - 1.0) * (r_iq - 1.0) * (s - 1.0)
+        
+        p = vifelse(is_secant, p_secant, p_iq)
+        q = vifelse(is_secant, q_secant, q_iq_final)
+        
+        q = vifelse(p > 0.0, -q, q)
+        p = abs(p)
+        
+        accept_interp = 2.0 * p < min(3.0 * xm * q - abs(tol1 * q), abs(e * q))
+        
+        e_new = vifelse(use_interp & accept_interp, d, xm)
+        d_new = vifelse(use_interp & accept_interp, p / q, xm)
+        
+        e = e_new
+        d = d_new
+        
+        a = b
+        fa = fb
+        
+        large_step = abs(d) > tol1
+        b = vifelse(large_step, b + d, b + sign(xm) * tol1)
+        
+        fb, status = func(b)
+        if status != 0
+            print("Function status error: ", status, "\n")
+            return b, status
+        end
+    end
     
-#     # Max iterations exceeded
-#     print("Max iterations exceeded\n")
-#     return b, -2
-# end
-#
+    # Max iterations exceeded
+    print("Max iterations exceeded\n")
+    return b, -2
+end
+
+"""
+    find_collision_point(i, coords, v, slice_center, beta_0, gamsqr_0, tilde_m, 
+                        beta_strong, s_lab_current, s0_factor)
+
+Find the s-position where the weak particle and strong beam slice meet using Brent's method.
+
+## Arguments
+- `i`:             Particle index
+- `coords`:        Coordinate structure
+- `v`:             Particle coordinate array
+- `slice_center`:  [x,y,z] position of strong beam slice
+- `beta_0`:        Reference beta
+- `gamsqr_0`:      Squared Lorentz factor
+- `tilde_m`:       Normalized mass
+- `beta_strong`:   Strong beam beta
+- `s_lab_current`: Current s-position in lab frame
+- `s0_factor`:     Velocity ratio factor
+
+## Returns
+- `s_lab`:         Lab frame s-position of collision
+"""
+function find_collision_point(i, coords, v, slice_center, beta_ref,
+                             beta_0, gamsqr_0, tilde_m, beta_strong,
+                             s_lab_current, s0_factor,s00, z_offset, part_time1, p0c,time0,part_time0)
+
+	p_l = sqrt((1 + v[i,PZI])*(1 + v[i,PZI]) - v[i,PXI]*v[i,PXI] - v[i,PYI]*v[i,PYI])
+    p_rel = 1 + v[i,PZI]
+    px_rel = v[i,PXI]/p_rel
+    py_rel = v[i,PYI]/p_rel
+    pxy2 = px_rel*px_rel + py_rel*py_rel
+
+	v_save = SA[v[i,XI], v[i,PXI], v[i,YI], v[i,PYI], v[i,ZI], v[i,PZI]]
+	s_body0 = -z_offset + s_lab_current
+	beta_0s = beta_0
+	if typeof(v[i,XI]) <: TPS
+		xi = Float64(scalar.(v_save[1]))
+		pxi = Float64(scalar.(v_save[2]))
+		yi = Float64(scalar.(v_save[3]))
+		pyi = Float64(scalar.(v_save[4]))
+		zi = Float64(scalar.(v_save[5]))
+		pzi = Float64(scalar.(v_save[6]))
+		beta_0s = Float64(scalar(beta_0))
+		p_l = Float64(scalar(p_l))
+		s_body = Ref(Float64(scalar(s_body0)))
+        s_lab = Ref(Float64(scalar(s_lab_current)))
+		gamsqr_0s = Float64(scalar(gamsqr_0))
+        ps_rel = Float64(scalar.(sqrt(1 - pxy2)))
+        time = Ref(Float64(scalar(time0[])))
+        part_time0 = Float64(scalar(part_time0))
+        coords = Bunch([xi pxi yi pyi zi pzi]).coords
+	else
+        time = Ref(time0[])
+        ps_rel = sqrt(1 - pxy2)
+		s_body = Ref(s_body0)
+        s_lab = Ref(s_lab_current)
+		gamsqr_0s = gamsqr_0
+        coords = coords
+	end
+
+	function collision_func(s_lab_target)
+		del_s = s_lab_target - s_lab[]
+		#exact_drift!(i, coords, beta_ref, gamsqr_0, tilde_m, del_s)
+        dt = del_s / (beta_0s * C_LIGHT * ps_rel)
+        time[] = time[] + dt
+        s_lab[] = s_lab_target
+		s_body[] = s_body[] + del_s
+        
+		s_slice = slice_center[3] - beta_strong * C_LIGHT * (time[])
+		return s_body[] - s_slice, 0
+	end
+	# Initial guess for s_lab
+	if typeof(v[i,XI]) <: TPS
+		s0 = Float64(scalar(s00 + slice_center[3] * s0_factor))
+	
+    else
+        s0 = s00 + slice_center[3] * s0_factor
+    end
+	ds = max(abs(slice_center[3]) * 0.1, 1.0) 
+	
+	s_lab, status = super_zbrent(collision_func, s0 - ds, s0 + ds, 1e-12, 1e-12)
+	if status != 0
+		# If root finding failed, return to initial guess
+		s_lab = s0
+	end
+	if typeof(v[i,XI]) <: TPS
+        dt = (s_lab - s_lab_current) / (beta_0 * C_LIGHT * sqrt(1 - pxy2))
+		s_lab = -(slice_center[3] - beta_strong * C_LIGHT * (time0[] + dt))
+	end
+
+	# Restore original coordinates regardless of status
+	v[i,XI] = v_save[1]
+	v[i,PXI] = v_save[2]
+	v[i,YI] = v_save[3]
+	v[i,PYI] = v_save[4]
+	v[i,ZI] = v_save[5]
+	v[i,PZI] = v_save[6]
+
+	return s_lab
+	
+end
