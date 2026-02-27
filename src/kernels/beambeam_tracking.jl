@@ -435,9 +435,6 @@ function bbi_kick_faddeeva(dx, dy, sigma)
     sx = sign(x_norm_f)
     sy = sign(y_norm_f)
 
-    #SIMD doesn't work with complex numbers
-    #Split-complex representation
-
     zr1 = u
     zi1 = r_f * v
     zr2 = r_f * u
@@ -445,95 +442,17 @@ function bbi_kick_faddeeva(dx, dy, sigma)
 
     N = length(dx)
 
-    #TODO: Make custom erf to calculate Faddeeva in SIMD without needing to convert to split-complex form.
+    f_real_vec, f_imag_vec,
+    dw1x_dx_vec, dw1y_dx_vec,
+    dw2x_dx_vec, dw2y_dx_vec,
+    w1real_vec, w1imag_vec,
+    w2real_vec, w2imag_vec = compute_faddeeva(zr1, zi1, zr2, zi2, r_f, u, v)
 
-    # NTuple for lane-wise Faddeeva 
-    f_real = ntuple(_ -> 0.0, N)
-    f_imag = ntuple(_ -> 0.0, N)
-    dw1x_dx = ntuple(_ -> 0.0, N)
-    dw1y_dx = ntuple(_ -> 0.0, N)
-    dw1x_dy = ntuple(_ -> 0.0, N)
-    dw1y_dy = ntuple(_ -> 0.0, N)
-    dw2x_dx = ntuple(_ -> 0.0, N)
-    dw2y_dx = ntuple(_ -> 0.0, N)
-    dw2x_dy = ntuple(_ -> 0.0, N)
-    dw2y_dy = ntuple(_ -> 0.0, N)
-    w1real = ntuple(_ -> 0.0, N)
-    w1imag = ntuple(_ -> 0.0, N)
-    w2real = ntuple(_ -> 0.0, N)
-    w2imag = ntuple(_ -> 0.0, N)
-    # Compute Faddeeva per lane
-
-
-    for i in 1:N
-        if (typeof(zr1) <: TPS)
-            z1 = zr1 + zi1*1.0im
-            z2 = zr2 + zi2*1.0im
-            arg = (1 - r_f^2) * (u^2 + v^2)
-        else
-            z1 = Complex(zr1[i], zi1[i])
-            z2 = Complex(zr2[i], zi2[i])
-            arg = (1 - r_f[i]^2) * (u[i]^2 + v[i]^2)
-        end
-        # z1 = zr1[i] + zi1[i]*1.0im
-        # z2 = Complex(zr2[i], zi2[i])
-        w1 = exp(-z1^2) * erfc(-im*z1)
-        w2 = exp(-z2^2) * erfc(-im*z2)
-        # arg = (1 - r_f[i]^2) * (u[i]^2 + v[i]^2)
-        expon = exp(-arg)
-        f = w1 - expon * w2
-        f_real = Base.setindex(f_real, real(f), i)
-        f_imag = Base.setindex(f_imag, imag(f), i)
-        dw1_dz1 = -2.0 * z1 * w1 + 2.0im / sqrt(pi)
-        dw2_dz2 = -2.0 * z2 * w2 + 2.0im / sqrt(pi)
-
-        dw1x_dx = Base.setindex(dw1x_dx, real(dw1_dz1), i)
-        dw1y_dx = Base.setindex(dw1y_dx, imag(dw1_dz1), i)
-        dw1x_dy = Base.setindex(dw1x_dy, -imag(dw1_dz1), i)
-        dw1y_dy = Base.setindex(dw1y_dy, real(dw1_dz1), i)
-        dw2x_dx = Base.setindex(dw2x_dx, real(dw2_dz2), i)
-        dw2y_dx = Base.setindex(dw2y_dx, imag(dw2_dz2), i)
-        dw2x_dy = Base.setindex(dw2x_dy, -imag(dw2_dz2), i)
-        dw2y_dy = Base.setindex(dw2y_dy, real(dw2_dz2), i)
-        w1real = Base.setindex(w1real, real(w1), i)
-        w1imag = Base.setindex(w1imag, imag(w1), i)
-        w2real = Base.setindex(w2real, real(w2), i)
-        w2imag = Base.setindex(w2imag, imag(w2), i)
-
-    end
-
-    # Convert back to Vec
-    if length(dx) > 1
-        f_real_vec = SIMD.Vec(f_real...)
-        f_imag_vec = SIMD.Vec(f_imag...)
-        dw1x_dx_vec = SIMD.Vec(dw1x_dx...)
-        dw1y_dx_vec = SIMD.Vec(dw1y_dx...)
-        dw1x_dy_vec = SIMD.Vec(dw1x_dy...)
-        dw1y_dy_vec = SIMD.Vec(dw1y_dy...)
-        dw2x_dx_vec = SIMD.Vec(dw2x_dx...)
-        dw2y_dx_vec = SIMD.Vec(dw2y_dx...)
-        dw2x_dy_vec = SIMD.Vec(dw2x_dy...)
-        dw2y_dy_vec = SIMD.Vec(dw2y_dy...)
-        w1real_vec = SIMD.Vec(w1real...)
-        w1imag_vec = SIMD.Vec(w1imag...)
-        w2real_vec = SIMD.Vec(w2real...)
-        w2imag_vec = SIMD.Vec(w2imag...)
-    else
-        f_real_vec = f_real[1]
-        f_imag_vec = f_imag[1]
-        dw1x_dx_vec = dw1x_dx[1]
-        dw1y_dx_vec = dw1y_dx[1]
-        dw1x_dy_vec = dw1x_dy[1]
-        dw1y_dy_vec = dw1y_dy[1]
-        dw2x_dx_vec = dw2x_dx[1]
-        dw2y_dx_vec = dw2y_dx[1]
-        dw2x_dy_vec = dw2x_dy[1]
-        dw2y_dy_vec = dw2y_dy[1]
-        w1real_vec = w1real[1]
-        w1imag_vec = w1imag[1]
-        w2real_vec = w2real[1]
-        w2imag_vec = w2imag[1]
-    end
+    # Cauchy-Riemann
+    dw1x_dy_vec = -dw1y_dx_vec
+    dw1y_dy_vec =  dw1x_dx_vec
+    dw2x_dy_vec = -dw2y_dx_vec
+    dw2y_dy_vec =  dw2x_dx_vec
 
     nkx_general = -scale_prefactor * sx * f_imag_vec
     nky_general = -scale_prefactor * sy * f_real_vec
@@ -569,6 +488,68 @@ function bbi_kick_faddeeva(dx, dy, sigma)
         )
 
     return nk_x, nk_y, dnk_final
+end
+
+@inline function compute_faddeeva(zr1::SIMD.Vec{N,Float64}, zi1::SIMD.Vec{N,Float64},
+                                  zr2::SIMD.Vec{N,Float64}, zi2::SIMD.Vec{N,Float64},
+                                  r_f::SIMD.Vec{N,Float64},
+                                  u::SIMD.Vec{N,Float64},
+                                  v::SIMD.Vec{N,Float64}) where N
+    results = ntuple(Val(N)) do i
+            z1    = complex(zr1[i], zi1[i])
+            z2    = complex(zr2[i], zi2[i])
+            w1    = exp(-z1^2) * erfc(-im*z1)
+            w2    = exp(-z2^2) * erfc(-im*z2)
+            arg   = (1 - r_f[i]^2) * (u[i]^2 + v[i]^2)
+            expon = exp(-arg)
+            f     = w1 - expon * w2
+            dw1   = -2z1*w1 + 2im/sqrt(π)
+            dw2   = -2z2*w2 + 2im/sqrt(π)
+            (real(f), imag(f),
+            real(dw1), imag(dw1),
+            real(dw2), imag(dw2),
+            real(w1),  imag(w1),
+            real(w2),  imag(w2))
+        end
+
+    mk(j) = SIMD.Vec(ntuple(i -> results[i][j], Val(N))...)
+    return mk(1), mk(2), mk(3), mk(4), mk(5), mk(6), mk(7), mk(8), mk(9), mk(10)
+end
+@inline function compute_faddeeva(zr1::Float64, zi1::Float64,
+                                  zr2::Float64, zi2::Float64,
+                                  r_f::Float64, u::Float64, v::Float64)
+    z1    = complex(zr1, zi1)
+    z2    = complex(zr2, zi2)
+    w1    = exp(-z1^2) * erfc(-im*z1)
+    w2    = exp(-z2^2) * erfc(-im*z2)
+    arg   = (1 - r_f^2) * (u^2 + v^2)
+    expon = exp(-arg)
+    f     = w1 - expon * w2
+    dw1   = -2z1*w1 + 2im/sqrt(π)
+    dw2   = -2z2*w2 + 2im/sqrt(π)
+    return (real(f), imag(f),
+            real(dw1), imag(dw1),
+            real(dw2), imag(dw2),
+            real(w1),  imag(w1),
+            real(w2),  imag(w2))
+end
+@inline function compute_faddeeva(zr1::TPS, zi1::TPS,
+                                  zr2::TPS, zi2::TPS,
+                                  r_f::TPS, u::TPS, v::TPS)
+    z1    = complex(zr1, zi1)
+    z2    = complex(zr2, zi2)
+    w1    = exp(-z1^2) * erfc(-im*z1)
+    w2    = exp(-z2^2) * erfc(-im*z2)
+    arg   = (1 - r_f^2) * (u^2 + v^2)
+    expon = exp(-arg)
+    f     = w1 - expon * w2
+    dw1   = -2z1*w1 + 2im/sqrt(π)
+    dw2   = -2z2*w2 + 2im/sqrt(π)
+    return (real(f), imag(f),
+            real(dw1), imag(dw1),
+            real(dw2), imag(dw2),
+            real(w1),  imag(w1),
+            real(w2),  imag(w2))
 end
 
 
