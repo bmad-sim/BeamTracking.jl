@@ -344,8 +344,3 @@ end
   photon_params = ifelse(tm.radiation_fluctuations_on, (q, mc2, E0, 0, 0, mm, kn, ks), nothing)
   return integration_launcher(BeamTracking.cavity!, params, photon_params, tm, edge_params, L)
 end
-
-
-# =========== IBS ============= #
-@inline ibs_kick(tm::AbstractYoshida, bunch, bendparams, bmultipoleparams, L) =
-  ibs_kick(Exact(ibs_num_particles = tm.ibs_num_particles), bunch, bendparams, bmultipoleparams, L)

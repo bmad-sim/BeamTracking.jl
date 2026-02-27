@@ -97,8 +97,7 @@ function universal!(
 
   if tm.ibs_num_particles > 0 && L > 0
     bp = ifelse(isactive(bendparams), bendparams, nothing)
-    bmp = ifelse(isactive(bmultipoleparams), bmultipoleparams, nothing)
-    kc = push(kc, @inline(ibs_kick(tm, bunch, bp, bmp, L)))
+    kc = push(kc, @inline(ibs_kick(tm, bunch, bp, L)))
   end
 
   if isactive(mapparams)    
