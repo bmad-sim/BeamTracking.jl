@@ -93,6 +93,11 @@ function universal!(
     kc = push(kc, @inline(aperture(tm, bunch, apertureparams, true)))
   end
 
+  if tm.ibs_num_particles > 0 && L > 0
+    bp = ifelse(isactive(bendparams), bendparams, nothing)
+    kc = push(kc, @inline(ibs_kick(tm, bunch, bp, L)))
+  end
+
   if isactive(mapparams)    
     if isactive(bendparams)
       error("Tracking through a LineElement containing both MapParams and BendParams not currently defined")
