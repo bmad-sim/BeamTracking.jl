@@ -148,7 +148,7 @@ end
 
     dt_ds = h * rel_p / pl
 
-    coeff = 55/(24*sqrt(3))/(4*pi*EPS_0)*H_BAR*C_LIGHT
+    coeff = 55/(24*sqrt(3))/(4*pi*EPS_0)*H_BAR*C_LIGHT / E_CHARGE
 
     mc27 = mc2*mc2*mc2*mc2*mc2*mc2*mc2
     E05 = E0*E0*E0*E0*E0
