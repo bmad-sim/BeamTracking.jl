@@ -72,7 +72,6 @@ Base.:(==)(::Number, ::TimeDependentParam) = false
 Base.isinf(::TimeDependentParam) = false
 
 @inline teval(f::TimeFunction, t) = f(t)
-@inline teval(f, t) = f
 
 # === THIS BLOCK WAS PARTIALLY WRITTEN BY CLAUDE ===
 # Generated function for arbitrary-length tuples
@@ -84,16 +83,46 @@ Base.isinf(::TimeDependentParam) = false
 end
 # === END CLAUDE ===
 
+# Non-TimeFunction SArrays pass through (TimeDependentParam SArrays were converted to tuples during lowering)
+teval(f::SArray, t) = f
+
+# Generated function for structs: recursively evaluate time functions per element.
+# Structs are reconstructed with evaluated fields.
+@generated function teval(f::T, t) where {T}
+  if Base.isstructtype(T)
+    field_names = fieldnames(T)
+    N = length(field_names)
+    if N == 0
+      return :(f)
+    end
+    exprs = [:(teval(Base.getfield(f, $(QuoteNode(field_names[j]))), t)) for j in 1:N]
+    return :($(T.name.wrapper)($(exprs...)))
+  else
+    return :(f)
+  end
+end
+
 time_lower(tp::TimeDependentParam) = tp.f
-time_lower(tp) = tp
-# We can use map on the CPU, but not the GPU. This step of time_lower-ing is on 
+# We can use map on the CPU, but not the GPU. This step of time_lower-ing is on
 # the CPU and we are already type unstable here anyways, so we should do this.
 time_lower(tp::T) where {T<:Tuple} = map(ti->time_lower(ti), tp)
+
+# Recursively lower TimeDependentParam fields in structs.
+@generated function time_lower(tp::T) where {T}
+  if !Base.isstructtype(T) || fieldcount(T) == 0
+    return :(tp)
+  end
+  names = fieldnames(T)
+  vars = [Symbol(:lowered_, i) for i in 1:length(names)]
+  assigns = [:($(vars[i]) = time_lower(getfield(tp, $(QuoteNode(names[i]))))) for i in 1:length(names)]
+  unchanged = [:($(vars[i]) === getfield(tp, $(QuoteNode(names[i])))) for i in 1:length(names)]
+  construct = :($(T.name.wrapper)($(vars...)))
+  return Expr(:block, assigns..., Expr(:if, Expr(:&&, unchanged...), :(return tp)), construct)
+end
 
 # Arrays MUST be converted into tuples, for SIMD
 time_lower(tp::SArray{N,TimeDependentParam}) where {N} = time_lower(Tuple(tp))
 
-static_timecheck(tp) = false
 static_timecheck(::TimeFunction) = true
 @unroll function static_timecheck(t::Tuple)
   @unroll for ti in t
@@ -103,4 +132,14 @@ static_timecheck(::TimeFunction) = true
   end
   return false
 end
-#static_timecheck(tp::T) where {T<:Tuple} = Val{any(t->static_timecheck(t) isa Val{true}, tp)}()
+# Recursively check for time functions inside structs.
+@generated function static_timecheck(s::T) where {T}
+  if !Base.isstructtype(T)
+    return :(false)
+  end
+  checks = [:(static_timecheck(getfield(s, $(QuoteNode(name))))) for name in fieldnames(T)]
+  if isempty(checks)
+    return :(false)
+  end
+  return Expr(:||, checks...)
+end

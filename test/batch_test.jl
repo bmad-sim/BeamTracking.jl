@@ -260,5 +260,64 @@ end
   )
 
 =#
-  
+
+  # Test that batch evaluation works for structs
+  # This tests batch_lower, beval, and static_batchcheck on structs with BatchParam fields
+  @testset "Batch evaluation for structs" begin
+    # Create a simple struct with flexible types - one BatchParam field, one constant
+    struct TestStruct{T1,T2}
+      x::T1
+      y::T2
+    end
+
+    # Create test data
+    batch_values_x = [1.0, 2.0, 3.0, 4.0]
+    batch_x = BatchParam(batch_values_x)
+    test_struct = TestStruct(batch_x, 5.0)
+    
+    # Test 1: batch_lower converts BatchParam to _LoweredBatchParam
+    # constant field remains unchanged
+    lowered = BeamTracking.batch_lower(test_struct)
+    @test lowered.x isa BeamTracking._LoweredBatchParam
+    @test lowered.y == 5.0
+    @test length(lowered.x.batch) == 4
+    
+    # Test 2: static_batchcheck detects _LoweredBatchParam in lowered struct
+    @test BeamTracking.static_batchcheck(lowered) == true
+    
+    # Test 3: beval evaluates struct per particle index
+    for i in 1:4
+      evaluated = BeamTracking.beval(lowered, i)
+      @test evaluated isa TestStruct
+      @test evaluated.x == batch_values_x[i]
+      @test evaluated.y == 5.0
+    end
+    
+    # Test 4: No batch params - static_batchcheck returns false
+    test_struct_no_batch = TestStruct(1.0, 2.0)
+    @test BeamTracking.static_batchcheck(test_struct_no_batch) == false
+
+    # Test 5: batch_lower returns same object when no fields changed
+    @test BeamTracking.batch_lower(test_struct_no_batch) === test_struct_no_batch
+    
+    # Test 5: Nested structs
+    struct OuterStruct{T}
+      inner::T
+      scale::Float64
+    end
+    
+    nested_struct = OuterStruct(test_struct, 2.0)
+    lowered_nested = BeamTracking.batch_lower(nested_struct)
+    @test lowered_nested.inner.x isa BeamTracking._LoweredBatchParam
+    @test BeamTracking.static_batchcheck(lowered_nested) == true
+    
+    for i in 1:4
+      evaluated = BeamTracking.beval(lowered_nested, i)
+      @test evaluated isa OuterStruct
+      @test evaluated.inner isa TestStruct
+      @test evaluated.inner.x == batch_values_x[i]
+      @test evaluated.inner.y == 5.0
+      @test evaluated.scale == 2.0
+    end
+  end
 end
