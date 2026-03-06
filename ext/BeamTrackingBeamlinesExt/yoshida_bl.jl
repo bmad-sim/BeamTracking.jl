@@ -286,6 +286,7 @@ end
 end
 
 @inline function thick_bend_bdipole(tm::Union{Yoshida,BendKick}, bunch, bendparams, bm, L)
+  @warn "Straight multipoles are being used in a curved reference system. Maxwell's equations in free space are not satisfied." maxlog=1
   p_over_q_ref = bunch.p_over_q_ref
   tilde_m, _, beta_0 = BeamTracking.drift_params(bunch.species, p_over_q_ref)
   g = bendparams.g_ref
