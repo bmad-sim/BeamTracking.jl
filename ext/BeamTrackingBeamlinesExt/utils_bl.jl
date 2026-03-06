@@ -11,6 +11,8 @@ function check_bl_bunch!(bl::Beamline, bunch::Bunch, notify::Bool=true)
   return
 end
 
+#---------------------------------------------------------------------------------------------------
+
 function check_species!(species_ref::Species, bunch::Bunch, notify=true)
   if isnullspecies(bunch.species)
     if isnullspecies(species_ref)
@@ -60,12 +62,18 @@ function check_p_over_q_ref!(bl::Beamline, ref, bunch::Bunch, notify=true)
   return
 end
 
+#---------------------------------------------------------------------------------------------------
+
 get_n_multipoles(::BMultipoleParams{T,N}) where {T,N} = N
 
 make_static(a::StaticArray) = SVector(a)
 make_static(a) = a
 
+#---------------------------------------------------------------------------------------------------
+
 """
+    get_strengths(bm, L, p_over_q_ref) -> Kn, Ks
+Get non-integrated magnetic multipole strength arrays. Also see get_integrated_strengths.
 
 (Kn' + im*Ks') = (Kn + im*Ks)*exp(-im*order*tilt)
 
@@ -154,7 +162,7 @@ end
 
 #---------------------------------------------------------------------------------------------------
 
-function rf_omega(rfparams, circumference, species, p_over_q_ref)
+function rf_omega_calc(rfparams, circumference, species, p_over_q_ref)
   if rfparams.harmon_master
     tilde_m, gamsqr_0, beta_0 = BeamTracking.drift_params(species, p_over_q_ref)
     return 2*pi*rfparams.harmon*C_LIGHT*beta_0/circumference
@@ -165,7 +173,23 @@ end
 
 #---------------------------------------------------------------------------------------------------
 
-function rf_phi0(rfparams)
+function rf_phi0_calc(rfparams, species)
+  chargeof(species) > 0 ? dphi = 0 : dphi = pi
+
+  if rfparams.zero_phase == PhaseReference.BelowTransition
+    return rfparams.phi0 + pi/2 + dphi
+  elseif rfparams.zero_phase == PhaseReference.AboveTransition
+    return rfparams.phi0 - pi/2 + dphi
+  elseif rfparams.zero_phase == PhaseReference.Accelerating
+    return rfparams.phi0 + dphi
+  else
+    error("RF parameter zero_phase value not set correctly.")
+  end
+end
+
+#---------------------------------------------------------------------------------------------------
+
+function rf_phi0_calc_old(rfparams, species)
   if rfparams.zero_phase == PhaseReference.BelowTransition
     return rfparams.phi0 + 0.5*pi
   elseif rfparams.zero_phase == PhaseReference.AboveTransition
@@ -192,5 +216,28 @@ function fringe_out(f::Fringe.T)
     return Val{true}()
   else
     return Val{false}()
+  end
+end
+
+#---------------------------------------------------------------------------------------------------
+"""
+    rf_step_calc(num_cells, L_active, rf_omega, L) -> num_cells_out, L_active_out
+
+For an element of length `L`, calculate the number of RF cells (kicks) `num_cells_out` and the active length 
+`L_active_out` given the input number of cells `num_cells` and the active length length `L_active`.
+
+If `L_active` is negative, `L_active_out` is set to the element length `L`.
+If `num_cells` is negative, `num_cells_out` is set so that the cell length is near half a wavelength.
+If `L_active` is zero, `num_cells_out` is set to zero.
+"""
+function rf_step_calc(num_cells, L_active, rf_omega, L)  
+  L_active < 0 ? L_act = L : L_act = L_active
+
+  if num_cells < 0
+    return round(rf_omega * L_act / (pi * C_LIGHT)), L_act
+  elseif L_active == 0
+    return 0, L_active
+  else
+    return num_cells, L_act
   end
 end
