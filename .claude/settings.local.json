@@ -1,9 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "Bash(julia -e:*)",
-      "Bash(grep:*)",
-      "Bash(julia:*)"
-    ]
-  }
-}
