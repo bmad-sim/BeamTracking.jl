@@ -164,10 +164,10 @@ end
 
 function rf_omega_calc(rfparams, circumference, species, p_over_q_ref)
   if rfparams.harmon_master
-    tilde_m, gamsqr_0, beta_0 = BeamTracking.drift_params(species, p_over_q_ref)
-    return 2*pi*rfparams.harmon*C_LIGHT*beta_0/circumference
+    v = R_to_v(species, p_over_q_ref)
+    return 2*pi*rfparams.rate*v/circumference
   else
-    return 2*pi*rfparams.rf_frequency
+    return 2*pi*rfparams.rate
   end
 end
 
@@ -182,20 +182,6 @@ function rf_phi0_calc(rfparams, species)
     return rfparams.phi0 - pi/2 + dphi
   elseif rfparams.zero_phase == PhaseReference.Accelerating
     return rfparams.phi0 + dphi
-  else
-    error("RF parameter zero_phase value not set correctly.")
-  end
-end
-
-#---------------------------------------------------------------------------------------------------
-
-function rf_phi0_calc_old(rfparams, species)
-  if rfparams.zero_phase == PhaseReference.BelowTransition
-    return rfparams.phi0 + 0.5*pi
-  elseif rfparams.zero_phase == PhaseReference.AboveTransition
-    return rfparams.phi0 - 0.5*pi
-  elseif rfparams.zero_phase == PhaseReference.Accelerating
-    return rfparams.phi0
   else
     error("RF parameter zero_phase value not set correctly.")
   end

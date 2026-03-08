@@ -126,7 +126,7 @@ function universal!(
     end
     !rfparams.is_crabcavity || error("Crab cavities not yet supported for tracking")
 
-    kc = push(kc, @inline(RFcavity(tm, bunch, bmultipoleparams, rfparams, beamlineparams, L)))
+    kc = push(kc, @inline(rfcavity(tm, bunch, bmultipoleparams, rfparams, beamlineparams, L)))
     
   elseif isactive(bendparams)
     if bendparams.edge1_int != 0 || bendparams.edge2_int != 0; error("edge1_int and edge2_int not yet handled for tracking"); end
