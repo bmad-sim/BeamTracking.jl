@@ -721,7 +721,7 @@
     @test quaternion_coeffs_approx_equal(q_expected, q_z, 1e-14)
 
     # RF Cavity (PTC):
-    ele = LineElement(L=4.01667, voltage=3.3210942126011E6, rf_frequency=5.9114268014977E8, tracking_method=Yoshida(order=2))
+    ele = LineElement(L=4.01667, voltage=3.3210942126011E6, zero_phase=PhaseReference.AboveTransition, rf_frequency=5.9114268014977E8, tracking_method=Yoshida(order=2))
     v = collect(transpose(@vars(D10)))
     q = TPS64{D10}[1 0 0 0]
     b0 = Bunch(v, q, p_over_q_ref=p_over_q_ref, species=Species("electron"))
@@ -746,7 +746,7 @@
     @test quaternion_coeffs_approx_equal(q_expected, q_z, 1e-7)
 
     # With solenoid (RK4):
-    ele = LineElement(L=4.01667, voltage=3321.0942126011, rf_frequency=591142.68014977, Ksol=0.6, tracking_method=Yoshida(order=6, num_steps=2, fringe_at=Fringe.NoEnd))
+    ele = LineElement(L=4.01667, voltage=3321.0942126011,  zero_phase=PhaseReference.AboveTransition, rf_frequency=591142.68014977, Ksol=0.6, tracking_method=Yoshida(order=6, num_steps=2, fringe_at=Fringe.NoEnd))
     v = [0.01 0.02 0.03 0.04 0.05 0.06]
     q = [1.0 0.0 0.0 0.0]
     b0 = Bunch(v, q, p_over_q_ref=p_over_q_ref, species=Species("electron"))
@@ -758,7 +758,7 @@
     @test b0.coords.q ≈ q_expected || b0.coords.q ≈ -q_expected
 
     # With sextupole:
-    ele = LineElement(L=4.01667, voltage=3321.0942126011, rf_frequency=591142.68014977, phi0=0.1, Kn2=1.3, tracking_method=Yoshida(order=6, num_steps=20))
+    ele = LineElement(L=4.01667, voltage=3321.0942126011, zero_phase=PhaseReference.AboveTransition,  rf_frequency=591142.68014977, phi0=0.1, Kn2=1.3, tracking_method=Yoshida(order=6, num_steps=20))
     v = [0.01 0.02 0.03 0.04 0.05 0.06]
     q = [1.0 0.0 0.0 0.0]
     b0 = Bunch(v, q, p_over_q_ref=p_over_q_ref, species=Species("electron"))
@@ -770,7 +770,7 @@
     @test b0.coords.q ≈ q_expected || b0.coords.q ≈ -q_expected
 
     # With solenoid and quadrupole:
-    ele = LineElement(L=4.01667, voltage=3321.0942126011, rf_frequency=591142.68014977, Ksol=-0.3, Kn1=0.15, tracking_method=Yoshida(order=6, num_steps=20, fringe_at=Fringe.NoEnd))
+    ele = LineElement(L=4.01667, voltage=3321.0942126011,  zero_phase=PhaseReference.AboveTransition, rf_frequency=591142.68014977, Ksol=-0.3, Kn1=0.15, tracking_method=Yoshida(order=6, num_steps=20, fringe_at=Fringe.NoEnd))
     v = [0.01 0.02 0.03 0.04 0.05 0.06]
     q = [1.0 0.0 0.0 0.0]
     b0 = Bunch(v, q, p_over_q_ref=p_over_q_ref, species=Species("electron"))
@@ -818,7 +818,7 @@
     @test b0.coords.v ≈ v_expected
 
     # Cavity-solenoid with deterministic radiation:
-    ele = LineElement(L=0.5, Ksol=0.3, rf_frequency=1e8, voltage=-0.25e6, tracking_method=Yoshida(order=6, num_steps = 5, radiation_damping_on=true))
+    ele = LineElement(L=0.5, Ksol=0.3, rf_frequency=1e8,  zero_phase=PhaseReference.AboveTransition, voltage=-0.25e6, tracking_method=Yoshida(order=6, num_steps = 5, radiation_damping_on=true))
     v = [0.01 0.02 0.03 0.04 0.05 0.06]
     b0 = Bunch(v, p_over_q_ref=-18e9/C_LIGHT, species=Species("electron"))
     bl = Beamline([ele], p_over_q_ref=-18e9/C_LIGHT, species_ref=Species("electron"))
