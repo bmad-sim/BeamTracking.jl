@@ -178,7 +178,7 @@ end
 #---------------------------------------------------------------------------------------------------
 
 function rf_phi0_calc(rfparams, species)
-  chargeof(species) > 0 ? dphi = 0 : dphi = pi
+  dphi = chargeof(species) > 0 ? 0 : pi
 
   if rfparams.zero_phase == PhaseReference.BelowTransition
     return rfparams.phi0 + pi/2 + dphi
