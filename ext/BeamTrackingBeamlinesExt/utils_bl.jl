@@ -162,8 +162,12 @@ end
 
 #---------------------------------------------------------------------------------------------------
 
-function rf_omega_calc(rfparams, circumference, species, p_over_q_ref)
-  if rfparams.harmon_master
+function rf_omega_calc(rfparams, beamlineparams)
+  if rfparams.rate_meaning == RateMeaning.Harmon
+    beamline = beamlineparams.beamline
+    p_over_q_ref = beamline.p_over_q_ref
+    species = beamline.species_ref
+    circumference = beamline.line[end].s_downstream
     v = R_to_v(species, p_over_q_ref)
     return 2*pi*rfparams.rate*v/circumference
   else

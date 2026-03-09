@@ -316,7 +316,7 @@ function universal!(coords, tm::SaganCavity, ele, ramp_without_rf, bunch, L,
   if L != 0
     species = bunch.species
     p1_over_q_ref = beamlineparams.beamline.p_over_q_ref
-    rf_omega = rf_omega_calc(rfparams, beamlineparams.beamline.line[end].s_downstream, species, p1_over_q_ref)
+    rf_omega = rf_omega_calc(rfparams, beamlineparams)
     num_cells, L_active = rf_step_calc(tm.num_cells, tm.L_active, rf_omega, L)
     L_outer = (L - L_active) / 2
     E1_ref = R_to_E(species, p1_over_q_ref)

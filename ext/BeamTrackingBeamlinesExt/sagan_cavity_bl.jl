@@ -6,7 +6,7 @@
   q = chargeof(species)
 
   p1_over_q_ref = beamlineP.beamline.p_over_q_ref
-  rf_omega = rf_omega_calc(rfP, beamlineP.beamline.line[end].s_downstream, species, p1_over_q_ref)
+  rf_omega = rf_omega_calc(rfP, beamlineP)
   E1_ref = R_to_E(species, p1_over_q_ref)
   dE_ref = beamlineP.dE_ref
   E0_ref = E1_ref - dE_ref

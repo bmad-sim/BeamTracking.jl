@@ -292,12 +292,12 @@ end
 
 
 # =========== RF ============= #
-@inline function thick_pure_rf(tm::Union{Yoshida,DriftKick}, bunch, rf, beamline, L)
+@inline function thick_pure_rf(tm::Union{Yoshida,DriftKick}, bunch, rfparams, beamlineparams, L)
   p_over_q_ref = bunch.p_over_q_ref
-  omega = rf_omega_calc(rf, beamline.beamline.line[end].s_downstream, bunch.species, p_over_q_ref)
-  t0 = rf_phi0_calc(rf, beamline.beamline.species_ref) / omega
+  omega = rf_omega_calc(rfparams, beamlineparams)
+  t0 = rf_phi0_calc(rfparams, beamlineparams.beamline.species_ref) / omega
   tilde_m, gamsqr_0, beta_0 = BeamTracking.drift_params(bunch.species, p_over_q_ref)
-  E0_over_Rref = rf.voltage/L/p_over_q_ref
+  E0_over_Rref = rfparams.voltage/L/p_over_q_ref
   E_ref = BeamTracking.R_to_E(bunch.species, p_over_q_ref)
   p0c = BeamTracking.R_to_pc(bunch.species, p_over_q_ref)
   q = chargeof(bunch.species)
@@ -308,12 +308,12 @@ end
   return integration_launcher(BeamTracking.cavity!, params, photon_params, tm, nothing, L)
 end
 
-@inline function thick_bmultipole_rf(tm::Union{Yoshida,DriftKick,SolenoidKick}, bunch, bm, rf, beamline, L)
+@inline function thick_bmultipole_rf(tm::Union{Yoshida,DriftKick,SolenoidKick}, bunch, bm, rfparams, beamlineparams, L)
   p_over_q_ref = bunch.p_over_q_ref
-  omega = rf_omega_calc(rf, beamline.beamline.line[end].s_downstream, bunch.species, p_over_q_ref)
-  t0 = rf_phi0_calc(rf, beamline.beamline.species_ref) / omega
+  omega = rf_omega_calc(rfparams, beamlineparams)
+  t0 = rf_phi0_calc(rfparams, beamlineparams.beamline.species_ref) / omega
   tilde_m, gamsqr_0, beta_0 = BeamTracking.drift_params(bunch.species, p_over_q_ref)
-  E0_over_Rref = rf.voltage/L/p_over_q_ref
+  E0_over_Rref = rfparams.voltage/L/p_over_q_ref
   mm = bm.order
   kn, ks = get_strengths(bm, L, p_over_q_ref)
   E_ref = BeamTracking.R_to_E(bunch.species, p_over_q_ref)
