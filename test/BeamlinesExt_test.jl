@@ -734,7 +734,7 @@
 
     # Harmon:
     ele_drift = LineElement(L=1.04812778909)
-    ele = LineElement(L=4.01667, voltage=3.3210942126011E6, harmon=10, tracking_method=Yoshida(order=2))
+    ele = LineElement(L=4.01667, voltage=3.3210942126011E6, harmon=10, zero_phase=PhaseReference.AboveTransition, tracking_method=Yoshida(order=2))
     v = collect(transpose(@vars(D10)))
     q = TPS64{D10}[1 0 0 0]
     b0 = Bunch(v, q, p_over_q_ref=p_over_q_ref, species=Species("electron"))
