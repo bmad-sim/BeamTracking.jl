@@ -80,7 +80,11 @@ end
     edge_params = (a, tilde_m, Ksol, 0, 0, 0)
     E0 = mc2/tilde_m/beta_0
     params = (q, mc2, tm.radiation_damping_on, beta_0, gamsqr_0, tilde_m, a, Ksol, mm, kn, ks)
-    photon_params = ifelse(tm.radiation_fluctuations_on, (q, mc2, E0, 0, 0, mm, kn, ks), nothing)
+    if isprimitivetype(eltype(bunch.coords.v)) && tm.radiation_fluctuations_on
+      photon_params = (get_backend(bunch.coords.v), q, mc2, E0, 0, 0, mm, kn, ks)
+    else
+      photon_params = nothing
+    end
     return integration_launcher(BeamTracking.sks_multipole!, params, photon_params, tm, edge_params, L)
   end
 end
@@ -98,7 +102,11 @@ end
   edge_params = (a, tilde_m, Ksol, Kn0, 0, 0)
   E0 = mc2/tilde_m/beta_0
   params = (q, mc2, tm.radiation_damping_on, beta_0, gamsqr_0, tilde_m, a, Ksol, mm, kn, ks)
-  photon_params = ifelse(tm.radiation_fluctuations_on, (q, mc2, E0, 0, 0, mm, kn, ks), nothing)
+  if isprimitivetype(eltype(bunch.coords.v)) && tm.radiation_fluctuations_on
+    photon_params = (get_backend(bunch.coords.v), q, mc2, E0, 0, 0, mm, kn, ks)
+  else
+    photon_params = nothing
+  end
   return integration_launcher(BeamTracking.sks_multipole!, params, photon_params, tm, edge_params, L)
 end
 
@@ -114,7 +122,11 @@ end
   edge_params = (a, tilde_m, 0, Kn0, 0, 0)
   E0 = mc2/tilde_m/beta_0
   params = (q, mc2, tm.radiation_damping_on, beta_0, gamsqr_0, tilde_m, a, SA[mm], SA[kn], SA[ks])
-  photon_params = ifelse(tm.radiation_fluctuations_on, (q, mc2, E0, 0, 0, SA[mm], SA[kn], SA[ks]), nothing)
+  if isprimitivetype(eltype(bunch.coords.v)) && tm.radiation_fluctuations_on
+    photon_params = (get_backend(bunch.coords.v), q, mc2, E0, 0, 0, SA[mm], SA[kn], SA[ks])
+  else
+    photon_params = nothing
+  end
   return integration_launcher(BeamTracking.dkd_multipole!, params, photon_params, tm, edge_params, L)
 end
 
@@ -130,7 +142,11 @@ end
   edge_params = (a, tilde_m, 0, Kn0, 0, 0)
   E0 = mc2/tilde_m/beta_0
   params = (q, mc2, tm.radiation_damping_on, beta_0, gamsqr_0, tilde_m, a, mm, kn, ks)
-  photon_params = ifelse(tm.radiation_fluctuations_on, (q, mc2, E0, 0, 0, mm, kn, ks), nothing)
+  if isprimitivetype(eltype(bunch.coords.v)) && tm.radiation_fluctuations_on
+    photon_params = (get_backend(bunch.coords.v), q, mc2, E0, 0, 0, mm, kn, ks)
+  else
+    photon_params = nothing
+  end
   return integration_launcher(BeamTracking.dkd_multipole!, params, photon_params, tm, edge_params, L)
 end
 
@@ -152,7 +168,11 @@ end
     a = gyromagnetic_anomaly(bunch.species)
     edge_params = (a, tilde_m, 0, k0, 0, 0)
     params = (q, mc2, tm.radiation_damping_on, tilde_m, beta_0, a, 0, w, w_inv, k0, SA[mm], SA[kn], SA[ks])
-    photon_params = ifelse(tm.radiation_fluctuations_on, (q, mc2, E0, 0, 0, SA[mm], SA[kn], SA[ks]), nothing)
+    if isprimitivetype(eltype(bunch.coords.v)) && tm.radiation_fluctuations_on
+      photon_params = (get_backend(bunch.coords.v), q, mc2, E0, 0, 0, SA[mm], SA[kn], SA[ks])
+    else
+      photon_params = nothing
+    end
     return integration_launcher(BeamTracking.bkb_multipole!, params, photon_params, tm, edge_params, L)
   end
 end
@@ -172,7 +192,11 @@ end
   edge_params = (a, tilde_m, 0, k0, 0, 0)
   E0 = mc2/tilde_m/beta_0
   params = (q, mc2, tm.radiation_damping_on, tilde_m, beta_0, a, 0, w, w_inv, k0, mm, kn, ks)
-  photon_params = ifelse(tm.radiation_fluctuations_on, (q, mc2, E0, 0, 0, mm, kn, ks), nothing)
+  if isprimitivetype(eltype(bunch.coords.v)) && tm.radiation_fluctuations_on
+    photon_params = (get_backend(bunch.coords.v), q, mc2, E0, 0, 0, mm, kn, ks)
+  else
+    photon_params = nothing
+  end
   return integration_launcher(BeamTracking.bkb_multipole!, params, photon_params, tm, edge_params, L)
 end
 
@@ -198,7 +222,11 @@ end
   edge_params = (a, tilde_m, 0, kn[1], 0, 0)
   E0 = mc2/tilde_m/beta_0
   params = (q, mc2, tm.radiation_damping_on, beta_0, gamsqr_0, tilde_m, a, w, w_inv, k1, mm, kn, ks)
-  photon_params = ifelse(tm.radiation_fluctuations_on, (q, mc2, E0, 0, 0, mm, kn, ks), nothing)
+  if isprimitivetype(eltype(bunch.coords.v)) && tm.radiation_fluctuations_on
+    photon_params = (get_backend(bunch.coords.v), q, mc2, E0, 0, 0, mm, kn, ks)
+  else
+    photon_params = nothing
+  end
   return integration_launcher(BeamTracking.mkm_quadrupole!, params, photon_params, tm, edge_params, L)
 end
 
@@ -218,7 +246,11 @@ end
   mc2 = massof(bunch.species)
   E0 = mc2/tilde_m/beta_0
   params = (q, mc2, tm.radiation_damping_on, beta_0, gamsqr_0, tilde_m, gyromagnetic_anomaly(bunch.species), w, w_inv, k1, SA[mm], SA[kn], SA[ks])
-  photon_params = ifelse(tm.radiation_fluctuations_on, (q, mc2, E0, 0, 0, SA[mm], SA[kn], SA[ks]), nothing)
+  if isprimitivetype(eltype(bunch.coords.v)) && tm.radiation_fluctuations_on
+    photon_params = (get_backend(bunch.coords.v), q, mc2, E0, 0, 0, SA[mm], SA[kn], SA[ks])
+  else
+    photon_params = nothing
+  end
   return integration_launcher(BeamTracking.mkm_quadrupole!, params, photon_params, tm, nothing, L)
 end
 
@@ -241,7 +273,11 @@ end
   mc2 = massof(bunch.species)
   E0 = mc2/tilde_m/beta_0
   params = (q, mc2, tm.radiation_damping_on, beta_0, gamsqr_0, tilde_m, gyromagnetic_anomaly(bunch.species), w, w_inv, k1, mm, kn, ks)
-  photon_params = ifelse(tm.radiation_fluctuations_on, (q, mc2, E0, 0, 0, mm, kn, ks), nothing)
+  if isprimitivetype(eltype(bunch.coords.v)) && tm.radiation_fluctuations_on
+    photon_params = (get_backend(bunch.coords.v), q, mc2, E0, 0, 0, mm, kn, ks)
+  else
+    photon_params = nothing
+  end
   return integration_launcher(BeamTracking.mkm_quadrupole!, params, photon_params, tm, nothing, L)
 end
 
@@ -280,7 +316,11 @@ end
     mc2 = massof(bunch.species)
     E0 = mc2/tilde_m/beta_0
     params = (q, mc2, tm.radiation_damping_on, tilde_m, beta_0, a, g, w, w_inv, Kn0, SA[mm], SA[Kn0], SA[Ks0])
-    photon_params = ifelse(tm.radiation_fluctuations_on, (q, mc2, E0, g, tilt, SA[mm], SA[Kn0], SA[Ks0]), nothing)
+    if isprimitivetype(eltype(bunch.coords.v)) && tm.radiation_fluctuations_on
+      photon_params = (get_backend(bunch.coords.v), q, mc2, E0, g, tilt, SA[mm], SA[Kn0], SA[Ks0])
+    else
+      photon_params = nothing
+    end
     return integration_launcher(BeamTracking.bkb_multipole!, params, photon_params, tm, edge_params, L)
   end
 end
@@ -338,6 +378,10 @@ end
   edge_params = (a, tilde_m, Ksol, Kn0, 0, 0)
   E0 = mc2/tilde_m/beta_0
   params = (q, mc2, tm.radiation_damping_on, beta_0, gamsqr_0, tilde_m, E_ref, p0c, a, omega, t0, E0_over_Rref, mm, kn, ks)
-  photon_params = ifelse(tm.radiation_fluctuations_on, (q, mc2, E0, 0, 0, mm, kn, ks), nothing)
+  if isprimitivetype(eltype(bunch.coords.v)) && tm.radiation_fluctuations_on
+    photon_params = (get_backend(bunch.coords.v), q, mc2, E0, 0, 0, mm, kn, ks)
+  else
+    photon_params = nothing
+  end
   return integration_launcher(BeamTracking.cavity!, params, photon_params, tm, edge_params, L)
 end
