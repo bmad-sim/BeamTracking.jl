@@ -1,4 +1,4 @@
-@makekernel function ibs_damping_and_diffusion!(i, coords::Coords, tilde_m, gamma_0, b_coeff, integrals, diffusion, P, sigma_inv, means, g, w, w_inv, L)
+@makekernel function ibs_damping_and_diffusion!(i, coords::Coords, backend, tilde_m, gamma_0, b_coeff, integrals, diffusion_lambdas, diffusion_P, P, sigma_inv, means, g, w, w_inv, L)
   v = coords.v
   alive = (coords.state[i] == STATE_ALIVE)
 
@@ -34,14 +34,14 @@
 
   X =   v[i,XI]  - means[XI]
   Y =   v[i,YI]  - means[YI]
-  Z =  (v[i,ZI]  - means[ZI] )#*gamma_0
-  PX = (v[i,PXI] - means[PXI])#*p0
-  PY = (v[i,PYI] - means[PYI])#*p0
-  PZ = (v[i,PZI] - means[PZI])#*p0/gamma_0
+  Z =   v[i,ZI]  - means[ZI] 
+  PX =  v[i,PXI] - means[PXI]
+  PY =  v[i,PYI] - means[PYI]
+  PZ =  v[i,PZI] - means[PZI]
 
-  kx = X*sigma_inv[1,2] + Y*sigma_inv[3,2] + Z*sigma_inv[5,2] + PX*sigma_inv[2,2] + PY*sigma_inv[4,2] + PZ*sigma_inv[6,2]
-  ky = X*sigma_inv[1,4] + Y*sigma_inv[3,4] + Z*sigma_inv[5,4] + PX*sigma_inv[2,4] + PY*sigma_inv[4,4] + PZ*sigma_inv[6,4]
-  kz = X*sigma_inv[1,6] + Y*sigma_inv[3,6] + Z*sigma_inv[5,6] + PX*sigma_inv[2,6] + PY*sigma_inv[4,6] + PZ*sigma_inv[6,6]
+  kx = sigma_inv[2]*X + sigma_inv[8]*Y  + sigma_inv[10]*Z + sigma_inv[7]*PX  + sigma_inv[9]*PY  + sigma_inv[11]*PZ
+  ky = sigma_inv[4]*X + sigma_inv[13]*Y + sigma_inv[17]*Z + sigma_inv[9]*PX  + sigma_inv[16]*PY + sigma_inv[18]*PZ
+  kz = sigma_inv[6]*X + sigma_inv[15]*Y + sigma_inv[20]*Z + sigma_inv[11]*PX + sigma_inv[18]*PY + sigma_inv[21]*PZ
   kz *= gamma_0
   
   wx = P[1,1]*kx + P[1,2]*ky + P[1,3]*kz
@@ -56,17 +56,17 @@
   I_Y = P[1,2]*mx + P[2,2]*my + P[3,2]*mz
   I_Z = P[1,3]*mx + P[2,3]*my + P[3,3]*mz
 
-  X_A_X  =   sigma_inv[1,1]*X*X +   sigma_inv[3,3]*Y*Y +   sigma_inv[5,5]*Z*Z
-  X_A_X += 2*sigma_inv[1,3]*X*Y + 2*sigma_inv[1,5]*X*Z + 2*sigma_inv[3,5]*Y*Z
+  X_A_X  =    sigma_inv[1]*X*X + sigma_inv[12]*Y*Y + sigma_inv[19]*Z*Z
+  X_A_X += 2*(sigma_inv[3]*X*Y + sigma_inv[5]*X*Z  + sigma_inv[14]*Y*Z)
 
-  X_B_P  =   X*(sigma_inv[1,2]*PX + sigma_inv[1,4]*PY + sigma_inv[1,6]*PZ)
-  X_B_P +=   Y*(sigma_inv[2,3]*PX + sigma_inv[3,4]*PY + sigma_inv[3,6]*PZ) 
-  X_B_P +=   Z*(sigma_inv[2,5]*PX + sigma_inv[4,5]*PY + sigma_inv[5,6]*PZ)
+  X_B_P  =   X*(sigma_inv[2]*PX  + sigma_inv[4]*PY  + sigma_inv[6]*PZ)
+  X_B_P +=   Y*(sigma_inv[8]*PX  + sigma_inv[13]*PY + sigma_inv[15]*PZ) 
+  X_B_P +=   Z*(sigma_inv[10]*PX + sigma_inv[17]*PY + sigma_inv[20]*PZ)
 
-  P_C_P  =   sigma_inv[2,2]*PX*PX +   sigma_inv[4,4]*PY*PY +   sigma_inv[6,6]*PZ*PZ
-  P_C_P += 2*sigma_inv[2,4]*PX*PY + 2*sigma_inv[2,6]*PX*PZ + 2*sigma_inv[4,6]*PY*PZ
+  P_C_P  =    sigma_inv[7]*PX*PX + sigma_inv[16]*PY*PY + sigma_inv[21]*PZ*PZ
+  P_C_P += 2*(sigma_inv[9]*PX*PY + sigma_inv[11]*PX*PZ + sigma_inv[18]*PY*PZ)
 
-  exp_correction = exp(-X_A_X/2 - X_B_P - P_C_P/2)
+  exp_correction = 2*exp(-X_A_X/2 - X_B_P - P_C_P/2)
 
   B_X = exp_correction*b_coeff*I_X 
   B_Y = exp_correction*b_coeff*I_Y
@@ -76,19 +76,46 @@
   b_y = B_Y/gamma_0
   b_z = B_Z
 
-  d_xx, d_yy, d_zz = exp_correction .* diffusion
-  #println(d_zz)
+  new_px = v[i,PXI] + b_x*dt
+  new_py = v[i,PYI] + b_y*dt
+  new_pz = v[i,PZI] + b_z*dt
+
+  v[i,PXI] = vifelse(alive, new_px, v[i,PXI])
+  v[i,PYI] = vifelse(alive, new_py, v[i,PYI])
+  v[i,PZI] = vifelse(alive, new_pz, v[i,PZI])
+
+  # Rotate in with P
+
+  new_px = diffusion_P[1,1]*v[i,PXI] + diffusion_P[1,2]*v[i,PYI] + diffusion_P[1,3]*v[i,PZI]
+  new_py = diffusion_P[2,1]*v[i,PXI] + diffusion_P[2,2]*v[i,PYI] + diffusion_P[2,3]*v[i,PZI]
+  new_pz = diffusion_P[3,1]*v[i,PXI] + diffusion_P[3,2]*v[i,PYI] + diffusion_P[3,3]*v[i,PZI]
+
+  v[i,PXI] = vifelse(alive, new_px, v[i,PXI])
+  v[i,PYI] = vifelse(alive, new_py, v[i,PYI])
+  v[i,PZI] = vifelse(alive, new_pz, v[i,PZI])
+
+  d_xx, d_yy, d_zz = exp_correction .* diffusion_lambdas
 
   sigma_x = sqrt(d_xx*dt)
   sigma_y = sqrt(d_yy*dt)
   sigma_z = sqrt(d_zz*dt)
 
-  rand_px, rand_py = gaussian_random(v', sigma_x, sigma_y)
-  rand_pz, _       = gaussian_random(v', sigma_z, zero(sigma_z))
+  rand_px, rand_py = gaussian_random(backend, sigma_x, sigma_y)
+  rand_pz, _       = gaussian_random(backend, sigma_z, zero(sigma_z))
 
-  new_px = v[i,PXI] + b_x*dt + rand_px
-  new_py = v[i,PYI] + b_y*dt + rand_py
-  new_pz = v[i,PZI] + b_z*dt + rand_pz
+  new_px = v[i,PXI] + rand_px
+  new_py = v[i,PYI] + rand_py
+  new_pz = v[i,PZI] + rand_pz
+
+  v[i,PXI] = vifelse(alive, new_px, v[i,PXI])
+  v[i,PYI] = vifelse(alive, new_py, v[i,PYI])
+  v[i,PZI] = vifelse(alive, new_pz, v[i,PZI])
+
+  # Rotate out with P'
+
+  new_px = diffusion_P[1,1]*v[i,PXI] + diffusion_P[2,1]*v[i,PYI] + diffusion_P[3,1]*v[i,PZI]
+  new_py = diffusion_P[1,2]*v[i,PXI] + diffusion_P[2,2]*v[i,PYI] + diffusion_P[3,2]*v[i,PZI]
+  new_pz = diffusion_P[1,3]*v[i,PXI] + diffusion_P[2,3]*v[i,PYI] + diffusion_P[3,3]*v[i,PZI]
 
   v[i,PXI] = vifelse(alive, new_px, v[i,PXI])
   v[i,PYI] = vifelse(alive, new_py, v[i,PYI])

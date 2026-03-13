@@ -654,10 +654,10 @@ end
    yo9_qd1 = Quadrupole(L =  1.43999999999999995E+000, Kn1 = -3.96353326619464513E-002)
    yo9_b1 = Marker()
    ocavtrp = Drift(L =  8.06791581445101968E+000)
-   h10_cav591_1 = RFCavity(L =  5.40000000000000036E+000, rf_frequency =  5.91158513604899049E+008)
+   h10_cav591_1 = RFCavity(L =  5.40000000000000036E+000, rf_frequency =  5.91158513604899049E+008, voltage = 20e6/3, phi0 = π - 2π*5.1379e-5)
    obel11 = Drift(L =  2.92607999999999979E-001)
-   h10_cav591_2 = RFCavity(L =  5.40000000000000036E+000, rf_frequency =  5.91158513604899049E+008)
-   h10_cav591_3 = RFCavity(L =  5.40000000000000036E+000, rf_frequency =  5.91158513604899049E+008)
+   h10_cav591_2 = RFCavity(L =  5.40000000000000036E+000, rf_frequency =  5.91158513604899049E+008, voltage = 20e6/3, phi0 = π - 2π*5.1379e-5)
+   h10_cav591_3 = RFCavity(L =  5.40000000000000036E+000, rf_frequency =  5.91158513604899049E+008, voltage = 20e6/3, phi0 = π - 2π*5.1379e-5)
    yi10_b1 = Marker()
    yi10_qf1 = Quadrupole(L =  1.43999999999999995E+000, Kn1 =  3.89458865226625373E-002)
    yi10_int1 = Drift(L =  6.26085000000000003E-001)
@@ -1659,18 +1659,14 @@ end
    lmp04y3a = Kicker(L =  5.00000000000000000E-001)
    yo4_b3 = Marker()
    yo4_b3w = Drift(L =  1.28523999999999999E-001)
-   cav25_4 = RFCavity(L =  3.39480000000000004E+000, harmon = 315,
-      voltage =  6e6, phi0 = π - 2π*5.1379e-5)
+   cav25_4 = RFCavity(L =  3.39480000000000004E+000, harmon = 315)
 
    o25 = Drift(L =  1.94817999999999991E-001)
-   cav25_3 = RFCavity(L =  3.39480000000000004E+000, harmon = 315,
-      voltage =  6e6, phi0 = π - 2π*5.1379e-5)
+   cav25_3 = RFCavity(L =  3.39480000000000004E+000, harmon = 315)
 
-   cav25_2 = RFCavity(L =  3.39480000000000004E+000, harmon = 315,
-      voltage =  6e6, phi0 = π - 2π*5.1379e-5)
+   cav25_2 = RFCavity(L =  3.39480000000000004E+000, harmon = 315)
 
-   cav25_1 = RFCavity(L =  3.39480000000000004E+000, harmon = 315,
-         voltage =  6e6, phi0 = π - 2π*5.1379e-5)
+   cav25_1 = RFCavity(L =  3.39480000000000004E+000, harmon = 315)
 
    o25_197 = Drift(L =  2.92354000000000003E-001)
    cav197_9 = RFCavity(L =  7.98799999999999955E-001, rf_frequency =  1.97052837868299991E+008)
@@ -1680,17 +1676,23 @@ end
 
    cav197_7 = RFCavity(L =  7.98799999999999955E-001, rf_frequency =  1.97052837868299991E+008)
 
-   cav197_6 = RFCavity(L =  7.98799999999999955E-001, rf_frequency =  1.97052837868299991E+008)
+   cav197_6 = RFCavity(L =  7.98799999999999955E-001, rf_frequency =  1.97052837868299991E+008,
+   voltage = 1e6, phi0 = π - 2π*5.1379e-5)
 
-   cav197_5 = RFCavity(L =  7.98799999999999955E-001, rf_frequency =  1.97052837868299991E+008)
+   cav197_5 = RFCavity(L =  7.98799999999999955E-001, rf_frequency =  1.97052837868299991E+008,
+   voltage = 1e6, phi0 = π - 2π*5.1379e-5)
 
-   cav197_4 = RFCavity(L =  7.98799999999999955E-001, rf_frequency =  1.97052837868299991E+008)
+   cav197_4 = RFCavity(L =  7.98799999999999955E-001, rf_frequency =  1.97052837868299991E+008,
+   voltage = 1e6, phi0 = π - 2π*5.1379e-5)
 
-   cav197_3 = RFCavity(L =  7.98799999999999955E-001, rf_frequency =  1.97052837868299991E+008)
+   cav197_3 = RFCavity(L =  7.98799999999999955E-001, rf_frequency =  1.97052837868299991E+008,
+   voltage = 1e6, phi0 = π - 2π*5.1379e-5)
 
-   cav197_2 = RFCavity(L =  7.98799999999999955E-001, rf_frequency =  1.97052837868299991E+008)
+   cav197_2 = RFCavity(L =  7.98799999999999955E-001, rf_frequency =  1.97052837868299991E+008,
+   voltage = 1e6, phi0 = π - 2π*5.1379e-5)
 
-   cav197_1 = RFCavity(L =  7.98799999999999955E-001, rf_frequency =  1.97052837868299991E+008)
+   cav197_1 = RFCavity(L =  7.98799999999999955E-001, rf_frequency =  1.97052837868299991E+008,
+   voltage = 1e6, phi0 = π - 2π*5.1379e-5)
 
    os197 = Drift(L =  1.20143023024213993E-001)
    septum_ir4 = Drift(L =  4.00000000000000000E+000)

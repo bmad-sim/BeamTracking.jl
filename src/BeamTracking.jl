@@ -32,6 +32,7 @@ include("utils/quaternions.jl")
 include("utils/z_to_time.jl")
 include("utils/beam_statistics.jl")
 include("utils/ibs_integrals.jl")
+include("utils/random.jl")
 
 include("types.jl")
 include("time.jl")

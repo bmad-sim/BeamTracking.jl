@@ -92,41 +92,46 @@ end
   tilde_m, gamsqr_0, _ = BeamTracking.drift_params(bunch.species, p_over_q_ref)
   log_p0 = log_m + log_c_light - log(tilde_m)
   gamma_0 = sqrt(gamsqr_0)
+  backend = get_backend(bunch.coords.v)
 
-  means, sigma = mean_and_cov(bunch.coords)
+  means, sigma = mean_and_cov(bunch.coords.v, backend)
   sigma = Symmetric(sigma)
+  sigma_inv = inv(sigma)
   log_b_min = log(4) + log_k - log(sigma[2,2] + sigma[4,4] + sigma[6,6]/gamsqr_0) - 2*log_p0
   log_b_max = log(minimum((sigma[1,1], sigma[3,3], sigma[5,5]*gamsqr_0)))/2
   L_C = log_b_max - log_b_min
-  sigma_inv = inv(sigma)
+
   C = SA[sigma_inv[2,2]         sigma_inv[2,4]         sigma_inv[2,6]*gamma_0;
          sigma_inv[4,2]         sigma_inv[4,4]         sigma_inv[4,6]*gamma_0;
          sigma_inv[6,2]*gamma_0 sigma_inv[6,4]*gamma_0 sigma_inv[6,6]*gamsqr_0]
   lambdas, vectors = eigen(Symmetric(C))
   P = vectors'
   integrals = ibs_integrals(lambdas...)
-  #println(lambdas)
-  #println(integrals)
-  
+
   log_minus_b_coeff = log_N + 2*log_k + log(L_C/pi^2) - log_m - 3*log_p0 - logdet(sigma)/2
   b_coeff = -exp(log_minus_b_coeff)
   d_coeff = -b_coeff/2
-  #println(d_coeff)
 
-  I_XX = (1-P[1,1]^2)*integrals[1] + (1-P[2,1]^2)*integrals[2] + (1-P[3,1]^2)*integrals[3]
-  I_YY = (1-P[1,2]^2)*integrals[1] + (1-P[2,2]^2)*integrals[2] + (1-P[3,2]^2)*integrals[3]
-  I_ZZ = (1-P[1,3]^2)*integrals[1] + (1-P[2,3]^2)*integrals[2] + (1-P[3,3]^2)*integrals[3]
+  d_xx = d_coeff/gamma_0*((1-P[1,1]^2)*integrals[1] + (1-P[2,1]^2)*integrals[2] + (1-P[3,1]^2)*integrals[3])
+  d_xy = d_coeff/gamma_0*(-P[1,1]*P[1,2]*integrals[1] - P[2,1]*P[2,2]*integrals[2] - P[3,1]*P[3,2]*integrals[3])
+  d_xz = d_coeff*(-P[1,1]*P[1,3]*integrals[1] - P[2,1]*P[2,3]*integrals[2] - P[3,1]*P[3,3]*integrals[3])
+  d_yy = d_coeff/gamma_0*((1-P[1,2]^2)*integrals[1] + (1-P[2,2]^2)*integrals[2] + (1-P[3,2]^2)*integrals[3])
+  d_yz = d_coeff*(-P[1,2]*P[1,3]*integrals[1] - P[2,2]*P[2,3]*integrals[2] - P[3,2]*P[3,3]*integrals[3])
+  d_zz = d_coeff*gamma_0*((1-P[1,3]^2)*integrals[1] + (1-P[2,3]^2)*integrals[2] + (1-P[3,3]^2)*integrals[3])
 
-  D_XX = d_coeff*I_XX
-  D_YY = d_coeff*I_YY
-  D_ZZ = d_coeff*I_ZZ
+  diffusion_mat = SA[d_xx d_xy d_xz;
+                     d_xy d_yy d_yz;
+                     d_xz d_yz d_zz]
+  diffusion_lambdas, diffusion_vectors = eigen(Symmetric(diffusion_mat))
+  diffusion_P = diffusion_vectors'
 
-  d_xx = D_XX/gamma_0
-  d_yy = D_YY/gamma_0
-  d_zz = D_ZZ*gamma_0
-  diffusion = (d_xx, d_yy, d_zz)
-  #println(diffusion)
+  sigma_inv_t = (sigma_inv[1,1], sigma_inv[1,2], sigma_inv[1,3], sigma_inv[1,4], sigma_inv[1,5], sigma_inv[1,6],
+                                 sigma_inv[2,2], sigma_inv[2,3], sigma_inv[2,4], sigma_inv[2,5], sigma_inv[2,6],
+                                                 sigma_inv[3,3], sigma_inv[3,4], sigma_inv[3,5], sigma_inv[3,6],
+                                                                 sigma_inv[4,4], sigma_inv[4,5], sigma_inv[4,6],
+                                                                                 sigma_inv[5,5], sigma_inv[5,6],
+                                                                                                 sigma_inv[6,6])
   
-  params = (tilde_m, gamma_0, b_coeff, integrals, diffusion, P, sigma_inv, means, g, w, w_inv, L)
+  params = (backend, tilde_m, gamma_0, b_coeff, integrals, diffusion_lambdas, diffusion_P, P, sigma_inv_t, means, g, w, w_inv, L)
   return KernelCall(BeamTracking.ibs_damping_and_diffusion!, params)
 end
