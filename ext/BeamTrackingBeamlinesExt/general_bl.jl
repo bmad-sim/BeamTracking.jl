@@ -70,6 +70,10 @@ end
 
 #---------------------------------------------------------------------------------------------------
 
+@inline pure_map(tm, bunch, mapparams, L) = KernelCall(BeamTracking.map!, (mapparams.transport_map, mapparams.transport_map_params, L))
+
+#---------------------------------------------------------------------------------------------------
+
 @inline function ibs_kick(tm, bunch, bendparams, L)
   p_over_q_ref = bunch.p_over_q_ref
   if !isnothing(bendparams)
@@ -88,13 +92,13 @@ end
   log_m = log(massof(bunch.species)) - 2*log_c_light + log_e_charge
   log_q = log(abs(chargeof(bunch.species))) + log_e_charge
   log_k = log_m + 2*log_q - log(4*pi*EPS_0)
-  log_N = log(tm.ibs_num_particles)
+  log_N = log(ifelse(isnothing(bunch.coords.weight, size(bunch.coords.v, 1), sum(bunch.coords.weight))))
   tilde_m, gamsqr_0, _ = BeamTracking.drift_params(bunch.species, p_over_q_ref)
   log_p0 = log_m + log_c_light - log(tilde_m)
   gamma_0 = sqrt(gamsqr_0)
   backend = get_backend(bunch.coords.v)
 
-  means, sigma = mean_and_cov(bunch.coords.v, backend)
+  means, sigma = mean_and_cov(bunch.coords.v, bunch.coords.weight, backend)
   sigma = Symmetric(sigma)
   sigma_inv = inv(sigma)
   log_b_min = log(4) + log_k - log(sigma[2,2] + sigma[4,4] + sigma[6,6]/gamsqr_0) - 2*log_p0
