@@ -136,6 +136,6 @@ end
                                                                                  sigma_inv[5,5], sigma_inv[5,6],
                                                                                                  sigma_inv[6,6])
   
-  params = (backend, tilde_m, gamma_0, b_coeff, integrals, diffusion_lambdas, diffusion_P, P, sigma_inv_t, means, g, w, w_inv, L)
+  params = (backend, tilde_m, gamma_0, Val{tm.ibs_damping_on}(), Val{tm.ibs_fluctuations_on}(),b_coeff, integrals, diffusion_lambdas, diffusion_P, P, sigma_inv_t, means, g, w, w_inv, L)
   return KernelCall(BeamTracking.ibs_damping_and_diffusion!, params)
 end

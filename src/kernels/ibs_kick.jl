@@ -1,4 +1,4 @@
-@makekernel function ibs_damping_and_diffusion!(i, coords::Coords, backend, tilde_m, gamma_0, b_coeff, integrals, diffusion_lambdas, diffusion_P, P, sigma_inv, means, g, w, w_inv, L)
+@makekernel function ibs_damping_and_diffusion!(i, coords::Coords, backend, tilde_m, gamma_0, ::Val{damping_on}, ::Val{fluctuations_on}, b_coeff, integrals, diffusion_lambdas, diffusion_P, P, sigma_inv, means, g, w, w_inv, L)
   v = coords.v
   alive = (coords.state[i] == STATE_ALIVE)
 
@@ -39,8 +39,8 @@
   PY =  v[i,PYI] - means[PYI]
   PZ =  v[i,PZI] - means[PZI]
 
-  kx = sigma_inv[2]*X + sigma_inv[8]*Y  + sigma_inv[10]*Z + sigma_inv[7]*PX  + sigma_inv[9]*PY  + sigma_inv[11]*PZ
-  ky = sigma_inv[4]*X + sigma_inv[13]*Y + sigma_inv[17]*Z + sigma_inv[9]*PX  + sigma_inv[16]*PY + sigma_inv[18]*PZ
+  kx = sigma_inv[2]*X + sigma_inv[8] *Y + sigma_inv[10]*Z + sigma_inv[7] *PX + sigma_inv[9] *PY + sigma_inv[11]*PZ
+  ky = sigma_inv[4]*X + sigma_inv[13]*Y + sigma_inv[17]*Z + sigma_inv[9] *PX + sigma_inv[16]*PY + sigma_inv[18]*PZ
   kz = sigma_inv[6]*X + sigma_inv[15]*Y + sigma_inv[20]*Z + sigma_inv[11]*PX + sigma_inv[18]*PY + sigma_inv[21]*PZ
   kz *= gamma_0
   
@@ -80,9 +80,9 @@
   new_py = v[i,PYI] + b_y*dt
   new_pz = v[i,PZI] + b_z*dt
 
-  v[i,PXI] = vifelse(alive, new_px, v[i,PXI])
-  v[i,PYI] = vifelse(alive, new_py, v[i,PYI])
-  v[i,PZI] = vifelse(alive, new_pz, v[i,PZI])
+  v[i,PXI] = vifelse(alive && damping_on, new_px, v[i,PXI])
+  v[i,PYI] = vifelse(alive && damping_on, new_py, v[i,PYI])
+  v[i,PZI] = vifelse(alive && damping_on, new_pz, v[i,PZI])
 
   # Rotate in with P
 
@@ -90,9 +90,9 @@
   new_py = diffusion_P[2,1]*v[i,PXI] + diffusion_P[2,2]*v[i,PYI] + diffusion_P[2,3]*v[i,PZI]
   new_pz = diffusion_P[3,1]*v[i,PXI] + diffusion_P[3,2]*v[i,PYI] + diffusion_P[3,3]*v[i,PZI]
 
-  v[i,PXI] = vifelse(alive, new_px, v[i,PXI])
-  v[i,PYI] = vifelse(alive, new_py, v[i,PYI])
-  v[i,PZI] = vifelse(alive, new_pz, v[i,PZI])
+  v[i,PXI] = vifelse(alive && fluctuations_on, new_px, v[i,PXI])
+  v[i,PYI] = vifelse(alive && fluctuations_on, new_py, v[i,PYI])
+  v[i,PZI] = vifelse(alive && fluctuations_on, new_pz, v[i,PZI])
 
   d_xx, d_yy, d_zz = exp_correction .* diffusion_lambdas
 
@@ -107,9 +107,9 @@
   new_py = v[i,PYI] + rand_py
   new_pz = v[i,PZI] + rand_pz
 
-  v[i,PXI] = vifelse(alive, new_px, v[i,PXI])
-  v[i,PYI] = vifelse(alive, new_py, v[i,PYI])
-  v[i,PZI] = vifelse(alive, new_pz, v[i,PZI])
+  v[i,PXI] = vifelse(alive && fluctuations_on, new_px, v[i,PXI])
+  v[i,PYI] = vifelse(alive && fluctuations_on, new_py, v[i,PYI])
+  v[i,PZI] = vifelse(alive && fluctuations_on, new_pz, v[i,PZI])
 
   # Rotate out with P'
 
@@ -117,7 +117,7 @@
   new_py = diffusion_P[1,2]*v[i,PXI] + diffusion_P[2,2]*v[i,PYI] + diffusion_P[3,2]*v[i,PZI]
   new_pz = diffusion_P[1,3]*v[i,PXI] + diffusion_P[2,3]*v[i,PYI] + diffusion_P[3,3]*v[i,PZI]
 
-  v[i,PXI] = vifelse(alive, new_px, v[i,PXI])
-  v[i,PYI] = vifelse(alive, new_py, v[i,PYI])
-  v[i,PZI] = vifelse(alive, new_pz, v[i,PZI])
+  v[i,PXI] = vifelse(alive && fluctuations_on, new_px, v[i,PXI])
+  v[i,PYI] = vifelse(alive && fluctuations_on, new_py, v[i,PYI])
+  v[i,PZI] = vifelse(alive && fluctuations_on, new_pz, v[i,PZI])
 end
