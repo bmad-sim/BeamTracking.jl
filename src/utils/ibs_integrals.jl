@@ -60,7 +60,7 @@ function Carlson_RD(x, y, z; r=1e-11)
   E3 = (3*X*Y - 8Z^2)*Z
   E4 = 3*(X*Y - Z^2)*Z^2
   E5 = X*Y*Z^3
-  result = 1 - (3/14)*E2 + E3/6 + (9/88)*E2^2 -(3/22)*E4 - (9/52)*E2*E3 + (3/26)*E5
+  result = 1 - (3/14)*E2 + E3/6 + (9/88)*E2^2 - (3/22)*E4 - (9/52)*E2*E3 + (3/26)*E5
   result /= four_m*Am^(3/2)
   result += sum
   return result
@@ -68,7 +68,11 @@ end
 
 
 """
-Computes the three integrals used in the computation of IBS kicks.
+Computes the three integrals used in the computation of IBS kicks. They are:
+I₁ = ∫_S x^2 / (λ₁ x^2 + λ₂ y^2 + λ₃ z^2) d²r
+I₂ = ∫_S y^2 / (λ₁ x^2 + λ₂ y^2 + λ₃ z^2) d²r
+I₃ = ∫_S z^2 / (λ₁ x^2 + λ₂ y^2 + λ₃ z^2) d²r
+where S is the 2D unit sphere. 
 """
 function ibs_integrals(λ1, λ2, λ3)
   if λ1 ≈ λ2 ≈ λ3

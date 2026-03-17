@@ -13,9 +13,10 @@ macro def_integrator_struct(name)
       radiation_damping_on::Bool
       radiation_fluctuations_on::Bool
       fringe_at::Fringe.T
-      ibs_num_particles::Int
+      ibs_damping_on::Bool
+      ibs_fluctuations_on::Bool
   
-      function $(esc(name))(; order::Int=4, num_steps::Int=-1, ds_step::Float64=-1.0, radiation_damping_on::Bool=false, radiation_fluctuations_on::Bool=false, fringe_at::Fringe.T=Fringe.BothEnds, ibs_num_particles::Int=0)
+      function $(esc(name))(; order::Int=4, num_steps::Int=-1, ds_step::Float64=-1.0, radiation_damping_on::Bool=false, radiation_fluctuations_on::Bool=false, fringe_at::Fringe.T=Fringe.BothEnds, ibs_damping_on::Bool=false, ibs_fluctuations_on::Bool=false)
         _order = order
         _num_steps = num_steps
         _ds_step = ds_step
@@ -32,7 +33,7 @@ macro def_integrator_struct(name)
         elseif _ds_step > 0
           _num_steps = -1
         end
-        return new(_order, _num_steps, _ds_step, radiation_damping_on, radiation_fluctuations_on, fringe_at, ibs_num_particles)
+        return new(_order, _num_steps, _ds_step, radiation_damping_on, radiation_fluctuations_on, fringe_at, ibs_damping_on, ibs_fluctuations_on)
       end
     end
   end
