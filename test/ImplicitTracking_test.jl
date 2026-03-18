@@ -208,7 +208,7 @@ include("../ext/BeamTrackingBeamlinesExt/utils.jl")
       return Bunch(deepcopy(v), deepcopy(quat), species=species, p_over_q_ref=p_over_q_ref)
     end
 
-    for magnet in [:Multipole] #, :Solenoid] #keys(magnets)
+    for magnet in [:Solenoid, :Multipole] #keys(magnets)
       @testset "$(magnet)" begin
         kc_ref_fn, kc_impl_fn = magnets[magnet]
 
@@ -218,40 +218,46 @@ include("../ext/BeamTrackingBeamlinesExt/utils.jl")
         for order in [2,4,6,8]
           @testset "Order $(order)" begin
     
-            plt = plot()
-            plt_q = plot()
+            # plt = plot()
+            # plt_q = plot()
 
-            _tmp = []
-            _tmp_q = []
+            # _tmp = []
+            # _tmp_q = []
             
-            for log_num_steps in 1:10
+            # for log_num_steps in 1:10
 
-              num_steps = 2 .^ log_num_steps #16
+              num_steps = 2 .^ 16 #log_num_steps
 
               b_impl = make_bunch(q0, p0)
               kc_impl = kc_impl_fn(order, BeamTracking.symplectic_step!, 1.0, num_steps)
               BeamTracking.launch!(b_impl.coords, kc_impl)  
-              push!(_tmp, sqrt(sum((b_ref.coords.v .- b_impl.coords.v).^2)/6))
-              push!(_tmp_q, sqrt(sum((b_ref.coords.q .- b_impl.coords.q).^2)/4))
+              # push!(_tmp, sqrt(sum((b_ref.coords.v .- b_impl.coords.v).^2)/6))
+              # push!(_tmp_q, sqrt(sum((b_ref.coords.q .- b_impl.coords.q).^2)/4))
 
+              # Orbit check
               @test dist(b_ref.coords.v, b_impl.coords.v) ≈ 0 atol=1e-11
+              
+              # Spin check
+              if magnet == :Multipole
+                @test dist(b_ref.coords.q, b_impl.coords.q) ≈ 0 atol=1e-11
+              end
 
-            end
+            # end
 
-            plot!(plt, 2 .^ collect(1:10), _tmp; 
-                  label="test", lw=2, marker=:circle, markersize=4,
-                  xscale=:log10, yscale=:log10, xlabel="num_steps", ylabel="||x - x_ref||₂", 
-                  title="$(magnet): implicit-$(order) vs reference"
-                  )
+            # plot!(plt, 2 .^ collect(1:10), _tmp; 
+            #       label="test", lw=2, marker=:circle, markersize=4,
+            #       xscale=:log10, yscale=:log10, xlabel="num_steps", ylabel="||x - x_ref||₂", 
+            #       title="$(magnet): implicit-$(order) vs reference"
+            #       )
 
-            plot!(plt_q, 2 .^ collect(1:10), _tmp_q; 
-                  label="test", lw=2, marker=:circle, markersize=4,
-                  xscale=:log10, yscale=:log10, xlabel="num_steps", ylabel="||q - q_ref||₂", 
-                  title="$(magnet) spin: implicit-$(order) vs reference"
-                  )
+            # plot!(plt_q, 2 .^ collect(1:10), _tmp_q; 
+            #       label="test", lw=2, marker=:circle, markersize=4,
+            #       xscale=:log10, yscale=:log10, xlabel="num_steps", ylabel="||q - q_ref||₂", 
+            #       title="$(magnet) spin: implicit-$(order) vs reference"
+            #       )
 
-            savefig(plt, "plots_2/implicit_$(magnet)-$(order).png")
-            savefig(plt_q, "plots_2/spin_implicit_$(magnet)-$(order).png")
+            # savefig(plt, "plots_2/implicit_$(magnet)-$(order).png")
+            # savefig(plt_q, "plots_2/spin_implicit_$(magnet)-$(order).png")
 
           end
         end
@@ -259,7 +265,7 @@ include("../ext/BeamTrackingBeamlinesExt/utils.jl")
     end
   end
 
-  #= #
+  # = #
   @testset "TPSA Map" begin
     D_map = Descriptor(6, 3)
 
@@ -273,7 +279,7 @@ include("../ext/BeamTrackingBeamlinesExt/utils.jl")
     end
     
   
-    for magnet in [:Dipole] #[:Solenoid, :Multipole] #keys(magnets)
+    for magnet in [:Solenoid, :Multipole] #keys(magnets)
       @testset "$(magnet)" begin
 
         kc_ref_fn, kc_impl_fn = magnets[magnet]
@@ -321,6 +327,6 @@ include("../ext/BeamTrackingBeamlinesExt/utils.jl")
           end
       end
     end
-  end=#
+  end #
 end # =#
 
