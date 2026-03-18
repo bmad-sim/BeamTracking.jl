@@ -1,4 +1,4 @@
-using Plots
+#using Plots
 include("../ext/BeamTrackingBeamlinesExt/utils_bl.jl")
 
 
@@ -265,7 +265,7 @@ include("../ext/BeamTrackingBeamlinesExt/utils_bl.jl")
 
   # = #
   @testset "TPSA Map" begin
-    D_map = Descriptor(6, 5)
+    D_map = Descriptor(6, 3)
 
     function make_tps_coords(q, p, D)
       dz = @vars(D)
