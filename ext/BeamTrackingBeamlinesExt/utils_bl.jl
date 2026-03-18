@@ -165,9 +165,9 @@ end
 function rf_omega_calc(rfparams, circumference, species, p_over_q_ref)
   if rfparams.harmon_master
     tilde_m, gamsqr_0, beta_0 = BeamTracking.drift_params(species, p_over_q_ref)
-    return 2*pi*rfparams.harmon*C_LIGHT*beta_0/circumference
+    return 2*pi*rfparams.rate*C_LIGHT*beta_0/circumference
   else
-    return 2*pi*rfparams.rf_frequency
+    return 2*pi*rfparams.rate
   end
 end
 
