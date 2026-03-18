@@ -93,7 +93,7 @@ function universal!(
     kc = push(kc, @inline(aperture(tm, bunch, apertureparams, true)))
   end
 
-  if (hasfield(typeof(tm), :ibs_damping_on) && hasfield(typeof(tm), :ibs_diffusion_on)) && (tm.ibs_damping_on || tm.ibs_fluctuations_on) && L > 0
+  if (hasfield(typeof(tm), :ibs_damping_on) && hasfield(typeof(tm), :ibs_fluctuations_on)) && (tm.ibs_damping_on || tm.ibs_fluctuations_on) && L > 0
     bp = ifelse(isactive(bendparams), bendparams, nothing)
     kc = push(kc, @inline(ibs_kick(tm, bunch, bp, L)))
   end
