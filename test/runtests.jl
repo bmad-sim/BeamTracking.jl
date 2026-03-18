@@ -30,7 +30,8 @@ function test_matrix(
   type_stable=VERSION >= v"1.11", 
   no_scalar_allocs=!(any(t->eltype(t) <: TPS, kernel_call.args)), # only for non-parametric 
   rtol=nothing, 
-  atol=nothing
+  atol=nothing,
+  printit = false
 )
   # Initialize bunch without spin
   v = transpose(@vars(D1))
@@ -51,12 +52,14 @@ function test_matrix(
   end
 
   # 1) Correctness
-  # println(GTPSA.jacobian(coords.v)[1:6,1:6])
+  if printit; println(GTPSA.jacobian(coords.v)[1:6,1:6]); end
   @test isapprox(GTPSA.jacobian(coords.v)[1:6,1:6], scalar.(M_expected); kwargs...)
+
   # 2) Type stability
   if type_stable
     @test_opt kernel_call.kernel(1, coords, kernel_call.args...)
   end
+
   # 3) No scalar allocations
   if no_scalar_allocs
     v = repeat([0.1 0.2 0.3 0.4 0.5 0.6], 2)
@@ -198,9 +201,11 @@ function quaternion_coeffs_approx_equal(q_expected, q_calculated, ϵ)
   return all_ok
 end
 
+include("miscellaneous_test.jl")
+include("sagan_cavity_tracking_test.jl")
+include("BeamlinesExt_test.jl")
 include("batch_test.jl")
 include("time_test.jl")
-include("BeamlinesExt_test.jl")
 include("alignment_tracking_test.jl")
 include("aperture_tracking_test.jl")
 include("ExactTracking_test.jl")

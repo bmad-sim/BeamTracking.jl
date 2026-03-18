@@ -149,5 +149,63 @@ end
   )
 
 
+  # Test that time evaluation works for structs
+  # This tests time_lower, teval, and static_timecheck on structs with TimeDependentParam fields
+  @testset "Time evaluation for structs" begin
+    # Create a simple struct with flexible types - one TimeDependentParam field, one constant
+    struct TimeTestStruct{T1,T2}
+      x::T1
+      y::T2
+    end
+
+    # Create test data
+    tdp_x = 3.0 * Time()
+    test_struct = TimeTestStruct(tdp_x, 5.0)
+
+    # Test 1: time_lower converts TimeDependentParam to TimeFunction
+    # constant field remains unchanged
+    lowered = BeamTracking.time_lower(test_struct)
+    @test lowered.x isa BeamTracking.TimeFunction
+    @test lowered.y == 5.0
+
+    # Test 2: static_timecheck detects TimeFunction in lowered struct
+    @test BeamTracking.static_timecheck(lowered) == true
+
+    # Test 3: teval evaluates struct at given time
+    for t in [0.0, 1.0, 2.5, -1.0]
+      evaluated = BeamTracking.teval(lowered, t)
+      @test evaluated isa TimeTestStruct
+      @test evaluated.x ≈ 3.0 * t
+      @test evaluated.y == 5.0
+    end
+
+    # Test 4: No time params - static_timecheck returns false
+    test_struct_no_time = TimeTestStruct(1.0, 2.0)
+    @test BeamTracking.static_timecheck(test_struct_no_time) == false
+
+    # Test 5: time_lower returns same object when no fields changed
+    @test BeamTracking.time_lower(test_struct_no_time) === test_struct_no_time
+
+    # Test 6: Nested structs
+    struct TimeOuterStruct{T}
+      inner::T
+      scale::Float64
+    end
+
+    nested_struct = TimeOuterStruct(test_struct, 2.0)
+    lowered_nested = BeamTracking.time_lower(nested_struct)
+    @test lowered_nested.inner.x isa BeamTracking.TimeFunction
+    @test BeamTracking.static_timecheck(lowered_nested) == true
+
+    for t in [0.0, 1.0, 2.5]
+      evaluated = BeamTracking.teval(lowered_nested, t)
+      @test evaluated isa TimeOuterStruct
+      @test evaluated.inner isa TimeTestStruct
+      @test evaluated.inner.x ≈ 3.0 * t
+      @test evaluated.inner.y == 5.0
+      @test evaluated.scale == 2.0
+    end
+  end
+
   
 end
