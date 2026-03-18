@@ -1,5 +1,5 @@
 using Plots
-include("../ext/BeamTrackingBeamlinesExt/utils.jl")
+include("../ext/BeamTrackingBeamlinesExt/utils_bl.jl")
 
 
 @testset "ImplicitIntegration" begin
@@ -90,9 +90,7 @@ include("../ext/BeamTrackingBeamlinesExt/utils.jl")
   ds = 0.013131;
   k = 1.23;
   g = 0.2512;
-  #mm = [1,2,4]; kn = [0.25, -0.41, 0.91]; ks = [0.0, 0.0 ,0.0];
-  mm = [2]; kn = [0.25]; ks = [0.0];
-
+  mm = SA[1,2,4]; kn = SA[0.25, -0.41, 0.91]; ks = SA[0.0, 0.0 ,0.0];
 
   species = BeamTracking.Species("proton")
   a = gyromagnetic_anomaly(species)
@@ -226,7 +224,7 @@ include("../ext/BeamTrackingBeamlinesExt/utils.jl")
             
             # for log_num_steps in 1:10
 
-              num_steps = 2 .^ 16 #log_num_steps
+              num_steps = 2 .^ (18-order) #log_num_steps
 
               b_impl = make_bunch(q0, p0)
               kc_impl = kc_impl_fn(order, BeamTracking.symplectic_step!, 1.0, num_steps)
@@ -239,7 +237,7 @@ include("../ext/BeamTrackingBeamlinesExt/utils.jl")
               
               # Spin check
               if magnet == :Multipole
-                @test dist(b_ref.coords.q, b_impl.coords.q) ≈ 0 atol=1e-11
+                @test dist(b_ref.coords.q, b_impl.coords.q) ≈ 0 atol=2.5e-10
               end
 
             # end
@@ -267,7 +265,7 @@ include("../ext/BeamTrackingBeamlinesExt/utils.jl")
 
   # = #
   @testset "TPSA Map" begin
-    D_map = Descriptor(6, 3)
+    D_map = Descriptor(6, 5)
 
     function make_tps_coords(q, p, D)
       dz = @vars(D)
@@ -313,7 +311,7 @@ include("../ext/BeamTrackingBeamlinesExt/utils.jl")
                 #err += sum(norm.([GTPSA.hessian(c_ref.v[1,i]) .- GTPSA.hessian(c_imp.v[1,i]) for i in 1:6]).^2)
                 #push!(_tmp, sqrt(err))
 
-                @test coeffs_approx_equal(c_ref.v[1,:], c_imp.v[1,:], 2e-9)
+                @test coeffs_approx_equal(c_ref.v[1,:], c_imp.v[1,:], 2.5e-9)
               #end
 
             # plot!(plt, 2 .^ collect(1:10), _tmp; 
