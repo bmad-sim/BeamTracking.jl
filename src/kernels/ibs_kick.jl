@@ -41,10 +41,10 @@
       PY =  v[i,PYI] - means[PYI]
       PZ =  v[i,PZI] - means[PZI]
 
-      kx = sigma_inv[2]*X + sigma_inv[8] *Y + sigma_inv[10]*Z + sigma_inv[7] *PX + sigma_inv[9] *PY + sigma_inv[11]*PZ
+      kx = sigma_inv[2]*X + sigma_inv[8]*Y + sigma_inv[10]*Z + sigma_inv[7]*PX + sigma_inv[9]*PY + sigma_inv[11]*PZ
       ky = sigma_inv[4]*X + sigma_inv[13]*Y + sigma_inv[17]*Z + sigma_inv[9] *PX + sigma_inv[16]*PY + sigma_inv[18]*PZ
       kz = sigma_inv[6]*X + sigma_inv[15]*Y + sigma_inv[20]*Z + sigma_inv[11]*PX + sigma_inv[18]*PY + sigma_inv[21]*PZ
-      kz *= gamma_0
+      kz = kz * gamma_0
       
       wx = P[1,1]*kx + P[1,2]*ky + P[1,3]*kz
       wy = P[2,1]*kx + P[2,2]*ky + P[2,3]*kz
@@ -58,15 +58,15 @@
       I_Y = P[1,2]*mx + P[2,2]*my + P[3,2]*mz
       I_Z = P[1,3]*mx + P[2,3]*my + P[3,3]*mz
 
-      X_A_X  =    sigma_inv[1]*X*X + sigma_inv[12]*Y*Y + sigma_inv[19]*Z*Z
-      X_A_X += 2*(sigma_inv[3]*X*Y + sigma_inv[5]*X*Z  + sigma_inv[14]*Y*Z)
+      X_A_X  = sigma_inv[1]*X*X + sigma_inv[12]*Y*Y + sigma_inv[19]*Z*Z
+      X_A_X  = X_A_X + 2*(sigma_inv[3]*X*Y + sigma_inv[5]*X*Z  + sigma_inv[14]*Y*Z)
 
-      X_B_P  =   X*(sigma_inv[2]*PX  + sigma_inv[4]*PY  + sigma_inv[6]*PZ)
-      X_B_P +=   Y*(sigma_inv[8]*PX  + sigma_inv[13]*PY + sigma_inv[15]*PZ) 
-      X_B_P +=   Z*(sigma_inv[10]*PX + sigma_inv[17]*PY + sigma_inv[20]*PZ)
+      X_B_P = X*(sigma_inv[2]*PX  + sigma_inv[4]*PY  + sigma_inv[6]*PZ)
+      X_B_P = X_B_P + Y*(sigma_inv[8]*PX  + sigma_inv[13]*PY + sigma_inv[15]*PZ) 
+      X_B_P = X_B_P + Z*(sigma_inv[10]*PX + sigma_inv[17]*PY + sigma_inv[20]*PZ)
 
-      P_C_P  =    sigma_inv[7]*PX*PX + sigma_inv[16]*PY*PY + sigma_inv[21]*PZ*PZ
-      P_C_P += 2*(sigma_inv[9]*PX*PY + sigma_inv[11]*PX*PZ + sigma_inv[18]*PY*PZ)
+      P_C_P = sigma_inv[7]*PX*PX + sigma_inv[16]*PY*PY + sigma_inv[21]*PZ*PZ
+      P_C_P = P_C_P + 2*(sigma_inv[9]*PX*PY + sigma_inv[11]*PX*PZ + sigma_inv[18]*PY*PZ)
 
       exp_correction = 2*exp(-X_A_X/2 - X_B_P - P_C_P/2)
 
