@@ -77,49 +77,47 @@
     b_y = B_Y/gamma_0
     b_z = B_Z
 
-    new_px = v[i,PXI] + b_x*dt
-    new_py = v[i,PYI] + b_y*dt
-    new_pz = v[i,PZI] + b_z*dt
+    new_px = vifelse(damping_on, v[i,PXI] + b_x*dt, v[i,PXI])
+    new_py = vifelse(damping_on, v[i,PYI] + b_y*dt, v[i,PYI])
+    new_pz = vifelse(damping_on, v[i,PZI] + b_z*dt, v[i,PZI])
 
-    v[i,PXI] = vifelse(alive && damping_on, new_px, v[i,PXI])
-    v[i,PYI] = vifelse(alive && damping_on, new_py, v[i,PYI])
-    v[i,PZI] = vifelse(alive && damping_on, new_pz, v[i,PZI])
+    v[i,PXI] = vifelse(alive, new_px, v[i,PXI])
+    v[i,PYI] = vifelse(alive, new_py, v[i,PYI])
+    v[i,PZI] = vifelse(alive, new_pz, v[i,PZI])
 
     # Rotate in with P
 
-    new_px = diffusion_P[1,1]*v[i,PXI] + diffusion_P[1,2]*v[i,PYI] + diffusion_P[1,3]*v[i,PZI]
-    new_py = diffusion_P[2,1]*v[i,PXI] + diffusion_P[2,2]*v[i,PYI] + diffusion_P[2,3]*v[i,PZI]
-    new_pz = diffusion_P[3,1]*v[i,PXI] + diffusion_P[3,2]*v[i,PYI] + diffusion_P[3,3]*v[i,PZI]
+    new_px = vifelse(fluctuations_on, diffusion_P[1,1]*v[i,PXI] + diffusion_P[1,2]*v[i,PYI] + diffusion_P[1,3]*v[i,PZI], v[i,PXI])
+    new_py = vifelse(fluctuations_on, diffusion_P[2,1]*v[i,PXI] + diffusion_P[2,2]*v[i,PYI] + diffusion_P[2,3]*v[i,PZI], v[i,PYI])
+    new_pz = vifelse(fluctuations_on, diffusion_P[3,1]*v[i,PXI] + diffusion_P[3,2]*v[i,PYI] + diffusion_P[3,3]*v[i,PZI], v[i,PZI])
 
-    v[i,PXI] = vifelse(alive && fluctuations_on, new_px, v[i,PXI])
-    v[i,PYI] = vifelse(alive && fluctuations_on, new_py, v[i,PYI])
-    v[i,PZI] = vifelse(alive && fluctuations_on, new_pz, v[i,PZI])
+    v[i,PXI] = vifelse(alive, new_px, v[i,PXI])
+    v[i,PYI] = vifelse(alive, new_py, v[i,PYI])
+    v[i,PZI] = vifelse(alive, new_pz, v[i,PZI])
 
-    d_xx, d_yy, d_zz = exp_correction .* diffusion_lambdas
-
-    sigma_x = sqrt(d_xx*dt)
-    sigma_y = sqrt(d_yy*dt)
-    sigma_z = sqrt(d_zz*dt)
+    sigma_x = sqrt(exp_correction*diffusion_lambdas[1]*dt)
+    sigma_y = sqrt(exp_correction*diffusion_lambdas[2]*dt)
+    sigma_z = sqrt(exp_correction*diffusion_lambdas[3]*dt)
 
     rand_px, rand_py = gaussian_random(backend, sigma_x, sigma_y)
     rand_pz, _       = gaussian_random(backend, sigma_z, zero(sigma_z))
 
-    new_px = v[i,PXI] + rand_px
-    new_py = v[i,PYI] + rand_py
-    new_pz = v[i,PZI] + rand_pz
+    new_px = vifelse(fluctuations_on, v[i,PXI] + rand_px, v[i,PXI])
+    new_py = vifelse(fluctuations_on, v[i,PYI] + rand_py, v[i,PYI])
+    new_pz = vifelse(fluctuations_on, v[i,PZI] + rand_pz, v[i,PZI])
 
-    v[i,PXI] = vifelse(alive && fluctuations_on, new_px, v[i,PXI])
-    v[i,PYI] = vifelse(alive && fluctuations_on, new_py, v[i,PYI])
-    v[i,PZI] = vifelse(alive && fluctuations_on, new_pz, v[i,PZI])
+    v[i,PXI] = vifelse(alive, new_px, v[i,PXI])
+    v[i,PYI] = vifelse(alive, new_py, v[i,PYI])
+    v[i,PZI] = vifelse(alive, new_pz, v[i,PZI])
 
     # Rotate out with P'
 
-    new_px = diffusion_P[1,1]*v[i,PXI] + diffusion_P[2,1]*v[i,PYI] + diffusion_P[3,1]*v[i,PZI]
-    new_py = diffusion_P[1,2]*v[i,PXI] + diffusion_P[2,2]*v[i,PYI] + diffusion_P[3,2]*v[i,PZI]
-    new_pz = diffusion_P[1,3]*v[i,PXI] + diffusion_P[2,3]*v[i,PYI] + diffusion_P[3,3]*v[i,PZI]
+    new_px = vifelse(fluctuations_on, diffusion_P[1,1]*v[i,PXI] + diffusion_P[2,1]*v[i,PYI] + diffusion_P[3,1]*v[i,PZI], v[i,PXI])
+    new_py = vifelse(fluctuations_on, diffusion_P[1,2]*v[i,PXI] + diffusion_P[2,2]*v[i,PYI] + diffusion_P[3,2]*v[i,PZI], v[i,PYI])
+    new_pz = vifelse(fluctuations_on, diffusion_P[1,3]*v[i,PXI] + diffusion_P[2,3]*v[i,PYI] + diffusion_P[3,3]*v[i,PZI], v[i,PZI])
 
-    v[i,PXI] = vifelse(alive && fluctuations_on, new_px, v[i,PXI])
-    v[i,PYI] = vifelse(alive && fluctuations_on, new_py, v[i,PYI])
-    v[i,PZI] = vifelse(alive && fluctuations_on, new_pz, v[i,PZI])
+    v[i,PXI] = vifelse(alive, new_px, v[i,PXI])
+    v[i,PYI] = vifelse(alive, new_py, v[i,PYI])
+    v[i,PZI] = vifelse(alive, new_pz, v[i,PZI])
   end
 end

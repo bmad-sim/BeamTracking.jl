@@ -69,4 +69,3 @@ using Random
 
   @test norm(normTPS.(b0.coords.v - b02.coords.v)) ≈ 0
 end
- 

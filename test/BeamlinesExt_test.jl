@@ -5,6 +5,7 @@
   include("BeamlinesExt/beamlines_aperture_test.jl")
   include("BeamlinesExt/beamlines_alignment_test.jl")
   include("BeamlinesExt/beamlines_stochastic_test.jl")
+  include("BeamlinesExt/beamlines_ibs_test.jl")
 
   #------------------------------------------------------------------------------------------------
 

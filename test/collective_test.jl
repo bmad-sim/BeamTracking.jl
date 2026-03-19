@@ -1,4 +1,4 @@
-@testset "IBS" begin
+@testset "IBS utilities" begin
   # Carlson RF and RD tests
   @test BeamTracking.Carlson_RF(1, 2, 0) ≈ 1.3110287771461
   @test BeamTracking.Carlson_RF(2, 3, 4) ≈ 0.58408284167715
