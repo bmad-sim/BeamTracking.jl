@@ -132,7 +132,7 @@ function universal!(
     end
     !rfparams.is_crabcavity || error("Crab cavities not yet supported for tracking")
 
-    kc = push(kc, @inline(RFcavity(tm, bunch, bmultipoleparams, rfparams, beamlineparams, L)))
+    kc = push(kc, @inline(rfcavity(tm, bunch, bmultipoleparams, rfparams, beamlineparams, L)))
     
   elseif isactive(bendparams)
     if bendparams.edge1_int != 0 || bendparams.edge2_int != 0; error("edge1_int and edge2_int not yet handled for tracking"); end
@@ -322,7 +322,7 @@ function universal!(coords, tm::SaganCavity, ele, ramp_without_rf, bunch, L,
   if L != 0
     species = bunch.species
     p1_over_q_ref = beamlineparams.beamline.p_over_q_ref
-    rf_omega = rf_omega_calc(rfparams, beamlineparams.beamline.line[end].s_downstream, species, p1_over_q_ref)
+    rf_omega = rf_omega_calc(rfparams, beamlineparams)
     num_cells, L_active = rf_step_calc(tm.num_cells, tm.L_active, rf_omega, L)
     L_outer = (L - L_active) / 2
     E1_ref = R_to_E(species, p1_over_q_ref)

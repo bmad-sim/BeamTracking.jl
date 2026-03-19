@@ -325,6 +325,30 @@ end
   end
 end
 
+@inline function thick_bend_bdipole(tm::Union{Yoshida,BendKick}, bunch, bendparams, bm, L)
+  @warn "Straight multipoles are being used in a curved reference system. Maxwell's equations in free space are not satisfied." maxlog=1
+  p_over_q_ref = bunch.p_over_q_ref
+  tilde_m, _, beta_0 = BeamTracking.drift_params(bunch.species, p_over_q_ref)
+  g = bendparams.g_ref
+  tilt = bendparams.tilt_ref
+  e1 = bendparams.e1
+  e2 = bendparams.e2
+  theta = g * L
+  mm = bm.order
+  kn, ks = get_strengths(bm, L, p_over_q_ref)
+  Kn0 = kn[1]
+  ks[1] ≈ 0 || error("A skew dipole field cannot yet be used in a bend")
+  w = rot_quaternion(0,0,tilt)
+  w_inv = inv_rot_quaternion(0,0,tilt)
+  a = gyromagnetic_anomaly(bunch.species)
+  edge_params = (a, tilde_m, 0, Kn0, e1, e2)
+  q = chargeof(bunch.species)
+  mc2 = massof(bunch.species)
+  E0 = mc2/tilde_m/beta_0
+  params = (q, mc2, tm.radiation_damping_on, tilde_m, beta_0, a, g, w, w_inv, Kn0, mm, kn, ks)
+  photon_params = ifelse(tm.radiation_fluctuations_on, (q, mc2, E0, g, tilt, mm, kn, ks), nothing)
+  return integration_launcher(BeamTracking.bkb_multipole!, params, photon_params, tm, edge_params, L)
+end
 
 # =========== TRANSFORMS ============= #
 @inline pure_patch(tm::Yoshida, bunch, patchparams, L)  = 
@@ -332,12 +356,12 @@ end
 
 
 # =========== RF ============= #
-@inline function thick_pure_rf(tm::Union{Yoshida,DriftKick}, bunch, rf, beamline, L)
+@inline function thick_pure_rf(tm::Union{Yoshida,DriftKick}, bunch, rfparams, beamlineparams, L)
   p_over_q_ref = bunch.p_over_q_ref
-  omega = rf_omega_calc(rf, beamline.beamline.line[end].s_downstream, bunch.species, p_over_q_ref)
-  t0 = rf_phi0_calc_old(rf, beamline.beamline.species_ref) / omega
+  omega = rf_omega_calc(rfparams, beamlineparams)
+  t0 = (rf_phi0_calc(rfparams, beamlineparams.beamline.species_ref)-pi/2) / omega
   tilde_m, gamsqr_0, beta_0 = BeamTracking.drift_params(bunch.species, p_over_q_ref)
-  E0_over_Rref = rf.voltage/L/p_over_q_ref
+  E0_over_Rref = rfparams.voltage/L/p_over_q_ref
   E_ref = BeamTracking.R_to_E(bunch.species, p_over_q_ref)
   p0c = BeamTracking.R_to_pc(bunch.species, p_over_q_ref)
   q = chargeof(bunch.species)
@@ -348,12 +372,12 @@ end
   return integration_launcher(BeamTracking.cavity!, params, photon_params, tm, nothing, L)
 end
 
-@inline function thick_bmultipole_rf(tm::Union{Yoshida,DriftKick,SolenoidKick}, bunch, bm, rf, beamline, L)
+@inline function thick_bmultipole_rf(tm::Union{Yoshida,DriftKick,SolenoidKick}, bunch, bm, rfparams, beamlineparams, L)
   p_over_q_ref = bunch.p_over_q_ref
-  omega = rf_omega_calc(rf, beamline.beamline.line[end].s_downstream, bunch.species, p_over_q_ref)
-  t0 = rf_phi0_calc_old(rf, beamline.beamline.species_ref) / omega
+  omega = rf_omega_calc(rfparams, beamlineparams)
+  t0 = (rf_phi0_calc(rfparams, beamlineparams.beamline.species_ref)-pi/2) / omega
   tilde_m, gamsqr_0, beta_0 = BeamTracking.drift_params(bunch.species, p_over_q_ref)
-  E0_over_Rref = rf.voltage/L/p_over_q_ref
+  E0_over_Rref = rfparams.voltage/L/p_over_q_ref
   mm = bm.order
   kn, ks = get_strengths(bm, L, p_over_q_ref)
   E_ref = BeamTracking.R_to_E(bunch.species, p_over_q_ref)

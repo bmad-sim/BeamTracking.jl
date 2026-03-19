@@ -60,7 +60,7 @@ end
 
 #---------------------------------------------------------------------------------------------------
 
-@inline function RFcavity(tm, bunch, bmultipoleparams, rfparams, beamlineparams, L)
+@inline function rfcavity(tm, bunch, bmultipoleparams, rfparams, beamlineparams, L)
   if !isactive(bmultipoleparams)
     return pure_rf(tm, bunch, rfparams, beamlineparams, L)
   else

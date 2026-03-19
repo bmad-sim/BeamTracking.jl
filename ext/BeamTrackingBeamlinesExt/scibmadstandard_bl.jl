@@ -1,7 +1,7 @@
 @inline drift(tm::SciBmadStandard, bunch, L) = drift(Exact(), bunch, L) 
 @inline pure_patch(tm::SciBmadStandard, bunch, patchparams, L) = pure_patch(Exact(), bunch, patchparams, L)
 
-@inline pure_rf(tm::SciBmadStandard, bunch, rfparams, beamlineparams, L)                    = pure_rf(Yoshida(), bunch, rfparams, beamlineparams, L)                        
+@inline pure_rf(tm::SciBmadStandard, bunch, rfparams, beamlineparams, L)                = pure_rf(Yoshida(), bunch, rfparams, beamlineparams, L)                        
 @inline pure_bsolenoid(tm::SciBmadStandard, bunch, bm0, L)                              = pure_bsolenoid(Yoshida(), bunch, bm0, L)                             
 @inline bsolenoid(tm::SciBmadStandard, bunch, bmultipoleparams, L)                      = bsolenoid(Yoshida(), bunch, bmultipoleparams, L)                     
 @inline pure_bdipole(tm::SciBmadStandard, bunch, bm1, L)                                = pure_bdipole(Yoshida(), bunch, bm1, L)                               
