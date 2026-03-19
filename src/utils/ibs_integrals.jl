@@ -72,7 +72,7 @@ Computes the three integrals used in the computation of IBS kicks. They are:
 I₁ = ∫_S x^2 / (λ₁ x^2 + λ₂ y^2 + λ₃ z^2) d²r
 I₂ = ∫_S y^2 / (λ₁ x^2 + λ₂ y^2 + λ₃ z^2) d²r
 I₃ = ∫_S z^2 / (λ₁ x^2 + λ₂ y^2 + λ₃ z^2) d²r
-where S is the 2D unit sphere. 
+where S is the unit sphere. 
 """
 function ibs_integrals(λ1, λ2, λ3)
   if λ1 ≈ λ2 ≈ λ3

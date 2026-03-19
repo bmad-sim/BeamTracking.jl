@@ -30,7 +30,7 @@ function mean_and_cov(v, w::Union{Number,Nothing}, ::GPU)
   N = size(v, 1)
   mu = mean(v; dims = 1)
   v_c = v .- mu
-  sigma = (v_c' * v_c) ./ N
+  sigma = Array((v_c' * v_c) ./ N)
   return mu, SMatrix{6,6}(sigma)
 end
 
@@ -43,6 +43,6 @@ function mean_and_cov(v, w, ::GPU)
   mu = (w' * v) ./ W
   v_c = v .- mu
   v_c = v_c .* sqrt.(w)
-  sigma = (v_c' * v_c) ./ W
+  sigma = Array((v_c' * v_c) ./ W)
   return mu, SMatrix{6,6}(sigma)
 end
