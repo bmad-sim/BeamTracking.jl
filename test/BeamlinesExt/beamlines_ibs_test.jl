@@ -4,10 +4,9 @@ using Random
   Random.seed!(0)
 
   # Here just check that they don't bug out
-  p_over_q_ref = BeamTracking.E_to_R(Species("electron"), 18e9)
   drift = Drift(L = 2.0, 
   tracking_method = Yoshida(ibs_damping_on = true, ibs_fluctuations_on = true))
-  line = Beamline([drift], species_ref = Species("electron"), p_over_q_ref = p_over_q_ref)
+  line = Beamline([drift], species_ref = Species("electron"), E_ref = -18e9)
 
   v0 = randn(10,6)
   b0 = Bunch(copy(v0), species = line.species_ref, p_over_q_ref = line.p_over_q_ref)
