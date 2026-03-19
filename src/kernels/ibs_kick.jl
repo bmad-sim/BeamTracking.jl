@@ -122,4 +122,5 @@
       v[i,PZI] = vifelse(alive, new_pz, v[i,PZI])
     end
   end
+  return nothing
 end
