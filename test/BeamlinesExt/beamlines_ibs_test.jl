@@ -10,5 +10,5 @@ using Random
 
   v0 = randn(10,6)
   b0 = Bunch(copy(v0), species = line.species_ref, p_over_q_ref = line.p_over_q_ref)
-  track!(b0, line)
+  track!(b0, line; use_explicit_SIMD = !(VERSION < v"1.11" && Sys.ARCH == :x86_64))
 end
