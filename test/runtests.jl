@@ -7,7 +7,8 @@ using Test,
       GTPSA,
       StaticArrays,
       ReferenceFrameRotations,
-      SIMD
+      SIMD,
+      KernelAbstractions
 
 using BeamTracking: Coords, KernelCall, Q0, QX, QY, QZ, STATE_ALIVE, STATE_LOST, C_LIGHT,
       STATE_LOST_NEG_X, STATE_LOST_POS_X, STATE_LOST_NEG_Y, STATE_LOST_POS_Y, STATE_LOST_PZ, STATE_LOST_Z,
@@ -210,4 +211,4 @@ include("alignment_tracking_test.jl")
 include("aperture_tracking_test.jl")
 include("ExactTracking_test.jl")
 include("IntegrationTracking_test.jl")
-
+include("collective_test.jl")
