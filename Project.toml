@@ -1,7 +1,7 @@
 name = "BeamTracking"
 uuid = "8ef5c10a-4ca3-437f-8af5-b84d8af36df0"
-authors = ["mattsignorelli <mgs255@cornell.edu> and contributors"]
 version = "0.5.8"
+authors = ["mattsignorelli <mgs255@cornell.edu> and contributors"]
 
 [deps]
 Accessors = "7d9f7c33-5ae7-4f3b-8dc6-eff91059b697"
@@ -46,6 +46,7 @@ SIMD = "3.7.1"
 SIMDMathFunctions = "0.1.3"
 SpecialFunctions = "2.5.1"
 StaticArrays = "1"
+Statistics = "1"
 Unrolled = "0.1.5"
 julia = "1.9"
 
