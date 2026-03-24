@@ -38,36 +38,45 @@
 end
 
 
-@makekernel fastgtpsa=true function bmad_to_mad!(i, coords::Coords, beta_0, tilde_m, E_ref, p0c)
+"""
+Converts the longitudinal coordinates from (z, pz) to (τ, pτ) where
+τ = c(t_ref - t) and pτ = (E - E_ref)/pc_ref. Making this well-conditioned is
+nontrivial and this implementation still may not be optimal.
+"""
+@makekernel fastgtpsa=true function bmad_to_mad!(i, coords::Coords, beta_0, tilde_m, phi)
   v = coords.v
+  alive = (coords.state[i] == STATE_ALIVE)
 
-  rel_p = 1 + v[i,PZI]
-  beta_gamma = rel_p/tilde_m
-  gamma = sqrt(1 + beta_gamma*beta_gamma)
-  beta = beta_gamma/gamma
+  pz = v[i,PZI]
+  rel_p = 1 + pz
+  y = beta_0*(2*pz + pz*pz)
+  ptau = y/(1 + sqrt(1 + beta_0*y)) + phi
+  beta = rel_p/sqrt(rel_p*rel_p + tilde_m*tilde_m)
   tau = v[i,ZI]/beta
 
-  gamma_0_inv = tilde_m*beta_0
-  E = E_ref*gamma*gamma_0_inv
-
-  v[i,ZI]  = tau
-  v[i,PZI] = E/p0c - 1/beta_0
+  v[i,ZI]  = vifelse(alive, tau,  v[i,ZI])
+  v[i,PZI] = vifelse(alive, ptau, v[i,PZI])
 end
 
 
-@makekernel fastgtpsa=true function mad_to_bmad!(i, coords::Coords, beta_0, tilde_m, E_ref, p0c)
+"""
+Converts the longitudinal coordinates from (τ, pτ) to (z, pz) where
+τ = c(t_ref - t) and pτ = (E - E_ref)/pc_ref. Making this well-conditioned is
+nontrivial and this implementation still may not be optimal.
+"""
+@makekernel fastgtpsa=true function mad_to_bmad!(i, coords::Coords, beta_0, tilde_m, phi)
   v = coords.v
+  alive = (coords.state[i] == STATE_ALIVE)
 
-  E = E_ref + p0c*v[i,PZI]
-  gamma_0_inv = tilde_m*beta_0
-  gamma = E/E_ref/gamma_0_inv
-  beta = sqrt(1-1/(gamma*gamma))
+  ptau = v[i,PZI]
+  y = ptau*2/beta_0 + ptau*ptau - phi*2/beta_0 + phi*phi - 2*ptau*phi
+  pz = y/(1 + sqrt(1 + y))
+  rel_p = 1 + pz
+  beta = rel_p/sqrt(rel_p*rel_p + tilde_m*tilde_m)
   z = v[i,ZI]*beta
-  
-  pc = beta*E
 
-  v[i,ZI]  =  z
-  v[i,PZI] = (pc-p0c)/p0c
+  v[i,ZI]  = vifelse(alive, z,  v[i,ZI])
+  v[i,PZI] = vifelse(alive, pz, v[i,PZI])
 end
 
 
@@ -75,7 +84,7 @@ end
   v = coords.v
   alive = (coords.state[i] == STATE_ALIVE)
 
-  bmad_to_mad!(i, coords, beta_0, tilde_m, E_ref, p0c)
+  bmad_to_mad!(i, coords, beta_0, tilde_m, 0)
   #r2 = v[i,XI]*v[i,XI] + v[i,YI]*v[i,YI]
   #b01 = 2.404825557695773 # first zero of J0
   #d = C_LIGHT*b01/omega
@@ -102,7 +111,7 @@ end
   #v[i,PYI] = vifelse(alive, new_py, py_0)
   v[i,PZI] = vifelse(alive, new_pz, pz_0)
 
-  mad_to_bmad!(i, coords, beta_0, tilde_m, E_ref, p0c)
+  mad_to_bmad!(i, coords, beta_0, tilde_m, 0)
 end
 
 
