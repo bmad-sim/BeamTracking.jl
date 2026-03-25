@@ -32,7 +32,7 @@ function sincos_quaternion(x::TPS{T}) where {T}
   # Using FastGTPSA! for the following makes other kernels run out of temps
   @FastGTPSA begin
     if x < ε #0.1
-      while !(conv_sin && conv_cos) && N < N_max
+      while !(conv_sin && conv_cos) && N <= N_max
         y = -y*x/((2*N)*(2*N - 1))
         result_sin = prev_sin + y/(2*N + 1)
         result_cos = prev_cos + y
@@ -52,7 +52,7 @@ function sincos_quaternion(x::TPS{T}) where {T}
       result_sin = result_sin/sq
     end
   end
-  if N == N_max
+  if !conv && N == N_max
     @warn "sincos_quaternion convergence not reached in $N_max iterations"
   end
   return result_sin, result_cos
