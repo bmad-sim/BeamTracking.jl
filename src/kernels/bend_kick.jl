@@ -157,7 +157,7 @@ end
 end
 
 
-@makekernel fastgtpsa=true function exact_bend_with_rotation!(i, coords::Coords, e1, e2, theta, a, g, Kn0, w, w_inv, tilde_m, beta_0, L)
+@makekernel function exact_bend_with_rotation!(i, coords::Coords, e1, e2, theta, a, g, Kn0, w, w_inv, tilde_m, beta_0, L)
   rotation!(i, coords, w, 0)
   linear_bend_fringe!(i, coords, a, tilde_m, 0, Kn0, e1, 1)
   exact_bend!(i, coords, theta, g, Kn0, tilde_m, beta_0, L)
@@ -167,11 +167,14 @@ end
 
 
 # This is separate because the spin can be transported exactly here
-@makekernel fastgtpsa=true function exact_curved_drift!(i, coords::Coords, e1, e2, theta, g, w, w_inv, a, tilde_m, beta_0, L) 
-  exact_bend_with_rotation!(i, coords, 0, 0, theta, a, g, 0, w, w_inv, tilde_m, beta_0, L)
+@makekernel function exact_curved_drift!(i, coords::Coords, e1, e2, g, w, w_inv, a, tilde_m, beta_0, L) 
+  rotation!(i, coords, w, 0)
   if !isnothing(coords.q)
-    rotation!(i, coords, w, 0)
     rotate_spin!(i, coords, a, g, tilde_m, SA[0], SA[0], SA[0], L)
-    rotation!(i, coords, w_inv, 0)
   end
+  exact_bend!(i, coords, g*L, g, 0, tilde_m, beta_0, L)
+  if !isnothing(coords.q)
+    rotate_spin!(i, coords, a, g, tilde_m, SA[0], SA[0], SA[0], L)
+  end
+  rotation!(i, coords, w_inv, 0)
 end
