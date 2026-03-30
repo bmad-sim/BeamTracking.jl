@@ -7,8 +7,8 @@
     s_pos = zeros(1+10*n_thickeles)
     cur_idx = 1
     function s_in_ele(coords, ds_step, g)
-        global cur_idx += 1
-        global s_pos[cur_idx] = s_pos[cur_idx-1] + ds_step
+        cur_idx += 1
+        s_pos[cur_idx] = s_pos[cur_idx-1] + ds_step
     end
     b0 = Bunch(v=zeros(1,6), callbacks=(s_in_ele,))
     track!(b0, ring)
