@@ -170,11 +170,11 @@ end
 @makekernel function exact_curved_drift!(i, coords::Coords, e1, e2, g, w, w_inv, a, tilde_m, beta_0, L) 
   rotation!(i, coords, w, 0)
   if !isnothing(coords.q)
-    rotate_spin!(i, coords, a, g, tilde_m, SA[0], SA[0], SA[0], L)
+    rotate_spin!(i, coords, a, g, tilde_m, SA[0], SA[0], SA[0], L / 2)
   end
   exact_bend!(i, coords, g*L, g, 0, tilde_m, beta_0, L)
   if !isnothing(coords.q)
-    rotate_spin!(i, coords, a, g, tilde_m, SA[0], SA[0], SA[0], L)
+    rotate_spin!(i, coords, a, g, tilde_m, SA[0], SA[0], SA[0], L / 2)
   end
   rotation!(i, coords, w_inv, 0)
 end
