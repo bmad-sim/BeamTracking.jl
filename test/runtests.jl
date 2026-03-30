@@ -38,7 +38,7 @@ function test_matrix(
   v = transpose(@vars(D1))
   state = similar(v, UInt8, 1)
   state .= STATE_ALIVE
-  coords = Coords(state, v, nothing, nothing)
+  coords = Coords(state, v, nothing, nothing, ())
 
   # Set up kernel chain and launch!
   BeamTracking.launch!(coords, kernel_call)
@@ -67,7 +67,7 @@ function test_matrix(
     q = repeat([1.0 0.0 0.0 0.0], 2)
     state = [STATE_ALIVE STATE_ALIVE]
     @test @ballocated(BeamTracking.launch!(coords, $kernel_call; use_KA=false), 
-    setup=(coords = Coords(copy($state), copy($v), copy($q), nothing))) == 0
+    setup=(coords = Coords(copy($state), copy($v), copy($q), nothing, ()))) == 0
   end
 end
 
@@ -111,7 +111,7 @@ function test_map(
   q = TPS64{D10}[1 0 0 0]
   state = similar(v, UInt8, 1)
   state .= STATE_ALIVE
-  coords = Coords(state, v, q, nothing)
+  coords = Coords(state, v, q, nothing, ())
 
   # Set up kernel chain and launch!
   BeamTracking.launch!(coords, kernel_call)
@@ -128,7 +128,7 @@ function test_map(
     q = repeat([1.0 0.0 0.0 0.0], 2)
     state = [STATE_ALIVE STATE_ALIVE]
     @test @ballocated(BeamTracking.launch!(coords, $kernel_call; use_KA=false), 
-    setup=(coords = Coords(copy($state), copy($v), copy($q), nothing))) == 0
+    setup=(coords = Coords(copy($state), copy($v), copy($q), nothing, ()))) == 0
   end
 
 
