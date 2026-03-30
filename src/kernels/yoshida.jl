@@ -8,6 +8,14 @@ function compute_g(::K, params::P) where {K, P}
     gx = g*costilt
     gy = g*sintilt
     return (gx, gy)
+  elseif K == typeof(exact_curved_drift!)
+    g = params[4]
+    w = params[5]
+    costilt = w[1]
+    sintilt = -w[4] # Negative here?
+    gx = g*costilt
+    gy = g*sintilt
+    return (gx, gy)
   else
     return (0, 0)
   end
