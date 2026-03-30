@@ -862,7 +862,7 @@ zf_mn4  = [ 0., 3.140908277834687e-8, -3.1503450227072763e-8, 3.140908186274627e
            -cz*sx*sy + cx*cy*sz)
 
     # Test rot_quaternion function
-    @test rot_quaternion(dx_rot, dy_rot, dz_rot) ≈ W
+    @test rot_quaternion(dx_rot, dy_rot, dz_rot) .≈ W
 
     Winv = (cx*cy*cz + sx*sy*sz,
               -cy*cz*sx - cx*sy*sz,
@@ -870,7 +870,7 @@ zf_mn4  = [ 0., 3.140908277834687e-8, -3.1503450227072763e-8, 3.140908186274627e
               cz*sx*sy - cx*cy*sz)
 
     # Test inv_rot_quaternion function
-    @test inv_rot_quaternion(dx_rot, dy_rot, dz_rot) ≈ Winv
+    @test inv_rot_quaternion(dx_rot, dy_rot, dz_rot) .≈ Winv
 
     b0 = Bunch([0.01 0.02 0.03 0.04 0.05 0.06], p_over_q_ref=10.0)
     BeamTracking.reference_momentum_shift!(1, b0.coords, 10.0, 10.0, false)
