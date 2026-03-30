@@ -856,18 +856,18 @@ zf_mn4  = [ 0., 3.140908277834687e-8, -3.1503450227072763e-8, 3.140908186274627e
     sy, cy = sincos(dy_rot/2)
     sz, cz = sincos(dz_rot/2)
 
-    W = SA[cx*cy*cz + sx*sy*sz, 
+    W = (cx*cy*cz + sx*sy*sz, 
            cy*cz*sx + cx*sy*sz,
            cx*cz*sy - cy*sx*sz,
-           -cz*sx*sy + cx*cy*sz]
+           -cz*sx*sy + cx*cy*sz)
 
     # Test rot_quaternion function
     @test rot_quaternion(dx_rot, dy_rot, dz_rot) ≈ W
 
-    Winv = SA[cx*cy*cz + sx*sy*sz,
+    Winv = (cx*cy*cz + sx*sy*sz,
               -cy*cz*sx - cx*sy*sz,
               -cx*cz*sy + cy*sx*sz,
-              cz*sx*sy - cx*cy*sz]
+              cz*sx*sy - cx*cy*sz)
 
     # Test inv_rot_quaternion function
     @test inv_rot_quaternion(dx_rot, dy_rot, dz_rot) ≈ Winv
