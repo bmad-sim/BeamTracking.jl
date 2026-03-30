@@ -86,9 +86,18 @@ function process_time_args(i, coords, args, ref)
   end
 end
 
+# Function to execute callbacks
+execute_callbacks(coords, ds_step, g) = _execute_callbacks(coords.callbacks, coords, ds_step, g)
+
+@unroll function _execute_callbacks(callbacks, coords, ds_step, g)
+  @unroll for callback in callbacks
+    callback(coords, ds_step, g)
+  end
+  return nothing
+end
+
 # Generic function to launch a kernel on the bunch coordinates matrix
 # Matrix v should ALWAYS be in SoA whether for real or as a view via tranpose(v)
-
 @inline function launch!(
   coords::Coords{<:Any,V},
   kc::KernelChain;
