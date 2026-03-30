@@ -296,7 +296,7 @@ end
   w_inv = inv_rot_quaternion(0,0,-tilt)
   theta = g * L
   tilde_m, _, beta_0 = BeamTracking.drift_params(bunch.species, bunch.p_over_q_ref)
-  params = (e1, e2, theta, g, w, w_inv, gyromagnetic_anomaly(bunch.species), tilde_m, beta_0, L)
+  params = (e1, e2, theta, g, w, w_inv, gyromagnetic_anomaly(bunch.species), tilde_m, beta_0)
   return integration_launcher(BeamTracking.exact_curved_drift!, params, nothing, tm, nothing, L)
 end
 
