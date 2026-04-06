@@ -17,12 +17,12 @@ include("../ext/BeamTrackingBeamlinesExt/utils_bl.jl")
   end
 
   function A_dipole(g) 
-    func = (x, y, s, t) -> (0, 0, 0, -g*(x-g*x^2/(1+g*x)/2))
+    func = (x, y, s, t) -> (0, 0, 0, -g*x*(1+g*x/2))
     jac = (x, y, s, t) -> SA[
       0 0 0;
       0 0 0;
       0 0 0;
-      -g*(1 - g*x/(1+g*x) * (1 - g*x/(1+g*x)/2)) 0 0
+      -g*(1+g*x) 0 0;
     ]
     return func, jac
   end
@@ -206,7 +206,7 @@ include("../ext/BeamTrackingBeamlinesExt/utils_bl.jl")
       return Bunch(deepcopy(v), deepcopy(quat), species=species, p_over_q_ref=p_over_q_ref)
     end
 
-    for magnet in [:Solenoid, :Multipole] #keys(magnets)
+    for magnet in [:Solenoid, :Dipole, :Multipole] #keys(magnets)
       @testset "$(magnet)" begin
         kc_ref_fn, kc_impl_fn = magnets[magnet]
 
@@ -277,7 +277,7 @@ include("../ext/BeamTrackingBeamlinesExt/utils_bl.jl")
     end
     
   
-    for magnet in [:Solenoid, :Multipole] #keys(magnets)
+    for magnet in [:Solenoid, :Dipole, :Multipole] #keys(magnets)
       @testset "$(magnet)" begin
 
         kc_ref_fn, kc_impl_fn = magnets[magnet]
