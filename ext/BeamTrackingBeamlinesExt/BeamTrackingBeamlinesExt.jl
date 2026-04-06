@@ -1,11 +1,11 @@
 module BeamTrackingBeamlinesExt
-using Beamlines, BeamTracking, GTPSA, StaticArrays, KernelAbstractions, AtomicAndPhysicalConstants
+using Beamlines, BeamTracking, GTPSA, StaticArrays, KernelAbstractions, AtomicAndPhysicalConstants, LinearAlgebra
 using Beamlines: isactive, deval, unsafe_getparams, isnullspecies
 using BeamTracking: R_to_E, R_to_beta_gamma, R_to_gamma, R_to_pc, R_to_v, 
                     beta_gamma_to_v, E_to_R, E_to_v,
                     @makekernel, Coords, KernelCall, KernelChain, push, TimeDependentParam, RefState, 
                     launch!, AbstractYoshida, rot_quaternion, inv_rot_quaternion, atan2, 
-                    get_N_particle
+                    get_N_particle, mean_and_cov, ibs_integrals
                     
 import BeamTracking: track!
 

@@ -58,6 +58,3 @@ end
   tilde_m, _, beta_0 = BeamTracking.drift_params(bunch.species, bunch.p_over_q_ref)
   return KernelCall(BeamTracking.exact_curved_drift!, (e1, e2, theta, g, w, w_inv, gyromagnetic_anomaly(bunch.species), tilde_m, beta_0, L))
 end
-
-@inline pure_map(tm::Exact, bunch, mapparams, L) = KernelCall(BeamTracking.map!, (mapparams.transport_map, mapparams.transport_map_params, L))
-

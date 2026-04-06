@@ -60,10 +60,10 @@ function universal!(
   kwargs...
 ) 
   beta_gamma_ref = R_to_beta_gamma(bunch.species, bunch.p_over_q_ref)
-  # Current KernelChain length is 6 because we have up to
-  # 2 aperture, 2 alignment, 1 body kernel, and 
+  # Current KernelChain length is 7 because we have up to
+  # 2 aperture, 2 alignment, 1 body kernel, 1 IBS kernel, and
   # 1 kernel to update the particles' reference energy
-  kc = KernelChain(Val{6}(), RefState(bunch.t_ref, beta_gamma_ref))
+  kc = KernelChain(Val{7}(), RefState(bunch.t_ref, beta_gamma_ref))
 
   # Ramping
   if p_over_q_ref isa TimeDependentParam
@@ -91,6 +91,12 @@ function universal!(
     end
   elseif isactive(apertureparams)
     kc = push(kc, @inline(aperture(tm, bunch, apertureparams, true)))
+  end
+
+  if ((hasfield(typeof(tm), :ibs_damping_on) && hasfield(typeof(tm), :ibs_fluctuations_on)) 
+    && (tm.ibs_damping_on || tm.ibs_fluctuations_on) && L > 0)
+    bp = ifelse(isactive(bendparams), bendparams, nothing)
+    kc = push(kc, @inline(ibs_kick(tm, bunch, bp, L)))
   end
 
   if isactive(mapparams)    
@@ -348,7 +354,6 @@ end
 
 # === Coordinate transformations === #
 @inline pure_patch(tm, bunch, patchparams, L) = error("Undefined for tracking method $tm")
-@inline pure_map(tm, bunch, mapparams, L) = error("Undefined for tracking method $tm")
 
 # === Straight Elements === #
 # "Pure" means only ONE SINGLE multipole.

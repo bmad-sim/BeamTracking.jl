@@ -12,7 +12,9 @@ using GTPSA,
       SpecialFunctions,
       AtomicAndPhysicalConstants,
       Random,
-      EnumX
+      EnumX,
+      Statistics,
+      LinearAlgebra
 
 using KernelAbstractions
 
@@ -28,6 +30,9 @@ include("utils/energy.jl")
 include("utils/math_simd.jl")
 include("utils/quaternions.jl")
 include("utils/z_to_time.jl")
+include("utils/beam_statistics.jl")
+include("utils/ibs_integrals.jl")
+include("utils/random.jl")
 
 include("types.jl")
 include("time.jl")
@@ -52,6 +57,7 @@ include("kernels/solenoid_kick.jl")
 include("kernels/spin.jl")
 include("kernels/transforms.jl")
 include("kernels/yoshida.jl")
+include("kernels/ibs_kick.jl")
 include("kernels/implicit.jl")
 
 # Empty tracking method to be imported+implemented by package extensions
