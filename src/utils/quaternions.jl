@@ -168,20 +168,20 @@ Arguments:
 
 """
 function rot_quaternion(x_rot, y_rot, z_rot)
-  qz = SA[cos(z_rot/2), 0, 0, sin(z_rot/2)]
-  qx = SA[cos(x_rot/2), sin(x_rot/2), 0, 0]
-  qy = SA[cos(y_rot/2), 0, sin(y_rot/2), 0]
+  qz = (cos(z_rot/2), 0, 0, sin(z_rot/2))
+  qx = (cos(x_rot/2), sin(x_rot/2), 0, 0)
+  qy = (cos(y_rot/2), 0, sin(y_rot/2), 0)
   q = quat_mul(qx, qz[Q0], qz[QX], qz[QY], qz[QZ])
   q = quat_mul(qy, q[Q0], q[QX], q[QY], q[QZ])
-  return SA[q[Q0], q[QX], q[QY], q[QZ]]
+  return (q[Q0], q[QX], q[QY], q[QZ])
 end
 
 # Inverse rotation quaternion
 function inv_rot_quaternion(x_rot, y_rot, z_rot)
-  qz = SA[cos(z_rot/2), 0, 0, -sin(z_rot/2)]
-  qx = SA[cos(x_rot/2), -sin(x_rot/2), 0, 0]
-  qy = SA[cos(y_rot/2), 0, -sin(y_rot/2), 0]
+  qz = (cos(z_rot/2), 0, 0, -sin(z_rot/2))
+  qx = (cos(x_rot/2), -sin(x_rot/2), 0, 0)
+  qy = (cos(y_rot/2), 0, -sin(y_rot/2), 0)
   q = quat_mul(qx, qy[Q0], qy[QX], qy[QY], qy[QZ])
   q = quat_mul(qz, q[Q0], q[QX], q[QY], q[QZ])
-  return SA[q[Q0], q[QX], q[QY], q[QZ]]
+  return (q[Q0], q[QX], q[QY], q[QZ])
 end
