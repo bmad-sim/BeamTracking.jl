@@ -289,11 +289,11 @@ end
 # =========== BENDING ELEMENTS ============= #
 @inline function thick_bend_no_field(tm::Union{Yoshida,BendKick}, bunch, bendparams, L)
   g = bendparams.g_ref
-  tilt = bendparams.tilt_ref
+  ntilt = -bendparams.tilt_ref
   e1 = bendparams.e1
   e2 = bendparams.e2
-  w = rot_quaternion(0,0,-tilt)
-  w_inv = inv_rot_quaternion(0,0,-tilt)
+  w = rot_quaternion(0,0,ntilt)
+  w_inv = inv_rot_quaternion(0,0,ntilt)
   tilde_m, _, beta_0 = BeamTracking.drift_params(bunch.species, bunch.p_over_q_ref)
   params = (e1, e2, g, w, w_inv, gyromagnetic_anomaly(bunch.species), tilde_m, beta_0)
   return integration_launcher(BeamTracking.exact_curved_drift!, params, nothing, tm, nothing, L)
@@ -303,14 +303,14 @@ end
   p_over_q_ref = bunch.p_over_q_ref
   tilde_m, _, beta_0 = BeamTracking.drift_params(bunch.species, p_over_q_ref)
   g = bendparams.g_ref
-  tilt = bendparams.tilt_ref
+  ntilt = -bendparams.tilt_ref
   e1 = bendparams.e1
   e2 = bendparams.e2
   mm = bm1.order
   Kn0, Ks0 = get_strengths(bm1, L, p_over_q_ref)
   Ks0 ≈ 0 || error("A skew dipole field cannot yet be used in a bend")
-  w = rot_quaternion(0,0,tilt)
-  w_inv = inv_rot_quaternion(0,0,tilt)
+  w = rot_quaternion(0,0,ntilt)
+  w_inv = inv_rot_quaternion(0,0,ntilt)
   a = gyromagnetic_anomaly(bunch.species)
   edge_params = (a, tilde_m, 0, Kn0, e1, e2)
   q = chargeof(bunch.species)
@@ -318,7 +318,7 @@ end
   E0 = mc2/tilde_m/beta_0
   params = (q, mc2, tm.radiation_damping_on, tilde_m, beta_0, a, g, w, w_inv, Kn0, SA[mm], SA[Kn0], SA[Ks0])
   if isprimitivetype(eltype(bunch.coords.v)) && tm.radiation_fluctuations_on
-    photon_params = (get_backend(bunch.coords.v), q, mc2, E0, g, tilt, SA[mm], SA[Kn0], SA[Ks0])
+    photon_params = (get_backend(bunch.coords.v), q, mc2, E0, g, ntilt, SA[mm], SA[Kn0], SA[Ks0])
   else
     photon_params = nothing
   end
@@ -330,22 +330,22 @@ end
   p_over_q_ref = bunch.p_over_q_ref
   tilde_m, _, beta_0 = BeamTracking.drift_params(bunch.species, p_over_q_ref)
   g = bendparams.g_ref
-  tilt = bendparams.tilt_ref
+  ntilt = -bendparams.tilt_ref
   e1 = bendparams.e1
   e2 = bendparams.e2
   mm = bm.order
   kn, ks = get_strengths(bm, L, p_over_q_ref)
   Kn0 = kn[1]
   ks[1] ≈ 0 || error("A skew dipole field cannot yet be used in a bend")
-  w = rot_quaternion(0,0,tilt)
-  w_inv = inv_rot_quaternion(0,0,tilt)
+  w = rot_quaternion(0,0,ntilt)
+  w_inv = inv_rot_quaternion(0,0,ntilt)
   a = gyromagnetic_anomaly(bunch.species)
   edge_params = (a, tilde_m, 0, Kn0, e1, e2)
   q = chargeof(bunch.species)
   mc2 = massof(bunch.species)
   E0 = mc2/tilde_m/beta_0
   params = (q, mc2, tm.radiation_damping_on, tilde_m, beta_0, a, g, w, w_inv, Kn0, mm, kn, ks)
-  photon_params = ifelse(tm.radiation_fluctuations_on, (q, mc2, E0, g, tilt, mm, kn, ks), nothing)
+  photon_params = ifelse(tm.radiation_fluctuations_on, (q, mc2, E0, g, ntilt, mm, kn, ks), nothing)
   return integration_launcher(BeamTracking.bkb_multipole!, params, photon_params, tm, edge_params, L)
 end
 
