@@ -12,7 +12,7 @@ function compute_g(::K, params::P) where {K, P}
     g = params[3]
     w = params[4]
     costilt = w[1]
-    sintilt = -w[4] # Negative here?
+    sintilt = w[4] # Negative here?
     gx = g*costilt
     gy = g*sintilt
     return (gx, gy)
