@@ -273,7 +273,7 @@ include("../ext/BeamTrackingBeamlinesExt/utils_bl.jl")
                      q[2] + dz[3], p[2] + dz[4],
                      q[3] + dz[5], p[3] + dz[6]])
       state = UInt8[BeamTracking.STATE_ALIVE]
-      return BeamTracking.Coords(state, v, nothing, nothing)
+      return BeamTracking.Coords(state, v, nothing, nothing, ())
     end
     
   
