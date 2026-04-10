@@ -20,6 +20,7 @@ using KernelAbstractions
 
 import GTPSA: sincu, sinhcu
 
+export Species
 export Bunch, State, ParticleView, Time, TimeDependentParam, BatchParam
 export Yoshida, Yoshida, MatrixKick, BendKick, SolenoidKick, DriftKick, Exact
 export Fringe, SaganCavity, track!
