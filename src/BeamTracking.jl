@@ -59,6 +59,7 @@ include("kernels/spin.jl")
 include("kernels/transforms.jl")
 include("kernels/yoshida.jl")
 include("kernels/ibs_kick.jl")
+include("kernels/implicit.jl")
 
 # Empty tracking method to be imported+implemented by package extensions
 function track! end
