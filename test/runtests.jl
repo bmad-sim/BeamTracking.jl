@@ -18,6 +18,7 @@ using Beamlines: isactive
 
 @show BeamTracking.REGISTER_SIZE
 @show Sys.ARCH
+@show Threads.nthreads()
 
 BenchmarkTools.DEFAULT_PARAMETERS.gctrial = false
 BenchmarkTools.DEFAULT_PARAMETERS.evals = 2
@@ -66,7 +67,7 @@ function test_matrix(
     v = repeat([0.1 0.2 0.3 0.4 0.5 0.6], 2)
     q = repeat([1.0 0.0 0.0 0.0], 2)
     state = [STATE_ALIVE STATE_ALIVE]
-    @test @ballocated(BeamTracking.launch!(coords, $kernel_call; use_KA=false), 
+    @test @ballocated(BeamTracking.launch!(coords, $kernel_call; use_KA=false, cpu_multithread=false), 
     setup=(coords = Coords(copy($state), copy($v), copy($q), nothing, ()))) == 0
   end
 end
@@ -127,7 +128,7 @@ function test_map(
     v = repeat([0.1 0.2 0.3 0.4 0.5 0.6], 2)
     q = repeat([1.0 0.0 0.0 0.0], 2)
     state = [STATE_ALIVE STATE_ALIVE]
-    @test @ballocated(BeamTracking.launch!(coords, $kernel_call; use_KA=false), 
+    @test @ballocated(BeamTracking.launch!(coords, $kernel_call; use_KA=false, cpu_multithread=false), 
     setup=(coords = Coords(copy($state), copy($v), copy($q), nothing, ()))) == 0
   end
 

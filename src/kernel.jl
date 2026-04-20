@@ -102,10 +102,10 @@ end
   coords::Coords{<:Any,V},
   kc::KernelChain;
   groupsize::Union{Nothing,Integer}=nothing, #backend isa CPU ? floor(Int,REGISTER_SIZE/sizeof(eltype(v))) : 256 
-  cpu_multithread::Val{_cpu_multithread}=Val{(Threads.nthreads() > 1 ? true : false)}(),
+  cpu_multithread::Bool=(Threads.nthreads() > 1 ? true : false),
   use_KA::Bool=!(get_backend(coords.v) isa CPU && isnothing(groupsize)),
   use_explicit_SIMD::Bool=!use_KA #&& (@static VERSION < v"1.11" || Sys.ARCH != :aarch64) # Default to use explicit SIMD on CPU, excepts for Macs above LTS bc SIMD.jl bug
-) where {V,_cpu_multithread}
+) where {V}
   v = coords.v
   N_particle = size(v, 1)
 
@@ -123,7 +123,7 @@ end
       lane = SIMD.VecRange{Int(simd_lane_width)}(0)
       rmn = rem(N_particle, simd_lane_width)
       N_SIMD = N_particle - rmn
-      if _cpu_multithread
+      if cpu_multithread
         Threads.@threads for i in 1:simd_lane_width:N_SIMD
           @assert last(i) <= N_particle "Out of bounds!"  # Use last because SIMD.VecRange SIMD
           _generic_kernel!(lane+i, coords, kc)
@@ -140,7 +140,7 @@ end
         _generic_kernel!(i, coords, kc)
       end
     else
-      if _cpu_multithread
+      if cpu_multithread
         Threads.@threads for i in 1:N_particle
           @assert last(i) <= N_particle "Out of bounds!"
           _generic_kernel!(i, coords, kc)
