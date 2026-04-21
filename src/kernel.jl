@@ -102,7 +102,7 @@ end
   coords::Coords{<:Any,V},
   kc::KernelChain;
   groupsize::Union{Nothing,Integer}=nothing, #backend isa CPU ? floor(Int,REGISTER_SIZE/sizeof(eltype(v))) : 256 
-  use_cpu_multithreading::Bool=(Threads.nthreads() > 1 ? true : false),
+  use_cpu_multithreading::Bool=false,
   use_KA::Bool=!(get_backend(coords.v) isa CPU && isnothing(groupsize)),
   use_explicit_SIMD::Bool=!use_KA #&& (@static VERSION < v"1.11" || Sys.ARCH != :aarch64) # Default to use explicit SIMD on CPU, excepts for Macs above LTS bc SIMD.jl bug
 ) where {V}
