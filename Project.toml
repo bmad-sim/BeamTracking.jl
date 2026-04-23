@@ -1,7 +1,7 @@
 name = "BeamTracking"
 uuid = "8ef5c10a-4ca3-437f-8af5-b84d8af36df0"
-version = "0.5.9"
 authors = ["mattsignorelli <mgs255@cornell.edu> and contributors"]
+version = "0.6.0"
 
 [deps]
 Accessors = "7d9f7c33-5ae7-4f3b-8dc6-eff91059b697"
@@ -33,8 +33,8 @@ BeamTrackingBeamlinesExt = "Beamlines"
 Accessors = "0.1.42"
 Adapt = "4.3.0"
 AtomicAndPhysicalConstants = "0.9"
-Beamlines = "0.8.14"
 CUDA = "5.9, 6"
+Beamlines = "0.9"
 EnumX = "1.0.6"
 GTPSA = "1.5.3"
 HostCPUFeatures = "0.1"
