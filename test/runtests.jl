@@ -18,6 +18,7 @@ using Beamlines: isactive
 
 @show BeamTracking.REGISTER_SIZE
 @show Sys.ARCH
+@show Threads.nthreads()
 
 BenchmarkTools.DEFAULT_PARAMETERS.gctrial = false
 BenchmarkTools.DEFAULT_PARAMETERS.evals = 2

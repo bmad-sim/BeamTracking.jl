@@ -180,11 +180,11 @@ end
 function rf_phi0_calc(rfparams, species)
   dphi = chargeof(species) > 0 ? 0 : pi
 
-  if rfparams.zero_phase == PhaseReference.BelowTransition
+  if rfparams.zero_phase == PhaseRef.BelowTransition
     return rfparams.phi0 + pi/2 + dphi
-  elseif rfparams.zero_phase == PhaseReference.AboveTransition
+  elseif rfparams.zero_phase == PhaseRef.AboveTransition
     return rfparams.phi0 - pi/2 + dphi
-  elseif rfparams.zero_phase == PhaseReference.Accelerating
+  elseif rfparams.zero_phase == PhaseRef.Accelerating
     return rfparams.phi0 + dphi
   else
     error("RF parameter zero_phase value not set correctly.")
