@@ -294,7 +294,7 @@ function multipole_kick_with_rad!(i, coords::Coords,
                   q, m_order, Kn, Ks, a, mass, P0c, beta0, L) where {rad_damping_on, rad_fluctuations_on}
   L2 = L / 2
   if rad_damping_on
-    deterministic_radiation!(i, coords, q, mass, P0c/beta0, 0, m_order, Kn, Ks, L2)
+    deterministic_radiation_multipole!(i, coords, q, mass, P0c/beta0, 0, m_order, Kn, Ks, L2)
   end
 
   if rad_fluctuations_on
@@ -309,7 +309,7 @@ function multipole_kick_with_rad!(i, coords::Coords,
   end
 
   if rad_damping_on
-    deterministic_radiation!(i, coords, q, mass, P0c/beta0, 0, m_order, Kn, Ks, L2)
+    deterministic_radiation_multipole!(i, coords, q, mass, P0c/beta0, 0, m_order, Kn, Ks, L2)
   end
 end
 

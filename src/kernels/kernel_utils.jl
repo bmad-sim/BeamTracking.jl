@@ -1,4 +1,3 @@
-
 @makekernel function multipole_and_spin_kick!(i, coords, mm, knL, ksL, a, tilde_m)
   if isnothing(coords.q)
     multipole_kick!(i, coords, mm, knL, ksL, -1)

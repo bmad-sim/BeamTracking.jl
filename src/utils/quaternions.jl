@@ -21,8 +21,7 @@ function sincos_quaternion(x::TPS{T}) where {T}
   ε = eps(T)
   N_max = 100
   N = 1
-  conv_sin = false
-  conv_cos = false
+  conv = false
   y = one(x)
   prev_sin = one(x)
   prev_cos = one(x)
@@ -31,28 +30,24 @@ function sincos_quaternion(x::TPS{T}) where {T}
   #sq = one(x)
   # Using FastGTPSA! for the following makes other kernels run out of temps
   @FastGTPSA begin
-    if x < ε #0.1
-      while !(conv_sin && conv_cos) && N <= N_max
+    if x < ε
+      while !conv && N <= N_max
         y = -y*x/((2*N)*(2*N - 1))
         result_sin = prev_sin + y/(2*N + 1)
         result_cos = prev_cos + y
         N += 1
-        if normTPS(result_sin - prev_sin) < ε
-          conv_sin = true
-        end
-        if normTPS(result_cos - prev_cos) < ε
-          conv_cos = true
-        end
+        conv = (normTPS(result_sin - prev_sin) < ε && normTPS(result_cos - prev_cos) < ε)
         prev_sin = result_sin
         prev_cos = result_cos
       end
     else
+      conv = true
       sq = sqrt(x)
       result_sin, result_cos = sincos(sq)
       result_sin = result_sin/sq
     end
   end
-  if !conv && N == N_max
+  if !conv
     @warn "sincos_quaternion convergence not reached in $N_max iterations"
   end
   return result_sin, result_cos
@@ -64,11 +59,11 @@ This function computes exp(-i/2 v⋅σ) as a quaternion, where σ is the
 vector of Pauli matrices. If compute is false, it returns the identity quaternion.
 """
 function expq(v, compute)
-  n2 = @FastGTPSA (v[1]*v[1] + v[2]*v[2] + v[3]*v[3])/4
+  @inbounds n2 = @FastGTPSA (v[1]*v[1] + v[2]*v[2] + v[3]*v[3])/4
   n2_0 = zero(n2)
   s, c = sincos_quaternion(vifelse(compute, n2, n2_0))
   s = vifelse(compute, s, n2_0)
-  return (c, s*v[1]/2, s*v[2]/2, s*v[3]/2)
+  @inbounds return (c, s*v[1]/2, s*v[2]/2, s*v[3]/2)
 end
 
 
@@ -80,7 +75,7 @@ This form of `quat_mul` is used when the quaternions are particle (spin) coordin
 with SIMD-parallelized tracking.
 """
 function quat_mul(q1, q20, q2x, q2y, q2z)
-  a1, b1, c1, d1 = q1[Q0], q1[QX], q1[QY], q1[QZ]
+  @inbounds a1, b1, c1, d1 = q1[Q0], q1[QX], q1[QY], q1[QZ]
   a2, b2, c2, d2 = q20, q2x, q2y, q2z
   @FastGTPSA begin
     a3 = a1*a2 - b1*b2 - c1*c2 - d1*d2

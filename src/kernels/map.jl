@@ -32,4 +32,3 @@ struct Map end
     q[i,QZ] = vifelse(alive, q_out[QZ], q[i,QZ])
   end
 end
-

@@ -25,7 +25,7 @@
       tilde_m = mc2/p0c
       gamsqr_0 = 1 + 1/tilde_m^2
       beta_0 = 1/sqrt(1 + tilde_m^2)
-      return 0, 0, false, beta_0, gamsqr_0, tilde_m, a, Ksol, mm, kn, sn, L
+      return 0, 0, 0, false, beta_0, gamsqr_0, tilde_m, a, Ksol, mm, kn, sn, L
     end
 
     function mk_args(::Type{T}) where {T}
@@ -43,7 +43,7 @@
       tilde_m = mc2/p0c
       gamsqr_0 = 1 + 1/tilde_m^2
       beta_0 = 1/sqrt(1 + tilde_m^2)
-      return 0, 0, false, beta_0, gamsqr_0, tilde_m, a, w, w_inv, k1, mm, kn, ks, L
+      return 0, 0, 0, false, beta_0, gamsqr_0, tilde_m, a, w, w_inv, k1, mm, kn, ks, L
     end
 
     function dk_args(::Type{T}) where {T}
@@ -61,7 +61,7 @@
       tilde_m = mc2/p0c
       gamsqr_0 = 1 + 1/tilde_m^2
       beta_0 = 1/sqrt(1 + tilde_m^2)
-      return 0, 0, false, beta_0, gamsqr_0, tilde_m, a, mm, kn, ks, L
+      return 0, 0, 0, false, beta_0, gamsqr_0, tilde_m, a, mm, kn, ks, L
     end
 
     function bk_straight_args(::Type{T}) where {T}
@@ -123,7 +123,7 @@
       mm = SA[]
       kn = SA[]
       ks = SA[]
-      return 0, 0, false, beta_0, gamsqr_0, tilde_m, E_ref, p0c, a, omega, t0, E0_over_Rref, mm, kn, ks, L
+      return 0, 0, 0, false, beta_0, gamsqr_0, tilde_m, E_ref, a, omega, t0, E0_over_Rref, mm, kn, ks, L
     end
     
     # Scalar parameters

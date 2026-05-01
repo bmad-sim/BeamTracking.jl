@@ -78,10 +78,11 @@ end
     mc2 = massof(bunch.species)
     a = gyromagnetic_anomaly(bunch.species)
     edge_params = (a, tilde_m, Ksol, 0, 0, 0)
-    E0 = mc2/tilde_m/beta_0
-    params = (q, mc2, tm.radiation_damping_on, beta_0, gamsqr_0, tilde_m, a, Ksol, mm, kn, ks)
+    E_ref = mc2/tilde_m/beta_0
+    radiation_params = ifelse(tm.radiation_damping_on, (q, mc2, E_ref), nothing)
+    params = (radiation_params, beta_0, gamsqr_0, tilde_m, a, Ksol, mm, kn, ks)
     if isprimitivetype(eltype(bunch.coords.v)) && tm.radiation_fluctuations_on
-      photon_params = (get_backend(bunch.coords.v), q, mc2, E0, 0, 0, mm, kn, ks)
+      photon_params = (get_backend(bunch.coords.v), q, mc2, E_ref, 0, 0, mm, kn, ks)
     else
       photon_params = nothing
     end
@@ -100,10 +101,11 @@ end
   a = gyromagnetic_anomaly(bunch.species)
   Kn0 = ifelse(mm[2] == 1, kn[2], 0)
   edge_params = (a, tilde_m, Ksol, Kn0, 0, 0)
-  E0 = mc2/tilde_m/beta_0
-  params = (q, mc2, tm.radiation_damping_on, beta_0, gamsqr_0, tilde_m, a, Ksol, mm, kn, ks)
+  E_ref = mc2/tilde_m/beta_0
+  radiation_params = ifelse(tm.radiation_damping_on, (q, mc2, E_ref), nothing)
+  params = (radiation_params, beta_0, gamsqr_0, tilde_m, a, Ksol, mm, kn, ks)
   if isprimitivetype(eltype(bunch.coords.v)) && tm.radiation_fluctuations_on
-    photon_params = (get_backend(bunch.coords.v), q, mc2, E0, 0, 0, mm, kn, ks)
+    photon_params = (get_backend(bunch.coords.v), q, mc2, E_ref, 0, 0, mm, kn, ks)
   else
     photon_params = nothing
   end
@@ -120,10 +122,11 @@ end
   a = gyromagnetic_anomaly(bunch.species)
   Kn0 = ifelse(mm == 1, kn, 0)
   edge_params = (a, tilde_m, 0, Kn0, 0, 0)
-  E0 = mc2/tilde_m/beta_0
-  params = (q, mc2, tm.radiation_damping_on, beta_0, gamsqr_0, tilde_m, a, SA[mm], SA[kn], SA[ks])
+  E_ref = mc2/tilde_m/beta_0
+  radiation_params = ifelse(tm.radiation_damping_on, (q, mc2, E_ref), nothing)
+  params = (radiation_params, beta_0, gamsqr_0, tilde_m, a, SA[mm], SA[kn], SA[ks])
   if isprimitivetype(eltype(bunch.coords.v)) && tm.radiation_fluctuations_on
-    photon_params = (get_backend(bunch.coords.v), q, mc2, E0, 0, 0, SA[mm], SA[kn], SA[ks])
+    photon_params = (get_backend(bunch.coords.v), q, mc2, E_ref, 0, 0, SA[mm], SA[kn], SA[ks])
   else
     photon_params = nothing
   end
@@ -140,10 +143,11 @@ end
   a = gyromagnetic_anomaly(bunch.species)
   Kn0 = ifelse(mm[1] == 1, kn[1], 0)
   edge_params = (a, tilde_m, 0, Kn0, 0, 0)
-  E0 = mc2/tilde_m/beta_0
-  params = (q, mc2, tm.radiation_damping_on, beta_0, gamsqr_0, tilde_m, a, mm, kn, ks)
+  E_ref = mc2/tilde_m/beta_0
+  radiation_params = ifelse(tm.radiation_damping_on, (q, mc2, E_ref), nothing)
+  params = (radiation_params, beta_0, gamsqr_0, tilde_m, a, mm, kn, ks)
   if isprimitivetype(eltype(bunch.coords.v)) && tm.radiation_fluctuations_on
-    photon_params = (get_backend(bunch.coords.v), q, mc2, E0, 0, 0, mm, kn, ks)
+    photon_params = (get_backend(bunch.coords.v), q, mc2, E_ref, 0, 0, mm, kn, ks)
   else
     photon_params = nothing
   end
@@ -164,12 +168,13 @@ end
     w_inv = inv_rot_quaternion(0,0,tilt)
     q = chargeof(bunch.species)
     mc2 = massof(bunch.species)
-    E0 = mc2/tilde_m/beta_0
+    E_ref = mc2/tilde_m/beta_0
     a = gyromagnetic_anomaly(bunch.species)
     edge_params = (a, tilde_m, 0, k0, 0, 0)
-    params = (q, mc2, tm.radiation_damping_on, tilde_m, beta_0, a, 0, w, w_inv, k0, SA[mm], SA[kn], SA[ks])
+    radiation_params = ifelse(tm.radiation_damping_on, (q, mc2, E_ref), nothing)
+    params = (radiation_params, tilde_m, beta_0, a, 0, w, w_inv, k0, SA[mm], SA[kn], SA[ks])
     if isprimitivetype(eltype(bunch.coords.v)) && tm.radiation_fluctuations_on
-      photon_params = (get_backend(bunch.coords.v), q, mc2, E0, 0, 0, SA[mm], SA[kn], SA[ks])
+      photon_params = (get_backend(bunch.coords.v), q, mc2, E_ref, 0, 0, SA[mm], SA[kn], SA[ks])
     else
       photon_params = nothing
     end
@@ -190,10 +195,11 @@ end
   mc2 = massof(bunch.species)
   a = gyromagnetic_anomaly(bunch.species)
   edge_params = (a, tilde_m, 0, k0, 0, 0)
-  E0 = mc2/tilde_m/beta_0
-  params = (q, mc2, tm.radiation_damping_on, tilde_m, beta_0, a, 0, w, w_inv, k0, mm, kn, ks)
+  E_ref = mc2/tilde_m/beta_0
+  radiation_params = ifelse(tm.radiation_damping_on, (q, mc2, E_ref), nothing)
+  params = (radiation_params, tilde_m, beta_0, a, 0, w, w_inv, k0, mm, kn, ks)
   if isprimitivetype(eltype(bunch.coords.v)) && tm.radiation_fluctuations_on
-    photon_params = (get_backend(bunch.coords.v), q, mc2, E0, 0, 0, mm, kn, ks)
+    photon_params = (get_backend(bunch.coords.v), q, mc2, E_ref, 0, 0, mm, kn, ks)
   else
     photon_params = nothing
   end
@@ -220,8 +226,9 @@ end
   mc2 = massof(bunch.species)
   a = gyromagnetic_anomaly(bunch.species)
   edge_params = (a, tilde_m, 0, kn[1], 0, 0)
-  E0 = mc2/tilde_m/beta_0
-  params = (q, mc2, tm.radiation_damping_on, beta_0, gamsqr_0, tilde_m, a, w, w_inv, k1, mm, kn, ks)
+  E_ref = mc2/tilde_m/beta_0
+  radiation_params = ifelse(tm.radiation_damping_on, (q, mc2, E_ref), nothing)
+  params = (radiation_params, beta_0, gamsqr_0, tilde_m, a, w, w_inv, k1, mm, kn, ks)
   if isprimitivetype(eltype(bunch.coords.v)) && tm.radiation_fluctuations_on
     photon_params = (get_backend(bunch.coords.v), q, mc2, E0, 0, 0, mm, kn, ks)
   else
@@ -244,10 +251,11 @@ end
   w_inv = inv_rot_quaternion(0,0,tilt)
   q = chargeof(bunch.species)
   mc2 = massof(bunch.species)
-  E0 = mc2/tilde_m/beta_0
-  params = (q, mc2, tm.radiation_damping_on, beta_0, gamsqr_0, tilde_m, gyromagnetic_anomaly(bunch.species), w, w_inv, k1, SA[mm], SA[kn], SA[ks])
+  E_ref = mc2/tilde_m/beta_0
+  radiation_params = ifelse(tm.radiation_damping_on, (q, mc2, E_ref), nothing)
+  params = (radiation_params, beta_0, gamsqr_0, tilde_m, gyromagnetic_anomaly(bunch.species), w, w_inv, k1, SA[mm], SA[kn], SA[ks])
   if isprimitivetype(eltype(bunch.coords.v)) && tm.radiation_fluctuations_on
-    photon_params = (get_backend(bunch.coords.v), q, mc2, E0, 0, 0, SA[mm], SA[kn], SA[ks])
+    photon_params = (get_backend(bunch.coords.v), q, mc2, E_ref, 0, 0, SA[mm], SA[kn], SA[ks])
   else
     photon_params = nothing
   end
@@ -271,10 +279,11 @@ end
   w_inv = inv_rot_quaternion(0,0,tilt)
   q = chargeof(bunch.species)
   mc2 = massof(bunch.species)
-  E0 = mc2/tilde_m/beta_0
-  params = (q, mc2, tm.radiation_damping_on, beta_0, gamsqr_0, tilde_m, gyromagnetic_anomaly(bunch.species), w, w_inv, k1, mm, kn, ks)
+  E_ref = mc2/tilde_m/beta_0
+  radiation_params = ifelse(tm.radiation_damping_on, (q, mc2, E_ref), nothing)
+  params = (radiation_params, beta_0, gamsqr_0, tilde_m, gyromagnetic_anomaly(bunch.species), w, w_inv, k1, mm, kn, ks)
   if isprimitivetype(eltype(bunch.coords.v)) && tm.radiation_fluctuations_on
-    photon_params = (get_backend(bunch.coords.v), q, mc2, E0, 0, 0, mm, kn, ks)
+    photon_params = (get_backend(bunch.coords.v), q, mc2, E_ref, 0, 0, mm, kn, ks)
   else
     photon_params = nothing
   end
@@ -314,10 +323,11 @@ end
     edge_params = (a, tilde_m, 0, Kn0, e1, e2)
     q = chargeof(bunch.species)
     mc2 = massof(bunch.species)
-    E0 = mc2/tilde_m/beta_0
-    params = (q, mc2, tm.radiation_damping_on, tilde_m, beta_0, a, g, w, w_inv, Kn0, SA[mm], SA[Kn0], SA[Ks0])
+    E_ref = mc2/tilde_m/beta_0
+    radiation_params = ifelse(tm.radiation_damping_on, (q, mc2, E_ref), nothing)
+    params = (radiation_params, tilde_m, beta_0, a, g, w, w_inv, Kn0, SA[mm], SA[Kn0], SA[Ks0])
     if isprimitivetype(eltype(bunch.coords.v)) && tm.radiation_fluctuations_on
-      photon_params = (get_backend(bunch.coords.v), q, mc2, E0, g, tilt, SA[mm], SA[Kn0], SA[Ks0])
+      photon_params = (get_backend(bunch.coords.v), q, mc2, E_ref, g, tilt, SA[mm], SA[Kn0], SA[Ks0])
     else
       photon_params = nothing
     end
@@ -344,44 +354,47 @@ end
   edge_params = (a, tilde_m, 0, Kn0, e1, e2)
   q = chargeof(bunch.species)
   mc2 = massof(bunch.species)
-  E0 = mc2/tilde_m/beta_0
-  params = (q, mc2, tm.radiation_damping_on, tilde_m, beta_0, a, g, w, w_inv, Kn0, mm, kn, ks)
-  photon_params = ifelse(tm.radiation_fluctuations_on, (q, mc2, E0, g, tilt, mm, kn, ks), nothing)
+  E_ref = mc2/tilde_m/beta_0
+  radiation_params = ifelse(tm.radiation_damping_on, (q, mc2, E_ref), nothing)
+  params = (radiation_params, tilde_m, beta_0, a, g, w, w_inv, Kn0, mm, kn, ks)
+  if isprimitivetype(eltype(bunch.coords.v)) && tm.radiation_fluctuations_on
+    photon_params = (get_backend(bunch.coords.v), q, mc2, E_ref, g, tilt, mm, kn, ks)
+  else
+    photon_params = nothing
+  end
   return integration_launcher(BeamTracking.bkb_multipole!, params, photon_params, tm, edge_params, L)
 end
-
-# =========== TRANSFORMS ============= #
-@inline pure_patch(tm::Yoshida, bunch, patchparams, L)  = 
-  pure_patch(Exact(), bunch, patchparams, L)
 
 
 # =========== RF ============= #
 @inline function thick_pure_rf(tm::Union{Yoshida,DriftKick}, bunch, rfparams, beamlineparams, L)
   p_over_q_ref = bunch.p_over_q_ref
   omega = rf_omega_calc(rfparams, beamlineparams)
-  t0 = (rf_phi0_calc(rfparams, beamlineparams.beamline.species_ref)-pi/2) / omega
+  t_ref = (rf_phi0_calc(rfparams, beamlineparams.beamline.species_ref) - pi/2)/omega
   tilde_m, gamsqr_0, beta_0 = BeamTracking.drift_params(bunch.species, p_over_q_ref)
-  E0_over_Rref = rfparams.voltage/L/p_over_q_ref
+  E0_normalized = rfparams.voltage/L/p_over_q_ref
   E_ref = BeamTracking.R_to_E(bunch.species, p_over_q_ref)
-  p0c = BeamTracking.R_to_pc(bunch.species, p_over_q_ref)
   q = chargeof(bunch.species)
   mc2 = massof(bunch.species)
-  E0 = mc2/tilde_m/beta_0
-  params = (q, mc2, tm.radiation_damping_on, beta_0, gamsqr_0, tilde_m, E_ref, p0c, gyromagnetic_anomaly(bunch.species), omega, t0, E0_over_Rref, SA[], SA[], SA[])
-  photon_params = nothing
+  radiation_params = ifelse(tm.radiation_damping_on, (q, mc2, E_ref), nothing)
+  params = (radiation_params, beta_0, gamsqr_0, tilde_m, E_ref, gyromagnetic_anomaly(bunch.species), omega, t_ref, E0_normalized, 0, Val{false}(), SA[0], SA[0], SA[0])
+  if isprimitivetype(eltype(bunch.coords.v)) && tm.radiation_fluctuations_on
+    photon_params = (BeamTracking.cavity!, get_backend(bunch.coords.v), q, mc2, E_ref, omega, t_ref, E0_normalized, SA[0], SA[0], SA[0])
+  else
+    photon_params = nothing
+  end
   return integration_launcher(BeamTracking.cavity!, params, photon_params, tm, nothing, L)
 end
 
 @inline function thick_bmultipole_rf(tm::Union{Yoshida,DriftKick,SolenoidKick}, bunch, bm, rfparams, beamlineparams, L)
   p_over_q_ref = bunch.p_over_q_ref
   omega = rf_omega_calc(rfparams, beamlineparams)
-  t0 = (rf_phi0_calc(rfparams, beamlineparams.beamline.species_ref)-pi/2) / omega
+  t_ref = (rf_phi0_calc(rfparams, beamlineparams.beamline.species_ref) - pi/2)/omega
   tilde_m, gamsqr_0, beta_0 = BeamTracking.drift_params(bunch.species, p_over_q_ref)
-  E0_over_Rref = rfparams.voltage/L/p_over_q_ref
+  E0_normalized = rfparams.voltage/L/p_over_q_ref
   mm = bm.order
   kn, ks = get_strengths(bm, L, p_over_q_ref)
   E_ref = BeamTracking.R_to_E(bunch.species, p_over_q_ref)
-  p0c = BeamTracking.R_to_pc(bunch.species, p_over_q_ref)
   q = chargeof(bunch.species)
   mc2 = massof(bunch.species)
   if mm[1] == 0
@@ -400,10 +413,10 @@ end
   end
   a = gyromagnetic_anomaly(bunch.species)
   edge_params = (a, tilde_m, Ksol, Kn0, 0, 0)
-  E0 = mc2/tilde_m/beta_0
-  params = (q, mc2, tm.radiation_damping_on, beta_0, gamsqr_0, tilde_m, E_ref, p0c, a, omega, t0, E0_over_Rref, mm, kn, ks)
+  radiation_params = ifelse(tm.radiation_damping_on, (q, mc2, E_ref), nothing)
+  params = (radiation_params, beta_0, gamsqr_0, tilde_m, E_ref, a, omega, t_ref, E0_normalized, Ksol, Val{Ksol > 0}(), mm, kn, ks)
   if isprimitivetype(eltype(bunch.coords.v)) && tm.radiation_fluctuations_on
-    photon_params = (get_backend(bunch.coords.v), q, mc2, E0, 0, 0, mm, kn, ks)
+    photon_params = (BeamTracking.cavity!, get_backend(bunch.coords.v), q, mc2, E_ref, omega, t_ref, E0_normalized, mm, kn, ks)
   else
     photon_params = nothing
   end

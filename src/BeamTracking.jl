@@ -14,7 +14,9 @@ using GTPSA,
       Random,
       EnumX,
       Statistics,
-      LinearAlgebra
+      LinearAlgebra,
+      TPSAInterface,
+      ForwardDiff
 
 using KernelAbstractions
 

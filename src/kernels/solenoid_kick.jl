@@ -1,4 +1,3 @@
-
 """
 sks_multipole!()
 
@@ -19,22 +18,21 @@ kn: vector of normal multipole strengths scaled by Bρ0
 sn: vector of skew multipole strengths scaled by Bρ0
 L:  element length
 """
-@makekernel fastgtpsa=true function sks_multipole!(i, coords::Coords, q, mc2, radiation_damping, beta_0, gamsqr_0, tilde_m, a, Ksol, mm, kn, ks, L)
-  E0 = mc2/tilde_m/beta_0 # could probably exclude beta_0 because ultrarelativistic radiation
+@makekernel fastgtpsa=true function sks_multipole!(i, coords::Coords, s, radiation_params, beta_0, gamsqr_0, tilde_m, a, Ksol, mm, kn, ks, L)
+  exact_solenoid!(i, coords, Ksol, beta_0, gamsqr_0, tilde_m, L / 2)
 
-  exact_solenoid!(  i, coords, Ksol, beta_0, gamsqr_0, tilde_m, L / 2)
-
-  if radiation_damping
-    deterministic_radiation!(     i, coords, q, mc2, E0, 0, mm, kn, ks, L / 2)
+  if !isnothing(radiation_params)
+    q, mc2, E_ref = radiation_params
+    deterministic_radiation_multipole!(i, coords, q, mc2, E_ref, 0, mm, kn, ks, L / 2)
   end
 
   multipole_and_spin_kick!(i, coords, mm, kn, ks, a, tilde_m, L)
 
-  if radiation_damping
-    deterministic_radiation!(     i, coords, q, mc2, E0, 0, mm, kn, ks, L / 2)
+  if !isnothing(radiation_params)
+    deterministic_radiation_multipole!(i, coords, q, mc2, E_ref, 0, mm, kn, ks, L / 2)
   end
 
-  exact_solenoid!(  i, coords, Ksol, beta_0, gamsqr_0, tilde_m, L / 2)
+  exact_solenoid!(i, coords, Ksol, beta_0, gamsqr_0, tilde_m, L / 2)
 end 
 
 @makekernel fastgtpsa=true function exact_solenoid!(i, coords::Coords, ks, beta_0, gamsqr_0, tilde_m, L)

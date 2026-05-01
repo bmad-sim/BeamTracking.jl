@@ -1,9 +1,3 @@
-@inline function pure_patch(tm::Exact, bunch, patchparams, L) 
-  tilde_m, gamsqr_0, beta_0 = BeamTracking.drift_params(bunch.species, bunch.p_over_q_ref)
-  winv = inv_rot_quaternion(patchparams.dx_rot, patchparams.dy_rot, patchparams.dz_rot)
-  return KernelCall(BeamTracking.patch!, (beta_0, gamsqr_0, tilde_m, patchparams.dt, patchparams.dx, patchparams.dy, patchparams.dz, winv, L))
-end
-
 @inline function thick_pure_bsolenoid(tm::Exact, bunch, bm0, L)
   Ksol, _ = get_strengths(bm0, L, bunch.p_over_q_ref)
   tilde_m, gamsqr_0, beta_0 = BeamTracking.drift_params(bunch.species, bunch.p_over_q_ref)

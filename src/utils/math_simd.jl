@@ -88,6 +88,7 @@ This is usful if angle can be near zero where the direct evaluation of `(1 - cos
 """
 one_cos_norm(x) = 0.5 * sincu(0.5*x)^2
 
+
 #=
 """
 This function computes J_0(sqrt(x)) and J_1(sqrt(x))/sqrt(x), which are 
@@ -127,30 +128,24 @@ function bessel01_RF(x::TPS{T}) where {T}
   ε = eps(T)
   N_max = 100
   N = 1
-  conv0 = false
-  conv1 = false
+  conv = false
   y = one(x)
   prev0 = one(x)
   prev1 = one(x)
   result0 = one(x)
   result1 = one(x)/2
   @FastGTPSA begin
-    while !(conv0 && conv1) && N < N_max
+    while !conv && N <= N_max
       y = -y*x/(4*N*N)
       result0 = result0 + y
       result1 = result1 + y/(2*(N + 1))
       N += 1
-      if normTPS(result0 - prev0) < ε
-        conv0 = true
-      end
-      if normTPS(result1 - prev1) < ε
-        conv1 = true
-      end
+      conv = (normTPS(result0 - prev0) < ε && normTPS(result1 - prev1) < ε)
       prev0 = result0
       prev1 = result1
     end
   end
-  if N == N_max
+  if !conv
     @warn "bessel01_RF convergence not reached in $N_max iterations"
   end
   return result0, result1

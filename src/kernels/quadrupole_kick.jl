@@ -15,44 +15,33 @@ kn: vector of normal multipole strengths scaled by Bρ0
 ks: vector of skew multipole strengths scaled by Bρ0
 L: element length
 """
-@makekernel fastgtpsa=true function mkm_quadrupole!(i, coords::Coords, q, mc2, radiation_damping, beta_0, gamsqr_0, tilde_m, a, w, w_inv, k1, mm, kn, ks, L)
+@makekernel fastgtpsa=true function mkm_quadrupole!(i, coords::Coords, s, radiation_params, beta_0, gamsqr_0, tilde_m, a, w, w_inv, k1, mm, kn, ks, L)
   knl = kn .* L ./ 2
   ksl = ks .* L ./ 2
 
-  rel_p = 1 + coords.v[i,PZI]
-  px = coords.v[i,PXI]
-  py = coords.v[i,PYI]
-  P_s2 = rel_p*rel_p - px*px - py*py
-  good_momenta = (P_s2 > 0)
-  alive_at_start = (coords.state[i] == STATE_ALIVE)
-  coords.state[i] = vifelse(!good_momenta & alive_at_start, STATE_LOST, coords.state[i])
-
-  E0 = mc2/tilde_m/beta_0 # could probably exclude beta_0 because ultrarelativistic radiation
-
-  #println(kn)
-
   if !isnothing(coords.q)
-    rotate_spin!(               i, coords, a, 0, tilde_m, mm, kn, ks, L / 2)
+    rotate_spin!(i, coords, a, 0, tilde_m, mm, kn, ks, L / 2)
   end
 
-  if radiation_damping
-    deterministic_radiation!(   i, coords, q, mc2, E0, 0, mm, kn, ks, L / 2)
+  if !isnothing(radiation_params)
+    q, mc2, E_ref = radiation_params
+    deterministic_radiation_multipole!(i, coords, q, mc2, E_ref, 0, mm, kn, ks, L / 2)
   end
 
   multipole_kick!(i, coords, mm, knl, ksl, 2)
-  quadrupole_kick!(             i, coords, beta_0, gamsqr_0, tilde_m, L / 2)
-  rotation!( i, coords, w, 0)
-  quadrupole_matrix!(           i, coords, k1, L)
-  rotation!( i, coords, w_inv, 0)
-  quadrupole_kick!(             i, coords, beta_0, gamsqr_0, tilde_m, L / 2)
+  quadrupole_kick!(i, coords, beta_0, gamsqr_0, tilde_m, L / 2)
+  rotation!(i, coords, w, 0)
+  quadrupole_matrix!(i, coords, k1, L)
+  rotation!(i, coords, w_inv, 0)
+  quadrupole_kick!(i, coords, beta_0, gamsqr_0, tilde_m, L / 2)
   multipole_kick!(i, coords, mm, knl, ksl, 2)
 
-  if radiation_damping
-    deterministic_radiation!(   i, coords, q, mc2, E0, 0, mm, kn, ks, L / 2)
+  if !isnothing(radiation_params)
+    deterministic_radiation_multipole!(i, coords, q, mc2, E_ref, 0, mm, kn, ks, L / 2)
   end
 
   if !isnothing(coords.q)
-    rotate_spin!(               i, coords, a, 0, tilde_m, mm, kn, ks, L / 2)
+    rotate_spin!(i, coords, a, 0, tilde_m, mm, kn, ks, L / 2)
   end
 end
 
@@ -72,7 +61,7 @@ s: element length
   v = coords.v
   alive = (coords.state[i] == STATE_ALIVE)
 
-  focus = k1 >= 0  # horizontally focusing if positive
+  focus = (k1 >= 0)  # horizontally focusing if positive
 
   rel_p = 1 + v[i,PZI]
   xp = v[i,PXI] / rel_p  # x'

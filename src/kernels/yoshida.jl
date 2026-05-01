@@ -8,23 +8,26 @@
       a, tilde_m, Ksol, Kn0, e1, e2 = edge_params
       linear_bend_fringe!(i, coords, a, tilde_m, Ksol, Kn0, e1, 1)
     end
+    s = 0
     if !isnothing(photon_params)
-      stochastic_radiation!(i, coords, photon_params..., ds_step / 2)
+      stochastic_radiation!(i, coords, s, photon_params..., ds_step / 2)
     end
     for step in 1:num_steps
-      ker(i, coords, params..., ds_step)
+      ker(i, coords, s, params..., ds_step)
+      s += ds_step
       if !isnothing(photon_params) && (step < num_steps)
-        stochastic_radiation!(i, coords, photon_params..., ds_step)
+        stochastic_radiation!(i, coords, s, photon_params..., ds_step)
       end
     end
     if !isnothing(photon_params)
-      stochastic_radiation!(i, coords, photon_params..., ds_step / 2)
+      stochastic_radiation!(i, coords, s, photon_params..., ds_step / 2)
     end
     if !isnothing(edge_params) && fringe_out
       a, tilde_m, Ksol, Kn0, e1, e2 = edge_params
       linear_bend_fringe!(i, coords, a, tilde_m, Ksol, Kn0, e2, -1)
     end
   end
+  return nothing
 end
 
 
@@ -36,25 +39,30 @@ end
       a, tilde_m, Ksol, Kn0, e1, e2 = edge_params
       linear_bend_fringe!(i, coords, a, tilde_m, Ksol, Kn0, e1, 1)
     end
+    s = 0
     if !isnothing(photon_params)
-      stochastic_radiation!(i, coords, photon_params..., ds_step / 2)
+      stochastic_radiation!(i, coords, s, photon_params..., ds_step / 2)
     end
     for step in 1:num_steps
-      ker(i, coords, params..., w1)
-      ker(i, coords, params..., w0)
-      ker(i, coords, params..., w1)
+      ker(i, coords, s, params..., w1)
+      s += w1
+      ker(i, coords, s, params..., w0)
+      s += w0
+      ker(i, coords, s, params..., w1)
+      s += w1
       if !isnothing(photon_params) && (step < num_steps)
-        stochastic_radiation!(i, coords, photon_params..., ds_step)
+        stochastic_radiation!(i, coords, s, photon_params..., ds_step)
       end
     end
     if !isnothing(photon_params)
-      stochastic_radiation!(i, coords, photon_params..., ds_step / 2)
+      stochastic_radiation!(i, coords, s, photon_params..., ds_step / 2)
     end
     if !isnothing(edge_params) && fringe_out
       a, tilde_m, Ksol, Kn0, e1, e2 = edge_params
       linear_bend_fringe!(i, coords, a, tilde_m, Ksol, Kn0, e2, -1)
     end
   end
+  return nothing
 end
 
 
@@ -68,29 +76,38 @@ end
       a, tilde_m, Ksol, Kn0, e1, e2 = edge_params
       linear_bend_fringe!(i, coords, a, tilde_m, Ksol, Kn0, e1, 1)
     end
+    s = 0
     if !isnothing(photon_params)
-      stochastic_radiation!(i, coords, photon_params..., ds_step / 2)
+      stochastic_radiation!(i, coords, s, photon_params..., ds_step / 2)
     end
     for step in 1:num_steps
-      ker(i, coords, params..., w3)
-      ker(i, coords, params..., w2)
-      ker(i, coords, params..., w1)
-      ker(i, coords, params..., w0)
-      ker(i, coords, params..., w1)
-      ker(i, coords, params..., w2)
-      ker(i, coords, params..., w3)
+      ker(i, coords, s, params..., w3)
+      s += w3
+      ker(i, coords, s, params..., w2)
+      s += w2
+      ker(i, coords, s, params..., w1)
+      s += w1
+      ker(i, coords, s, params..., w0)
+      s += w0
+      ker(i, coords, s, params..., w1)
+      s += w1
+      ker(i, coords, s, params..., w2)
+      s += w2
+      ker(i, coords, s, params..., w3)
+      s += w3
       if !isnothing(photon_params) && (step < num_steps)
-        stochastic_radiation!(i, coords, photon_params..., ds_step)
+        stochastic_radiation!(i, coords, s, photon_params..., ds_step)
       end
     end
     if !isnothing(photon_params)
-      stochastic_radiation!(i, coords, photon_params..., ds_step / 2)
+      stochastic_radiation!(i, coords, s, photon_params..., ds_step / 2)
     end
     if !isnothing(edge_params) && fringe_out
       a, tilde_m, Ksol, Kn0, e1, e2 = edge_params
       linear_bend_fringe!(i, coords, a, tilde_m, Ksol, Kn0, e2, -1)
     end
   end
+  return nothing
 end
 
 
@@ -108,35 +125,52 @@ end
       a, tilde_m, Ksol, Kn0, e1, e2 = edge_params
       linear_bend_fringe!(i, coords, a, tilde_m, Ksol, Kn0, e1, 1)
     end
+    s = 0
     if !isnothing(photon_params)
-      stochastic_radiation!(i, coords, photon_params..., ds_step / 2)
+      stochastic_radiation!(i, coords, s, photon_params..., ds_step / 2)
     end
     for step in 1:num_steps
-      ker(i, coords, params..., w7)
-      ker(i, coords, params..., w6)
-      ker(i, coords, params..., w5)
-      ker(i, coords, params..., w4)
-      ker(i, coords, params..., w3)
-      ker(i, coords, params..., w2)
-      ker(i, coords, params..., w1)
-      ker(i, coords, params..., w0)
-      ker(i, coords, params..., w1) 
-      ker(i, coords, params..., w2)
-      ker(i, coords, params..., w3)
-      ker(i, coords, params..., w4)
-      ker(i, coords, params..., w5)
-      ker(i, coords, params..., w6)
-      ker(i, coords, params..., w7)
+      ker(i, coords, s, params..., w7)
+      s += w7
+      ker(i, coords, s, params..., w6)
+      s += w6
+      ker(i, coords, s, params..., w5)
+      s += w5
+      ker(i, coords, s, params..., w4)
+      s += w4
+      ker(i, coords, s, params..., w3)
+      s += w3
+      ker(i, coords, s, params..., w2)
+      s += w2
+      ker(i, coords, s, params..., w1)
+      s += w1
+      ker(i, coords, s, params..., w0)
+      s += w0
+      ker(i, coords, s, params..., w1) 
+      s += w1
+      ker(i, coords, s, params..., w2)
+      s += w2
+      ker(i, coords, s, params..., w3)
+      s += w3
+      ker(i, coords, s, params..., w4)
+      s += w4
+      ker(i, coords, s, params..., w5)
+      s += w5
+      ker(i, coords, s, params..., w6)
+      s += w6
+      ker(i, coords, s, params..., w7)
+      s += w7
       if !isnothing(photon_params) && (step < num_steps)
-        stochastic_radiation!(i, coords, photon_params..., ds_step)
+        stochastic_radiation!(i, coords, s, photon_params..., ds_step)
       end
     end
     if !isnothing(photon_params)
-      stochastic_radiation!(i, coords, photon_params..., ds_step / 2)
+      stochastic_radiation!(i, coords, s, photon_params..., ds_step / 2)
     end
     if !isnothing(edge_params)  && fringe_out
       a, tilde_m, Ksol, Kn0, e1, e2 = edge_params
       linear_bend_fringe!(i, coords, a, tilde_m, Ksol, Kn0, e2, -1)
     end
   end
+  return nothing
 end

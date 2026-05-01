@@ -352,9 +352,6 @@ end
 # === Drift === #
 @inline drift(tm, bunch, L) = error("Undefined for tracking method $tm")
 
-# === Coordinate transformations === #
-@inline pure_patch(tm, bunch, patchparams, L) = error("Undefined for tracking method $tm")
-
 # === Straight Elements === #
 # "Pure" means only ONE SINGLE multipole.
 # When "pure" is not present, it means that at least one HIGHER ORDER

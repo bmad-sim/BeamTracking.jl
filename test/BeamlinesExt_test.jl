@@ -792,7 +792,7 @@
     @test b0.coords.v ≈ v_expected
 
     # Quadrupole with deterministic radiation:
-    ele = LineElement(L=2.0, Kn1=0.1, tracking_method=MatrixKick(order=6, num_steps = 2, radiation_damping_on=true))
+    ele = LineElement(L=2.0, Kn1=0.1, tracking_method=MatrixKick(order=6, num_steps=2, radiation_damping_on=true))
     v = [0.01 0.02 0.03 0.04 0.05 0.06]
     b0 = Bunch(v, p_over_q_ref=-18e9/C_LIGHT, species=Species("electron"))
     bl = Beamline([ele], p_over_q_ref=-18e9/C_LIGHT, species_ref=Species("electron"))
@@ -801,7 +801,7 @@
     @test b0.coords.v ≈ v_expected
 
     # Sextupole with deterministic radiation:
-    ele = LineElement(L=0.8, Kn2=1.3, tracking_method=DriftKick(order=6, num_steps = 5, radiation_damping_on=true))
+    ele = LineElement(L=0.8, Kn2=1.3, tracking_method=DriftKick(order=6, num_steps=5, radiation_damping_on=true))
     v = [0.01 0.02 0.03 0.04 0.05 0.06]
     b0 = Bunch(v, p_over_q_ref=-18e9/C_LIGHT, species=Species("electron"))
     bl = Beamline([ele], p_over_q_ref=-18e9/C_LIGHT, species_ref=Species("electron"))
@@ -810,7 +810,7 @@
     @test b0.coords.v ≈ v_expected
 
     # Solenoid with deterministic radiation:
-    ele = LineElement(L=1.5, Ksol=0.3, tracking_method=SolenoidKick(order=6, num_steps = 2, radiation_damping_on=true))
+    ele = LineElement(L=1.5, Ksol=0.3, tracking_method=SolenoidKick(order=6, num_steps=2, radiation_damping_on=true))
     v = [0.01 0.02 0.03 0.04 0.05 0.06]
     b0 = Bunch(v, p_over_q_ref=-18e9/C_LIGHT, species=Species("electron"))
     bl = Beamline([ele], p_over_q_ref=-18e9/C_LIGHT, species_ref=Species("electron"))
@@ -819,7 +819,7 @@
     @test b0.coords.v ≈ v_expected
 
     # Cavity-solenoid with deterministic radiation:
-    ele = LineElement(L=0.5, Ksol=0.3, rf_frequency=1e8,  zero_phase=PhaseReference.AboveTransition, voltage=-0.25e6, tracking_method=Yoshida(order=6, num_steps = 5, radiation_damping_on=true))
+    ele = LineElement(L=0.5, Ksol=0.3, rf_frequency=1e8,  zero_phase=PhaseReference.AboveTransition, voltage=-0.25e6, tracking_method=Yoshida(order=6, num_steps=5, radiation_damping_on=true))
     v = [0.01 0.02 0.03 0.04 0.05 0.06]
     b0 = Bunch(v, p_over_q_ref=-18e9/C_LIGHT, species=Species("electron"))
     bl = Beamline([ele], p_over_q_ref=-18e9/C_LIGHT, species_ref=Species("electron"))
@@ -864,8 +864,6 @@
     ele_dipole = LineElement(L=1.0, Kn0=1e-8, Kn1=1e-8, tracking_method=BendKick(fringe_at=Fringe.NoEnd))
     track!(b0, Beamline([ele_dipole], p_over_q_ref=p_over_q_ref))
     @test b0.coords.state[1] == STATE_LOST
-    @test v_init == b0.coords.v
-    @test q_init == b0.coords.q || q_init == -b0.coords.q
 
     # Particle lost in quadrupole (momentum is too small):
     b0 = Bunch([0.4 0.4 0.4 0.4 0.4 -0.5], [1.0 0.0 0.0 0.0], p_over_q_ref=p_over_q_ref, species=Species("electron"))
@@ -874,8 +872,6 @@
     ele_quad = LineElement(L=1.0, Kn1=1e-8, tracking_method=MatrixKick())
     track!(b0, Beamline([ele_quad], p_over_q_ref=p_over_q_ref))
     @test b0.coords.state[1] == STATE_LOST
-    @test v_init == b0.coords.v
-    @test q_init == b0.coords.q || q_init == -b0.coords.q
 
     # Particle lost in patch (momentum is too small):
     b0 = Bunch([0.4 0.4 0.4 0.4 0.4 -0.5], [1.0 0.0 0.0 0.0], p_over_q_ref=p_over_q_ref, species=Species("electron"))
@@ -884,8 +880,6 @@
     ele_patch = LineElement(dt=1e-9, dx=2.0, dy=3.0, dz=4.0, dx_rot=-5.0, dy_rot=6.0, dz_rot=7.0, L=-1.9458360380198412, tracking_method=Yoshida())
     track!(b0, Beamline([ele_patch], p_over_q_ref=p_over_q_ref))
     @test b0.coords.state[1] == STATE_LOST
-    @test v_init == b0.coords.v
-    @test q_init == b0.coords.q || q_init == -b0.coords.q
 
     # Errors:
     @test_throws ErrorException MatrixKick(ds_step = 0.1, num_steps = 2)

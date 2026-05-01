@@ -7,7 +7,7 @@ function omega_multipole(i, coords::Coords, a, g, tilde_m, mm, kn, ks, L)
   @FastGTPSA begin @inbounds begin
     v = coords.v
 
-    # Vector potential is (ax, ay, does-no-matter)
+    # Vector potential is (ax, ay, does-not-matter)
     if mm[1] == 0
       ax = -v[i,YI] * kn[1] / 2
       ay =  v[i,XI] * kn[1] / 2
@@ -94,7 +94,7 @@ function omega_field(i, coords::Coords, a, g, tilde_m, ax, ay, e_vec, b_vec, L)
     coeff = -(1 + g*v[i,XI])/pl
     coeff1 = coeff * (1 + a*gamma)
     coeff2 = coeff * (1 + a)
-    coeff3 = -coeff * beta / C_LIGHT * gamma * (a + 1/(1+gamma))/rel_p
+    coeff3 = -coeff * beta * gamma * (a + 1/(1+gamma))/C_LIGHT
 
     betax = px / rel_p
     betay = py / rel_p
@@ -114,9 +114,9 @@ function omega_field(i, coords::Coords, a, g, tilde_m, ax, ay, e_vec, b_vec, L)
     b_para_y = b_para_y * coeff2
     b_para_z = b_para_z * coeff2
 
-    e_part_x = (py*e_vec[3] - pl*e_vec[2]) * coeff3
-    e_part_y = (pl*e_vec[1] - px*e_vec[3]) * coeff3
-    e_part_z = (px*e_vec[2] - py*e_vec[1]) * coeff3
+    e_part_x = (betay*e_vec[3] - betaz*e_vec[2]) * coeff3
+    e_part_y = (betaz*e_vec[1] - betax*e_vec[3]) * coeff3
+    e_part_z = (betax*e_vec[2] - betay*e_vec[1]) * coeff3
 
     ox = (b_perp_x + b_para_x + e_part_x) * L        
     oy = (b_perp_y + b_para_y + e_part_y + g) * L
