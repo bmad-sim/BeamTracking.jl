@@ -837,7 +837,6 @@
       end
       return v_out, q_out
     end
-
     ele = LineElement(transport_map=transport_map)
     v = [0.01 0.02 0.03 0.04 0.05 0.06]
     b0 = Bunch(v, p_over_q_ref=-18e9/C_LIGHT, species=Species("electron"))
@@ -856,6 +855,27 @@
     q_expected = [0.0 1/sqrt(2) 0.0 1/sqrt(2)]
     @test b0.coords.v ≈ v_expected
     @test b0.coords.q ≈ q_expected || b0.coords.q ≈ -q_expected
+
+    # Implicit:
+    function crazy(x, y, s, t, p)
+      a0, c0 = p
+      potential = (a0*C_LIGHT*sin(x)*cos(y)*sinh(s)*cosh(t), a0*cosh(x)*sin(y)*cos(s)*sinh(t), a0*sinh(x)*cosh(y)*sin(s)*cos(t), a0*c0*cos(x)*sinh(y)*cosh(s)*sin(t))
+      jac =  (a0*C_LIGHT*cos(x)*cos(y)*cosh(t)*sinh(s), -a0*C_LIGHT*cosh(t)*sin(x)*sin(y)*sinh(s), a0*C_LIGHT*cos(y)*cosh(s)*cosh(t)*sin(x), a0*C_LIGHT*cos(y)*sin(x)*sinh(s)*sinh(t),
+          a0*cos(s)*sin(y)*sinh(t)*sinh(x),  a0*cos(s)*cos(y)*cosh(x)*sinh(t), -a0*cosh(x)*sin(s)*sin(y)*sinh(t),  a0*cos(s)*cosh(t)*cosh(x)*sin(y),
+          a0*cos(t)*cosh(x)*cosh(y)*sin(s),  a0*cos(t)*sin(s)*sinh(x)*sinh(y),  a0*cos(s)*cos(t)*cosh(y)*sinh(x), -a0*cosh(y)*sin(s)*sin(t)*sinh(x),
+        -a0*c0*cosh(s)*sin(t)*sin(x)*sinh(y), a0*c0*cos(x)*cosh(s)*cosh(y)*sin(t), a0*c0*cos(x)*sin(t)*sinh(s)*sinh(y), a0*c0*cos(t)*cos(x)*cosh(s)*sinh(y))
+      return potential, jac
+    end
+    ele = LineElement(four_potential=crazy, four_potential_params=(1.0, 1.0), four_potential_normalized=true, L=1.2, tracking_method=Yoshida(order=8, num_steps=60, radiation_damping_on=true))
+    v = [0.01 0.02 0.03 0.04 0.05 0.06]
+    q = [1.0 0.0 0.0 0.0]
+    b0 = Bunch(v, q, p_over_q_ref=-18e9/C_LIGHT, species=Species("electron"))
+    bl = Beamline([ele], p_over_q_ref=-18e9/C_LIGHT, species_ref=Species("electron"))
+    track!(b0, bl)
+    v_expected = [-0.24794117122676387 -0.7621581346830383 0.12143614880778619 0.024481117969862107 -0.006481844718705498 -0.0003806157078307523]
+    q_expected = [-0.8671095776608468 -0.16135398678020024 -0.405824923995721 0.23956627964481797]
+    @test b0.coords.v ≈ v_expected
+    @test b0.coords.q ≈ q_expected 
 
     # Particle lost in dipole (momentum is too small):
     b0 = Bunch([0.4 0.4 0.4 0.4 0.4 -0.5], [1.0 0.0 0.0 0.0], p_over_q_ref=p_over_q_ref, species=Species("electron"))

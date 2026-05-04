@@ -1,6 +1,55 @@
 using BeamTracking: C_LIGHT, Species, chargeof, massof, gyromagnetic_anomaly, 
 E_to_R, E_to_v, implicit_integrator!, order_eight_integrator! 
 
+
+function sol(x, y, s, t, Ksol)
+  potential = (0.0, -Ksol*y/2, Ksol*x/2, 0.0)
+  jac = (0.0,    0.0,     0.0, 0.0,
+          0.0,    -Ksol/2, 0.0, 0.0,
+          Ksol/2, 0.0,     0.0, 0.0,
+          0.0,    0.0,     0.0, 0.0)
+  return potential, jac
+end
+
+function dipole(x, y, s, t, p)
+  g, Kn0 = p
+  potential = (0.0, 0.0, 0.0, -Kn0*(x + g*x^2/2))
+  jac = (0.0,            0.0, 0.0, 0.0,
+          0.0,            0.0, 0.0, 0.0,
+          0.0,            0.0, 0.0, 0.0,
+          -Kn0*(1 + g*x), 0.0, 0.0, 0.0)
+  return potential, jac
+end
+
+function oct(x, y, s, t, Kn3)
+  potential = (0.0, 0.0, 0.0, -Kn3/24*(x^4 - 6*x^2*y^2 + y^4))
+  jac = (0.0,            0.0, 0.0, 0.0,
+          0.0,            0.0, 0.0, 0.0,
+          0.0,            0.0, 0.0, 0.0,
+          -Kn3/6*(x^3 - 3*x*y^2), -Kn3/6*y*(y^2 - 3*x^2), 0.0, 0.0)
+  return potential, jac
+end
+
+function crazy(x, y, s, t, p)
+  a0, c0 = p
+  potential = (a0*C_LIGHT*sin(x)*cos(y)*sinh(s)*cosh(t), a0*cosh(x)*sin(y)*cos(s)*sinh(t), a0*sinh(x)*cosh(y)*sin(s)*cos(t), a0*c0*cos(x)*sinh(y)*cosh(s)*sin(t))
+  jac =  (a0*C_LIGHT*cos(x)*cos(y)*cosh(t)*sinh(s), -a0*C_LIGHT*cosh(t)*sin(x)*sin(y)*sinh(s), a0*C_LIGHT*cos(y)*cosh(s)*cosh(t)*sin(x), a0*C_LIGHT*cos(y)*sin(x)*sinh(s)*sinh(t),
+          a0*cos(s)*sin(y)*sinh(t)*sinh(x),  a0*cos(s)*cos(y)*cosh(x)*sinh(t), -a0*cosh(x)*sin(s)*sin(y)*sinh(t),  a0*cos(s)*cosh(t)*cosh(x)*sin(y),
+          a0*cos(t)*cosh(x)*cosh(y)*sin(s),  a0*cos(t)*sin(s)*sinh(x)*sinh(y),  a0*cos(s)*cos(t)*cosh(y)*sinh(x), -a0*cosh(y)*sin(s)*sin(t)*sinh(x),
+        -a0*c0*cosh(s)*sin(t)*sin(x)*sinh(y), a0*c0*cos(x)*cosh(s)*cosh(y)*sin(t), a0*c0*cos(x)*sin(t)*sinh(s)*sinh(y), a0*c0*cos(t)*cos(x)*cosh(s)*sinh(y))
+  return potential, jac
+end
+
+function crazy_unnormalized(x, y, s, t, p_over_q_ref)
+    potential = (C_LIGHT*sin(x)*cos(y)*sinh(s)*cosh(t), cosh(x)*sin(y)*cos(s)*sinh(t), sinh(x)*cosh(y)*sin(s)*cos(t), cos(x)*sinh(y)*cosh(s)*sin(t))
+    jac = (C_LIGHT*cos(x)*cos(y)*cosh(t)*sinh(s), -C_LIGHT*cosh(t)*sin(x)*sin(y)*sinh(s), C_LIGHT*cos(y)*cosh(s)*cosh(t)*sin(x), C_LIGHT*cos(y)*sin(x)*sinh(s)*sinh(t),
+           cos(s)*sin(y)*sinh(t)*sinh(x),  cos(s)*cos(y)*cosh(x)*sinh(t), -cosh(x)*sin(s)*sin(y)*sinh(t),  cos(s)*cosh(t)*cosh(x)*sin(y),
+           cos(t)*cosh(x)*cosh(y)*sin(s),  cos(t)*sin(s)*sinh(x)*sinh(y),  cos(s)*cos(t)*cosh(y)*sinh(x), -cosh(y)*sin(s)*sin(t)*sinh(x),
+          -cosh(s)*sin(t)*sin(x)*sinh(y),  cos(x)*cosh(s)*cosh(y)*sin(t),  cos(x)*sin(t)*sinh(s)*sinh(y),  cos(t)*cos(x)*cosh(s)*sinh(y))
+    return p_over_q_ref .* potential, p_over_q_ref .* jac
+end
+
+
 @testset "Implicit" begin
   sp = Species("electron")
   q = chargeof(sp)
@@ -13,14 +62,7 @@ E_to_R, E_to_v, implicit_integrator!, order_eight_integrator!
   radiation_params = (q, mc2, E_ref)
   w_id = (1.0, 0.0, 0.0, 0.0)
 
-  function sol(x, y, s, t, Ksol)
-    potential = (0.0, -Ksol*y/2, Ksol*x/2, 0.0)
-    jac = (0.0,    0.0,     0.0, 0.0,
-           0.0,    -Ksol/2, 0.0, 0.0,
-           Ksol/2, 0.0,     0.0, 0.0,
-           0.0,    0.0,     0.0, 0.0)
-    return potential, jac
-  end
+  # Solenoid
   b0 = Bunch([0.01 0.02 0.03 0.04 0.05 0.06], [1.0 0.0 0.0 0.0])
   params = (radiation_params, beta_0, tilde_m, a, 0.0, w_id, w_id, sol, 0.3, p_over_q_ref, Val{true}())
   order_eight_integrator!(1, b0.coords, implicit_integrator!, params, nothing, 1.2/3, 3, nothing, Val{false}(), Val{false}(), 1.2)
@@ -29,15 +71,7 @@ E_to_R, E_to_v, implicit_integrator!, order_eight_integrator!
   @test b0.coords.v ≈ v_expected
   @test b0.coords.q ≈ q_expected (rtol = 5e-8)
 
-  function dipole(x, y, s, t, p)
-    g, Kn0 = p
-    potential = (0.0, 0.0, 0.0, -Kn0*(x + g*x^2/2))
-    jac = (0.0,            0.0, 0.0, 0.0,
-           0.0,            0.0, 0.0, 0.0,
-           0.0,            0.0, 0.0, 0.0,
-           -Kn0*(1 + g*x), 0.0, 0.0, 0.0)
-    return potential, jac
-  end
+  # Dipole
   b0 = Bunch([0.01 0.02 0.03 0.04 0.05 0.06], [1.0 0.0 0.0 0.0])
   params = (radiation_params, beta_0, tilde_m, a, -0.2, w_id, w_id, dipole, (-0.2, 0.1), p_over_q_ref, Val{true}())
   order_eight_integrator!(1, b0.coords, implicit_integrator!, params, nothing, 1.2/3, 3, nothing, Val{false}(), Val{false}(), 1.2)
@@ -46,14 +80,7 @@ E_to_R, E_to_v, implicit_integrator!, order_eight_integrator!
   @test b0.coords.v ≈ v_expected
   @test b0.coords.q ≈ q_expected (rtol = 3e-7)
 
-  function oct(x, y, s, t, Kn3)
-    potential = (0.0, 0.0, 0.0, -Kn3/24*(x^4 - 6*x^2*y^2 + y^4))
-    jac = (0.0,            0.0, 0.0, 0.0,
-           0.0,            0.0, 0.0, 0.0,
-           0.0,            0.0, 0.0, 0.0,
-           -Kn3/6*(x^3 - 3*x*y^2), -Kn3/6*y*(y^2 - 3*x^2), 0.0, 0.0)
-    return potential, jac
-  end
+  # Octupole
   b0 = Bunch([0.01 0.02 0.03 0.04 0.05 0.06], [1.0 0.0 0.0 0.0])
   params = (radiation_params, beta_0, tilde_m, a, 0.0, w_id, w_id, oct, 10.1, p_over_q_ref, Val{true}())
   order_eight_integrator!(1, b0.coords, implicit_integrator!, params, nothing, 1.2/3, 3, nothing, Val{false}(), Val{false}(), 1.2)
@@ -62,15 +89,7 @@ E_to_R, E_to_v, implicit_integrator!, order_eight_integrator!
   @test b0.coords.v ≈ v_expected
   @test b0.coords.q ≈ q_expected 
 
-  function crazy(x, y, s, t, p)
-    a0, c0 = p
-    potential = a0 .* (C_LIGHT*sin(x)*cos(y)*sinh(s)*cosh(t), cosh(x)*sin(y)*cos(s)*sinh(t), sinh(x)*cosh(y)*sin(s)*cos(t), c0*cos(x)*sinh(y)*cosh(s)*sin(t))
-    jac =  a0 .* (C_LIGHT*cos(x)*cos(y)*cosh(t)*sinh(s), -C_LIGHT*cosh(t)*sin(x)*sin(y)*sinh(s), C_LIGHT*cos(y)*cosh(s)*cosh(t)*sin(x), C_LIGHT*cos(y)*sin(x)*sinh(s)*sinh(t),
-           cos(s)*sin(y)*sinh(t)*sinh(x),  cos(s)*cos(y)*cosh(x)*sinh(t), -cosh(x)*sin(s)*sin(y)*sinh(t),  cos(s)*cosh(t)*cosh(x)*sin(y),
-           cos(t)*cosh(x)*cosh(y)*sin(s),  cos(t)*sin(s)*sinh(x)*sinh(y),  cos(s)*cos(t)*cosh(y)*sinh(x), -cosh(y)*sin(s)*sin(t)*sinh(x),
-          -c0*cosh(s)*sin(t)*sin(x)*sinh(y), c0*cos(x)*cosh(s)*cosh(y)*sin(t), c0*cos(x)*sin(t)*sinh(s)*sinh(y), c0*cos(t)*cos(x)*cosh(s)*sinh(y))
-    return potential, jac
-  end
+  # Crazy
   b0 = Bunch([0.01 0.02 0.03 0.04 0.05 0.06], [1.0 0.0 0.0 0.0])
   params = (radiation_params, beta_0, tilde_m, a, 0.0, w_id, w_id, crazy, (1.0, 1.0), p_over_q_ref, Val{true}())
   order_eight_integrator!(1, b0.coords, implicit_integrator!, params, nothing, 1.2/60, 60, nothing, Val{false}(), Val{false}(), 1.2)
@@ -79,6 +98,7 @@ E_to_R, E_to_v, implicit_integrator!, order_eight_integrator!
   @test b0.coords.v ≈ v_expected
   @test b0.coords.q ≈ q_expected 
 
+  # TPSA
   b0 = Bunch([0.01 0.02 0.03 0.04 0.05 0.06] .+ collect(transpose(@vars(D1))), TPS64{D1}[1 0 0 0])
   args = (implicit_integrator!, params, nothing, 1.2/60, 60, nothing, Val{false}(), Val{false}(), 1.2)
   order_eight_integrator!(1, b0.coords, args...)
@@ -97,21 +117,24 @@ E_to_R, E_to_v, implicit_integrator!, order_eight_integrator!
   @test GTPSA.jacobian(b0.coords.v) ≈ M
   @test GTPSA.jacobian(b0.coords.q) ≈ Q
 
-  function track(v)
+  # ForwardDiff
+  function track_crazy(v)
     b0 = Bunch(v')
     order_eight_integrator!(1, b0.coords, args...)
     return b0.coords.v'
   end
-  @test ForwardDiff.jacobian(track, [0.01, 0.02, 0.03, 0.04, 0.05, 0.06]) ≈ M
+  @test ForwardDiff.jacobian(track_crazy, [0.01, 0.02, 0.03, 0.04, 0.05, 0.06]) ≈ M
 
+  # Type stability and no scalar allocations
   M = [0.5642361394656592    0.9695143326521845   0.0008233255950771141 0.23459732508210268 -3.98096261096381e-10  0.26202087937470775; 
       -0.543530422071873     0.762355986589084    0.005384939535613539  0.5568726180598322  -1.5243574558899086e-9 0.036470556982992404; 
       -0.4593283172457024   -0.3984638458095007   0.9811769291798218    1.100107521964648   -2.298597550516041e-9 -0.12126875320594324; 
        0.08747063284126881   0.07920527444449403 -0.1220421218444098    0.8468859184498521  -4.040295096962048e-9  0.011352492304963603; 
       -0.1600021639255181    0.19633471917846448  0.003002641020079756  0.03951167031586203 1.0000000000195635     0.1128782075288401; 
       -0.012282105647725347 -0.0399005425614098   0.008678224403495206  0.09108613577838762 -9.043193961707872e-11 0.8815006978818158]
-  #test_matrix(M, KernelCall(order_eight_integrator!, args); type_stable=true, no_scalar_allocs=true)
+  test_matrix(M, KernelCall(order_eight_integrator!, args); type_stable=true, no_scalar_allocs=true)
 
+  # TPSA with one parameter
   a0 = 1.0 + (@params D1_1)[1]
   b0 = Bunch([0.01 0.02 0.03 0.04 0.05 0.06] .+ collect(transpose(@vars(D1_1))), TPS64{D1_1}[1 0 0 0])
   params = (radiation_params, beta_0, tilde_m, a, 0.0, w_id, w_id, crazy, (a0, 1.0), p_over_q_ref, Val{true}())
@@ -131,6 +154,7 @@ E_to_R, E_to_v, implicit_integrator!, order_eight_integrator!
   @test GTPSA.jacobian(b0.coords.v, include_params=true) ≈ M
   @test GTPSA.jacobian(b0.coords.q, include_params=true) ≈ Q (rtol = 3e-8)
 
+  # TPSA with two parameters
   a0 = 1.0 + (@params D1_2)[1]
   c0 = 1.0 + (@params D1_2)[2]
   b0 = Bunch([0.01 0.02 0.03 0.04 0.05 0.06] .+ collect(transpose(@vars(D1_2))), TPS64{D1_2}[1 0 0 0])
@@ -151,20 +175,12 @@ E_to_R, E_to_v, implicit_integrator!, order_eight_integrator!
   @test GTPSA.jacobian(b0.coords.v, include_params=true) ≈ M
   @test GTPSA.jacobian(b0.coords.q, include_params=true) ≈ Q (rtol = 3e-8)
 
-  function crazy_unnormalized(x, y, s, t, p)
-    potential = (C_LIGHT*sin(x)*cos(y)*sinh(s)*cosh(t), cosh(x)*sin(y)*cos(s)*sinh(t), sinh(x)*cosh(y)*sin(s)*cos(t), cos(x)*sinh(y)*cosh(s)*sin(t))
-    jac = (C_LIGHT*cos(x)*cos(y)*cosh(t)*sinh(s), -C_LIGHT*cosh(t)*sin(x)*sin(y)*sinh(s), C_LIGHT*cos(y)*cosh(s)*cosh(t)*sin(x), C_LIGHT*cos(y)*sin(x)*sinh(s)*sinh(t),
-           cos(s)*sin(y)*sinh(t)*sinh(x),  cos(s)*cos(y)*cosh(x)*sinh(t), -cosh(x)*sin(s)*sin(y)*sinh(t),  cos(s)*cosh(t)*cosh(x)*sin(y),
-           cos(t)*cosh(x)*cosh(y)*sin(s),  cos(t)*sin(s)*sinh(x)*sinh(y),  cos(s)*cos(t)*cosh(y)*sinh(x), -cosh(y)*sin(s)*sin(t)*sinh(x),
-          -cosh(s)*sin(t)*sin(x)*sinh(y),  cos(x)*cosh(s)*cosh(y)*sin(t),  cos(x)*sin(t)*sinh(s)*sinh(y),  cos(t)*cos(x)*cosh(s)*sinh(y))
-    return p_over_q_ref .* potential, p_over_q_ref .* jac
-  end
+  # Unnormalized potential
   b0 = Bunch([0.01 0.02 0.03 0.04 0.05 0.06], [1.0 0.0 0.0 0.0])
-  params = (radiation_params, beta_0, tilde_m, a, 0.0, w_id, w_id, crazy_unnormalized, nothing, p_over_q_ref, Val{false}())
+  params = (radiation_params, beta_0, tilde_m, a, 0.0, w_id, w_id, crazy_unnormalized, p_over_q_ref, p_over_q_ref, Val{false}())
   order_eight_integrator!(1, b0.coords, implicit_integrator!, params, nothing, 1.2/60, 60, nothing, Val{false}(), Val{false}(), 1.2)
   v_expected = [-0.24794117122676387 -0.7621581346830383 0.12143614880778619 0.024481117969862107 -0.006481844718705498 -0.0003806157078307523]
   q_expected = [-0.8671095776608468 -0.16135398678020024 -0.405824923995721 0.23956627964481797]
   @test b0.coords.v ≈ v_expected
   @test b0.coords.q ≈ q_expected 
-
 end

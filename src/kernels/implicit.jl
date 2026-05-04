@@ -1,38 +1,41 @@
-@makekernel fastgtpsa=true function implicit_integrator!(i, coords::Coords, s, radiation_params, beta_0, tilde_m, a, g, w, w_inv, potential_and_jac, potential_params, p_over_q_ref, normalized, L)
-  rotation!(i, coords, w, 0)
+function implicit_integrator!(i, coords::Coords, s, radiation_params, beta_0, tilde_m, a, g, w, w_inv, potential_and_jac::U, potential_params, p_over_q_ref, normalized, L) where {U}
+  @inbounds begin
+    rotation!(i, coords, w, 0)
 
-  s += L / 2
+    s += L / 2
 
-  if !isnothing(radiation_params)
-    q, mc2, E_ref = radiation_params
-    deterministic_radiation_implicit!(i, coords, s, q, mc2, E_ref, g, potential_and_jac, potential_params, p_over_q_ref, normalized, L / 2)
+    if !isnothing(radiation_params)
+      q, mc2, E_ref = radiation_params
+      deterministic_radiation_implicit!(i, coords, s, q, mc2, E_ref, g, potential_and_jac, potential_params, p_over_q_ref, normalized, L / 2)
+    end
+
+    if !isnothing(coords.q)
+      rotate_spin_implicit!(i, coords, s, a, g, beta_0, tilde_m, potential_and_jac, potential_params, p_over_q_ref, normalized, L / 2)
+    end
+
+    implicit_step!(i, coords, s, beta_0, tilde_m, g, potential_and_jac, potential_params, p_over_q_ref, normalized, L)
+
+    if !isnothing(coords.q)
+      rotate_spin_implicit!(i, coords, s, a, g, beta_0, tilde_m, potential_and_jac, potential_params, p_over_q_ref, normalized, L / 2)
+    end
+
+    if !isnothing(radiation_params)
+      deterministic_radiation_implicit!(i, coords, s, q, mc2, E_ref, g, potential_and_jac, potential_params, p_over_q_ref, normalized, L / 2)
+    end
+
+    rotation!(i, coords, w_inv, 0)
   end
-
-  if !isnothing(coords.q)
-    rotate_spin_implicit!(i, coords, s, a, g, beta_0, tilde_m, potential_and_jac, potential_params, p_over_q_ref, normalized, L / 2)
-  end
-
-  implicit_step!(i, coords, s, beta_0, tilde_m, g, potential_and_jac, potential_params, p_over_q_ref, normalized, L)
-
-  if !isnothing(coords.q)
-    rotate_spin_implicit!(i, coords, s, a, g, beta_0, tilde_m, potential_and_jac, potential_params, p_over_q_ref, normalized, L / 2)
-  end
-
-  if !isnothing(radiation_params)
-    deterministic_radiation_implicit!(i, coords, s, q, mc2, E_ref, g, potential_and_jac, potential_params, p_over_q_ref, normalized, L / 2)
-  end
-
-  rotation!(i, coords, w_inv, 0)
+  return nothing
 end
 
 
-@inline function implicit_step!(i, coords::Coords, s, beta_0, tilde_m, g, potential_and_jac, potential_params, p_over_q_ref, ::Val{normalized}, ds) where {normalized}
+function implicit_step!(i, coords::Coords, s, beta_0, tilde_m, g, potential_and_jac::U, potential_params, p_over_q_ref, ::Val{normalized}, ds) where {U, normalized}
   @inbounds begin
     v = coords.v
     alive_at_start = (coords.state[i] == STATE_ALIVE)
 
-    v_orig = (scalar(v[i,XI]), scalar(v[i,PXI]), scalar(v[i,YI]), scalar(v[i,PYI]), scalar(v[i,ZI]), scalar(v[i,PZI]))
-    v_new =  v_orig
+    v_orig = scalar.((v[i,XI], v[i,PXI], v[i,YI], v[i,PYI], v[i,ZI], v[i,PZI]))
+    v_new = v_orig
 
     x_new = scalar.(find_root_x(v_new, s, beta_0, tilde_m, g, potential_and_jac, potential_params, p_over_q_ref, Val{normalized}(), ds/2))
     v_new = (x_new[1], v_new[PXI], x_new[2], v_new[PYI], x_new[3], v_new[PZI])
@@ -80,17 +83,25 @@ end
         f3[j] = 0
         f3[j][j] = 1
       end
-      v_final = v_new .+ (f2 ∘ f3)[1:6]
+      v_final = Tuple(v_new .+ (f2 ∘ f3)[1:6])
       v_orig = v_new
     elseif eltype(v) <: ForwardDiff.Dual
-      hess = ds/2 .* mixed_hessian_H((v_new[XI], v_orig[PXI], v_new[YI], v_orig[PYI], v_new[ZI], v_orig[PZI]), s, beta_0, tilde_m, g, potential_and_jac, potential_params, p_over_q_ref, Val{normalized}())
-      A = SA[hess[1] hess[2] hess[3];
-             hess[4] hess[5] hess[6];
-             hess[7] hess[8] hess[9]]
-      B = ds/2 .* ForwardDiff.jacobian(p -> SVector{3}(dH_dp(SA[v_new[XI], p[1], v_new[YI], p[2], v_new[ZI], p[3]], s, beta_0, tilde_m, g, potential_and_jac, potential_params, p_over_q_ref, Val{normalized}())), 
-      SA[v_orig[PXI], v_orig[PYI], v_orig[PZI]])
-      C = ds/2 .* ForwardDiff.jacobian(x -> SVector{3}(dH_dx(SA[x[1], v_orig[PXI], x[2], v_orig[PYI], x[3], v_orig[PZI]], s, beta_0, tilde_m, g, potential_and_jac, potential_params, p_over_q_ref, Val{normalized}())), 
-      SA[v_new[XI], v_new[YI], v_new[ZI]])
+      A, B, C = let vx = v_new[XI],
+                    vy = v_new[YI],
+                    vz = v_new[ZI],
+                    vpx = v_orig[PXI],
+                    vpy = v_orig[PYI],
+                    vpz = v_orig[PZI]
+        hess = ds/2 .* mixed_hessian_H((vx, vpx, vy, vpy, vz, vpz), s, beta_0, tilde_m, g, potential_and_jac, potential_params, p_over_q_ref, Val{normalized}())
+        A = SA[hess[1] hess[2] hess[3];
+               hess[4] hess[5] hess[6];
+               hess[7] hess[8] hess[9]]
+        B = ds/2 .* ForwardDiff.jacobian(p -> SVector{3}(dH_dp(SA[vx, p[1], vy, p[2], vz, p[3]], s, beta_0, tilde_m, g, potential_and_jac, potential_params, p_over_q_ref, Val{normalized}())), 
+        SA[vpx, vpy, vpz])
+        C = ds/2 .* ForwardDiff.jacobian(x -> SVector{3}(dH_dx(SA[x[1], vpx, x[2], vpy, x[3], vpz], s, beta_0, tilde_m, g, potential_and_jac, potential_params, p_over_q_ref, Val{normalized}())), 
+        SA[vx, vy, vz])
+        A, B, C
+      end
       id = SA[1 0 0;
               0 1 0;
               0 0 1]
@@ -99,11 +110,11 @@ end
       Mpx = -C * Mxx
       Mpp = id .- A .- (C * Mxx * B)
       jac = SA[Mxx[1,1] Mxp[1,1] Mxx[1,2] Mxp[1,2] Mxx[1,3] Mxp[1,3];
-               Mpx[1,1] Mpp[1,1] Mpx[1,2] Mpp[1,2] Mpx[1,3] Mpp[1,3];
-               Mxx[2,1] Mxp[2,1] Mxx[2,2] Mxp[2,2] Mxx[2,3] Mxp[2,3];
-               Mpx[2,1] Mpp[2,1] Mpx[2,2] Mpp[2,2] Mpx[2,3] Mpp[2,3];
-               Mxx[3,1] Mxp[3,1] Mxx[3,2] Mxp[3,2] Mxx[3,3] Mxp[3,3];
-               Mpx[3,1] Mpp[3,1] Mpx[3,2] Mpp[3,2] Mpx[3,3] Mpp[3,3]]
+              Mpx[1,1] Mpp[1,1] Mpx[1,2] Mpp[1,2] Mpx[1,3] Mpp[1,3];
+              Mxx[2,1] Mxp[2,1] Mxx[2,2] Mxp[2,2] Mxx[2,3] Mxp[2,3];
+              Mpx[2,1] Mpp[2,1] Mpx[2,2] Mpp[2,2] Mpx[2,3] Mpp[2,3];
+              Mxx[3,1] Mxp[3,1] Mxx[3,2] Mxp[3,2] Mxx[3,3] Mxp[3,3];
+              Mpx[3,1] Mpp[3,1] Mpx[3,2] Mpp[3,2] Mpx[3,3] Mpp[3,3]]
       r1 = ForwardDiff.partials(v[i,1]).values
       r2 = ForwardDiff.partials(v[i,2]).values
       r3 = ForwardDiff.partials(v[i,3]).values
@@ -173,16 +184,24 @@ end
         f3[j] = 0
         f3[j][j] = 1
       end
-      v_final = v_new .+ (f2 ∘ f3)[1:6]
+      v_final = Tuple(v_new .+ (f2 ∘ f3)[1:6])
     elseif eltype(v) <: ForwardDiff.Dual
-      hess = ds/2 .* mixed_hessian_H((v_orig[XI], v_new[PXI], v_orig[YI], v_new[PYI], v_orig[ZI], v_new[PZI]), s, beta_0, tilde_m, g, potential_and_jac, potential_params, p_over_q_ref, Val{normalized}())
-      A = SA[hess[1] hess[2] hess[3];
-             hess[4] hess[5] hess[6];
-             hess[7] hess[8] hess[9]]
-      B = ds/2 .* ForwardDiff.jacobian(p -> SVector{3}(dH_dp(SA[v_orig[XI], p[1], v_orig[YI], p[2], v_orig[ZI], p[3]], s, beta_0, tilde_m, g, potential_and_jac, potential_params, p_over_q_ref, Val{normalized}())), 
-      SA[v_new[PXI], v_new[PYI], v_new[PZI]])
-      C = ds/2 .* ForwardDiff.jacobian(x -> SVector{3}(dH_dx(SA[x[1], v_new[PXI], x[2], v_new[PYI], x[3], v_new[PZI]], s, beta_0, tilde_m, g, potential_and_jac, potential_params, p_over_q_ref, Val{normalized}())), 
-      SA[v_orig[XI], v_orig[YI], v_orig[ZI]])
+      A, B, C = let vx = v_orig[XI],
+                    vy = v_orig[YI],
+                    vz = v_orig[ZI],
+                    vpx = v_new[PXI],
+                    vpy = v_new[PYI],
+                    vpz = v_new[PZI]
+        hess = ds/2 .* mixed_hessian_H((vx, vpx, vy, vpy, vz, vpz), s, beta_0, tilde_m, g, potential_and_jac, potential_params, p_over_q_ref, Val{normalized}())
+        A = SA[hess[1] hess[2] hess[3];
+               hess[4] hess[5] hess[6];
+               hess[7] hess[8] hess[9]]
+        B = ds/2 .* ForwardDiff.jacobian(p -> SVector{3}(dH_dp(SA[vx, p[1], vy, p[2], vz, p[3]], s, beta_0, tilde_m, g, potential_and_jac, potential_params, p_over_q_ref, Val{normalized}())), 
+        SA[vpx, vpy, vpz])
+        C = ds/2 .* ForwardDiff.jacobian(x -> SVector{3}(dH_dx(SA[x[1], vpx, x[2], vpy, x[3], vpz], s, beta_0, tilde_m, g, potential_and_jac, potential_params, p_over_q_ref, Val{normalized}())), 
+        SA[vx, vy, vz])
+        A, B, C
+      end
       Mpp = inv(id .+ A)
       Mxp = B * Mpp
       Mpx = -Mpp * C
@@ -217,8 +236,8 @@ end
       v_final = v_new
     end
 
-    t = (s/beta_0 - v_new[ZI])/C_LIGHT
-    potential, _ = potential_and_jac(v_new[XI], v_new[YI], s, t, potential_params)
+    t = (s/beta_0 - v_final[ZI])/C_LIGHT
+    potential, _ = potential_and_jac(v_final[XI], v_final[YI], s, t, potential_params)
     phi, ax, ay, _ = potential
     if !normalized
       phi = phi/p_over_q_ref/C_LIGHT
@@ -227,9 +246,9 @@ end
     else
       phi = phi/C_LIGHT
     end
-    rel_p = v_new[PZI] + 1/beta_0 - phi
-    px = v_new[PXI] - ax
-    py = v_new[PYI] - ay
+    rel_p = v_final[PZI] + 1/beta_0 - phi
+    px = v_final[PXI] - ax
+    py = v_final[PYI] - ay
 
     ps2 = rel_p*rel_p - tilde_m*tilde_m - px*px - py*py
     good_momenta = (ps2 > 0)
@@ -247,7 +266,7 @@ end
 end
 
 
-@inline function find_root_x(v, s, beta_0, tilde_m, g, potential_and_jac, potential_params, p_over_q_ref, normalized, ds)
+function find_root_x(v, s, beta_0, tilde_m, g, potential_and_jac::U, potential_params, p_over_q_ref, normalized, ds) where {U}
   @inbounds begin
     ε = my_eps(v[1])
     N_max = 100
@@ -278,7 +297,7 @@ end
 end
 
 
-@inline function find_root_p(v, s, beta_0, tilde_m, g, potential_and_jac, potential_params, p_over_q_ref, normalized, ds)
+function find_root_p(v, s, beta_0, tilde_m, g, potential_and_jac::U, potential_params, p_over_q_ref, normalized, ds) where {U}
   @inbounds begin
     ε = my_eps(v[1])
     N_max = 100
@@ -312,7 +331,7 @@ end
 """
 Returns the position derivatives of the Hamiltonian.
 """
-@inline function dH_dx(v, s, beta_0, tilde_m, g, potential_and_jac, potential_params, p_over_q_ref, ::Val{normalized}) where {normalized}
+function dH_dx(v, s, beta_0, tilde_m, g, potential_and_jac::U, potential_params, p_over_q_ref, ::Val{normalized}) where {U, normalized}
   @inbounds begin
     h = 1 + g*v[XI]
     t = (s/beta_0 - v[ZI])/C_LIGHT
@@ -360,7 +379,7 @@ end
 """
 Returns the momentum derivatives of the Hamiltonian.
 """
-@inline function dH_dp(v, s, beta_0, tilde_m, g, potential_and_jac, potential_params, p_over_q_ref, ::Val{normalized}) where {normalized}
+function dH_dp(v, s, beta_0, tilde_m, g, potential_and_jac::U, potential_params, p_over_q_ref, ::Val{normalized}) where {U, normalized}
   @inbounds begin
     h = 1 + g*v[XI]
     t = (s/beta_0 - v[ZI])/C_LIGHT
@@ -395,7 +414,7 @@ end
 """
 Returns the mixed position-momentum second derivatives of the Hamiltonian.
 """
-@inline function mixed_hessian_H(v, s, beta_0, tilde_m, g, potential_and_jac, potential_params, p_over_q_ref, ::Val{normalized}) where {normalized}
+function mixed_hessian_H(v, s, beta_0, tilde_m, g, potential_and_jac::U, potential_params, p_over_q_ref, ::Val{normalized}) where {U, normalized}
   @inbounds begin
     h = 1 + g*v[XI]
     t = (s/beta_0 - v[ZI])/C_LIGHT
@@ -410,7 +429,6 @@ Returns the mixed position-momentum second derivatives of the Hamiltonian.
 
       dphi_dx, dax_dx, day_dx, daz_dx = derivatives[1]/p_over_q_ref/C_LIGHT, derivatives[5]/p_over_q_ref, derivatives[9]/p_over_q_ref, derivatives[13]/p_over_q_ref
       dphi_dy, dax_dy, day_dy, daz_dy = derivatives[2]/p_over_q_ref/C_LIGHT, derivatives[6]/p_over_q_ref, derivatives[10]/p_over_q_ref, derivatives[14]/p_over_q_ref
-      dphi_ds, dax_ds, day_ds, daz_ds = derivatives[3]/p_over_q_ref/C_LIGHT, derivatives[7]/p_over_q_ref, derivatives[11]/p_over_q_ref, derivatives[15]/p_over_q_ref
       dphi_dt, dax_dt, day_dt, daz_dt = derivatives[4]/p_over_q_ref/C_LIGHT, derivatives[8]/p_over_q_ref, derivatives[12]/p_over_q_ref, derivatives[16]/p_over_q_ref
     else
       phi = phi/C_LIGHT
@@ -459,7 +477,7 @@ end
 """
 Solves Ax = y for x using Cramer's rule, where A is a 3x3 matrix and y is a 3-vector.
 """
-@inline function solve_3x3_cramer(A, y)
+function solve_3x3_cramer(A, y)
   @inbounds begin
     y1, y2, y3 = y
     a, b, c, d, e, f, g, h, i = A
@@ -478,7 +496,7 @@ end
 Returns normalized transverse vector potential and electromagnetic fields for 
 implicit integrators.
 """
-@inline function implicit_fields(x, y, s, t, g, potential_and_jac, potential_params, p_over_q_ref, ::Val{normalized}) where {normalized}
+function implicit_fields(x, y, s, t, g, potential_and_jac::U, potential_params, p_over_q_ref, ::Val{normalized}) where {U, normalized}
   @inbounds begin @FastGTPSA begin
     h = 1 + g*x
     potential, derivatives = potential_and_jac(x, y, s, t, potential_params)
@@ -515,38 +533,65 @@ end
 
 
 """
-Rotates particle spin for implicit integrators.
+Rotates spin for implicit integrators.
 """
-@makekernel fastgtpsa=true function rotate_spin_implicit!(i, coords::Coords, s, a, g, beta_0, tilde_m, potential_and_jac, potential_params, p_over_q_ref, normalized, L)
-  v = coords.v
+function rotate_spin_implicit!(i, coords::Coords, s, a, g, beta_0, tilde_m, potential_and_jac::U, potential_params, p_over_q_ref, normalized, L) where {U}
+  @inbounds begin @FastGTPSA begin
+    v = coords.v
 
-  t = (s/beta_0 - v[i,ZI])/C_LIGHT
+    t = (s/beta_0 - v[i,ZI])/C_LIGHT
 
-  phi, ax, ay, ex, ey, ez, bx, by, bz = implicit_fields(v[i,XI], v[i,YI], s, t, g, potential_and_jac, potential_params, p_over_q_ref, normalized)
-  e_vec = (ex, ey, ez)
-  b_vec = (bx, by, bz)
+    phi, ax, ay, ex, ey, ez, bx, by, bz = implicit_fields(v[i,XI], v[i,YI], s, t, g, potential_and_jac, potential_params, p_over_q_ref, normalized)
+    e_vec = (ex, ey, ez)
+    b_vec = (bx, by, bz)
 
-  mad_to_bmad!(i, coords, beta_0, tilde_m, phi)
-  rotate_spin_field!(i, coords, a, g, tilde_m, ax, ay, e_vec, b_vec, L)
-  bmad_to_mad!(i, coords, beta_0, tilde_m, phi)
+    mad_to_bmad!(i, coords, beta_0, tilde_m, phi)
+    rotate_spin_field!(i, coords, a, g, tilde_m, ax, ay, e_vec, b_vec, L)
+    bmad_to_mad!(i, coords, beta_0, tilde_m, phi)
+  end end
+  return nothing
 end
 
 
 """ 
 Applies radiation damping kick for implicit integrators.
 """
-@makekernel fastgtpsa=true function deterministic_radiation_implicit!(i, coords::Coords, s, q, mc2, E_ref, g, potential_and_jac, potential_params, p_over_q_ref, normalized, L)
-  v = coords.v
-  t = (s - v[i,ZI])/C_LIGHT # radiation is only accurate when beta_0 is approximately 1
-  tilde_m = mc2/E_ref
+function deterministic_radiation_implicit!(i, coords::Coords, s, q, mc2, E_ref, g, potential_and_jac::U, potential_params, p_over_q_ref, normalized, L) where {U}
+  @inbounds begin @FastGTPSA begin
+    v = coords.v
+    t = (s - v[i,ZI])/C_LIGHT # radiation is only accurate when beta_0 is approximately 1
+    tilde_m = mc2/E_ref
 
-  phi, ax, ay, ex, ey, ez, bx, by, bz = implicit_fields(v[i,XI], v[i,YI], s, t, g, potential_and_jac, potential_params, p_over_q_ref, normalized)
-  e_vec = (ex, ey, ez)
-  b_vec = (bx, by, bz)
+    phi, ax, ay, ex, ey, ez, bx, by, bz = implicit_fields(v[i,XI], v[i,YI], s, t, g, potential_and_jac, potential_params, p_over_q_ref, normalized)
+    e_vec = (ex, ey, ez)
+    b_vec = (bx, by, bz)
 
-  mad_to_bmad!(i, coords, 1, tilde_m, phi)
-  deterministic_radiation_field!(i, coords, q, mc2, E_ref, g, ax, ay, e_vec, b_vec, L)
-  bmad_to_mad!(i, coords, 1, tilde_m, phi)
+    mad_to_bmad!(i, coords, 1, tilde_m, phi)
+    deterministic_radiation_field!(i, coords, q, mc2, E_ref, g, ax, ay, e_vec, b_vec, L)
+    bmad_to_mad!(i, coords, 1, tilde_m, phi)
+  end end
+  return nothing
+end
+
+
+"""
+Applies radiation diffusion kick for implicit integrators.
+"""
+function stochastic_radiation!(i, coords::Coords, s, ::typeof(implicit_integrator!), backend, q, mc2, E_ref, g, potential_and_jac::U, potential_params, p_over_q_ref, normalized, L) where {U}
+  @inbounds begin
+    v = coords.v
+    t = (s - v[i,ZI])/C_LIGHT # radiation is only accurate when beta_0 is approximately 1
+    tilde_m = mc2/E_ref
+
+    phi, ax, ay, ex, ey, ez, bx, by, bz = implicit_fields(v[i,XI], v[i,YI], s, t, g, potential_and_jac, potential_params, p_over_q_ref, normalized)
+    e_vec = (ex, ey, ez)
+    b_vec = (bx, by, bz)
+
+    mad_to_bmad!(i, coords, 1, tilde_m, phi)
+    stochastic_radiation_field!(i, coords, backend, q, mc2, E_ref, g, ax, ay, e_vec, b_vec, L)
+    bmad_to_mad!(i, coords, 1, tilde_m, phi)
+  end
+  return nothing
 end
 
 

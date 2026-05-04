@@ -422,3 +422,30 @@ end
   end
   return integration_launcher(BeamTracking.cavity!, params, photon_params, tm, edge_params, L)
 end
+
+
+# =========== IMPLICIT ============= #
+@inline function implicit(tm::Yoshida, bunch, fpp, bp, L)
+  p_over_q_ref = bunch.p_over_q_ref
+  tilde_m, _, beta_0 = BeamTracking.drift_params(bunch.species, p_over_q_ref)
+  g = bp.g_ref
+  tilt = bp.tilt_ref
+  (e1 ≈ 0 && e2 ≈ 0) || error("Edge angles are not used in implicit integration")
+  potential_and_jac = fpp.four_potential
+  potential_params = fpp.four_potential_params
+  normalized = Val{fpp.four_potential_normalized}()
+  w = rot_quaternion(0,0,tilt)
+  w_inv = inv_rot_quaternion(0,0,tilt)
+  a = gyromagnetic_anomaly(bunch.species)
+  E_ref = BeamTracking.R_to_E(bunch.species, p_over_q_ref)
+  q = chargeof(bunch.species)
+  mc2 = massof(bunch.species)
+  radiation_params = ifelse(tm.radiation_damping_on, (q, mc2, E_ref), nothing)
+  params = (radiation_params, beta_0, tilde_m, a, g, w, w_inv, potential_and_jac, potential_params, p_over_q_ref, normalized)
+  if isprimitivetype(eltype(bunch.coords.v)) && tm.radiation_fluctuations_on
+    photon_params = (BeamTracking.implicit_integrator!, get_backend(bunch.coords.v), q, mc2, E_ref, g, potential_and_jac, potential_params, p_over_q_ref, normalized)
+  else
+    photon_params = nothing
+  end
+  return integration_launcher(BeamTracking.implicit_integrator!, params, photon_params, tm, nothing, L)
+end

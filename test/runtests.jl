@@ -23,10 +23,10 @@ using Beamlines: isactive
 BenchmarkTools.DEFAULT_PARAMETERS.gctrial = false
 BenchmarkTools.DEFAULT_PARAMETERS.evals = 2
 
-const D1 = Descriptor(6, 1)   # 6 variables 1st order
+const D1 = Descriptor(6, 1)   # 6 variables, 1st order
 const D1_1 = Descriptor(6, 1, 1, 1) # 6 variables and 1 parameter, 1st order
 const D1_2 = Descriptor(6, 1, 2, 1) # 6 variables and 2 parameters, 1st order
-const D10 = Descriptor(6, 10) # 6 variables 10th order
+const D10 = Descriptor(6, 10) # 6 variables, 10th order
 
 function test_matrix(
   M_expected,    # Expected matrix
@@ -66,7 +66,7 @@ function test_matrix(
 
   # 3) No scalar allocations
   if no_scalar_allocs
-    v = repeat([0.1 0.2 0.3 0.4 0.5 0.6], 2)
+    v = repeat([0.01 0.02 0.03 0.04 0.05 0.06], 2)
     q = repeat([1.0 0.0 0.0 0.0], 2)
     state = [STATE_ALIVE STATE_ALIVE]
     @test @ballocated(BeamTracking.launch!(coords, $kernel_call; use_KA=false), 
@@ -127,7 +127,7 @@ function test_map(
   end
   # 3) No scalar allocations
   if no_scalar_allocs
-    v = repeat([0.1 0.2 0.3 0.4 0.5 0.6], 2)
+    v = repeat([0.01 0.02 0.03 0.04 0.05 0.06], 2)
     q = repeat([1.0 0.0 0.0 0.0], 2)
     state = [STATE_ALIVE STATE_ALIVE]
     @test @ballocated(BeamTracking.launch!(coords, $kernel_call; use_KA=false), 
@@ -207,7 +207,7 @@ end
 
 #include("miscellaneous_test.jl")
 #include("sagan_cavity_tracking_test.jl")
-#include("BeamlinesExt_test.jl")
+include("BeamlinesExt_test.jl")
 #include("batch_test.jl")
 #include("time_test.jl")
 #include("alignment_tracking_test.jl")
