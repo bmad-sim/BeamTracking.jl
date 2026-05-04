@@ -369,7 +369,7 @@ zf_mn4  = [ 0., 3.140908277834687e-8, -3.1503450227072763e-8, 3.140908186274627e
     #
     # 5 keV electron
     v = [ xi pxi yi pyi zi pzi ]
-    BeamTracking.launch!(Bunch(v).coords, KernelCall(BeamTracking.exact_drift!, (β1, γsq1, 1/βγ1, ld1)))
+    BeamTracking.launch!(Bunch(v).coords, KernelCall(BeamTracking.exact_drift!, (0, β1, γsq1, 1/βγ1, ld1)))
     @test v[:,BeamTracking.XI]  ≈  xf_dr1 (rtol=5.e-13)
     @test v[:,BeamTracking.YI]  ≈  yf_dr1 (rtol=5.e-13)
     @test v[:,BeamTracking.ZI]  ≈  zf_dr1 (rtol=5.e-13)
@@ -379,7 +379,7 @@ zf_mn4  = [ 0., 3.140908277834687e-8, -3.1503450227072763e-8, 3.140908186274627e
     #
     # 1 MeV electron
     v = [ xi pxi yi pyi zi pzi ]
-    BeamTracking.launch!(Bunch(v).coords, KernelCall(BeamTracking.exact_drift!, (β2, γsq2, 1/βγ2, ld2)))
+    BeamTracking.launch!(Bunch(v).coords, KernelCall(BeamTracking.exact_drift!, (0, β2, γsq2, 1/βγ2, ld2)))
     @test v[:,BeamTracking.XI]  ≈  xf_dr2 (rtol=5.e-13)
     @test v[:,BeamTracking.YI]  ≈  yf_dr2 (rtol=5.e-13)
     @test v[:,BeamTracking.ZI]  ≈  zf_dr2 (rtol=5.e-13)
@@ -389,7 +389,7 @@ zf_mn4  = [ 0., 3.140908277834687e-8, -3.1503450227072763e-8, 3.140908186274627e
     #
     # 1 GeV electron
     v = [ xi pxi yi pyi zi pzi ]
-    BeamTracking.launch!(Bunch(v).coords, KernelCall(BeamTracking.exact_drift!, (β3, γsq3, 1/βγ3, ld3)))
+    BeamTracking.launch!(Bunch(v).coords, KernelCall(BeamTracking.exact_drift!, (0, β3, γsq3, 1/βγ3, ld3)))
     @test v[:,BeamTracking.XI]  ≈  xf_dr3 (rtol=5.e-13)
     @test v[:,BeamTracking.YI]  ≈  yf_dr3 (rtol=5.e-13)
     @test v[:,BeamTracking.ZI]  ≈  zf_dr3 (rtol=5.e-13)
@@ -399,7 +399,7 @@ zf_mn4  = [ 0., 3.140908277834687e-8, -3.1503450227072763e-8, 3.140908186274627e
     #
     # 250 GeV proton
     v = [ xi pxi yi pyi zi pzi ]
-    BeamTracking.launch!(Bunch(v).coords, KernelCall(BeamTracking.exact_drift!, (β4, γsq4, 1/βγ4, ld4)))
+    BeamTracking.launch!(Bunch(v).coords, KernelCall(BeamTracking.exact_drift!, (0, β4, γsq4, 1/βγ4, ld4)))
     @test v[:,BeamTracking.XI]  ≈  xf_dr4 (rtol=5.e-13)
     @test v[:,BeamTracking.YI]  ≈  yf_dr4 (rtol=5.e-13)
     @test v[:,BeamTracking.ZI]  ≈  zf_dr4 (rtol=5.e-13)
@@ -778,7 +778,7 @@ zf_mn4  = [ 0., 3.140908277834687e-8, -3.1503450227072763e-8, 3.140908186274627e
     L = 0.5
     theta = g * L 
     k0 = 1.001
-    test_matrix(exact_bend_1, KernelCall(BeamTracking.exact_bend_with_rotation!, (0, 0, theta, 0, g, k0, I, I, tilde_m, beta_0, L)))
+    test_matrix(exact_bend_1, KernelCall(BeamTracking.exact_bend_with_rotation!, (0, 0, 0, theta, 0, g, k0, I, I, tilde_m, beta_0, L)))
 
     exact_bend_2 = 
       [ 0.1139493927324543E+01  0.6225083696592777E+00 0.0000000000000000E+00 0.0000000000000000E+00 0.0000000000000000E+00 -0.1231653667943533E-15   
@@ -791,7 +791,7 @@ zf_mn4  = [ 0., 3.140908277834687e-8, -3.1503450227072763e-8, 3.140908186274627e
     k0 = 0
     L = 0.5
     theta = g * L
-    test_matrix(exact_bend_2, KernelCall(BeamTracking.exact_bend_with_rotation!, (0, 0, theta, 0, g, k0, I, I, tilde_m, beta_0, L)))
+    test_matrix(exact_bend_2, KernelCall(BeamTracking.exact_bend_with_rotation!, (0, 0, 0, theta, 0, g, k0, I, I, tilde_m, beta_0, L)))
 
     exact_bend_3 = 
       [ 0.1000000000000000E+01 0.5598925109558526E+00 0.0000000000000000E+00 0.0000000000000000E+00 0.0000000000000000E+00 0.1330944687907870E+00  
@@ -804,7 +804,7 @@ zf_mn4  = [ 0., 3.140908277834687e-8, -3.1503450227072763e-8, 3.140908186274627e
     g = 0
     L = 0.5
     theta = g * L
-    test_matrix(exact_bend_3, KernelCall(BeamTracking.exact_bend_with_rotation!, (0, 0, theta, 0, g, k0, I, I, tilde_m, beta_0, L)))
+    test_matrix(exact_bend_3, KernelCall(BeamTracking.exact_bend_with_rotation!, (0, 0, 0, theta, 0, g, k0, I, I, tilde_m, beta_0, L)))
 
     exact_bend_4 = 
       [ 0.1127528195871212E+01  0.6609770864392946E+00 0.0000000000000000E+00 0.0000000000000000E+00 0.0000000000000000E+00 -0.1472939489803990E+00   
@@ -817,7 +817,7 @@ zf_mn4  = [ 0., 3.140908277834687e-8, -3.1503450227072763e-8, 3.140908186274627e
     g = 0.4
     L = 0.5
     theta = g * L
-    test_matrix(exact_bend_4, KernelCall(BeamTracking.exact_bend_with_rotation!, (0, 0, theta, 0, g, k0, I, I, tilde_m, beta_0, L)))
+    test_matrix(exact_bend_4, KernelCall(BeamTracking.exact_bend_with_rotation!, (0, 0, 0, theta, 0, g, k0, I, I, tilde_m, beta_0, L)))
 
     exact_bend_5 = 
       [ 0.1283686050523820E+01 0.7804509524043607E+00 0.0000000000000000E+00 0.0000000000000000E+00 0.0000000000000000E+00  0.1379043012645095E+00  
@@ -830,7 +830,7 @@ zf_mn4  = [ 0., 3.140908277834687e-8, -3.1503450227072763e-8, 3.140908186274627e
     g = -0.8
     L = 0.5
     theta = g * L
-    test_matrix(exact_bend_5, KernelCall(BeamTracking.exact_bend_with_rotation!, (0, 0, theta, 0, g, k0, I, I, tilde_m, beta_0, L)))
+    test_matrix(exact_bend_5, KernelCall(BeamTracking.exact_bend_with_rotation!, (0, 0, 0, theta, 0, g, k0, I, I, tilde_m, beta_0, L)))
 
     exact_bend_6 = 
       [ 0.9005939074669641E+00 0.4858928367401870E+00 0.0000000000000000E+00 0.0000000000000000E+00 0.0000000000000000E+00 -0.1117303574601966E+00  
@@ -843,7 +843,7 @@ zf_mn4  = [ 0., 3.140908277834687e-8, -3.1503450227072763e-8, 3.140908186274627e
     g = -1
     L = 0.5
     theta = g * L
-    test_matrix(exact_bend_6, KernelCall(BeamTracking.exact_bend_with_rotation!, (0, 0, theta, 0, g, k0, I, I, tilde_m, beta_0, L)))
+    test_matrix(exact_bend_6, KernelCall(BeamTracking.exact_bend_with_rotation!, (0, 0, 0, theta, 0, g, k0, I, I, tilde_m, beta_0, L)))
   end
 
 
@@ -921,7 +921,7 @@ zf_mn4  = [ 0., 3.140908277834687e-8, -3.1503450227072763e-8, 3.140908186274627e
         tilde_m = mc2/p0c
         gamsqr_0 = 1 + 1/tilde_m^2
         beta_0 = 1/sqrt(1 + tilde_m^2)
-        return beta_0, gamsqr_0, tilde_m, L
+        return T(0), beta_0, gamsqr_0, tilde_m, L
     end
     
     function solenoid_args(::Type{T}) where {T}
@@ -932,7 +932,7 @@ zf_mn4  = [ 0., 3.140908277834687e-8, -3.1503450227072763e-8, 3.140908186274627e
         tilde_m = mc2/p0c
         gamsqr_0 = 1 + 1/tilde_m^2
         beta_0 = 1/sqrt(1 + tilde_m^2)
-        return ks, beta_0, gamsqr_0, tilde_m, L
+        return T(0), ks, beta_0, gamsqr_0, tilde_m, L
     end
 
     # Scalar parameters

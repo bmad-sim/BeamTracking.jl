@@ -162,9 +162,9 @@ function sagan_cavity_outside_drift!(i, coords::Coords,
 
   # Solenoid or Drift
   if has_sol
-    exact_solenoid!(i, coords, Kn[1], beta0, gamma0*gamma0, mass/P0c, L)
+    exact_solenoid!(i, coords, 0, Kn[1], beta0, gamma0*gamma0, mass/P0c, L)
   else
-    exact_drift!(i, coords, beta0, gamma0*gamma0, mass/P0c, L)
+    exact_drift!(i, coords, 0, beta0, gamma0*gamma0, mass/P0c, L)
   end
 
   # 1/2 Multipole kick

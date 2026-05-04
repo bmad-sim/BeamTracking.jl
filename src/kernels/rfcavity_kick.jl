@@ -3,9 +3,9 @@
     #t_ref += (s + L/2)/(beta_0*C_LIGHT)
     multipoles = (length(mm) > 0)
     if sol
-      exact_solenoid!(i, coords, Ksol, beta_0, gamsqr_0, tilde_m, L / 2)
+      exact_solenoid!(i, coords, s, Ksol, beta_0, gamsqr_0, tilde_m, L / 2)
     else
-      exact_drift!(i, coords, beta_0, gamsqr_0, tilde_m, L / 2)
+      exact_drift!(i, coords, s, beta_0, gamsqr_0, tilde_m, L / 2)
     end
 
     if !isnothing(radiation_params)
@@ -36,9 +36,9 @@
     end
 
     if sol
-      exact_solenoid!(i, coords, Ksol, beta_0, gamsqr_0, tilde_m, L / 2)
+      exact_solenoid!(i, coords, s, Ksol, beta_0, gamsqr_0, tilde_m, L / 2)
     else
-      exact_drift!(i, coords, beta_0, gamsqr_0, tilde_m, L / 2)
+      exact_drift!(i, coords, s, beta_0, gamsqr_0, tilde_m, L / 2)
     end
   end end
   return nothing

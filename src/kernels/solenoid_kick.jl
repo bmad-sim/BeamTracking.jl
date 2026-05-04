@@ -19,7 +19,7 @@ sn: vector of skew multipole strengths scaled by Bρ0
 L:  element length
 """
 @makekernel fastgtpsa=true function sks_multipole!(i, coords::Coords, s, radiation_params, beta_0, gamsqr_0, tilde_m, a, Ksol, mm, kn, ks, L)
-  exact_solenoid!(i, coords, Ksol, beta_0, gamsqr_0, tilde_m, L / 2)
+  exact_solenoid!(i, coords, s, Ksol, beta_0, gamsqr_0, tilde_m, L / 2)
 
   if !isnothing(radiation_params)
     q, mc2, E_ref = radiation_params
@@ -32,10 +32,10 @@ L:  element length
     deterministic_radiation_multipole!(i, coords, q, mc2, E_ref, 0, mm, kn, ks, L / 2)
   end
 
-  exact_solenoid!(i, coords, Ksol, beta_0, gamsqr_0, tilde_m, L / 2)
+  exact_solenoid!(i, coords, s, Ksol, beta_0, gamsqr_0, tilde_m, L / 2)
 end 
 
-@makekernel fastgtpsa=true function exact_solenoid!(i, coords::Coords, ks, beta_0, gamsqr_0, tilde_m, L)
+@makekernel fastgtpsa=true function exact_solenoid!(i, coords::Coords, s, ks, beta_0, gamsqr_0, tilde_m, L)
   v = coords.v
 
   # Recurring variables

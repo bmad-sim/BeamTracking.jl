@@ -20,7 +20,7 @@ ks: vector of skew multipole strengths scaled by Bρ0
 L:  element length
 """
 @makekernel fastgtpsa=true function dkd_multipole!(i, coords::Coords, s, radiation_params, beta_0, gamsqr_0, tilde_m, a, mm, kn, ks, L)
-  exact_drift!(i, coords, beta_0, gamsqr_0, tilde_m, L / 2)
+  exact_drift!(i, coords, s, beta_0, gamsqr_0, tilde_m, L / 2)
 
   if !isnothing(radiation_params)
     q, mc2, E_ref = radiation_params
@@ -33,7 +33,7 @@ L:  element length
     deterministic_radiation_multipole!(i, coords, q, mc2, E_ref, 0, mm, kn, ks, L / 2)
   end
 
-  exact_drift!(i, coords, beta_0, gamsqr_0, tilde_m, L / 2)
+  exact_drift!(i, coords, s, beta_0, gamsqr_0, tilde_m, L / 2)
 end
 
 """
@@ -57,7 +57,7 @@ values of ``ε``.
 - `tilde_m`: particle rest energy normalized to the reference value of ``pc``
 - `L`:       element length, in meters
 """
-@makekernel fastgtpsa=true function exact_drift!(i, coords::Coords, beta_0, gamsqr_0, tilde_m, L)
+@makekernel fastgtpsa=true function exact_drift!(i, coords::Coords, s, beta_0, gamsqr_0, tilde_m, L)
   v = coords.v
 
   rel_p = 1 + v[i,PZI]

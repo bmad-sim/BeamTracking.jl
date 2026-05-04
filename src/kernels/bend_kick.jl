@@ -37,7 +37,7 @@ Arguments
   end
 
   multipole_kick!(i, coords, mm, knl, ksl, 1)
-  exact_bend!(i, coords, g*L, g, k0, tilde_m, beta_0, L)
+  exact_bend!(i, coords, s, g*L, g, k0, tilde_m, beta_0, L)
   multipole_kick!(i, coords, mm, knl, ksl, 1)
 
   if !isnothing(radiation_params)
@@ -67,7 +67,7 @@ provided, a linear hard-edge fringe map is applied at both ends.
 - 'beta_0'   -- p0c/E0
 - 'L'        -- length
 """
-@makekernel fastgtpsa=true function exact_bend!(i, coords::Coords, theta, g, Kn0, tilde_m, beta_0, L)
+@makekernel fastgtpsa=true function exact_bend!(i, coords::Coords, s, theta, g, Kn0, tilde_m, beta_0, L)
   v = coords.v
   rel_p = 1 + v[i,PZI]
 
@@ -156,22 +156,22 @@ end
 end
 
 
-@makekernel function exact_bend_with_rotation!(i, coords::Coords, e1, e2, theta, a, g, Kn0, w, w_inv, tilde_m, beta_0, L)
+@makekernel function exact_bend_with_rotation!(i, coords::Coords, s, e1, e2, theta, a, g, Kn0, w, w_inv, tilde_m, beta_0, L)
   rotation!(i, coords, w, 0)
   linear_bend_fringe!(i, coords, a, tilde_m, 0, Kn0, e1, 1)
-  exact_bend!(i, coords, theta, g, Kn0, tilde_m, beta_0, L)
+  exact_bend!(i, coords, s, theta, g, Kn0, tilde_m, beta_0, L)
   linear_bend_fringe!(i, coords, a, tilde_m, 0, Kn0, e2, -1)
   rotation!(i, coords, w_inv, 0)
 end
 
 
 # This is separate because the spin can be transported exactly here
-@makekernel function exact_curved_drift!(i, coords::Coords, e1, e2, g, w, w_inv, a, tilde_m, beta_0, L) 
+@makekernel function exact_curved_drift!(i, coords::Coords, s, e1, e2, g, w, w_inv, a, tilde_m, beta_0, L) 
   rotation!(i, coords, w, 0)
   if !isnothing(coords.q)
     rotate_spin!(i, coords, a, g, tilde_m, SA[0], SA[0], SA[0], L / 2)
   end
-  exact_bend!(i, coords, g*L, g, 0, tilde_m, beta_0, L)
+  exact_bend!(i, coords, s, g*L, g, 0, tilde_m, beta_0, L)
   if !isnothing(coords.q)
     rotate_spin!(i, coords, a, g, tilde_m, SA[0], SA[0], SA[0], L / 2)
   end
