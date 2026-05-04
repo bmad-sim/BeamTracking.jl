@@ -131,7 +131,6 @@ function omega_field(i, coords::Coords, a, g, tilde_m, ax, ay, e_vec, b_vec, L)
       a, g, tilde_m, ax, ay, e_vec, b_vec, L
     )
     coords.state[i] = vifelse(!good_momenta & alive_at_start, STATE_LOST, coords.state[i])
-<<<<<<< HEAD
     alive = (coords.state[i] == STATE_ALIVE)
     pl2_1 = one(pl2)
     pl = sqrt(vifelse(good_momenta, pl2, pl2_1)) 
@@ -168,8 +167,6 @@ function omega_field(i, coords::Coords, a, g, tilde_m, ax, ay, e_vec, b_vec, L)
     oz = (b_perp_z + b_para_z + e_part_z) * L
 
     omega = (ox, oy, oz)
-=======
->>>>>>> eiad/implicit_2.0
   end end
   return omega
 end
