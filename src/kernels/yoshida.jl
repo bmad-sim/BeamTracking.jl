@@ -1,8 +1,8 @@
 # Utility to provide g for callbacks:
 function compute_g(::K, params::P) where {K, P}
   if K == typeof(bkb_multipole!)
-    g = params[7]
-    w = params[8]
+    g = params[5]
+    w = params[6]
     costilt = w[1]
     sintilt = w[4]
     gx = g*costilt
