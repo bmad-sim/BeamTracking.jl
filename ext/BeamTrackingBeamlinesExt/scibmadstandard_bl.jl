@@ -19,4 +19,6 @@
 @inline bend_bquadrupole(tm::SciBmadStandard, bunch, bendparams, bmultipoleparams, L)   = bend_bquadrupole(Yoshida(), bunch, bendparams, bmultipoleparams, L)  
 @inline bend_pure_bmultipole(tm::SciBmadStandard, bunch, bendparams, bmk, L)            = bend_pure_bmultipole(Yoshida(), bunch, bendparams, bmk, L)           
 @inline bend_bmultipole(tm::SciBmadStandard, bunch, bendparams, bmultipoleparams, L)    = bend_bmultipole(Yoshida(), bunch, bendparams, bmultipoleparams, L)         
-
+@inline implicit_in(tm::SciBmadStandard, bunch)                                         = implicit_in(Yoshida(), bunch)
+@inline implicit_body(tm::SciBmadStandard, bunch, fpp, bp, L)                           = implicit_body(Yoshida(), bunch, fpp, bp, L)
+@inline implicit_out(tm::SciBmadStandard, bunch)                                        = implicit_out(Yoshida(), bunch)

@@ -25,7 +25,7 @@
       tilde_m = mc2/p0c
       gamsqr_0 = 1 + 1/tilde_m^2
       beta_0 = 1/sqrt(1 + tilde_m^2)
-      return 0, 0, 0, false, beta_0, gamsqr_0, tilde_m, a, Ksol, mm, kn, sn, L
+      return 0, nothing, beta_0, gamsqr_0, tilde_m, a, Ksol, mm, kn, sn, L
     end
 
     function mk_args(::Type{T}) where {T}
@@ -43,7 +43,7 @@
       tilde_m = mc2/p0c
       gamsqr_0 = 1 + 1/tilde_m^2
       beta_0 = 1/sqrt(1 + tilde_m^2)
-      return 0, 0, 0, false, beta_0, gamsqr_0, tilde_m, a, w, w_inv, k1, mm, kn, ks, L
+      return 0, nothing, beta_0, gamsqr_0, tilde_m, a, w, w_inv, k1, mm, kn, ks, L
     end
 
     function dk_args(::Type{T}) where {T}
@@ -61,7 +61,7 @@
       tilde_m = mc2/p0c
       gamsqr_0 = 1 + 1/tilde_m^2
       beta_0 = 1/sqrt(1 + tilde_m^2)
-      return 0, 0, 0, false, beta_0, gamsqr_0, tilde_m, a, mm, kn, ks, L
+      return 0, nothing, beta_0, gamsqr_0, tilde_m, a, mm, kn, ks, L
     end
 
     function bk_straight_args(::Type{T}) where {T}
@@ -79,7 +79,7 @@
       mc2 = T(massof(Species("electron")))
       tilde_m = mc2/p0c
       beta_0 = 1/sqrt(1 + tilde_m^2)
-      params = (0, 0, false, tilde_m, beta_0, a, 0, w, w_inv, Kn0, mm, kn, ks)
+      params = (nothing, tilde_m, beta_0, a, 0, w, w_inv, Kn0, mm, kn, ks)
       ker = BeamTracking.bkb_multipole!
       num_steps = 10
       ds_step = T(0.2)
@@ -101,7 +101,7 @@
       tilde_m = mc2/p0c
       gamsqr_0 = 1 + 1/tilde_m^2
       beta_0 = 1/sqrt(1 + tilde_m^2)
-      params = (0, 0, false, beta_0, gamsqr_0, tilde_m, a, mm, kn, ks)
+      params = (nothing, beta_0, gamsqr_0, tilde_m, a, mm, kn, ks)
       ker = BeamTracking.dkd_multipole!
       num_steps = 1
       ds_step = T(2)
@@ -123,7 +123,7 @@
       mm = SA[]
       kn = SA[]
       ks = SA[]
-      return 0, 0, 0, false, beta_0, gamsqr_0, tilde_m, E_ref, a, omega, t0, E0_over_Rref, mm, kn, ks, L
+      return 0, nothing, beta_0, gamsqr_0, tilde_m, E_ref, a, omega, t0, E0_over_Rref, T(0), Val{false}(), mm, kn, ks, L
     end
     
     # Scalar parameters

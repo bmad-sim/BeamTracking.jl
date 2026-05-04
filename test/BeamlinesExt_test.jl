@@ -877,6 +877,23 @@
     @test b0.coords.v ≈ v_expected
     @test b0.coords.q ≈ q_expected 
 
+    function dipole(x, y, s, t, p)
+      g, Kn0 = p
+       potential = (0.0, 0.0, 0.0, -Kn0*(x + g*x^2/2))
+        jac = (0.0,            0.0, 0.0, 0.0,
+               0.0,            0.0, 0.0, 0.0,
+               0.0,            0.0, 0.0, 0.0,
+               -Kn0*(1 + g*x), 0.0, 0.0, 0.0)
+      return potential, jac
+    end
+    ele = LineElement(L=2.0, g_ref=0.1, four_potential=dipole, four_potential_params=(0.1, 0.1), four_potential_normalized=true, tracking_method=Yoshida(order=6, num_steps=10, radiation_damping_on=true))
+    v = zeros(6)
+    b0 = Bunch(v, p_over_q_ref=-18e9/C_LIGHT, species=Species("electron"))
+    bl = Beamline([ele], p_over_q_ref=-18e9/C_LIGHT, species_ref=Species("electron"))
+    track!(b0, bl)
+    v_expected = [-0.0001092610284174973 -0.00016340536870756257 0.0 0.0 5.461341618518875e-6 -0.0016395105602759578]
+    @test b0.coords.v ≈ v_expected
+
     # Particle lost in dipole (momentum is too small):
     b0 = Bunch([0.4 0.4 0.4 0.4 0.4 -0.5], [1.0 0.0 0.0 0.0], p_over_q_ref=p_over_q_ref, species=Species("electron"))
     v_init = copy(b0.coords.v)

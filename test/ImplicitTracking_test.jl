@@ -5,25 +5,25 @@ E_to_R, E_to_v, implicit_integrator!, order_eight_integrator!
 function sol(x, y, s, t, Ksol)
   potential = (0.0, -Ksol*y/2, Ksol*x/2, 0.0)
   jac = (0.0,    0.0,     0.0, 0.0,
-          0.0,    -Ksol/2, 0.0, 0.0,
-          Ksol/2, 0.0,     0.0, 0.0,
-          0.0,    0.0,     0.0, 0.0)
+        0.0,    -Ksol/2, 0.0, 0.0,
+        Ksol/2, 0.0,     0.0, 0.0,
+        0.0,    0.0,     0.0, 0.0)
   return potential, jac
 end
 
 function dipole(x, y, s, t, p)
   g, Kn0 = p
   potential = (0.0, 0.0, 0.0, -Kn0*(x + g*x^2/2))
-  jac = (0.0,            0.0, 0.0, 0.0,
-          0.0,            0.0, 0.0, 0.0,
-          0.0,            0.0, 0.0, 0.0,
-          -Kn0*(1 + g*x), 0.0, 0.0, 0.0)
+  jac = (0.0,           0.0, 0.0, 0.0,
+        0.0,            0.0, 0.0, 0.0,
+        0.0,            0.0, 0.0, 0.0,
+        -Kn0*(1 + g*x), 0.0, 0.0, 0.0)
   return potential, jac
 end
 
 function oct(x, y, s, t, Kn3)
   potential = (0.0, 0.0, 0.0, -Kn3/24*(x^4 - 6*x^2*y^2 + y^4))
-  jac = (0.0,            0.0, 0.0, 0.0,
+  jac =  (0.0,            0.0, 0.0, 0.0,
           0.0,            0.0, 0.0, 0.0,
           0.0,            0.0, 0.0, 0.0,
           -Kn3/6*(x^3 - 3*x*y^2), -Kn3/6*y*(y^2 - 3*x^2), 0.0, 0.0)
