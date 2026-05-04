@@ -1,10 +1,4 @@
-<<<<<<< HEAD
 @inline drift(tm::SciBmadStandard, bunch, L) = drift(Exact(), bunch, L) 
-=======
-# Note: for exact transformations, use Yoshida order 2 because higher orders won't increase accuracy
-@inline drift(tm::SciBmadStandard, bunch, L) = drift(Yoshida(order=2), bunch, L) 
-@inline pure_patch(tm::SciBmadStandard, bunch, patchparams, L) = pure_patch(Exact(), bunch, patchparams, L)
->>>>>>> eiad/implicit_2.0
 
 @inline pure_rf(tm::SciBmadStandard, bunch, rfparams, beamlineparams, L)                = pure_rf(Yoshida(), bunch, rfparams, beamlineparams, L)                        
 @inline pure_bsolenoid(tm::SciBmadStandard, bunch, bm0, L)                              = pure_bsolenoid(Yoshida(order=2), bunch, bm0, L)                             
