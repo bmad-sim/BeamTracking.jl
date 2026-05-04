@@ -33,11 +33,13 @@ struct KernelChain{C<:Tuple{Vararg{<:KernelCall}}, S<:Union{Nothing,RefState}}
 end
 
 # In case KernelChain contains batch GPU array
-# Adapt.@adapt_structure KernelChain
+Adapt.@adapt_structure KernelChain
+
+#=
 function Adapt.adapt_structure(to, obj::KernelChain)
   return KernelChain(Adapt.adapt_structure(to, obj.chain), Adapt.adapt_structure(to, obj.ref))
 end
-
+=#
 KernelChain(::Val{N}, ref=nothing) where {N} = KernelChain(ntuple(t->KernelCall(), Val{N}()), ref)
 
 push(kc::KernelChain, kcall::Nothing) = kc
