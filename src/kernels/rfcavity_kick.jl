@@ -56,12 +56,18 @@ nontrivial and this implementation still may not be optimal.
   pz = v[i,PZI]
   rel_p = 1 + pz
   y = beta_0*(2*pz + pz*pz)
-  ptau = y/(1 + sqrt(1 + beta_0*y)) + phi
+  good = (beta_0*y > -1)
+  alive_at_start = (coords.state[i] == STATE_ALIVE)
+  coords.state[i] = vifelse(!good & alive_at_start, STATE_LOST, coords.state[i])
+  alive = (coords.state[i] == STATE_ALIVE)
+  y_1 = one(y)
+  x = 1 + beta_0*y
+  ptau = y/(1 + sqrt(vifelse(good, x, y_1))) + phi
   beta = rel_p/sqrt(rel_p*rel_p + tilde_m*tilde_m)
   tau = v[i,ZI]/beta
 
-  v[i,ZI]  = tau
-  v[i,PZI] = ptau
+  v[i,ZI]  = vifelse(alive, tau, v[i,ZI])
+  v[i,PZI] = vifelse(alive, ptau, v[i,PZI])
 end
 
 
@@ -75,13 +81,19 @@ nontrivial and this implementation still may not be optimal.
 
   ptau = v[i,PZI]
   y = ptau*2/beta_0 + ptau*ptau - phi*2/beta_0 + phi*phi - 2*ptau*phi
-  pz = y/(1 + sqrt(1 + y))
+  good = (y > -1)
+  alive_at_start = (coords.state[i] == STATE_ALIVE)
+  coords.state[i] = vifelse(!good & alive_at_start, STATE_LOST, coords.state[i])
+  alive = (coords.state[i] == STATE_ALIVE)
+  y_1 = one(y)
+  x = 1 + y
+  pz = y/(1 + sqrt(vifelse(good, x, y_1)))
   rel_p = 1 + pz
   beta = rel_p/sqrt(rel_p*rel_p + tilde_m*tilde_m)
   z = v[i,ZI]*beta
 
-  v[i,ZI]  = z
-  v[i,PZI] = pz
+  v[i,ZI]  = vifelse(alive, z, v[i,ZI])
+  v[i,PZI] = vifelse(alive, pz, v[i,PZI])
 end
 
 
