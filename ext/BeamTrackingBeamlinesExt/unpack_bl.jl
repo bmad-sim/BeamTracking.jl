@@ -243,7 +243,6 @@ function universal!(
     kc = push(kc, @inline(aperture(tm, bunch, apertureparams, false)))
   end
 
-  @show kc
   # noinline necessary here for small binaries and faster execution
   @noinline launch!(coords, kc; kwargs...)
 
