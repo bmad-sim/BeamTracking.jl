@@ -12,13 +12,13 @@
   fin  = fringe_in(tm.fringe_at)
   fout = fringe_out(tm.fringe_at)
   if order == 2
-    return KernelCall(BeamTracking.order_two_integrator!, (ker, params, photon_params, ds_step, num_steps, edge_params, fin, fout, L))
+    return make_kernel_call(BeamTracking.order_two_integrator!, (ker, params, photon_params, ds_step, num_steps, edge_params, fin, fout, L))
   elseif order == 4
-    return KernelCall(BeamTracking.order_four_integrator!, (ker, params, photon_params, ds_step, num_steps, edge_params, fin, fout, L))
+    return make_kernel_call(BeamTracking.order_four_integrator!, (ker, params, photon_params, ds_step, num_steps, edge_params, fin, fout, L))
   elseif order == 6
-    return KernelCall(BeamTracking.order_six_integrator!, (ker, params, photon_params, ds_step, num_steps, edge_params, fin, fout, L))
+    return make_kernel_call(BeamTracking.order_six_integrator!, (ker, params, photon_params, ds_step, num_steps, edge_params, fin, fout, L))
   elseif order == 8
-    return KernelCall(BeamTracking.order_eight_integrator!, (ker, params, photon_params, ds_step, num_steps, edge_params, fin, fout, L))
+    return make_kernel_call(BeamTracking.order_eight_integrator!, (ker, params, photon_params, ds_step, num_steps, edge_params, fin, fout, L))
   end
 end
 
@@ -30,10 +30,10 @@ end
   knl, ksl = get_integrated_strengths(bm, 0, p_over_q_ref)
   params = (SA[mm], SA[knl], SA[ksl], -1)
   if isnothing(bunch.coords.q)
-    return KernelCall(BeamTracking.multipole_kick!, params)
+    return make_kernel_call(BeamTracking.multipole_kick!, params)
   else  
     tilde_m = 1/BeamTracking.R_to_beta_gamma(bunch.species, p_over_q_ref)
-    return KernelCall(BeamTracking.integrate_with_spin_thin!, 
+    return make_kernel_call(BeamTracking.integrate_with_spin_thin!, 
       (BeamTracking.multipole_kick!, params, gyromagnetic_anomaly(bunch.species), 0, tilde_m, SA[mm], SA[knl], SA[ksl]))
   end
 end
@@ -44,10 +44,10 @@ end
   knl, ksl = get_integrated_strengths(bm, 0, p_over_q_ref)
   params = (mm, knl, ksl, -1)
   if isnothing(bunch.coords.q)
-    return KernelCall(BeamTracking.multipole_kick!, params)
+    return make_kernel_call(BeamTracking.multipole_kick!, params)
   else  
     tilde_m = 1/BeamTracking.R_to_beta_gamma(bunch.species, p_over_q_ref)
-    return KernelCall(BeamTracking.integrate_with_spin_thin!, 
+    return make_kernel_call(BeamTracking.integrate_with_spin_thin!, 
       (BeamTracking.multipole_kick!, params, gyromagnetic_anomaly(bunch.species), 0, tilde_m, mm, knl, ksl))
   end
 end

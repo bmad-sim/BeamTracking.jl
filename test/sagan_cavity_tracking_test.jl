@@ -60,24 +60,24 @@ a = 0.1
 @testset "SaganCavityKernel" begin
   args = (Val{true}(), Val{false}(), mass, q, P0c, dE, t_ref, Val{true}(), order, Bn, Bs, a, q*voltage, rf_omega, t_phi0)
   bunch = Bunch(copy(vb1), deepcopy(quat1))
-  BT.launch!(bunch.coords, KernelCall(BT.sagan_cavity_zero_L!, args))
+  BT.launch!(bunch.coords, make_kernel_call(BT.sagan_cavity_zero_L!, args))
   @test bunch.coords.v ≈ out1
   @test bunch.coords.q ≈ qout1
-  test_matrix(m1out, KernelCall(BT.sagan_cavity_zero_L!, args), printit = printit)
+  test_matrix(m1out, make_kernel_call(BT.sagan_cavity_zero_L!, args), printit = printit)
 
   args = (Val{true}(), Val{false}(), mass, q, P0c, dE, t_ref, Val{true}(), Val{true}(), order, Bn, Bs, a, q*voltage, rf_omega, t_phi0, L)
   bunch = Bunch(copy(vb1), deepcopy(quat1))
-  BT.launch!(bunch.coords, KernelCall(BT.sagan_cavity_zero_L_active!, args))
+  BT.launch!(bunch.coords, make_kernel_call(BT.sagan_cavity_zero_L_active!, args))
   @test bunch.coords.v ≈ out2
   @test bunch.coords.q ≈ qout2
-  test_matrix(m2out, KernelCall(BT.sagan_cavity_zero_L_active!, args))
+  test_matrix(m2out, make_kernel_call(BT.sagan_cavity_zero_L_active!, args))
 
   args = (Val{true}(), Val{false}(), Val{false}(), mass, q, P0c, dE, t_ref, 2.0, Val{true}(), Val{true}(), order, Bn, Bs, a, q*gradient, rf_omega, t_phi0, L_active, L)
   bunch = Bunch(copy(vb1), deepcopy(quat1))
-  BT.launch!(bunch.coords, KernelCall(BT.sagan_cavity_thick!, args))
+  BT.launch!(bunch.coords, make_kernel_call(BT.sagan_cavity_thick!, args))
   if printit; println(bunch.coords.v); end
   if printit; println(bunch.coords.q); end
   @test bunch.coords.v ≈ out3
   @test bunch.coords.q ≈ qout3
-  test_matrix(m3out, KernelCall(BT.sagan_cavity_thick!, args), printit = printit)
+  test_matrix(m3out, make_kernel_call(BT.sagan_cavity_thick!, args), printit = printit)
 end

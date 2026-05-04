@@ -8,20 +8,15 @@ blank_kernel!(args...) = nothing
 @kwdef struct KernelCall{K,A}
   kernel::K = blank_kernel!
   args::A   = ()
-  function KernelCall(kernel, args)
-    _args = map(t->time_lower(batch_lower(t)), args)
-    new{typeof(kernel),typeof(_args)}(kernel, _args)
-  end 
-  KernelCall{K,A}(kernel::K, args::A) where {K,A} = new{K,A}(kernel, args)
+end
+
+function make_kernel_call(kernel, args)
+  _args = map(t->time_lower(batch_lower(t)), args)
+  return KernelCall(kernel, _args)
 end
 
 # In case KernelCall contains batch GPU array
 Adapt.@adapt_structure KernelCall
-#=
-function Adapt.adapt_structure(to, obj::KernelCall)
-  return KernelCall(Adapt.adapt_structure(to, obj.kernel), Adapt.adapt_structure(to, obj.args))
-end
-=#
 
 # Store the state of the reference coordinate system
 # Needed for time-dependent parameters

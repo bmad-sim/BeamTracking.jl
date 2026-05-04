@@ -70,7 +70,7 @@ function universal!(
     p_over_q_ref_initial = bunch.p_over_q_ref
     p_over_q_ref_final = p_over_q_ref(bunch.t_ref)
     if !(p_over_q_ref_initial ≈ p_over_q_ref_final)
-      kc = push(kc, KernelCall(BeamTracking.reference_momentum_shift!, (p_over_q_ref_initial, 
+      kc = push(kc, make_kernel_call(BeamTracking.reference_momentum_shift!, (p_over_q_ref_initial, 
                                        p_over_q_ref_final-p_over_q_ref_initial, !ramp_without_rf)))
       setfield!(bunch, :p_over_q_ref, p_over_q_ref_final)
     end
@@ -272,7 +272,7 @@ function universal!(coords, tm::SaganCavity, ele, ramp_without_rf, bunch, L,
     p_over_q_ref_initial = bunch.p_over_q_ref
     p_over_q_ref_final = p_over_q_ref(bunch.t_ref)
     if !(p_over_q_ref_initial ≈ p_over_q_ref_final)
-      kc = push(kc, KernelCall(BeamTracking.reference_momentum_shift!, (p_over_q_ref_initial, 
+      kc = push(kc, make_kernel_call(BeamTracking.reference_momentum_shift!, (p_over_q_ref_initial, 
                                        p_over_q_ref_final-p_over_q_ref_initial, !ramp_without_rf)))
       setfield!(bunch, :p_over_q_ref, p_over_q_ref_final)
     end

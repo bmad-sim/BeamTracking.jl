@@ -18,19 +18,19 @@
     if entering
       dr, q = BeamTracking.coord_alignment_bend_entering(x_off, y_off, z_off, 
                 x_rot, y_rot, tilt, bendparams.g_ref, bendparams.tilt_ref, ele_orient, L)
-      return KernelCall(BeamTracking.track_coord_transform!, (dr, q))
+      return make_kernel_call(BeamTracking.track_coord_transform!, (dr, q))
     else
       dr, q = BeamTracking.coord_alignment_bend_exiting(x_off, y_off, z_off, 
                 x_rot, y_rot, tilt, bendparams.g_ref, bendparams.tilt_ref, ele_orient, L)
-      return KernelCall(BeamTracking.track_coord_transform!, (dr, q))
+      return make_kernel_call(BeamTracking.track_coord_transform!, (dr, q))
     end
 
   else
     if entering
-      return KernelCall(BeamTracking.track_alignment_straight_entering!, (x_off, y_off, z_off, 
+      return make_kernel_call(BeamTracking.track_alignment_straight_entering!, (x_off, y_off, z_off, 
                                                      x_rot, y_rot, tilt, ele_orient, L))
     else
-      return KernelCall(BeamTracking.track_alignment_straight_exiting!, (x_off, y_off, z_off, 
+      return make_kernel_call(BeamTracking.track_alignment_straight_exiting!, (x_off, y_off, z_off, 
                                                      x_rot, y_rot, tilt, ele_orient, L))
     end
   end
@@ -45,16 +45,16 @@ end
   y2 = apertureparams.y2_limit
 
   if entering && apertureparams.aperture_at == ApertureAt.Exit
-      return KernelCall()
+      return make_kernel_call()
   elseif !entering && apertureparams.aperture_at == ApertureAt.Entrance
-      return KernelCall()
+      return make_kernel_call()
   elseif apertureparams.aperture_shape == ApertureShape.Elliptical
     if any(isinf, (x1, x2, y1, y2))
       error("Invalid ApertureParams limits for elliptical aperture: check if all limits have been set")
     end
-    return KernelCall(BeamTracking.track_aperture_elliptical!, (x1, x2, y1, y2))
+    return make_kernel_call(BeamTracking.track_aperture_elliptical!, (x1, x2, y1, y2))
   else  
-    return KernelCall(BeamTracking.track_aperture_rectangular!, (x1, x2, y1, y2))
+    return make_kernel_call(BeamTracking.track_aperture_rectangular!, (x1, x2, y1, y2))
   end
 end
 
@@ -70,7 +70,7 @@ end
 
 #---------------------------------------------------------------------------------------------------
 
-@inline pure_map(tm, bunch, mapparams, L) = KernelCall(BeamTracking.map!, (mapparams.transport_map, mapparams.transport_map_params, L))
+@inline pure_map(tm, bunch, mapparams, L) = make_kernel_call(BeamTracking.map!, (mapparams.transport_map, mapparams.transport_map_params, L))
 
 #---------------------------------------------------------------------------------------------------
 
@@ -143,5 +143,5 @@ end
                                                                                                  sigma_inv[6,6])
   
   params = (backend, tilde_m, gamma_0, Val{tm.ibs_damping_on}(), Val{tm.ibs_fluctuations_on}(), b_coeff, integrals, diffusion_lambdas, diffusion_P, P, sigma_inv_t, means, g, w, w_inv, L)
-  return KernelCall(BeamTracking.ibs_damping_and_diffusion!, params)
+  return make_kernel_call(BeamTracking.ibs_damping_and_diffusion!, params)
 end
