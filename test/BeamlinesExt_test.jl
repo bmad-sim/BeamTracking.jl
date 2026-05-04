@@ -756,7 +756,7 @@
     v_expected = [0.14844043934151196 0.01019264367221814 -0.00269118775927293 -0.00153213180245353 0.046619484431963405 0.0600001992395169]
     q_expected = [0.4182448759327037 0.00112479589051007 -0.00026561236717118287 -0.9083335775145173]
     @test b0.coords.v ≈ v_expected
-    @test b0.coords.q ≈ q_expected || b0.coords.q ≈ -q_expected
+    @test b0.coords.q ≈ q_expected
 
     # With sextupole:
     ele = LineElement(L=4.01667, voltage=3321.0942126011, zero_phase=PhaseReference.AboveTransition,  rf_frequency=591142.68014977, phi0=0.1, Kn2=1.3, tracking_method=Yoshida(order=6, num_steps=20))
@@ -768,10 +768,10 @@
     v_expected = [0.11924424064353095 0.05139343591364565 0.22257164275272448 0.08178778488624713 0.04410474005001025 0.05996700254315476]
     q_expected = [0.9996797773832821 -0.020232635960537492 0.015198115217757237 -2.0659959944872022e-5]
     @test b0.coords.v ≈ v_expected
-    @test b0.coords.q ≈ q_expected || b0.coords.q ≈ -q_expected
+    @test b0.coords.q ≈ q_expected
 
     # With solenoid and quadrupole:
-    ele = LineElement(L=4.01667, voltage=3321.0942126011,  zero_phase=PhaseReference.AboveTransition, rf_frequency=591142.68014977, Ksol=-0.3, Kn1=0.15, tracking_method=Yoshida(order=6, num_steps=20, fringe_at=Fringe.NoEnd))
+    ele = LineElement(L=4.01667, voltage=3321.0942126011, zero_phase=PhaseReference.AboveTransition, rf_frequency=591142.68014977, Ksol=-0.3, Kn1=0.15, tracking_method=Yoshida(order=6, num_steps=20, fringe_at=Fringe.NoEnd))
     v = [0.01 0.02 0.03 0.04 0.05 0.06]
     q = [1.0 0.0 0.0 0.0]
     b0 = Bunch(v, q, p_over_q_ref=p_over_q_ref, species=Species("electron"))
@@ -780,7 +780,7 @@
     v_expected = [-0.06425313141616465 -0.016053284947290265 0.2828816007928012 0.11181265178119304 0.04054713815327194 0.06000019363164233]
     q_expected = [0.8408669037648832 -0.03581645006820144 0.0065436536214155076 0.5400159374080092]
     @test b0.coords.v ≈ v_expected
-    @test b0.coords.q ≈ q_expected || b0.coords.q ≈ -q_expected
+    @test b0.coords.q ≈ q_expected
 
     # Bend with deterministic radiation:
     ele = LineElement(L=2.0, g=0.1, tracking_method=BendKick(order=6, radiation_damping_on=true))
@@ -854,7 +854,7 @@
     v_expected = [sin(0.01) 2*0.02 exp(0.03) 1-0.04 0.06 0.05]
     q_expected = [0.0 1/sqrt(2) 0.0 1/sqrt(2)]
     @test b0.coords.v ≈ v_expected
-    @test b0.coords.q ≈ q_expected || b0.coords.q ≈ -q_expected
+    @test b0.coords.q ≈ q_expected
 
     # Implicit:
     function crazy(x, y, s, t, p)
@@ -869,11 +869,11 @@
     ele = LineElement(four_potential=crazy, four_potential_params=(1.0, 1.0), four_potential_normalized=true, L=1.2, tracking_method=Yoshida(order=8, num_steps=60, radiation_damping_on=true))
     v = [0.01 0.02 0.03 0.04 0.05 0.06]
     q = [1.0 0.0 0.0 0.0]
-    b0 = Bunch(v, q, p_over_q_ref=-18e9/C_LIGHT, species=Species("electron"))
-    bl = Beamline([ele], p_over_q_ref=-18e9/C_LIGHT, species_ref=Species("electron"))
+    b0 = Bunch(v, q, p_over_q_ref=p_over_q_ref, species=Species("electron"))
+    bl = Beamline([ele], p_over_q_ref=p_over_q_ref, species_ref=Species("electron"))
     track!(b0, bl)
-    v_expected = [-0.24794117122676387 -0.7621581346830383 0.12143614880778619 0.024481117969862107 -0.006481844718705498 -0.0003806157078307523]
-    q_expected = [-0.8671095776608468 -0.16135398678020024 -0.405824923995721 0.23956627964481797]
+    v_expected = [-0.24540112246103782 -0.7846013184552288 0.12024259722147093 0.031368656927501536 -0.004848169943849862 0.05999999971081322]
+    q_expected = [0.9149630270850545 -0.0023107478986964395 -0.31231391206369696 -0.2555334417275888]
     @test b0.coords.v ≈ v_expected
     @test b0.coords.q ≈ q_expected 
 

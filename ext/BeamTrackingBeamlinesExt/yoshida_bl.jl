@@ -414,7 +414,7 @@ end
   a = gyromagnetic_anomaly(bunch.species)
   edge_params = (a, tilde_m, Ksol, Kn0, 0, 0)
   radiation_params = ifelse(tm.radiation_damping_on, (q, mc2, E_ref), nothing)
-  params = (radiation_params, beta_0, gamsqr_0, tilde_m, E_ref, a, omega, t_ref, E0_normalized, Ksol, Val{Ksol > 0}(), mm, kn, ks)
+  params = (radiation_params, beta_0, gamsqr_0, tilde_m, E_ref, a, omega, t_ref, E0_normalized, Ksol, Val{abs(Ksol) > 0}(), mm, kn, ks)
   if isprimitivetype(eltype(bunch.coords.v)) && tm.radiation_fluctuations_on
     photon_params = (BeamTracking.cavity!, get_backend(bunch.coords.v), q, mc2, E_ref, omega, t_ref, E0_normalized, mm, kn, ks)
   else
@@ -425,12 +425,23 @@ end
 
 
 # =========== IMPLICIT ============= #
-@inline function implicit(tm::Yoshida, bunch, fpp, bp, L)
+@inline function implicit_in(tm::Yoshida, bunch)
   p_over_q_ref = bunch.p_over_q_ref
   tilde_m, _, beta_0 = BeamTracking.drift_params(bunch.species, p_over_q_ref)
-  g = bp.g_ref
-  tilt = bp.tilt_ref
-  (e1 ≈ 0 && e2 ≈ 0) || error("Edge angles are not used in implicit integration")
+  return KernelCall(BeamTracking.bmad_to_mad!, (beta_0, tilde_m, 0))
+end
+
+@inline function implicit_body(tm::Yoshida, bunch, fpp, bp, L)
+  p_over_q_ref = bunch.p_over_q_ref
+  tilde_m, _, beta_0 = BeamTracking.drift_params(bunch.species, p_over_q_ref)
+  if !isnothing(bp)
+    g = bp.g_ref
+    tilt = bp.tilt_ref
+    (bp.e1 ≈ 0 && bp.e2 ≈ 0) || error("Edge angles are not used in implicit integration")
+  else
+    g = 0
+    tilt = 0
+  end
   potential_and_jac = fpp.four_potential
   potential_params = fpp.four_potential_params
   normalized = Val{fpp.four_potential_normalized}()
@@ -448,4 +459,10 @@ end
     photon_params = nothing
   end
   return integration_launcher(BeamTracking.implicit_integrator!, params, photon_params, tm, nothing, L)
+end
+
+@inline function implicit_out(tm::Yoshida, bunch)
+  p_over_q_ref = bunch.p_over_q_ref
+  tilde_m, _, beta_0 = BeamTracking.drift_params(bunch.species, p_over_q_ref)
+  return KernelCall(BeamTracking.mad_to_bmad!, (beta_0, tilde_m, 0))
 end
