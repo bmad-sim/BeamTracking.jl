@@ -16,7 +16,7 @@ blank_kernel!(args...) = nothing
 end
 
 # In case KernelCall contains batch GPU array
-#Adapt.@adapt_structure KernelCall
+Adapt.@adapt_structure KernelCall
 #=
 function Adapt.adapt_structure(to, obj::KernelCall)
   return KernelCall(Adapt.adapt_structure(to, obj.kernel), Adapt.adapt_structure(to, obj.args))
