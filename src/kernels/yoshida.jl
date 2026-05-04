@@ -1,3 +1,26 @@
+# Utility to provide g for callbacks:
+function compute_g(::K, params::P) where {K, P}
+  if K == typeof(bkb_multipole!)
+    g = params[7]
+    w = params[8]
+    costilt = w[1]
+    sintilt = w[4]
+    gx = g*costilt
+    gy = g*sintilt
+    return (gx, gy)
+  elseif K == typeof(exact_curved_drift!)
+    g = params[3]
+    w = params[4]
+    costilt = w[1]
+    sintilt = w[4] 
+    gx = g*costilt
+    gy = g*sintilt
+    return (gx, gy)
+  else
+    return (0, 0)
+  end
+end
+
 #
 # ===============  I N T E G R A T O R S  ===============
 #
@@ -18,6 +41,7 @@
       if !isnothing(photon_params) && (step < num_steps)
         stochastic_radiation!(i, coords, s, photon_params..., ds_step)
       end
+      execute_callbacks(coords, ds_step, compute_g(ker, params))
     end
     if !isnothing(photon_params)
       stochastic_radiation!(i, coords, s, photon_params..., ds_step / 2)
@@ -53,6 +77,7 @@ end
       if !isnothing(photon_params) && (step < num_steps)
         stochastic_radiation!(i, coords, s, photon_params..., ds_step)
       end
+      execute_callbacks(coords, ds_step, compute_g(ker, params))
     end
     if !isnothing(photon_params)
       stochastic_radiation!(i, coords, s, photon_params..., ds_step / 2)
@@ -98,6 +123,7 @@ end
       if !isnothing(photon_params) && (step < num_steps)
         stochastic_radiation!(i, coords, s, photon_params..., ds_step)
       end
+      execute_callbacks(coords, ds_step, compute_g(ker, params))
     end
     if !isnothing(photon_params)
       stochastic_radiation!(i, coords, s, photon_params..., ds_step / 2)
@@ -163,6 +189,7 @@ end
       if !isnothing(photon_params) && (step < num_steps)
         stochastic_radiation!(i, coords, s, photon_params..., ds_step)
       end
+      execute_callbacks(coords, ds_step, compute_g(ker, params))
     end
     if !isnothing(photon_params)
       stochastic_radiation!(i, coords, s, photon_params..., ds_step / 2)
