@@ -187,6 +187,7 @@ function implicit_step!(i, coords::Coords, s, beta_0, tilde_m, g, potential_and_
         TPSAInterface.clear!(f3[j])
         TPSAInterface.seti!(f3[j], 1, j)
       end
+      # For now use GTPSA's compose, long term should use TI
       v_final = Tuple(v_new .+ (f2 ∘ f3)[1:6])
     elseif eltype(v) <: ForwardDiff.Dual
       A, B, C = let vx = v_orig[XI],
