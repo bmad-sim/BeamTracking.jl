@@ -181,7 +181,7 @@ function implicit_step!(i, coords::Coords, s, beta_0, tilde_m, g, potential_and_
       GTPSA.pminv!(nn, f, 6, f2, inds)
 
       for j in 1:6
-        f3[j] = cutord(v_final[j], 0)
+        f3[j] = TPSAInterface.cutord(v_final[j], 0)
       end
       for j in 7:nn
         f3[j] = 0
