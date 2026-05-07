@@ -45,18 +45,18 @@ function implicit_step!(i, coords::Coords, s, beta_0, tilde_m, g, potential_and_
 
     if eltype(v) <: TPS
       nn = TPSAInterface.ndiffs(v[i,1])
-      f = similar(v[i,:], nn)
+      f = similar(eltype(v), nn)
       for j in 1:nn
-        f[j] = 0
-        f[j][j] = 1
+        f[j] = zero(v[i,XI])
+        TPSAInterface.seti!(f[j], 1, j)
       end
   
-      f[XI][0]  =  v_new[XI]
-      f[YI][0]  =  v_new[YI]
-      f[ZI][0]  =  v_new[ZI]
-      f[PXI][0] = v_orig[PXI]
-      f[PYI][0] = v_orig[PYI]
-      f[PZI][0] = v_orig[PZI]
+      TPSAInterface.seti!(f[XI],   v_new[XI],   0)
+      TPSAInterface.seti!(f[YI],   v_new[YI],   0)
+      TPSAInterface.seti!(f[ZI],   v_new[ZI],   0)
+      TPSAInterface.seti!(f[PXI],  v_orig[PXI], 0)
+      TPSAInterface.seti!(f[PYI],  v_orig[PYI], 0)
+      TPSAInterface.seti!(f[PZI],  v_orig[PZI], 0)
 
       d1 = ds/2 .* dH_dx(f, s, beta_0, tilde_m, g, potential_and_jac, potential_params, p_over_q_ref, Val{normalized}())
       d2 = ds/2 .* dH_dp(f, s, beta_0, tilde_m, g, potential_and_jac, potential_params, p_over_q_ref, Val{normalized}())
@@ -69,20 +69,24 @@ function implicit_step!(i, coords::Coords, s, beta_0, tilde_m, g, potential_and_
       f[PZI] = f[PZI] - v_new[PZI] - d1[3]
 
       f2 = zero(f)
-      inds = zeros(Int, nn)
+      inds = zeros(Cint, nn)
       inds[XI] = 1
       inds[YI] = 1
       inds[ZI] = 1
+      # Long term solution would be to move pminv into TPSAInterface,
+      # For now use GTPSA directly
       GTPSA.pminv!(nn, f, 6, f2, inds)
 
       f3 = zero(f)
       for j in 1:6
-        f3[j] = cutord(v[i,j], 0)
+        f3[j] = TPSAInterface.cutord(v[i,j], 0)
       end
       for j in 7:nn
         f3[j] = 0
-        f3[j][j] = 1
+        TPSAInterface.seti!(f3[j], 1, j)
       end
+      # Uses GTPSA's compose ∘, long term solution would be to move 
+      # to TPSAInterface
       v_final = Tuple(v_new .+ (f2 ∘ f3)[1:6])
       v_orig = v_new
     elseif eltype(v) <: ForwardDiff.Dual
@@ -108,7 +112,7 @@ function implicit_step!(i, coords::Coords, s, beta_0, tilde_m, g, potential_and_
       Mxx = inv(id .- A')
       Mxp = Mxx * B
       Mpx = -C * Mxx
-      Mpp = id .- A .- (C * Mxx * B)
+      Mpp = I - A - (C * Mxx * B)
       jac = SA[Mxx[1,1] Mxp[1,1] Mxx[1,2] Mxp[1,2] Mxx[1,3] Mxp[1,3];
               Mpx[1,1] Mpp[1,1] Mpx[1,2] Mpp[1,2] Mpx[1,3] Mpp[1,3];
               Mxx[2,1] Mxp[2,1] Mxx[2,2] Mxp[2,2] Mxx[2,3] Mxp[2,3];
@@ -149,16 +153,15 @@ function implicit_step!(i, coords::Coords, s, beta_0, tilde_m, g, potential_and_
 
     if eltype(v) <: TPS
       for j in 1:nn
-        f[j] = 0
-        f[j][j] = 1
+        TPSAInterface.clear!(f[j])
+        TPSAInterface.seti!(f[j], 1, j)
       end
-      f[XI][0]  = v_orig[XI]
-      f[YI][0]  = v_orig[YI]
-      f[ZI][0]  = v_orig[ZI]
-      f[PXI][0] = v_new[PXI]
-      f[PYI][0] = v_new[PYI]
-      f[PZI][0] = v_new[PZI]
-
+      TPSAInterface.seti!(f[XI],  v_orig[XI], 0)
+      TPSAInterface.seti!(f[YI],  v_orig[YI], 0)
+      TPSAInterface.seti!(f[ZI],  v_orig[ZI], 0)
+      TPSAInterface.seti!(f[PXI], v_new[PXI], 0)
+      TPSAInterface.seti!(f[PYI], v_new[PYI], 0)
+      TPSAInterface.seti!(f[PZI], v_new[PZI], 0)
       d1 = ds/2 .* dH_dx(f, s, beta_0, tilde_m, g, potential_and_jac, potential_params, p_over_q_ref, Val{normalized}())
       d2 = ds/2 .* dH_dp(f, s, beta_0, tilde_m, g, potential_and_jac, potential_params, p_over_q_ref, Val{normalized}())
 
@@ -178,12 +181,13 @@ function implicit_step!(i, coords::Coords, s, beta_0, tilde_m, g, potential_and_
       GTPSA.pminv!(nn, f, 6, f2, inds)
 
       for j in 1:6
-        f3[j] = cutord(v_final[j], 0)
+        f3[j] = TPSAInterface.cutord(v_final[j], 0)
       end
       for j in 7:nn
-        f3[j] = 0
-        f3[j][j] = 1
+        TPSAInterface.clear!(f3[j])
+        TPSAInterface.seti!(f3[j], 1, j)
       end
+      # For now use GTPSA's compose, long term should use TI
       v_final = Tuple(v_new .+ (f2 ∘ f3)[1:6])
     elseif eltype(v) <: ForwardDiff.Dual
       A, B, C = let vx = v_orig[XI],
@@ -202,10 +206,10 @@ function implicit_step!(i, coords::Coords, s, beta_0, tilde_m, g, potential_and_
         SA[vx, vy, vz])
         A, B, C
       end
-      Mpp = inv(id .+ A)
+      Mpp = inv(I + A)
       Mxp = B * Mpp
       Mpx = -Mpp * C
-      Mxx = id .+ A' .- (B * Mpp * C)
+      Mxx = I + A' - (B * Mpp * C)
       jac = SA[Mxx[1,1] Mxp[1,1] Mxx[1,2] Mxp[1,2] Mxx[1,3] Mxp[1,3];
                Mpx[1,1] Mpp[1,1] Mpx[1,2] Mpp[1,2] Mpx[1,3] Mpp[1,3];
                Mxx[2,1] Mxp[2,1] Mxx[2,2] Mxp[2,2] Mxx[2,3] Mxp[2,3];
@@ -593,7 +597,7 @@ function stochastic_radiation!(i, coords::Coords, s, ::typeof(implicit_integrato
 end
 
 
-scalar(x::TPS) = GTPSA.scalar(x)
+scalar(x::TPS) = TPSAInterface.scalar(x)
 scalar(x::ForwardDiff.Dual) = ForwardDiff.value(x)
 scalar(x) = x
 
