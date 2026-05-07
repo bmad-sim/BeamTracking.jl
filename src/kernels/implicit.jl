@@ -153,16 +153,15 @@ function implicit_step!(i, coords::Coords, s, beta_0, tilde_m, g, potential_and_
 
     if eltype(v) <: TPS
       for j in 1:nn
-        f[j] = 0
-        f[j][j] = 1
+        TPSAInterface.clear!(f[j])
+        TPSAInterface.seti!(f[j], 1, j)
       end
-      f[XI][0]  = v_orig[XI]
-      f[YI][0]  = v_orig[YI]
-      f[ZI][0]  = v_orig[ZI]
-      f[PXI][0] = v_new[PXI]
-      f[PYI][0] = v_new[PYI]
-      f[PZI][0] = v_new[PZI]
-
+      TPSAInterface.seti!(f[XI],  v_orig[XI], 0)
+      TPSAInterface.seti!(f[YI],  v_orig[YI], 0)
+      TPSAInterface.seti!(f[ZI],  v_orig[ZI], 0)
+      TPSAInterface.seti!(f[PXI], v_new[PXI], 0)
+      TPSAInterface.seti!(f[PYI], v_new[PYI], 0)
+      TPSAInterface.seti!(f[PZI], v_new[PZI], 0)
       d1 = ds/2 .* dH_dx(f, s, beta_0, tilde_m, g, potential_and_jac, potential_params, p_over_q_ref, Val{normalized}())
       d2 = ds/2 .* dH_dp(f, s, beta_0, tilde_m, g, potential_and_jac, potential_params, p_over_q_ref, Val{normalized}())
 
