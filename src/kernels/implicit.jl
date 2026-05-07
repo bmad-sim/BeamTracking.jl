@@ -45,10 +45,10 @@ function implicit_step!(i, coords::Coords, s, beta_0, tilde_m, g, potential_and_
 
     if eltype(v) <: TPS
       nn = TPSAInterface.ndiffs(v[i,1])
-      f = similar(v[i,:], nn)
+      f = similar(eltype(v), nn)
       for j in 1:nn
-        f[j] = 0
-        f[j][j] = 1
+        f[j] = zero(v[i,XI])
+        TPSAInterface.seti!(f[j], 1, j)
       end
   
       TPSAInterface.seti!(f[XI],   v_new[XI],   0)
