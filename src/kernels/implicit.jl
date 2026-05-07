@@ -184,8 +184,8 @@ function implicit_step!(i, coords::Coords, s, beta_0, tilde_m, g, potential_and_
         f3[j] = TPSAInterface.cutord(v_final[j], 0)
       end
       for j in 7:nn
-        f3[j] = 0
-        f3[j][j] = 1
+        TPSAInterface.clear!(f3[j])
+        TPSAInterface.seti!(f3[j], 1, j)
       end
       v_final = Tuple(v_new .+ (f2 ∘ f3)[1:6])
     elseif eltype(v) <: ForwardDiff.Dual
