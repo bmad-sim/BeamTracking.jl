@@ -478,17 +478,15 @@ end
 Solves Ax = y for x using Cramer's rule, where A is a 3x3 matrix and y is a 3-vector.
 """
 function solve_3x3_cramer(A, y)
-  @inbounds begin
-    y1, y2, y3 = y
-    a, b, c, d, e, f, g, h, i = A
+  y1, y2, y3 = y
+  a, b, c, d, e, f, g, h, i = A
 
-    det =  a*(e*i  - f*h)  -  b*(d*i  - f*g)  +  c*(d*h  - e*g)
-    d1  = y1*(e*i  - f*h)  -  b*(y2*i - f*y3) +  c*(y2*h - e*y3)
-    d2  =  a*(y2*i - f*y3) - y1*(d*i  - f*g)  +  c*(d*y3 - y2*g)
-    d3  =  a*(e*y3 - y2*h) -  b*(d*y3 - y2*g) + y1*(d*h  - e*g)
+  det =  a*(e*i  - f*h)  -  b*(d*i  - f*g)  +  c*(d*h  - e*g)
+  d1  = y1*(e*i  - f*h)  -  b*(y2*i - f*y3) +  c*(y2*h - e*y3)
+  d2  =  a*(y2*i - f*y3) - y1*(d*i  - f*g)  +  c*(d*y3 - y2*g)
+  d3  =  a*(e*y3 - y2*h) -  b*(d*y3 - y2*g) + y1*(d*h  - e*g)
 
-    return (d1/det, d2/det, d3/det)
-  end
+  return (d1/det, d2/det, d3/det)
 end
 
 
