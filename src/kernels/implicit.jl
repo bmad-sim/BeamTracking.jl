@@ -83,7 +83,7 @@ function implicit_step!(i, coords::Coords, s, beta_0, tilde_m, g, potential_and_
       end
       for j in 7:nn
         f3[j] = 0
-        f3[j][j] = 1
+        TPSAInterface.seti!(f3[j], 1, j)
       end
       # Uses GTPSA's compose ∘, long term solution would be to move 
       # to TPSAInterface
