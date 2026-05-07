@@ -595,7 +595,7 @@ function stochastic_radiation!(i, coords::Coords, s, ::typeof(implicit_integrato
 end
 
 
-scalar(x::TPS) = GTPSA.scalar(x)
+scalar(x::TPS) = TPSAInterface.scalar(x)
 scalar(x::ForwardDiff.Dual) = ForwardDiff.value(x)
 scalar(x) = x
 
