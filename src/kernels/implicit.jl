@@ -69,7 +69,7 @@ function implicit_step!(i, coords::Coords, s, beta_0, tilde_m, g, potential_and_
       f[PZI] = f[PZI] - v_new[PZI] - d1[3]
 
       f2 = zero(f)
-      inds = zeros(Int, nn)
+      inds = zeros(Cint, nn)
       inds[XI] = 1
       inds[YI] = 1
       inds[ZI] = 1
