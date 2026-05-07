@@ -206,7 +206,7 @@ function implicit_step!(i, coords::Coords, s, beta_0, tilde_m, g, potential_and_
         SA[vx, vy, vz])
         A, B, C
       end
-      Mpp = inv(id .+ A)
+      Mpp = inv(I + A)
       Mxp = B * Mpp
       Mpx = -Mpp * C
       Mxx = id .+ A' .- (B * Mpp * C)
