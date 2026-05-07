@@ -43,9 +43,9 @@ function implicit_step!(i, coords::Coords, s, beta_0, tilde_m, g, potential_and_
     p_new = (v_new[PXI], v_new[PYI], v_new[PZI]) .- (ds/2 .* scalar.(dH_dx(v_new, s, beta_0, tilde_m, g, potential_and_jac, potential_params, p_over_q_ref, Val{normalized}())))
     v_new = (v_new[XI], p_new[1], v_new[YI], p_new[2], v_new[ZI], p_new[3])
 
-    if eltype(v) <: TPS
+    if TPSAInterface.is_tps_type(eltype(v)) == TPSAInterface.IsTPSType()
       nn = TPSAInterface.ndiffs(v[i,1])
-      f = similar(eltype(v), nn)
+      f = zeros(eltype(v), nn)
       for j in 1:nn
         f[j] = zero(v[i,XI])
         TPSAInterface.seti!(f[j], 1, j)
@@ -112,13 +112,13 @@ function implicit_step!(i, coords::Coords, s, beta_0, tilde_m, g, potential_and_
       Mxx = inv(id .- A')
       Mxp = Mxx * B
       Mpx = -C * Mxx
-      Mpp = I - A - (C * Mxx * B)
+      Mpp = id - A - (C * Mxx * B)
       jac = SA[Mxx[1,1] Mxp[1,1] Mxx[1,2] Mxp[1,2] Mxx[1,3] Mxp[1,3];
-              Mpx[1,1] Mpp[1,1] Mpx[1,2] Mpp[1,2] Mpx[1,3] Mpp[1,3];
-              Mxx[2,1] Mxp[2,1] Mxx[2,2] Mxp[2,2] Mxx[2,3] Mxp[2,3];
-              Mpx[2,1] Mpp[2,1] Mpx[2,2] Mpp[2,2] Mpx[2,3] Mpp[2,3];
-              Mxx[3,1] Mxp[3,1] Mxx[3,2] Mxp[3,2] Mxx[3,3] Mxp[3,3];
-              Mpx[3,1] Mpp[3,1] Mpx[3,2] Mpp[3,2] Mpx[3,3] Mpp[3,3]]
+               Mpx[1,1] Mpp[1,1] Mpx[1,2] Mpp[1,2] Mpx[1,3] Mpp[1,3];
+               Mxx[2,1] Mxp[2,1] Mxx[2,2] Mxp[2,2] Mxx[2,3] Mxp[2,3];
+               Mpx[2,1] Mpp[2,1] Mpx[2,2] Mpp[2,2] Mpx[2,3] Mpp[2,3];
+               Mxx[3,1] Mxp[3,1] Mxx[3,2] Mxp[3,2] Mxx[3,3] Mxp[3,3];
+               Mpx[3,1] Mpp[3,1] Mpx[3,2] Mpp[3,2] Mpx[3,3] Mpp[3,3]]
       r1 = ForwardDiff.partials(v[i,1]).values
       r2 = ForwardDiff.partials(v[i,2]).values
       r3 = ForwardDiff.partials(v[i,3]).values
@@ -151,7 +151,7 @@ function implicit_step!(i, coords::Coords, s, beta_0, tilde_m, g, potential_and_
     x_new = (v_new[XI], v_new[YI], v_new[ZI]) .+ (ds/2 .* scalar.(dH_dp(v_new, s, beta_0, tilde_m, g, potential_and_jac, potential_params, p_over_q_ref, Val{normalized}())))
     v_new = (x_new[1], v_new[PXI], x_new[2], v_new[PYI], x_new[3], v_new[PZI])
 
-    if eltype(v) <: TPS
+    if TPSAInterface.is_tps_type(eltype(v)) == TPSAInterface.IsTPSType()
       for j in 1:nn
         TPSAInterface.clear!(f[j])
         TPSAInterface.seti!(f[j], 1, j)
@@ -206,10 +206,10 @@ function implicit_step!(i, coords::Coords, s, beta_0, tilde_m, g, potential_and_
         SA[vx, vy, vz])
         A, B, C
       end
-      Mpp = inv(I + A)
+      Mpp = inv(id + A)
       Mxp = B * Mpp
       Mpx = -Mpp * C
-      Mxx = I + A' - (B * Mpp * C)
+      Mxx = id + A' - (B * Mpp * C)
       jac = SA[Mxx[1,1] Mxp[1,1] Mxx[1,2] Mxp[1,2] Mxx[1,3] Mxp[1,3];
                Mpx[1,1] Mpp[1,1] Mpx[1,2] Mpp[1,2] Mpx[1,3] Mpp[1,3];
                Mxx[2,1] Mxp[2,1] Mxx[2,2] Mxp[2,2] Mxx[2,3] Mxp[2,3];
