@@ -73,6 +73,8 @@ function implicit_step!(i, coords::Coords, s, beta_0, tilde_m, g, potential_and_
       inds[XI] = 1
       inds[YI] = 1
       inds[ZI] = 1
+      # Long term solution would be to move pminv into TPSAInterface,
+      # For now use GTPSA directly
       GTPSA.pminv!(nn, f, 6, f2, inds)
 
       f3 = zero(f)
