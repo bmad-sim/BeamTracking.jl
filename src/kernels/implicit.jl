@@ -294,7 +294,7 @@ function find_root_x(v, s, beta_0, tilde_m, g, potential_and_jac::U, potential_p
       N += 1
     end
     if !conv
-      @warn "Implicit integrator's Newton search did not converge in $N_max iterations"
+      @warn "Implicit integrator's Newton search did not converge in $N_max iterations. Consider reducing the step size." maxlog=1
     end
     return x
   end
@@ -325,7 +325,7 @@ function find_root_p(v, s, beta_0, tilde_m, g, potential_and_jac::U, potential_p
       N += 1
     end
     if !conv
-      @warn "Implicit integrator's Newton search did not converge in $N_max iterations"
+      @warn "Implicit integrator's Newton search did not converge in $N_max iterations. Consider reducing the step size." maxlog=1
     end
     return p
   end
