@@ -85,6 +85,8 @@ function implicit_step!(i, coords::Coords, s, beta_0, tilde_m, g, potential_and_
         f3[j] = 0
         f3[j][j] = 1
       end
+      # Uses GTPSA's compose ∘, long term solution would be to move 
+      # to TPSAInterface
       v_final = Tuple(v_new .+ (f2 ∘ f3)[1:6])
       v_orig = v_new
     elseif eltype(v) <: ForwardDiff.Dual
