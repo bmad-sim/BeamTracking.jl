@@ -51,12 +51,12 @@ function implicit_step!(i, coords::Coords, s, beta_0, tilde_m, g, potential_and_
         f[j][j] = 1
       end
   
-      f[XI][0]  =  v_new[XI]
-      f[YI][0]  =  v_new[YI]
-      f[ZI][0]  =  v_new[ZI]
-      f[PXI][0] = v_orig[PXI]
-      f[PYI][0] = v_orig[PYI]
-      f[PZI][0] = v_orig[PZI]
+      TPSAInterface.seti!(f[XI],   v_new[XI],   0)
+      TPSAInterface.seti!(f[YI],   v_new[YI],   0)
+      TPSAInterface.seti!(f[ZI],   v_new[ZI],   0)
+      TPSAInterface.seti!(f[PXI],  v_orig[PXI], 0)
+      TPSAInterface.seti!(f[PYI],  v_orig[PYI], 0)
+      TPSAInterface.seti!(f[PZI],  v_orig[PZI], 0)
 
       d1 = ds/2 .* dH_dx(f, s, beta_0, tilde_m, g, potential_and_jac, potential_params, p_over_q_ref, Val{normalized}())
       d2 = ds/2 .* dH_dp(f, s, beta_0, tilde_m, g, potential_and_jac, potential_params, p_over_q_ref, Val{normalized}())
