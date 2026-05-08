@@ -303,7 +303,7 @@ function find_root_x(i, coords::Coords, v, s, beta_0, tilde_m, g, potential_and_
 end
 
 
-function find_root_p(i, coords::Coords, T, v, s, beta_0, tilde_m, g, potential_and_jac::U, potential_params, p_over_q_ref, normalized, ds) where {U}
+function find_root_p(i, coords::Coords, v, s, beta_0, tilde_m, g, potential_and_jac::U, potential_params, p_over_q_ref, normalized, ds) where {U}
   @inbounds begin
     ε = my_eps(v[1])
     T = eltype(v)
