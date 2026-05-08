@@ -37,8 +37,9 @@ function implicit_step!(i, coords::Coords, s, beta_0, tilde_m, g, potential_and_
     v_orig = scalar.((v[i,XI], v[i,PXI], v[i,YI], v[i,PYI], v[i,ZI], v[i,PZI]))
     v_new = v_orig
 
-    x_new, conv = scalar.(find_root_x(v_new, s, beta_0, tilde_m, g, potential_and_jac, potential_params, p_over_q_ref, Val{normalized}(), ds/2))
-    coords.state[i] = vifelse(alive_at_start & !conv, STATE_LOST_IMPLICIT_CONVERGENCE_FAILURE, coords.state[i])
+    x_new, conv = find_root_x(v_new, s, beta_0, tilde_m, g, potential_and_jac, potential_params, p_over_q_ref, Val{normalized}(), ds/2)
+    x_new = scalar.(x_new)
+    coords.state[i] = vifelse(alive_at_start & !conv, STATE_IMPLICIT_NONCONVERGENCE, coords.state[i])
     v_new = (x_new[1], v_new[PXI], x_new[2], v_new[PYI], x_new[3], v_new[PZI])
 
     p_new = (v_new[PXI], v_new[PYI], v_new[PZI]) .- (ds/2 .* scalar.(dH_dx(v_new, s, beta_0, tilde_m, g, potential_and_jac, potential_params, p_over_q_ref, Val{normalized}())))
@@ -110,7 +111,7 @@ function implicit_step!(i, coords::Coords, s, beta_0, tilde_m, g, potential_and_
       id = SA[1 0 0;
               0 1 0;
               0 0 1]
-      Mxx = inv(id .- A')
+      Mxx = inv(id - A')
       Mxp = Mxx * B
       Mpx = -C * Mxx
       Mpp = id - A - (C * Mxx * B)
@@ -146,8 +147,9 @@ function implicit_step!(i, coords::Coords, s, beta_0, tilde_m, g, potential_and_
       v_final = v_new
     end
 
-    p_new, conv = scalar.(find_root_p(v_new, s, beta_0, tilde_m, g, potential_and_jac, potential_params, p_over_q_ref, Val{normalized}(), ds/2))
-    coords.state[i] = vifelse((coords.state[i] == STATE_ALIVE) & !conv, STATE_LOST_IMPLICIT_CONVERGENCE_FAILURE, coords.state[i])
+    p_new, conv = find_root_p(v_new, s, beta_0, tilde_m, g, potential_and_jac, potential_params, p_over_q_ref, Val{normalized}(), ds/2)
+    p_new = scalar.(p_new)
+    coords.state[i] = vifelse((coords.state[i] == STATE_ALIVE) & !conv, STATE_IMPLICIT_NONCONVERGENCE, coords.state[i])
     v_new = (v_new[XI], p_new[1], v_new[YI], p_new[2], v_new[ZI], p_new[3])
 
     x_new = (v_new[XI], v_new[YI], v_new[ZI]) .+ (ds/2 .* scalar.(dH_dp(v_new, s, beta_0, tilde_m, g, potential_and_jac, potential_params, p_over_q_ref, Val{normalized}())))
