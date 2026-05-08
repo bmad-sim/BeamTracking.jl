@@ -34,14 +34,14 @@ function implicit_step!(i, coords::Coords, s, beta_0, tilde_m, g, potential_and_
     v = coords.v
     alive_at_start = (coords.state[i] == STATE_ALIVE)
 
-    v_orig = scalar((v[i,XI], v[i,PXI], v[i,YI], v[i,PYI], v[i,ZI], v[i,PZI]))
+    v_orig = (scalar(v[i,XI]), scalar(v[i,PXI]), scalar(v[i,YI]), scalar(v[i,PYI]), scalar(v[i,ZI]), scalar(v[i,PZI]))
     v_new = v_orig
 
-    x_new = scalar(find_root_x(i, coords, v_new, s, beta_0, tilde_m, g, potential_and_jac, potential_params, p_over_q_ref, Val{normalized}(), ds/2))
-    v_new = (x_new[1], v_new[PXI], x_new[2], v_new[PYI], x_new[3], v_new[PZI])
+    x_new = find_root_x(i, coords, v_new, s, beta_0, tilde_m, g, potential_and_jac, potential_params, p_over_q_ref, Val{normalized}(), ds/2)
+    v_new = (scalar(x_new[1]), v_new[PXI], scalar(x_new[2]), v_new[PYI], scalar(x_new[3]), v_new[PZI])
 
-    p_new = (v_new[PXI], v_new[PYI], v_new[PZI]) .- (ds/2 .* scalar(dH_dx(v_new, s, beta_0, tilde_m, g, potential_and_jac, potential_params, p_over_q_ref, Val{normalized}())))
-    v_new = (v_new[XI], p_new[1], v_new[YI], p_new[2], v_new[ZI], p_new[3])
+    p_new = (v_new[PXI], v_new[PYI], v_new[PZI]) .- (ds/2 .* dH_dx(v_new, s, beta_0, tilde_m, g, potential_and_jac, potential_params, p_over_q_ref, Val{normalized}()))
+    v_new = (v_new[XI], scalar(p_new[1]), v_new[YI], scalar(p_new[2]), v_new[ZI], scalar(p_new[3]))
 
     if TPSAInterface.is_tps_type(eltype(v)) == TPSAInterface.IsTPSType()
       nn = TPSAInterface.ndiffs(v[i,1])
@@ -145,11 +145,11 @@ function implicit_step!(i, coords::Coords, s, beta_0, tilde_m, g, potential_and_
       v_final = v_new
     end
 
-    p_new = scalar(find_root_p(i, coords, v_new, s, beta_0, tilde_m, g, potential_and_jac, potential_params, p_over_q_ref, Val{normalized}(), ds/2))
-    v_new = (v_new[XI], p_new[1], v_new[YI], p_new[2], v_new[ZI], p_new[3])
+    p_new = find_root_p(i, coords, v_new, s, beta_0, tilde_m, g, potential_and_jac, potential_params, p_over_q_ref, Val{normalized}(), ds/2)
+    v_new = (v_new[XI], scalar(p_new[1]), v_new[YI], scalar(p_new[2]), v_new[ZI], scalar(p_new[3]))
 
-    x_new = (v_new[XI], v_new[YI], v_new[ZI]) .+ (ds/2 .* scalar(dH_dp(v_new, s, beta_0, tilde_m, g, potential_and_jac, potential_params, p_over_q_ref, Val{normalized}())))
-    v_new = (x_new[1], v_new[PXI], x_new[2], v_new[PYI], x_new[3], v_new[PZI])
+    x_new = (v_new[XI], v_new[YI], v_new[ZI]) .+ (ds/2 .* dH_dp(v_new, s, beta_0, tilde_m, g, potential_and_jac, potential_params, p_over_q_ref, Val{normalized}()))
+    v_new = (scalar(x_new[1]), v_new[PXI], scalar(x_new[2]), v_new[PYI], scalar(x_new[3]), v_new[PZI])
 
     if TPSAInterface.is_tps_type(eltype(v)) == TPSAInterface.IsTPSType()
       for j in 1:nn
@@ -282,11 +282,12 @@ function find_root_x(i, coords::Coords, v, s, beta_0, tilde_m, g, potential_and_
     conv = (ε*norm_x < 0) # always false but SIMD vector for SIMD vector inputs
     while !all(conv) && N <= N_max
       v_new = (x[1], v[PXI], x[2], v[PYI], x[3], v[PZI])
-      hess = scalar(mixed_hessian_H(v, s, beta_0, tilde_m, g, potential_and_jac, potential_params, p_over_q_ref, normalized))
-      J = (1 - ds*hess[1],    -ds*hess[4],    -ds*hess[7],
-              -ds*hess[2], 1 - ds*hess[5],    -ds*hess[8],
-              -ds*hess[3],    -ds*hess[6], 1 - ds*hess[9])
-      F = x .- x0 .- (ds .* scalar(dH_dp(v_new, s, beta_0, tilde_m, g, potential_and_jac, potential_params, p_over_q_ref, normalized)))
+      hess = mixed_hessian_H(v, s, beta_0, tilde_m, g, potential_and_jac, potential_params, p_over_q_ref, normalized)
+      J = (1 - ds*scalar(hess[1]),    -ds*scalar(hess[4]),    -ds*scalar(hess[7]),
+              -ds*scalar(hess[2]), 1 - ds*scalar(hess[5]),    -ds*scalar(hess[8]),
+              -ds*scalar(hess[3]),    -ds*scalar(hess[6]), 1 - ds*scalar(hess[9]))
+      F = x .- x0 .- (ds .* dH_dp(v_new, s, beta_0, tilde_m, g, potential_and_jac, potential_params, p_over_q_ref, normalized))
+      F = (scalar(F[1]), scalar(F[2]), scalar(F[3]))
       norm_F = sqrt(F[1]*F[1] + F[2]*F[2] + F[3]*F[3])
       sol = solve_3x3_cramer(J, -1 .* F)
       norm_sol = sqrt(sol[1]*sol[1] + sol[2]*sol[2] + sol[3]*sol[3])
@@ -311,11 +312,12 @@ function find_root_p(i, coords::Coords, v, s, beta_0, tilde_m, g, potential_and_
     conv = (ε*norm_p < 0) # always false but SIMD vector for SIMD vector inputs
     while !all(conv) && N <= N_max
       v_new = (v[XI], p[1], v[YI], p[2], v[ZI], p[3])
-      hess = scalar(mixed_hessian_H(v, s, beta_0, tilde_m, g, potential_and_jac, potential_params, p_over_q_ref, normalized))
-      J = (1 + ds*hess[1],     ds*hess[2],     ds*hess[3],
-               ds*hess[4], 1 + ds*hess[5],     ds*hess[6],
-               ds*hess[7],     ds*hess[8], 1 + ds*hess[9])
-      F = p .- p0 .+ (ds .* scalar(dH_dx(v_new, s, beta_0, tilde_m, g, potential_and_jac, potential_params, p_over_q_ref, normalized)))
+      hess = mixed_hessian_H(v, s, beta_0, tilde_m, g, potential_and_jac, potential_params, p_over_q_ref, normalized)
+      J = (1 + ds*scalar(hess[1]),     ds*scalar(hess[2]),     ds*scalar(hess[3]),
+               ds*scalar(hess[4]), 1 + ds*scalar(hess[5]),     ds*scalar(hess[6]),
+               ds*scalar(hess[7]),     ds*scalar(hess[8]), 1 + ds*scalar(hess[9]))
+      F = p .- p0 .+ (ds .* dH_dx(v_new, s, beta_0, tilde_m, g, potential_and_jac, potential_params, p_over_q_ref, normalized))
+      F = (scalar(F[1]), scalar(F[2]), scalar(F[3]))
       norm_F = sqrt(F[1]*F[1] + F[2]*F[2] + F[3]*F[3])
       sol = solve_3x3_cramer(J, -1 .* F)
       norm_sol = sqrt(sol[1]*sol[1] + sol[2]*sol[2] + sol[3]*sol[3])
@@ -596,7 +598,6 @@ end
 
 scalar(x::TPS) = TPSAInterface.scalar(x)
 scalar(x::ForwardDiff.Dual) = ForwardDiff.value(x)
-scalar(t::NTuple{N,T}) where {N,T} = ntuple(i -> scalar(t[i]), Val(N))
 scalar(x) = x
 
 my_eps(::SIMD.Vec{N,T}) where {N,T} = eps(T)
