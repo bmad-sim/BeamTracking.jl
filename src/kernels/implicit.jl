@@ -44,7 +44,7 @@ function implicit_step!(i, coords::Coords, s, beta_0, tilde_m, g, potential_and_
     v_new = (v_new[XI], p_new[1], v_new[YI], p_new[2], v_new[ZI], p_new[3])
 
     if TPSAInterface.is_tps_type(eltype(v)) == TPSAInterface.IsTPSType()
-      #=nn = TPSAInterface.ndiffs(v[i,1])
+      nn = TPSAInterface.ndiffs(v[i,1])
       f = zeros(eltype(v), nn)
       for j in 1:nn
         f[j] = zero(v[i,XI])
@@ -140,7 +140,7 @@ function implicit_step!(i, coords::Coords, s, beta_0, tilde_m, g, potential_and_
       new_py = ForwardDiff.Dual{T}(v_new[PYI], Tuple(jac_new[PYI,:]))
       new_pz = ForwardDiff.Dual{T}(v_new[PZI], Tuple(jac_new[PZI,:]))
       v_final = (new_x, new_px, new_y, new_py, new_z, new_pz)
-      v_orig = v_new=#
+      v_orig = v_new
     else
       v_final = v_new
     end
@@ -152,7 +152,7 @@ function implicit_step!(i, coords::Coords, s, beta_0, tilde_m, g, potential_and_
     v_new = (x_new[1], v_new[PXI], x_new[2], v_new[PYI], x_new[3], v_new[PZI])
 
     if TPSAInterface.is_tps_type(eltype(v)) == TPSAInterface.IsTPSType()
-      #=for j in 1:nn
+      for j in 1:nn
         TPSAInterface.clear!(f[j])
         TPSAInterface.seti!(f[j], 1, j)
       end
@@ -236,7 +236,7 @@ function implicit_step!(i, coords::Coords, s, beta_0, tilde_m, g, potential_and_
       new_px = ForwardDiff.Dual{T}(v_new[PXI], Tuple(jac_new[PXI,:]))
       new_py = ForwardDiff.Dual{T}(v_new[PYI], Tuple(jac_new[PYI,:]))
       new_pz = ForwardDiff.Dual{T}(v_new[PZI], Tuple(jac_new[PZI,:]))
-      v_final = (new_x, new_px, new_y, new_py, new_z, new_pz)=#
+      v_final = (new_x, new_px, new_y, new_py, new_z, new_pz)
     else
       v_final = v_new
     end
@@ -596,7 +596,7 @@ end
 
 scalar(x::TPS) = TPSAInterface.scalar(x)
 scalar(x::ForwardDiff.Dual) = ForwardDiff.value(x)
-scalar(t::Tuple) = t#map(scalar, t)
+scalar(t::NTuple{N,T}) where {N,T} = ntuple(i -> scalar(t[i]), Val(N))
 scalar(x) = x
 
 my_eps(::SIMD.Vec{N,T}) where {N,T} = eps(T)
