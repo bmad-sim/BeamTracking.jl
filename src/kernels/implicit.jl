@@ -32,8 +32,8 @@ end
 function implicit_step!(i, coords::Coords, s, beta_0, tilde_m, g, potential_and_jac::U, potential_params, p_over_q_ref, ::Val{normalized}, ds) where {U, normalized}
   @inbounds begin
     v = coords.v
+    T = eltype(v)
     alive_at_start = (coords.state[i] == STATE_ALIVE)
-    T = eltype(b0.coords.v)
 
     v_orig::NTuple{6,T} = (scalar(v[i,XI]), scalar(v[i,PXI]), scalar(v[i,YI]), scalar(v[i,PYI]), scalar(v[i,ZI]), scalar(v[i,PZI]))
     v_new = v_orig
