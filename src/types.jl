@@ -38,7 +38,7 @@ end
 
 mutable struct Bunch{B,T,C<:Coords}
   species::Species # Species
-  p_over_q_ref::B  # Defines normalization of phase space coordinates
+  p_over_q_ref::B         # Defines normalization of phase space coordinates
   t_ref::T         # Reference time
   const coords::C  # GPU compatible structure of particles
 end

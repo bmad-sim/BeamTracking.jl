@@ -8,10 +8,11 @@ blank_kernel!(args...) = nothing
 @kwdef struct KernelCall{K,A}
   kernel::K = blank_kernel!
   args::A   = ()
-  function KernelCall(kernel, args)
-    _args = map(t->time_lower(batch_lower(t)), args)
-    new{typeof(kernel),typeof(_args)}(kernel, _args)
-  end 
+end
+
+function make_kernel_call(kernel, args)
+  _args = map(t->time_lower(batch_lower(t)), args)
+  return KernelCall(kernel, _args)
 end
 
 # In case KernelCall contains batch GPU array
@@ -34,6 +35,11 @@ end
 # In case KernelChain contains batch GPU array
 Adapt.@adapt_structure KernelChain
 
+#=
+function Adapt.adapt_structure(to, obj::KernelChain)
+  return KernelChain(Adapt.adapt_structure(to, obj.chain), Adapt.adapt_structure(to, obj.ref))
+end
+=#
 KernelChain(::Val{N}, ref=nothing) where {N} = KernelChain(ntuple(t->KernelCall(), Val{N}()), ref)
 
 push(kc::KernelChain, kcall::Nothing) = kc
@@ -102,7 +108,7 @@ end
   coords::Coords{<:Any,V},
   kc::KernelChain;
   groupsize::Union{Nothing,Integer}=nothing, #backend isa CPU ? floor(Int,REGISTER_SIZE/sizeof(eltype(v))) : 256 
-  multithread_threshold::Integer=Threads.nthreads() > 1 ? 1750*Threads.nthreads() : typemax(Int),
+  use_cpu_multithreading::Bool=false,
   use_KA::Bool=!(get_backend(coords.v) isa CPU && isnothing(groupsize)),
   use_explicit_SIMD::Bool=!use_KA #&& (@static VERSION < v"1.11" || Sys.ARCH != :aarch64) # Default to use explicit SIMD on CPU, excepts for Macs above LTS bc SIMD.jl bug
 ) where {V}
@@ -123,7 +129,7 @@ end
       lane = SIMD.VecRange{Int(simd_lane_width)}(0)
       rmn = rem(N_particle, simd_lane_width)
       N_SIMD = N_particle - rmn
-      if N_particle >= multithread_threshold
+      if use_cpu_multithreading
         Threads.@threads for i in 1:simd_lane_width:N_SIMD
           @assert last(i) <= N_particle "Out of bounds!"  # Use last because SIMD.VecRange SIMD
           _generic_kernel!(lane+i, coords, kc)
@@ -140,7 +146,7 @@ end
         _generic_kernel!(i, coords, kc)
       end
     else
-      if N_particle >= multithread_threshold
+      if use_cpu_multithreading
         Threads.@threads for i in 1:N_particle
           @assert last(i) <= N_particle "Out of bounds!"
           _generic_kernel!(i, coords, kc)
