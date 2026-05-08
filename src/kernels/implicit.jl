@@ -37,9 +37,8 @@ function implicit_step!(i, coords::Coords, s, beta_0, tilde_m, g, potential_and_
     v_orig = scalar.((v[i,XI], v[i,PXI], v[i,YI], v[i,PYI], v[i,ZI], v[i,PZI]))
     v_new = v_orig
 
-    x_new, conv = find_root_x(v_new, s, beta_0, tilde_m, g, potential_and_jac, potential_params, p_over_q_ref, Val{normalized}(), ds/2)
-    x_new = scalar.(x_new)
-    coords.state[i] = vifelse(alive_at_start & !conv, STATE_IMPLICIT_NONCONVERGENCE, coords.state[i])
+    x_new = scalar.(find_root_x(i, coords, v_new, s, beta_0, tilde_m, g, potential_and_jac, potential_params, p_over_q_ref, Val{normalized}(), ds/2))
+    
     v_new = (x_new[1], v_new[PXI], x_new[2], v_new[PYI], x_new[3], v_new[PZI])
 
     p_new = (v_new[PXI], v_new[PYI], v_new[PZI]) .- (ds/2 .* scalar.(dH_dx(v_new, s, beta_0, tilde_m, g, potential_and_jac, potential_params, p_over_q_ref, Val{normalized}())))
@@ -147,9 +146,7 @@ function implicit_step!(i, coords::Coords, s, beta_0, tilde_m, g, potential_and_
       v_final = v_new
     end
 
-    p_new, conv = find_root_p(v_new, s, beta_0, tilde_m, g, potential_and_jac, potential_params, p_over_q_ref, Val{normalized}(), ds/2)
-    p_new = scalar.(p_new)
-    coords.state[i] = vifelse((coords.state[i] == STATE_ALIVE) & !conv, STATE_IMPLICIT_NONCONVERGENCE, coords.state[i])
+    p_new = scalar.(find_root_p(i, coords, v_new, s, beta_0, tilde_m, g, potential_and_jac, potential_params, p_over_q_ref, Val{normalized}(), ds/2))
     v_new = (v_new[XI], p_new[1], v_new[YI], p_new[2], v_new[ZI], p_new[3])
 
     x_new = (v_new[XI], v_new[YI], v_new[ZI]) .+ (ds/2 .* scalar.(dH_dp(v_new, s, beta_0, tilde_m, g, potential_and_jac, potential_params, p_over_q_ref, Val{normalized}())))
@@ -275,7 +272,7 @@ function implicit_step!(i, coords::Coords, s, beta_0, tilde_m, g, potential_and_
 end
 
 
-function find_root_x(v, s, beta_0, tilde_m, g, potential_and_jac::U, potential_params, p_over_q_ref, normalized, ds) where {U}
+function find_root_x(i, coords::Coords, v, s, beta_0, tilde_m, g, potential_and_jac::U, potential_params, p_over_q_ref, normalized, ds) where {U}
   @inbounds begin
     ε = my_eps(v[1])
     N_max = 100
@@ -298,12 +295,13 @@ function find_root_x(v, s, beta_0, tilde_m, g, potential_and_jac::U, potential_p
       x = x .+ sol
       N += 1
     end
-    return x, conv
+    coords.state[i] = vifelse(!conv & (coords.state[i] == STATE_ALIVE), STATE_IMPLICIT_NONCONVERGENCE, coords.state[i])
+    return x
   end
 end
 
 
-function find_root_p(v, s, beta_0, tilde_m, g, potential_and_jac::U, potential_params, p_over_q_ref, normalized, ds) where {U}
+function find_root_p(i, coords::Coords, v, s, beta_0, tilde_m, g, potential_and_jac::U, potential_params, p_over_q_ref, normalized, ds) where {U}
   @inbounds begin
     ε = my_eps(v[1])
     N_max = 100
@@ -326,7 +324,8 @@ function find_root_p(v, s, beta_0, tilde_m, g, potential_and_jac::U, potential_p
       p = p .+ sol
       N += 1
     end
-    return p, conv
+    coords.state[i] = vifelse(!conv & (coords.state[i] == STATE_ALIVE), STATE_IMPLICIT_NONCONVERGENCE, coords.state[i])
+    return p
   end
 end
 
@@ -568,7 +567,7 @@ function deterministic_radiation_implicit!(i, coords::Coords, s, q, mc2, E_ref, 
     b_vec = (bx, by, bz)
 
     mad_to_bmad!(i, coords, 1, tilde_m, phi)
-    deterministic_radiation_field!(i, coords, q, mc2, E_ref, g, ax, ay, e_vec, b_vec, L)
+    deterministic_radiation_field!(i, coords, q, mc2, E_ref, g, ax, ay, e_vec, b_vec, L) 
     bmad_to_mad!(i, coords, 1, tilde_m, phi)
   end end
   return nothing
