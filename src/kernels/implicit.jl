@@ -33,8 +33,9 @@ function implicit_step!(i, coords::Coords, s, beta_0, tilde_m, g, potential_and_
   @inbounds begin
     v = coords.v
     alive_at_start = (coords.state[i] == STATE_ALIVE)
+    T = eltype(b0.coords.v)
 
-    v_orig = (scalar(v[i,XI]), scalar(v[i,PXI]), scalar(v[i,YI]), scalar(v[i,PYI]), scalar(v[i,ZI]), scalar(v[i,PZI]))
+    v_orig::NTuple{6,T} = (scalar(v[i,XI]), scalar(v[i,PXI]), scalar(v[i,YI]), scalar(v[i,PYI]), scalar(v[i,ZI]), scalar(v[i,PZI]))
     v_new = v_orig
 
     x_new = find_root_x(i, coords, v_new, s, beta_0, tilde_m, g, potential_and_jac, potential_params, p_over_q_ref, Val{normalized}(), ds/2)
