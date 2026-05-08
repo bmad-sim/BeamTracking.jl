@@ -281,8 +281,11 @@ function find_root_x(i, coords::Coords, v, s, beta_0, tilde_m, g, potential_and_
     norm_x = sqrt(x[1]*x[1] + x[2]*x[2] + x[3]*x[3])
     conv = (ε*norm_x < 0) # always false but SIMD vector for SIMD vector inputs
     while !all(conv) && N <= N_max
-      v_new = (x[1], v[PXI], x[2], v[PYI], x[3], v[PZI])
-      hess = mixed_hessian_H(v, s, beta_0, tilde_m, g, potential_and_jac, potential_params, p_over_q_ref, normalized)
+      px = v[PXI]
+      py = v[PYI]
+      pz = v[PZI]
+      v_new = (x[1], px, x[2], py, x[3], pz)
+      hess = mixed_hessian_H(v_new, s, beta_0, tilde_m, g, potential_and_jac, potential_params, p_over_q_ref, normalized)
       J = (1 - ds*scalar(hess[1]),    -ds*scalar(hess[4]),    -ds*scalar(hess[7]),
               -ds*scalar(hess[2]), 1 - ds*scalar(hess[5]),    -ds*scalar(hess[8]),
               -ds*scalar(hess[3]),    -ds*scalar(hess[6]), 1 - ds*scalar(hess[9]))
@@ -292,7 +295,7 @@ function find_root_x(i, coords::Coords, v, s, beta_0, tilde_m, g, potential_and_
       sol = solve_3x3_cramer(J, -1 .* F)
       norm_sol = sqrt(sol[1]*sol[1] + sol[2]*sol[2] + sol[3]*sol[3])
       conv = ((norm_sol < ε*norm_x) | (norm_F < ε))
-      x = (x[1] + sol[1], x[2] + sol[2], x[3] + sol[3])
+      x = x .+ sol
       N += 1
     end
     coords.state[i] = vifelse(!conv & (coords.state[i] == STATE_ALIVE), STATE_IMPLICIT_NONCONVERGENCE, coords.state[i])
@@ -312,7 +315,7 @@ function find_root_p(i, coords::Coords, v, s, beta_0, tilde_m, g, potential_and_
     conv = (ε*norm_p < 0) # always false but SIMD vector for SIMD vector inputs
     while !all(conv) && N <= N_max
       v_new = (v[XI], p[1], v[YI], p[2], v[ZI], p[3])
-      hess = mixed_hessian_H(v, s, beta_0, tilde_m, g, potential_and_jac, potential_params, p_over_q_ref, normalized)
+      hess = mixed_hessian_H(v_new, s, beta_0, tilde_m, g, potential_and_jac, potential_params, p_over_q_ref, normalized)
       J = (1 + ds*scalar(hess[1]),     ds*scalar(hess[2]),     ds*scalar(hess[3]),
                ds*scalar(hess[4]), 1 + ds*scalar(hess[5]),     ds*scalar(hess[6]),
                ds*scalar(hess[7]),     ds*scalar(hess[8]), 1 + ds*scalar(hess[9]))
