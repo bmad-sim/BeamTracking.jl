@@ -39,10 +39,10 @@ function implicit_step!(i, coords::Coords, s, beta_0, tilde_m, g, potential_and_
     v_new::NTuple{6,T} = v_orig
 
     x_new::NTuple{3,T} = find_root_x(i, coords, v_new, s, beta_0, tilde_m, g, potential_and_jac, potential_params, p_over_q_ref, Val{normalized}(), ds/2)
-    v_new::NTuple{6,T} = (scalar(x_new[1]), v_new[PXI], scalar(x_new[2]), v_new[PYI], scalar(x_new[3]), v_new[PZI])
+    v_new = (scalar(x_new[1]), v_new[PXI], scalar(x_new[2]), v_new[PYI], scalar(x_new[3]), v_new[PZI])
 
     p_new::NTuple{3,T} = (v_new[PXI], v_new[PYI], v_new[PZI]) .- (ds/2 .* dH_dx(v_new, s, beta_0, tilde_m, g, potential_and_jac, potential_params, p_over_q_ref, Val{normalized}()))
-    v_new::NTuple{6,T} = (v_new[XI], scalar(p_new[1]), v_new[YI], scalar(p_new[2]), v_new[ZI], scalar(p_new[3]))
+    v_new = (v_new[XI], scalar(p_new[1]), v_new[YI], scalar(p_new[2]), v_new[ZI], scalar(p_new[3]))
 
     if TPSAInterface.is_tps_type(eltype(v)) == TPSAInterface.IsTPSType()
       nn = TPSAInterface.ndiffs(v[i,1])
