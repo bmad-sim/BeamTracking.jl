@@ -281,7 +281,7 @@ function find_root_x(i, coords::Coords, v, s, beta_0, tilde_m, g, potential_and_
     norm_x = sqrt(x[1]*x[1] + x[2]*x[2] + x[3]*x[3])
     conv = (ε*norm_x < 0) # always false but SIMD vector for SIMD vector inputs
     while !all(conv) && N <= N_max
-      v_new = (Float32(x[1]), Float32(v[PXI]), Float32(x[2]), Float32(v[PYI]), Float32(x[3]), Float32(v[PZI]))
+      v_new = (x[1], v[PXI], x[2], v[PYI], x[3], v[PZI])
       hess = mixed_hessian_H(v_new, s, beta_0, tilde_m, g, potential_and_jac, potential_params, p_over_q_ref, normalized)
       J = (1 - ds*scalar(hess[1]),    -ds*scalar(hess[4]),    -ds*scalar(hess[7]),
               -ds*scalar(hess[2]), 1 - ds*scalar(hess[5]),    -ds*scalar(hess[8]),
