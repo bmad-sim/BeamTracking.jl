@@ -37,7 +37,8 @@ function implicit_step!(i, coords::Coords, s, beta_0, tilde_m, g, potential_and_
     v_orig = scalar.((v[i,XI], v[i,PXI], v[i,YI], v[i,PYI], v[i,ZI], v[i,PZI]))
     v_new = v_orig
 
-    x_new = scalar.(find_root_x(v_new, s, beta_0, tilde_m, g, potential_and_jac, potential_params, p_over_q_ref, Val{normalized}(), ds/2))
+    x_new, conv = scalar.(find_root_x(v_new, s, beta_0, tilde_m, g, potential_and_jac, potential_params, p_over_q_ref, Val{normalized}(), ds/2))
+    coords.state[i] = vifelse(alive_at_start & !conv, STATE_LOST_IMPLICIT_CONVERGENCE_FAILURE, coords.state[i])
     v_new = (x_new[1], v_new[PXI], x_new[2], v_new[PYI], x_new[3], v_new[PZI])
 
     p_new = (v_new[PXI], v_new[PYI], v_new[PZI]) .- (ds/2 .* scalar.(dH_dx(v_new, s, beta_0, tilde_m, g, potential_and_jac, potential_params, p_over_q_ref, Val{normalized}())))
@@ -51,12 +52,12 @@ function implicit_step!(i, coords::Coords, s, beta_0, tilde_m, g, potential_and_
         TPSAInterface.seti!(f[j], 1, j)
       end
   
-      TPSAInterface.seti!(f[XI],   v_new[XI],   0)
-      TPSAInterface.seti!(f[YI],   v_new[YI],   0)
-      TPSAInterface.seti!(f[ZI],   v_new[ZI],   0)
-      TPSAInterface.seti!(f[PXI],  v_orig[PXI], 0)
-      TPSAInterface.seti!(f[PYI],  v_orig[PYI], 0)
-      TPSAInterface.seti!(f[PZI],  v_orig[PZI], 0)
+      TPSAInterface.seti!(f[XI],  v_new[XI],   0)
+      TPSAInterface.seti!(f[YI],  v_new[YI],   0)
+      TPSAInterface.seti!(f[ZI],  v_new[ZI],   0)
+      TPSAInterface.seti!(f[PXI], v_orig[PXI], 0)
+      TPSAInterface.seti!(f[PYI], v_orig[PYI], 0)
+      TPSAInterface.seti!(f[PZI], v_orig[PZI], 0)
 
       d1 = ds/2 .* dH_dx(f, s, beta_0, tilde_m, g, potential_and_jac, potential_params, p_over_q_ref, Val{normalized}())
       d2 = ds/2 .* dH_dp(f, s, beta_0, tilde_m, g, potential_and_jac, potential_params, p_over_q_ref, Val{normalized}())
@@ -73,7 +74,7 @@ function implicit_step!(i, coords::Coords, s, beta_0, tilde_m, g, potential_and_
       inds[XI] = 1
       inds[YI] = 1
       inds[ZI] = 1
-      # Long term solution would be to move pminv into TPSAInterface,
+      # Long term solution would be to move pminv! into TPSAInterface,
       # For now use GTPSA directly
       GTPSA.pminv!(nn, f, 6, f2, inds)
 
@@ -145,7 +146,8 @@ function implicit_step!(i, coords::Coords, s, beta_0, tilde_m, g, potential_and_
       v_final = v_new
     end
 
-    p_new = scalar.(find_root_p(v_new, s, beta_0, tilde_m, g, potential_and_jac, potential_params, p_over_q_ref, Val{normalized}(), ds/2))
+    p_new, conv = scalar.(find_root_p(v_new, s, beta_0, tilde_m, g, potential_and_jac, potential_params, p_over_q_ref, Val{normalized}(), ds/2))
+    coords.state[i] = vifelse((coords.state[i] == STATE_ALIVE) & !conv, STATE_LOST_IMPLICIT_CONVERGENCE_FAILURE, coords.state[i])
     v_new = (v_new[XI], p_new[1], v_new[YI], p_new[2], v_new[ZI], p_new[3])
 
     x_new = (v_new[XI], v_new[YI], v_new[ZI]) .+ (ds/2 .* scalar.(dH_dp(v_new, s, beta_0, tilde_m, g, potential_and_jac, potential_params, p_over_q_ref, Val{normalized}())))
@@ -178,6 +180,7 @@ function implicit_step!(i, coords::Coords, s, beta_0, tilde_m, g, potential_and_
       inds[PYI] = 1
       inds[ZI]  = 0
       inds[PZI] = 1
+      # For now use GTPSA's pminv!, long term should use TI
       GTPSA.pminv!(nn, f, 6, f2, inds)
 
       for j in 1:6
@@ -279,7 +282,7 @@ function find_root_x(v, s, beta_0, tilde_m, g, potential_and_jac::U, potential_p
     x  = (v[XI], v[YI], v[ZI])
     x0 = (v[XI], v[YI], v[ZI])
     norm_x = sqrt(x[1]*x[1] + x[2]*x[2] + x[3]*x[3])
-    while !conv && N <= N_max
+    while !all(conv) && N <= N_max
       v_new = (x[1], v[PXI], x[2], v[PYI], x[3], v[PZI])
       hess = scalar.(mixed_hessian_H(v, s, beta_0, tilde_m, g, potential_and_jac, potential_params, p_over_q_ref, normalized))
       J = (1 - ds*hess[1],    -ds*hess[4],    -ds*hess[7],
@@ -289,14 +292,11 @@ function find_root_x(v, s, beta_0, tilde_m, g, potential_and_jac::U, potential_p
       norm_F = sqrt(F[1]*F[1] + F[2]*F[2] + F[3]*F[3])
       sol = solve_3x3_cramer(J, -1 .* F)
       norm_sol = sqrt(sol[1]*sol[1] + sol[2]*sol[2] + sol[3]*sol[3])
-      conv = (all(norm_sol < ε*norm_x) || all(norm_F < ε))
+      conv = ((norm_sol < ε*norm_x) | (norm_F < ε))
       x = x .+ sol
       N += 1
     end
-    if !conv
-      @warn "Implicit integrator's Newton search did not converge in $N_max iterations. Consider reducing the step size." maxlog=1
-    end
-    return x
+    return x, conv
   end
 end
 
@@ -310,7 +310,7 @@ function find_root_p(v, s, beta_0, tilde_m, g, potential_and_jac::U, potential_p
     p  = (v[PXI], v[PYI], v[PZI])
     p0 = (v[PXI], v[PYI], v[PZI])
     norm_p = sqrt(p[1]*p[1] + p[2]*p[2] + p[3]*p[3])
-    while !conv && N <= N_max
+    while !all(conv) && N <= N_max
       v_new = (v[XI], p[1], v[YI], p[2], v[ZI], p[3])
       hess = scalar.(mixed_hessian_H(v, s, beta_0, tilde_m, g, potential_and_jac, potential_params, p_over_q_ref, normalized))
       J = (1 + ds*hess[1],     ds*hess[2],     ds*hess[3],
@@ -320,14 +320,11 @@ function find_root_p(v, s, beta_0, tilde_m, g, potential_and_jac::U, potential_p
       norm_F = sqrt(F[1]*F[1] + F[2]*F[2] + F[3]*F[3])
       sol = solve_3x3_cramer(J, -1 .* F)
       norm_sol = sqrt(sol[1]*sol[1] + sol[2]*sol[2] + sol[3]*sol[3])
-      conv = (all(norm_sol < ε*norm_p) || all(norm_F < ε))
+      conv = ((norm_sol < ε*norm_p) | (norm_F < ε))
       p = p .+ sol
       N += 1
     end
-    if !conv
-      @warn "Implicit integrator's Newton search did not converge in $N_max iterations. Consider reducing the step size." maxlog=1
-    end
-    return p
+    return p, conv
   end
 end
 

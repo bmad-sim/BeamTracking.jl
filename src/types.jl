@@ -9,15 +9,16 @@ const QX  = 2
 const QY  = 3
 const QZ  = 4
 
-const STATE_PREBORN    = UInt8(0)
-const STATE_ALIVE      = UInt8(1)
-const STATE_LOST       = UInt8(2)
-const STATE_LOST_NEG_X = UInt8(3)
-const STATE_LOST_POS_X = UInt8(4)
-const STATE_LOST_NEG_Y = UInt8(5)
-const STATE_LOST_POS_Y = UInt8(6)
-const STATE_LOST_PZ    = UInt8(7)
-const STATE_LOST_Z     = UInt8(8)
+const STATE_PREBORN                           = UInt8(0)
+const STATE_ALIVE                             = UInt8(1)
+const STATE_LOST                              = UInt8(2)
+const STATE_LOST_NEG_X                        = UInt8(3)
+const STATE_LOST_POS_X                        = UInt8(4)
+const STATE_LOST_NEG_Y                        = UInt8(5)
+const STATE_LOST_POS_Y                        = UInt8(6)
+const STATE_LOST_PZ                           = UInt8(7)
+const STATE_LOST_Z                            = UInt8(8)
+const STATE_LOST_IMPLICIT_CONVERGENCE_FAILURE = UInt8(9)
 
 # Always SOA
 struct Coords{S,V,Q,W,T}
@@ -37,7 +38,7 @@ end
 
 mutable struct Bunch{B,T,C<:Coords}
   species::Species # Species
-  p_over_q_ref::B         # Defines normalization of phase space coordinates
+  p_over_q_ref::B  # Defines normalization of phase space coordinates
   t_ref::T         # Reference time
   const coords::C  # GPU compatible structure of particles
 end
