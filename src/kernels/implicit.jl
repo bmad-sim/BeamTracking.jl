@@ -596,8 +596,8 @@ end
 
 scalar(x::TPS) = TPSAInterface.scalar(x)
 scalar(x::ForwardDiff.Dual) = ForwardDiff.value(x)
+scalar(t::Tuple) = t#map(scalar, t)
 scalar(x) = x
-scalar(t::Tuple) = map(scalar, t)
 
 my_eps(::SIMD.Vec{N,T}) where {N,T} = eps(T)
 my_eps(::T) where {T} = eps(T)
