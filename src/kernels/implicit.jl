@@ -280,10 +280,10 @@ function find_root_x(v, s, beta_0, tilde_m, g, potential_and_jac::U, potential_p
     ε = my_eps(v[1])
     N_max = 100
     N = 1
-    conv = false
     x  = (v[XI], v[YI], v[ZI])
     x0 = (v[XI], v[YI], v[ZI])
     norm_x = sqrt(x[1]*x[1] + x[2]*x[2] + x[3]*x[3])
+    conv = (ε*norm_x < 0) # always false but SIMD vector for SIMD vector inputs
     while !all(conv) && N <= N_max
       v_new = (x[1], v[PXI], x[2], v[PYI], x[3], v[PZI])
       hess = scalar.(mixed_hessian_H(v, s, beta_0, tilde_m, g, potential_and_jac, potential_params, p_over_q_ref, normalized))
@@ -308,10 +308,10 @@ function find_root_p(v, s, beta_0, tilde_m, g, potential_and_jac::U, potential_p
     ε = my_eps(v[1])
     N_max = 100
     N = 1
-    conv = false
     p  = (v[PXI], v[PYI], v[PZI])
     p0 = (v[PXI], v[PYI], v[PZI])
     norm_p = sqrt(p[1]*p[1] + p[2]*p[2] + p[3]*p[3])
+    conv = (ε*norm_p < 0) # always false but SIMD vector for SIMD vector inputs
     while !all(conv) && N <= N_max
       v_new = (v[XI], p[1], v[YI], p[2], v[ZI], p[3])
       hess = scalar.(mixed_hessian_H(v, s, beta_0, tilde_m, g, potential_and_jac, potential_params, p_over_q_ref, normalized))
