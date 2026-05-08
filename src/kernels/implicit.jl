@@ -292,7 +292,7 @@ function find_root_x(i, coords::Coords, v, s, beta_0, tilde_m, g, potential_and_
       sol = solve_3x3_cramer(J, -1 .* F)
       norm_sol = sqrt(sol[1]*sol[1] + sol[2]*sol[2] + sol[3]*sol[3])
       conv = ((norm_sol < ε*norm_x) | (norm_F < ε))
-      x = x .+ sol
+      x = (x[1] + sol[1], x[2] + sol[2], x[3] + sol[3])
       N += 1
     end
     coords.state[i] = vifelse(!conv & (coords.state[i] == STATE_ALIVE), STATE_IMPLICIT_NONCONVERGENCE, coords.state[i])
