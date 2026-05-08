@@ -278,8 +278,8 @@ function find_root_x(i, coords::Coords, v, s, beta_0, tilde_m, g, potential_and_
     T = eltype(v)
     N_max = 100
     N = 1
-    x  = (v[XI], v[YI], v[ZI])
-    x0 = (v[XI], v[YI], v[ZI])
+    x::NTuple{3,T}  = (v[XI], v[YI], v[ZI])
+    x0::NTuple{3,T} = (v[XI], v[YI], v[ZI])
     norm_x = sqrt(x[1]*x[1] + x[2]*x[2] + x[3]*x[3])
     conv = (ε*norm_x < 0) # always false but SIMD vector for SIMD vector inputs
     while !all(conv) && N <= N_max
@@ -309,8 +309,8 @@ function find_root_p(i, coords::Coords, v, s, beta_0, tilde_m, g, potential_and_
     T = eltype(v)
     N_max = 100
     N = 1
-    p  = (v[PXI], v[PYI], v[PZI])
-    p0 = (v[PXI], v[PYI], v[PZI])
+    p::NTuple{3,T}  = (v[PXI], v[PYI], v[PZI])
+    p0::NTuple{3,T} = (v[PXI], v[PYI], v[PZI])
     norm_p = sqrt(p[1]*p[1] + p[2]*p[2] + p[3]*p[3])
     conv = (ε*norm_p < 0) # always false but SIMD vector for SIMD vector inputs
     while !all(conv) && N <= N_max
