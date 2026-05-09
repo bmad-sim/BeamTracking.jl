@@ -8,7 +8,8 @@ using Test,
       StaticArrays,
       ReferenceFrameRotations,
       SIMD,
-      KernelAbstractions
+      KernelAbstractions,
+      ForwardDiff
 
 using BeamTracking: Coords, KernelCall, Q0, QX, QY, QZ, STATE_ALIVE, STATE_LOST, C_LIGHT,
       STATE_LOST_NEG_X, STATE_LOST_POS_X, STATE_LOST_NEG_Y, STATE_LOST_POS_Y, STATE_LOST_PZ, STATE_LOST_Z,
@@ -23,8 +24,10 @@ using Beamlines: isactive
 BenchmarkTools.DEFAULT_PARAMETERS.gctrial = false
 BenchmarkTools.DEFAULT_PARAMETERS.evals = 2
 
-const D1 = Descriptor(6, 1)   # 6 variables 1st order
-const D10 = Descriptor(6, 10) # 6 variables 10th order
+const D1 = Descriptor(6, 1)   # 6 variables, 1st order
+const D1_1 = Descriptor(6, 1, 1, 1) # 6 variables and 1 parameter, 1st order
+const D1_2 = Descriptor(6, 1, 2, 1) # 6 variables and 2 parameters, 1st order
+const D10 = Descriptor(6, 10) # 6 variables, 10th order
 
 function test_matrix(
   M_expected,    # Expected matrix
@@ -64,7 +67,7 @@ function test_matrix(
 
   # 3) No scalar allocations
   if no_scalar_allocs
-    v = repeat([0.1 0.2 0.3 0.4 0.5 0.6], 2)
+    v = repeat([0.01 0.02 0.03 0.04 0.05 0.06], 2)
     q = repeat([1.0 0.0 0.0 0.0], 2)
     state = [STATE_ALIVE STATE_ALIVE]
     @test @ballocated(BeamTracking.launch!(coords, $kernel_call; use_KA=false), 
@@ -125,7 +128,7 @@ function test_map(
   end
   # 3) No scalar allocations
   if no_scalar_allocs
-    v = repeat([0.1 0.2 0.3 0.4 0.5 0.6], 2)
+    v = repeat([0.01 0.02 0.03 0.04 0.05 0.06], 2)
     q = repeat([1.0 0.0 0.0 0.0], 2)
     state = [STATE_ALIVE STATE_ALIVE]
     @test @ballocated(BeamTracking.launch!(coords, $kernel_call; use_KA=false), 
@@ -214,3 +217,4 @@ include("ExactTracking_test.jl")
 include("IntegrationTracking_test.jl")
 include("collective_test.jl")
 include("callback_test.jl")
+include("ImplicitTracking_test.jl")

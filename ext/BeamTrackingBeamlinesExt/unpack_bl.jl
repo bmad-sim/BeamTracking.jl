@@ -21,6 +21,7 @@ function _track!(
   mp = deval(ele.MapParams)
   rp = deval(ele.RFParams)
   lp = deval(ele.BeamlineParams)
+  fpp = deval(ele.FourPotentialParams)
   p_over_q_ref = lp.beamline.p_over_q_ref
 
   if scalar_params
@@ -33,11 +34,12 @@ function _track!(
     mp = scalarize(mp)
     rp = scalarize(rp)
     lp = scalarize(lp)
+    fpp = scalarize(fpp)
     p_over_q_ref = scalarize(p_over_q_ref)
   end
 
   # Function barrier
-  universal!(coords, tm, ele, ramp_without_rf, bunch, L, p_over_q_ref, ap, bp, bm, pp, dp, rp, lp, mp; kwargs...)
+  universal!(coords, tm, ele, ramp_without_rf, bunch, L, p_over_q_ref, ap, bp, bm, pp, dp, rp, lp, mp, fpp; kwargs...)
 end
 
 # Step 2: Push particles through -----------------------------------------
@@ -56,14 +58,16 @@ function universal!(
   apertureparams,
   rfparams,
   beamlineparams,
-  mapparams;
+  mapparams,
+  fourpotentialparams;
   kwargs...
 ) 
   beta_gamma_ref = R_to_beta_gamma(bunch.species, bunch.p_over_q_ref)
-  # Current KernelChain length is 7 because we have up to
-  # 2 aperture, 2 alignment, 1 body kernel, 1 IBS kernel, and
-  # 1 kernel to update the particles' reference energy
-  kc = KernelChain(Val{7}(), RefState(bunch.t_ref, beta_gamma_ref))
+  # Current KernelChain length is 9 because we have up to
+  # 2 aperture, 2 alignment, 1 body kernel, 1 IBS kernel,
+  # 1 kernel to update the particles' reference energy,
+  # and 2 for coordinate conversion with implicit
+  kc = KernelChain(Val{9}(), RefState(bunch.t_ref, beta_gamma_ref))
 
   # Ramping
   if p_over_q_ref isa TimeDependentParam
@@ -108,8 +112,25 @@ function universal!(
       error("Tracking through a LineElement containing both MapParams and RFParams not currently defined")
     elseif isactive(patchparams)
       error("Tracking through a LineElement containing both MapParams and PatchParams not currently defined")
+    elseif isactive(fourpotentialparams)
+      error("Tracking through a LineElement containing both MapParams and FourPotentialParams not currently defined")
     else
       kc = push(kc, @inline(pure_map(tm, bunch, mapparams, L)))
+    end
+
+  elseif isactive(fourpotentialparams)    
+    if isactive(alignmentparams)
+      error("Tracking through a LineElement containing both FourPotentialParams and AlignmentParams is undefined")
+    elseif isactive(bmultipoleparams)
+      error("Tracking through a LineElement containing both FourPotentialParams and BMultipoleParams not currently defined")
+    elseif isactive(rfparams)
+      error("Tracking through a LineElement containing both FourPotentialParams and RFParams not currently defined")
+    elseif isactive(patchparams)
+      error("Tracking through a LineElement containing both MapParams and PatchParams not currently defined")
+    else
+      kc = push(kc, @inline(implicit_in(tm, bunch)))
+      kc = push(kc, @inline(implicit_body(tm, bunch, fourpotentialparams, bendparams, L)))
+      kc = push(kc, @inline(implicit_out(tm, bunch)))
     end
 
   elseif isactive(patchparams)    
@@ -257,11 +278,12 @@ end
 
 function universal!(coords, tm::SaganCavity, ele, ramp_without_rf, bunch, L,
   p_over_q_ref, alignmentparams, bendparams, bmultipoleparams, patchparams, apertureparams,
-  rfparams, beamlineparams, mapparams; kwargs...) 
+  rfparams, beamlineparams, mapparams, fourpotentialparams; kwargs...) 
 
   !isactive(mapparams) || error("SaganCavity Tracking through element $ele_name with MapParams is undefined")
   !isactive(patchparams) || error("SaganCavity Tracking through element $ele_name with PatchParams is undefined")
   !isactive(patchparams) || error("SaganCavity Tracking through element $ele_name with BendParams is undefined")
+  !isactive(fourpotentialparams) || error("SaganCavity Tracking through element $ele_name with FourPotentialParams is undefined")
   isactive(rfparams) || error("SaganCavity Tracking through element $ele_name without RFParams is undefined")
 
   beta_gamma_ref = R_to_beta_gamma(bunch.species, bunch.p_over_q_ref)
@@ -352,8 +374,10 @@ end
 # === Drift === #
 @inline drift(tm, bunch, L) = error("Undefined for tracking method $tm")
 
-# === Coordinate transformations === #
-@inline pure_patch(tm, bunch, patchparams, L) = error("Undefined for tracking method $tm")
+# == Implicit === #
+@inline implicit_in(tm, bunch) = error("Undefined for tracking method $tm")
+@inline implicit_body(tm, bunch, fourpotentialparams, bendparams, L) = error("Undefined for tracking method $tm")
+@inline implicit_out(tm, bunch) = error("Undefined for tracking method $tm")
 
 # === Straight Elements === #
 # "Pure" means only ONE SINGLE multipole.
@@ -380,10 +404,6 @@ end
 @inline thick_pure_bmultipole(tm, bunch, bmk, L)                                      = error("Undefined for tracking method $tm")
 @inline thick_bmultipole(tm, bunch, bmultipoleparams, L)                              = error("Undefined for tracking method $tm")
 @inline thick_bmultipole_rf(tm, bunch, bmultipoleparams, rfparams, beamlineparams, L) = error("Undefined for tracking method $tm")
-#=
-@inline bend_entrance_fringe(tm, bunch, bendparams, bmultipoleparams, L) = error("Undefined for tracking method $tm")
-@inline bend_exit_fringe(tm, bunch, bendparams, bmultipoleparams, L)     = error("Undefined for tracking method $tm")
-=#
 
 # === Elements with curving coordinate system "bend" === #
 # "Bend" means ONLY a coordinate system curvature through the element.

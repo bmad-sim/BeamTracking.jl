@@ -21,49 +21,45 @@ Arguments
 - 'ks'       -- skew multipole strengths 
 - 'L'        -- length
 """
-@makekernel fastgtpsa=true function bkb_multipole!(i, coords::Coords, q, mc2, radiation_damping, tilde_m, beta_0, a, g, w, w_inv, k0, mm, kn, ks, L)
+@makekernel fastgtpsa=true function bkb_multipole!(i, coords::Coords, s, radiation_params, tilde_m, beta_0, a, g, w, w_inv, k0, mm, kn, ks, L)
   knl = kn .* L ./ 2
   ksl = ks .* L ./ 2
-
-  E0 = mc2/tilde_m/beta_0 # could probably exclude beta_0 because ultrarelativistic radiation
 
   rotation!( i, coords, w, 0)
 
   if !isnothing(coords.q)
-    rotate_spin!(               i, coords, a, g, tilde_m, mm, kn, ks, L / 2)
+    rotate_spin!(i, coords, a, g, tilde_m, mm, kn, ks, L / 2)
   end
 
-  if radiation_damping
-    deterministic_radiation!(   i, coords, q, mc2, E0, g, mm, kn, ks, L / 2)
+  if !isnothing(radiation_params)
+    q, mc2, E_ref = radiation_params
+    deterministic_radiation_multipole!(i, coords, q, mc2, E_ref, g, mm, kn, ks, L / 2)
   end
 
   multipole_kick!(i, coords, mm, knl, ksl, 1)
-  exact_bend!(    i, coords, g*L, g, k0, tilde_m, beta_0, L)
+  exact_bend!(i, coords, g*L, g, k0, tilde_m, beta_0, L)
   multipole_kick!(i, coords, mm, knl, ksl, 1)
 
-  if radiation_damping
-    deterministic_radiation!(   i, coords, q, mc2, E0, g, mm, kn, ks, L / 2)
+  if !isnothing(radiation_params)
+    deterministic_radiation_multipole!(i, coords, q, mc2, E_ref, g, mm, kn, ks, L / 2)
   end
 
   if !isnothing(coords.q)
-    rotate_spin!(               i, coords, a, g, tilde_m, mm, kn, ks, L / 2)
+    rotate_spin!(i, coords, a, g, tilde_m, mm, kn, ks, L / 2)
   end
 
   rotation!( i, coords, w_inv, 0)
 end 
 
 """
-    exact_bend!(i, coords::Coords, e1, e2, theta, g, Kn0, w, w_inv, tilde_m, beta_0, L)
+    exact_bend!(i, coords::Coords, theta, g, Kn0, tilde_m, beta_0, L)
 
-Tracks a particle through a sector bend via exact tracking. If edge angles are 
-provided, a linear hard-edge fringe map is applied at both ends.
+Tracks a particle through a sector bend via exact tracking.
 
 #Arguments
 - 'theta'    -- 'g' * 'L'
 - 'g'        -- curvature
 - 'Kn0'      -- normalized dipole field
-- 'w'        -- rotation matrix into curvature/field plane
-- 'w_inv'    -- rotation matrix out of curvature/field plane
 - 'tilde_m'  -- mc2/p0c
 - 'beta_0'   -- p0c/E0
 - 'L'        -- length
@@ -167,7 +163,7 @@ end
 
 
 # This is separate because the spin can be transported exactly here
-@makekernel function exact_curved_drift!(i, coords::Coords, e1, e2, g, w, w_inv, a, tilde_m, beta_0, L) 
+@makekernel function exact_curved_drift!(i, coords::Coords, s, e1, e2, g, w, w_inv, a, tilde_m, beta_0, L) 
   rotation!(i, coords, w, 0)
   if !isnothing(coords.q)
     rotate_spin!(i, coords, a, g, tilde_m, SA[0], SA[0], SA[0], L / 2)

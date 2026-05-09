@@ -9,15 +9,16 @@ const QX  = 2
 const QY  = 3
 const QZ  = 4
 
-const STATE_PREBORN    = UInt8(0)
-const STATE_ALIVE      = UInt8(1)
-const STATE_LOST       = UInt8(2)
-const STATE_LOST_NEG_X = UInt8(3)
-const STATE_LOST_POS_X = UInt8(4)
-const STATE_LOST_NEG_Y = UInt8(5)
-const STATE_LOST_POS_Y = UInt8(6)
-const STATE_LOST_PZ    = UInt8(7)
-const STATE_LOST_Z     = UInt8(8)
+const STATE_PREBORN                 = UInt8(0)
+const STATE_ALIVE                   = UInt8(1)
+const STATE_LOST                    = UInt8(2)
+const STATE_LOST_NEG_X              = UInt8(3)
+const STATE_LOST_POS_X              = UInt8(4)
+const STATE_LOST_NEG_Y              = UInt8(5)
+const STATE_LOST_POS_Y              = UInt8(6)
+const STATE_LOST_PZ                 = UInt8(7)
+const STATE_LOST_Z                  = UInt8(8)
+const STATE_IMPLICIT_NONCONVERGENCE = UInt8(9)
 
 # Always SOA
 struct Coords{S,V,Q,W,T}

@@ -1,6 +1,3 @@
-struct Map end 
-# Map tracking method, not necessarily symplectic
-
 @makekernel fastgtpsa=true function map!(i, coords::Coords, transport_map, transport_map_params, L)
   v = coords.v
   q = coords.q
@@ -32,4 +29,3 @@ struct Map end
     q[i,QZ] = vifelse(alive, q_out[QZ], q[i,QZ])
   end
 end
-
