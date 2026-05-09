@@ -24,7 +24,7 @@ end
   # Only apply rotations if needed
   if isnothing(winv)
     patch_offset!(i, coords, tilde_m, dx, dy, dt)
-    exact_drift!(i, coords, beta_0, gamsqr_0, tilde_m, L)
+    exact_drift!(i, coords, 0, beta_0, gamsqr_0, tilde_m, L)
     new_z = v[i,ZI] - (dz - L) * rel_p / ps_0
     v[i,ZI] = vifelse(alive, new_z, v[i,ZI])
   else
@@ -34,7 +34,7 @@ end
     w33 = 1 - 2*(winv[QX]*winv[QX] + winv[QY]*winv[QY])
     s_f = w31*v[i,XI] + w32*v[i,YI] - w33*dz
     rotation!(i, coords, winv, -dz)
-    exact_drift!(i, coords, beta_0, gamsqr_0, tilde_m, -s_f)
+    exact_drift!(i, coords, 0, beta_0, gamsqr_0, tilde_m, -s_f)
     new_z = v[i,ZI] + ((s_f + L) * rel_p * 
     sqrt((1 + tilde_m*tilde_m)/(rel_p*rel_p + tilde_m*tilde_m)))
     v[i,ZI] = vifelse(alive, new_z, v[i,ZI])

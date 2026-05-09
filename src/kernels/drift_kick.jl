@@ -19,26 +19,25 @@ kn: vector of normal multipole strengths scaled by Bρ0
 ks: vector of skew multipole strengths scaled by Bρ0
 L:  element length
 """
-@makekernel fastgtpsa=true function dkd_multipole!(i, coords::Coords, q, mc2, radiation_damping, beta_0, gamsqr_0, tilde_m, a, mm, kn, ks, L)
-  E0 = mc2/tilde_m/beta_0 # could probably exclude beta_0 because ultrarelativistic radiation
+@makekernel fastgtpsa=true function dkd_multipole!(i, coords::Coords, s, radiation_params, beta_0, gamsqr_0, tilde_m, a, mm, kn, ks, L)
+  exact_drift!(i, coords, s, beta_0, gamsqr_0, tilde_m, L / 2)
 
-  exact_drift!(     i, coords, beta_0, gamsqr_0, tilde_m, L / 2)
-
-  if radiation_damping
-    deterministic_radiation!(     i, coords, q, mc2, E0, 0, mm, kn, ks, L / 2)
+  if !isnothing(radiation_params)
+    q, mc2, E_ref = radiation_params
+    deterministic_radiation_multipole!(i, coords, q, mc2, E_ref, 0, mm, kn, ks, L / 2)
   end
 
   multipole_and_spin_kick!(i, coords, mm, kn, ks, a, tilde_m, L)
 
-  if radiation_damping
-    deterministic_radiation!(     i, coords, q, mc2, E0, 0, mm, kn, ks, L / 2)
+  if !isnothing(radiation_params)
+    deterministic_radiation_multipole!(i, coords, q, mc2, E_ref, 0, mm, kn, ks, L / 2)
   end
 
-  exact_drift!(     i, coords, beta_0, gamsqr_0, tilde_m, L / 2)
+  exact_drift!(i, coords, s, beta_0, gamsqr_0, tilde_m, L / 2)
 end
 
 """
-    exact_drift!(i, coords, β_0, γsqr_0, tilde_m, L)
+    exact_drift!(i, coords, s, β_0, γsqr_0, tilde_m, L)
 
 Return the result of exact tracking a particle through a drift
 of length `L`, assuming `β_0`, `γsqr_0`, and `tilde_m` respectively
@@ -58,7 +57,7 @@ values of ``ε``.
 - `tilde_m`: particle rest energy normalized to the reference value of ``pc``
 - `L`:       element length, in meters
 """
-@makekernel fastgtpsa=true function exact_drift!(i, coords::Coords, beta_0, gamsqr_0, tilde_m, L)
+@makekernel fastgtpsa=true function exact_drift!(i, coords::Coords, s, beta_0, gamsqr_0, tilde_m, L)
   v = coords.v
 
   rel_p = 1 + v[i,PZI]

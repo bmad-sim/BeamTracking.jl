@@ -1,9 +1,3 @@
-@inline function pure_patch(tm::Exact, bunch, patchparams, L) 
-  tilde_m, gamsqr_0, beta_0 = BeamTracking.drift_params(bunch.species, bunch.p_over_q_ref)
-  winv = inv_rot_quaternion(patchparams.dx_rot, patchparams.dy_rot, patchparams.dz_rot)
-  return KernelCall(BeamTracking.patch!, (beta_0, gamsqr_0, tilde_m, patchparams.dt, patchparams.dx, patchparams.dy, patchparams.dz, winv, L))
-end
-
 @inline function thick_pure_bsolenoid(tm::Exact, bunch, bm0, L)
   Ksol, _ = get_strengths(bm0, L, bunch.p_over_q_ref)
   tilde_m, gamsqr_0, beta_0 = BeamTracking.drift_params(bunch.species, bunch.p_over_q_ref)
@@ -12,7 +6,7 @@ end
 
 @inline function drift(tm::Exact, bunch, L)
   tilde_m, gamsqr_0, beta_0 = BeamTracking.drift_params(bunch.species, bunch.p_over_q_ref)
-  return KernelCall(BeamTracking.exact_drift!, (beta_0, gamsqr_0, tilde_m, L))
+  return KernelCall(BeamTracking.exact_drift!, (0, beta_0, gamsqr_0, tilde_m, L))
 end
 
 @inline function thick_bend_pure_bdipole(tm::Exact, bunch, bendparams, bm1, L)
@@ -56,5 +50,5 @@ end
   w_inv = inv_rot_quaternion(0,0,-tilt)
   theta = g * L
   tilde_m, _, beta_0 = BeamTracking.drift_params(bunch.species, bunch.p_over_q_ref)
-  return KernelCall(BeamTracking.exact_curved_drift!, (e1, e2, g, w, w_inv, gyromagnetic_anomaly(bunch.species), tilde_m, beta_0, L))
+  return KernelCall(BeamTracking.exact_curved_drift!, (0, e1, e2, g, w, w_inv, gyromagnetic_anomaly(bunch.species), tilde_m, beta_0, L))
 end

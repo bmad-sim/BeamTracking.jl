@@ -70,6 +70,12 @@ end
 
 #---------------------------------------------------------------------------------------------------
 
+@inline function pure_patch(tm, bunch, patchparams, L) 
+  tilde_m, gamsqr_0, beta_0 = BeamTracking.drift_params(bunch.species, bunch.p_over_q_ref)
+  winv = inv_rot_quaternion(patchparams.dx_rot, patchparams.dy_rot, patchparams.dz_rot)
+  return KernelCall(BeamTracking.patch!, (beta_0, gamsqr_0, tilde_m, patchparams.dt, patchparams.dx, patchparams.dy, patchparams.dz, winv, L))
+end
+
 @inline pure_map(tm, bunch, mapparams, L) = KernelCall(BeamTracking.map!, (mapparams.transport_map, mapparams.transport_map_params, L))
 
 #---------------------------------------------------------------------------------------------------
