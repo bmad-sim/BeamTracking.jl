@@ -272,6 +272,8 @@ Base.:(==)(b::BatchParam, n::Number) = all(x->x == n, b.batch)
 Base.:(==)(n::Number, b::BatchParam) = all(x->n == x, b.batch)
 Base.isinf(b::BatchParam) = all(x->isinf(x), b.batch)
 
+batch_lower(bp) = bp
+
 # Batch lowering should convert types to _LoweredBatchParam
 function batch_lower(b::BatchParam)
   if b.batch isa AbstractArray
@@ -285,22 +287,9 @@ end
 # the CPU and we are already type unstable here anyways, so we should do this.
 batch_lower(bp::T) where {T<:Tuple} = map(bi->batch_lower(bi), bp)
 
-# Recursively lower BatchParam fields in structs.
-@generated function batch_lower(bp::T) where {T}
-  if !Base.isstructtype(T) || fieldcount(T) == 0
-    return :(bp)
-  end
-  names = fieldnames(T)
-  vars = [Symbol(:lowered_, i) for i in 1:length(names)]
-  assigns = [:($(vars[i]) = batch_lower(getfield(bp, $(QuoteNode(names[i]))))) for i in 1:length(names)]
-  unchanged = [:($(vars[i]) === getfield(bp, $(QuoteNode(names[i])))) for i in 1:length(names)]
-  construct = :($(T.name.wrapper)($(vars...)))
-  return Expr(:block, assigns..., Expr(:if, Expr(:&&, unchanged...), :(return bp)), construct)
-end
-
 # Arrays MUST be converted into tuples, for SIMD
 batch_lower(bp::SArray{N,BatchParam}) where {N} = batch_lower(Tuple(bp))
-
+static_batchcheck(bp) = false
 static_batchcheck(::_LoweredBatchParam) = true
 @unroll function static_batchcheck(t::Tuple)
   @unroll for ti in t
@@ -309,17 +298,6 @@ static_batchcheck(::_LoweredBatchParam) = true
     end
   end
   return false
-end
-# Recursively check for batch params inside structs.
-@generated function static_batchcheck(s::T) where {T}
-  if !Base.isstructtype(T)
-    return :(false)
-  end
-  checks = [:(static_batchcheck(getfield(s, $(QuoteNode(name))))) for name in fieldnames(T)]
-  if isempty(checks)
-    return :(false)
-  end
-  return Expr(:||, checks...)
 end
 
 @inline beval(b::_LoweredBatchParam{B}, i) where {B} = b.batch[mod1(i, B)]
@@ -364,22 +342,4 @@ end
 end
 # === END CLAUDE ===
 
-# Non-BatchParam SArrays pass through (BatchParam SArrays were converted to tuples during lowering)
-beval(f::SArray, t) = f
-
-# Generated function for structs: recursively evaluate batch params per particle.
-# Structs are reconstructed with evaluated fields.
-@generated function beval(f::T, t) where {T}
-  if Base.isstructtype(T)
-    field_names = fieldnames(T)
-    N = length(field_names)
-    if N == 0
-      return :(f)
-    end
-    exprs = [:(beval(Base.getfield(f, $(QuoteNode(field_names[j]))), t)) for j in 1:N]
-    # Same as _batch_lower_struct: use unparameterized type so Julia re-infers type params.
-    return :($(T.name.wrapper)($(exprs...)))
-  else
-    return :(f)
-  end
-end
+@inline beval(b, i) = b
