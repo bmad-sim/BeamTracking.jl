@@ -34,4 +34,15 @@ lat = Branch([m, sc1, sc2, sc3])
 lat2 = Branch([m2, sc4, sc5, sc6])
 lat3 = Branch([m3, sc7])
 
+# Beamlines v0.9.0 shallow copy:
+sc1 = lat.beamlines[2].line[1]
+sc2 = lat.beamlines[3].line[1]
+sc3 = lat.beamlines[4].line[1]
+
+sc4 = lat2.beamlines[2].line[1]
+sc5 = lat2.beamlines[3].line[1]
+sc6 = lat2.beamlines[4].line[1]
+
+sc7 = lat3.beamlines[2].line[1]
+
 ;

@@ -379,7 +379,7 @@ zf_mn4  = [ 0., 3.140908277834687e-8, -3.1503450227072763e-8, 3.140908186274627e
     #
     # 1 MeV electron
     v = [ xi pxi yi pyi zi pzi ]
-    BeamTracking.launch!(Bunch(v).coords, make_kernel_call(BeamTracking.exact_drift!, (0, β2, γsq2, 1/βγ2, ld2)))n
+    BeamTracking.launch!(Bunch(v).coords, make_kernel_call(BeamTracking.exact_drift!, (0, β2, γsq2, 1/βγ2, ld2)))
     @test v[:,BeamTracking.XI]  ≈  xf_dr2 (rtol=5.e-13)
     @test v[:,BeamTracking.YI]  ≈  yf_dr2 (rtol=5.e-13)
     @test v[:,BeamTracking.ZI]  ≈  zf_dr2 (rtol=5.e-13)
