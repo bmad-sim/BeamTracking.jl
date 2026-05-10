@@ -10,7 +10,7 @@ blank_kernel!(args...) = nothing
   args::A   = ()
 end
 
-function make_kernel_call(kernel, args)
+function make_kernel_call(kernel=blank_kernel!, args=())
   _args = map(t->time_lower(batch_lower(t)), args)
   return KernelCall(kernel, _args)
 end
