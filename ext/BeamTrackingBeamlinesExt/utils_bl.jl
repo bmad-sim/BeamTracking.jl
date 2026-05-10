@@ -4,10 +4,21 @@ Beamlines.DefExpr{T}(a::TimeDependentParam) where {T} = DefExpr{T}(()->convert(T
 #DefExpr{T}(a::DefExpr) where {T} = DefExpr{T}(()->convert(T,a()))
 
 function check_bl_bunch!(bl::Beamline, bunch::Bunch, notify::Bool=true)
-  ref = getfield(bl, :ref)
-  species_ref = getfield(bl, :species_ref)
+  ibp = first(bl.line).InitialBeamlineParams
+
+  if isnothing(ibp)
+    # TODO: For branch/lattices, this should go back to the previous branch 
+    # and get that ref recursively (bc it inherits the previous). For now, 
+    # we can just assume nothing.
+    ibp = InitialBeamlineParams()
+    ref = nothing
+    species_ref = Species()
+  else
+    ref = getfield(ibp, :ref)
+    species_ref = getfield(ibp, :species_ref)
+  end
   check_species!(species_ref, bunch, notify)
-  check_p_over_q_ref!(bl, ref, bunch, notify)
+  check_p_over_q_ref!(ibp, ref, bunch, notify)
   return
 end
 
@@ -29,7 +40,7 @@ function check_species!(species_ref::Species, bunch::Bunch, notify=true)
   return
 end
 
-function check_p_over_q_ref!(bl::Beamline, ref, bunch::Bunch, notify=true)
+function check_p_over_q_ref!(ibp::InitialBeamlineParams, ref, bunch::Bunch, notify=true)
   t_ref = bunch.t_ref
   if isnan(bunch.p_over_q_ref)
     if isnothing(ref)
@@ -37,11 +48,7 @@ function check_p_over_q_ref!(bl::Beamline, ref, bunch::Bunch, notify=true)
         println("WARNING: Both the bunch and beamline do not have any set reference energy. If any LineElements have unnormalized fields stored as independent variables, there will be an error.")
       end
     else
-      if bl isa Beamline
-        p_over_q_ref = bl.p_over_q_ref
-      else
-        p_over_q_ref = ref
-      end
+      p_over_q_ref = ibp.p_over_q_ref
       if notify
         if ref isa TimeDependentParam
           println("Setting bunch.p_over_q_ref = $(p_over_q_ref(t_ref)) (reference p_over_q_ref from the Beamline at t_ref = $t_ref)")
@@ -55,7 +62,7 @@ function check_p_over_q_ref!(bl::Beamline, ref, bunch::Bunch, notify=true)
         setfield!(bunch, :p_over_q_ref, typeof(bunch.p_over_q_ref)(p_over_q_ref))
       end
     end
-  elseif !isnothing(ref)  && !(bl.p_over_q_ref ≈ bunch.p_over_q_ref) && !(bl.p_over_q_ref isa TimeDependentParam) && notify
+  elseif !isnothing(ref)  && !(ibp.p_over_q_ref ≈ bunch.p_over_q_ref) && !(ibp.p_over_q_ref isa TimeDependentParam) && notify
     println("WARNING:The reference energy of the bunch does NOT equal the reference energy of the Beamline. 
               Normalized field strengths in tracking ALWAYS use the reference energy of the bunch.")
   end
@@ -180,11 +187,11 @@ end
 function rf_phi0_calc(rfparams, species)
   dphi = chargeof(species) > 0 ? 0 : pi
 
-  if rfparams.zero_phase == PhaseReference.BelowTransition
+  if rfparams.zero_phase == PhaseRef.BelowTransition
     return rfparams.phi0 + pi/2 + dphi
-  elseif rfparams.zero_phase == PhaseReference.AboveTransition
+  elseif rfparams.zero_phase == PhaseRef.AboveTransition
     return rfparams.phi0 - pi/2 + dphi
-  elseif rfparams.zero_phase == PhaseReference.Accelerating
+  elseif rfparams.zero_phase == PhaseRef.Accelerating
     return rfparams.phi0 + dphi
   else
     error("RF parameter zero_phase value not set correctly.")

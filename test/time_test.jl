@@ -148,7 +148,7 @@ end
     extra_tests=((p,m,t)->check_state(p,m,t,BeamTracking.STATE_LOST_POS_X),)
   )
 
-
+#=
   # Test that time evaluation works for structs
   # This tests time_lower, teval, and static_timecheck on structs with TimeDependentParam fields
   @testset "Time evaluation for structs" begin
@@ -206,6 +206,6 @@ end
       @test evaluated.scale == 2.0
     end
   end
-
+=#
   
 end

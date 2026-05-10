@@ -55,31 +55,31 @@ ms2 = [
 
   r, q = BeamTracking.coord_alignment_bend_entering(0.1, 0.2, 0.3, -0.1, 0.2, 0.3, 0.15, 0.4, +1, 3.0)
   bunch = Bunch(copy(vb1))
-  BeamTracking.launch!(bunch.coords, KernelCall(BeamTracking.track_coord_transform!, (r, q)))
+  BeamTracking.launch!(bunch.coords, make_kernel_call(BeamTracking.track_coord_transform!, (r, q)))
   @test bunch.coords.v ≈ vb_enter
-  test_matrix(mb1, KernelCall(BeamTracking.track_coord_transform!, (r, q)))
+  test_matrix(mb1, make_kernel_call(BeamTracking.track_coord_transform!, (r, q)))
 
   r, q = BeamTracking.coord_alignment_bend_exiting(0.1, 0.2, 0.3, -0.1, 0.2, 0.3, 0.15, 0.4, +1, 3.0)
   bunch = Bunch(copy(vb1))
-  BeamTracking.launch!(bunch.coords, KernelCall(BeamTracking.track_coord_transform!, (r, q)))
+  BeamTracking.launch!(bunch.coords, make_kernel_call(BeamTracking.track_coord_transform!, (r, q)))
   @test bunch.coords.v ≈ vb_exit
-  test_matrix(mb2, KernelCall(BeamTracking.track_coord_transform!, (r, q)))
+  test_matrix(mb2, make_kernel_call(BeamTracking.track_coord_transform!, (r, q)))
 
   # Straight tests
 
   bunch = Bunch(copy(vs1))
-  BeamTracking.launch!(bunch.coords, KernelCall(BeamTracking.track_alignment_straight_entering!,
+  BeamTracking.launch!(bunch.coords, make_kernel_call(BeamTracking.track_alignment_straight_entering!,
                                                       (0.4, 0.5, 0.6, 0.01, -0.02, 0.03, +1, 2.0)))
   @test bunch.coords.v ≈ vs_enter
 
   bunch = Bunch(copy(vs1))
-  BeamTracking.launch!(bunch.coords, KernelCall(BeamTracking.track_alignment_straight_exiting!,
+  BeamTracking.launch!(bunch.coords, make_kernel_call(BeamTracking.track_alignment_straight_exiting!,
                                                       (0.4, 0.5, 0.6, 0.01, -0.02, 0.03, +1, 3.0)))
   @test bunch.coords.v ≈ vs_exit
 
-  test_matrix(ms1, KernelCall(BeamTracking.track_alignment_straight_entering!, 
+  test_matrix(ms1, make_kernel_call(BeamTracking.track_alignment_straight_entering!, 
                                                       (0.4, 0.5, 0.6, 0.01, -0.02, 0.03, +1, 2.0)))
-  test_matrix(ms2, KernelCall(BeamTracking.track_alignment_straight_exiting!, 
+  test_matrix(ms2, make_kernel_call(BeamTracking.track_alignment_straight_exiting!, 
                                                       (0.4, 0.5, 0.6, 0.01, -0.02, 0.03, +1, 3.0)))
 end
 

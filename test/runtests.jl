@@ -11,7 +11,7 @@ using Test,
       KernelAbstractions,
       ForwardDiff
 
-using BeamTracking: Coords, KernelCall, Q0, QX, QY, QZ, STATE_ALIVE, STATE_LOST, C_LIGHT,
+using BeamTracking: Coords, KernelCall, make_kernel_call, Q0, QX, QY, QZ, STATE_ALIVE, STATE_LOST, C_LIGHT,
       STATE_LOST_NEG_X, STATE_LOST_POS_X, STATE_LOST_NEG_Y, STATE_LOST_POS_Y, STATE_LOST_PZ, STATE_LOST_Z,
       rot_quaternion, inv_rot_quaternion, atan2, sincu, sinhcu, sincuc, expq, atan2,
       quat_mul, quat_rotate, gaussian_random
@@ -19,6 +19,7 @@ using Beamlines: isactive
 
 @show BeamTracking.REGISTER_SIZE
 @show Sys.ARCH
+@show Threads.nthreads()
 
 BenchmarkTools.DEFAULT_PARAMETERS.gctrial = false
 BenchmarkTools.DEFAULT_PARAMETERS.evals = 2

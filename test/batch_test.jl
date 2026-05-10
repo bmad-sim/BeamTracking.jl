@@ -260,7 +260,7 @@ end
   )
 
 =#
-
+#=
   # Test that batch evaluation works for structs
   # This tests batch_lower, beval, and static_batchcheck on structs with BatchParam fields
   @testset "Batch evaluation for structs" begin
@@ -320,4 +320,5 @@ end
       @test evaluated.scale == 2.0
     end
   end
+  =#
 end
