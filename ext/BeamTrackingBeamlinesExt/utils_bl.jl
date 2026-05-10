@@ -10,6 +10,7 @@ function check_bl_bunch!(bl::Beamline, bunch::Bunch, notify::Bool=true)
     # TODO: For branch/lattices, this should go back to the previous branch 
     # and get that ref recursively (bc it inherits the previous). For now, 
     # we can just assume nothing.
+    ibp = InitialBeamlineParams()
     ref = nothing
     species_ref = Species()
   else
@@ -17,7 +18,7 @@ function check_bl_bunch!(bl::Beamline, bunch::Bunch, notify::Bool=true)
     species_ref = getfield(ibp, :species_ref)
   end
   check_species!(species_ref, bunch, notify)
-  check_p_over_q_ref!(bl, ref, bunch, notify)
+  check_p_over_q_ref!(ibp, ref, bunch, notify)
   return
 end
 

@@ -30,8 +30,8 @@ end
   m3 = Marker(E_ref = E0, species_ref = species)
 end
 
-lat = Lattice([m, sc1, sc2, sc3])
-lat2 = Lattice([m2, sc4, sc5, sc6])
-lat3 = Lattice([m3, sc7])
+lat = Branch([m, sc1, sc2, sc3])
+lat2 = Branch([m2, sc4, sc5, sc6])
+lat3 = Branch([m3, sc7])
 
 ;

@@ -35,11 +35,6 @@ end
 # In case KernelChain contains batch GPU array
 Adapt.@adapt_structure KernelChain
 
-#=
-function Adapt.adapt_structure(to, obj::KernelChain)
-  return KernelChain(Adapt.adapt_structure(to, obj.chain), Adapt.adapt_structure(to, obj.ref))
-end
-=#
 KernelChain(::Val{N}, ref=nothing) where {N} = KernelChain(ntuple(t->KernelCall(), Val{N}()), ref)
 
 push(kc::KernelChain, kcall::Nothing) = kc
@@ -252,18 +247,3 @@ macro makekernel(args...)
   end
 
 end
-#=
-
-for particle in particles
-  for ele in ring
-
-  end
-end
-
-for ele in ring
-  # do a bunch pre pro
-  for particle in particle
-
-  end
-end
- =#
