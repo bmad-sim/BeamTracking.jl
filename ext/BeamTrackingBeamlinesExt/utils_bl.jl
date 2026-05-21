@@ -74,6 +74,7 @@ end
 get_n_multipoles(::BMultipoleParams{T,N}) where {T,N} = N
 
 make_static(a::StaticArray) = SVector(a)
+make_static(a::SizedArray) = SVector(a)
 make_static(a) = a
 
 #---------------------------------------------------------------------------------------------------
