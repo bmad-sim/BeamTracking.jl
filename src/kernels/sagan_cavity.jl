@@ -18,7 +18,7 @@ function sagan_cavity_zero_L!(i, coords::Coords,
 
   # Reference energy shift
   dP0c = dpc_given_dE(P0c, dE_ref, mass)
-  reference_momentum_shift!(i, coords, P0c, dP0c, true)
+  reference_momentum_shift!(i, coords, P0c, dP0c, Val{true}())
   P0c += dP0c
 
   # Multipole kick
@@ -83,7 +83,7 @@ end
               q, q_gradient, a, mass, P0c, L_active/2)
     sagan_cavity_kick!(i, coords, a, q_gradient*L_active, rf_omega, t_phi0, t_ref, mass, P0c)
     dP0c = dpc_given_dE(P0c, dE_ref, mass)
-    reference_momentum_shift!(i, coords, P0c, dP0c, true)
+    reference_momentum_shift!(i, coords, P0c, dP0c, Val{true}())
     P0c += dP0c
     q_over_p_ref = q * C_LIGHT / P0c
 
@@ -100,7 +100,7 @@ end
 
       # Reference energy shift
       dP0c = dpc_given_dE(P0c, dE_ref/(n_cells*kick_factor), mass)
-      reference_momentum_shift!(i, coords, P0c, dP0c, true)
+      reference_momentum_shift!(i, coords, P0c, dP0c, Val{true}())
       P0c += dP0c
       q_over_p_ref = q * C_LIGHT / P0c
 
