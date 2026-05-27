@@ -5,43 +5,44 @@ end
 
 struct TimeDependentParam
   f::TimeFunction
-  TimeDependentParam(f::TimeFunction=TimeFunction((t)->t)) = new(f)
-  TimeDependentParam(f::Function) = new(TimeFunction(f))
+  _isconst::Bool
+  TimeDependentParam(f::TimeFunction, _isconst) = new(f, _isconst)
+  TimeDependentParam(f::Function, _isconst) = new(TimeFunction(f), _isconst)
 end
 
 # Convenience ctor
-Time() = TimeDependentParam()
+Time() = TimeDependentParam(TimeFunction((t)->t), false)
 
 # Calling TimeDependentParam
 (d::TimeDependentParam)(t) = d.f(t)
 
 # Conversion of types to TimeDependentParam
-TimeDependentParam(a::Number) = TimeDependentParam((t)->a) 
+TimeDependentParam(a::Number) = TimeDependentParam((t)->a, true) 
 TimeDependentParam(a::TimeDependentParam) = a
 
 # Make these apply via convert
-Base.convert(::Type{D}, a::Number) where {D<:TimeDependentParam} = D(a)
+Base.convert(::Type{D}, a::Number) where {D<:TimeDependentParam} = D(a,true)
 Base.convert(::Type{D}, a::D) where {D<:TimeDependentParam} = a
 
-Base.zero(::TimeDependentParam) = TimeDependentParam((t)->0)
-Base.one(::TimeDependentParam) = TimeDependentParam((t)->1)
+Base.zero(::TimeDependentParam) = TimeDependentParam((t)->0, true)
+Base.one(::TimeDependentParam) = TimeDependentParam((t)->1, true)
 
 # Now define the math operations:
 for op in (:+,:-,:*,:/,:^)
   @eval begin
-    Base.$op(da::TimeDependentParam, b::Number)   = (let fa = da.f, b = b; return TimeDependentParam((t)-> $op(fa(t), b)); end)
-    Base.$op(a::Number,   db::TimeDependentParam) = (let fb = db.f, a = a; return TimeDependentParam((t)-> $op(a, fb(t))); end)
+    Base.$op(da::TimeDependentParam, b::Number)   = (let fa = da.f, _isconst=da._isconst, b = b; return TimeDependentParam((t)-> $op(fa(t), b), _isconst); end)
+    Base.$op(a::Number,   db::TimeDependentParam) = (let fb = db.f, _isconst=db._isconst, a = a; return TimeDependentParam((t)-> $op(a, fb(t)), _isconst); end)
     function Base.$op(da::TimeDependentParam, db::TimeDependentParam)
-      let fa = da.f, fb = db.f
-        return TimeDependentParam((t)-> $op(fa(t), fb(t)))
+      let fa = da.f, fb = db.f, _isconst = da._isconst && db._isconst # true only if both are const
+        return TimeDependentParam((t)-> $op(fa(t), fb(t)), _isconst)
       end
     end
   end
 end
 
 function Base.literal_pow(::typeof(^), da::TimeDependentParam, ::Val{N}) where {N} 
-  let fa = da.f
-    return TimeDependentParam((t)->Base.literal_pow(^, fa(t), Val{N}()))
+  let fa = da.f, _isconst=da._isconst
+    return TimeDependentParam((t)->Base.literal_pow(^, fa(t), Val{N}()), _isconst)
   end
 end
 
@@ -49,27 +50,27 @@ for t = (:+, :-, :sqrt, :exp, :log, :sin, :cos, :tan, :cot, :sinh, :cosh, :tanh,
   :coth, :asin, :acos, :atan, :acot, :asinh, :acosh, :atanh, :acoth, :sinc, :csc, :float,
   :csch, :acsc, :acsch, :sec, :sech, :asec, :asech, :conj, :log10, :isnan, :sign, :abs)
   @eval begin
-    Base.$t(d::TimeDependentParam) = (let f = d.f; return TimeDependentParam((t)-> ($t)(f(t))); end)
+    Base.$t(d::TimeDependentParam) = (let f = d.f, _isconst = d._isconst; return TimeDependentParam((t)-> ($t)(f(t)), _isconst); end)
   end
 end
 
-atan2(d1::TimeDependentParam, d2::TimeDependentParam) = (let f1 = d1.f, f2 = d2.f; return TimeDependentParam((t)->atan2(f1(t),f2(t))); end)
+atan2(d1::TimeDependentParam, d2::TimeDependentParam) = (let f1 = d1.f, f2 = d2.f, _isconst = d1._isconst && d2._isconst; return TimeDependentParam((t)->atan2(f1(t),f2(t)), _isconst); end)
 
 for t = (:unit, :sincu, :sinhc, :sinhcu, :asinc, :asincu, :asinhc, :asinhcu, :erf, 
          :erfc, :erfcx, :erfi, :wf, :rect)
   @eval begin
-    GTPSA.$t(d::TimeDependentParam) = (let f = d.f; return TimeDependentParam((t)-> ($t)(f(t))); end)
+    GTPSA.$t(d::TimeDependentParam) = (let f = d.f, _isconst = d._isconst; return TimeDependentParam((t)-> ($t)(f(t)), _isconst); end)
   end
 end
 
 Base.promote_rule(::Type{TimeDependentParam}, ::Type{U}) where {U<:Number} = TimeDependentParam
 Base.broadcastable(o::TimeDependentParam) = Ref(o)
 
-Base.isapprox(::TimeDependentParam, ::Number; kwargs...) = false
-Base.isapprox(::Number, ::TimeDependentParam; kwargs...) = false
-Base.:(==)(::TimeDependentParam, ::Number) = false
-Base.:(==)(::Number, ::TimeDependentParam) = false
-Base.isinf(::TimeDependentParam) = false
+Base.isapprox(d::TimeDependentParam, n::Number; kwargs...) = d._isconst ? isapprox(d(0), n) : false
+Base.isapprox(n::Number, d::TimeDependentParam; kwargs...) = d._isconst ? isapprox(n, d(0)) : false
+Base.:(==)(d::TimeDependentParam, n::Number) = d._isconst ? d(0) == n : false
+Base.:(==)(n::Number, d::TimeDependentParam) = d._isconst ? n == d(0) : false
+Base.isinf(d::TimeDependentParam) = d._isconst ? isinf(d(0)) : false
 
 @inline teval(f::TimeFunction, t) = f(t)
 @inline teval(f, t) = f
