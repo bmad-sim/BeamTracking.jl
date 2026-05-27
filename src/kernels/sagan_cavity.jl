@@ -47,7 +47,7 @@ end
 
   # Reference energy shift
   dP0c = dpc_given_dE(P0c, dE_ref, mass)
-  reference_momentum_shift!(i, coords, P0c, dP0c, true)
+  reference_momentum_shift!(i, coords, P0c, dP0c, Val{true}())
   P0c += dP0c
 
   # Outside Drift
