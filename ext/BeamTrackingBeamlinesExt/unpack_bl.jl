@@ -76,17 +76,17 @@ function universal!(
   # and 2 for coordinate conversion with implicit
   kc = KernelChain(Val{10}(), RefState(bunch.t_ref, beta_gamma_ref0))
 
-  # Ramping
-  if p_over_q_ref isa TimeDependentParam || p_over_q_ref != bunch.p_over_q_ref
-    if ramp_update_each_particle
-      # If TimeDependentParam, then we ramp to time-dependent reference energies 
-      # at the entrance of the element, traverse element, then at end ramp all 
-      # particles uniformly to p_over_q_ref(t_ref at end)
+  p_over_q_ref_initial = bunch.p_over_q_ref
+  ramp_per_particle = p_over_q_ref isa TimeDependentParam && ramp_update_each_particle
 
-      # If not equal, then just simply ramp right at beginning of element uniformly
-      kc = push(kc, make_kernel_call(BeamTracking.reference_momentum_shift!, (bunch.p_over_q_ref, p_over_q_ref-bunch.p_over_q_ref, Val{!ramp_particle_energy_without_rf}())))
-    else
-
+  if ramp_per_particle
+    kc = push(kc, make_kernel_call(BeamTracking.reference_momentum_shift!, (bunch.p_over_q_ref, p_over_q_ref-bunch.p_over_q_ref, Val{!ramp_particle_energy_without_rf}())))
+  else
+    # Make sure to evaluate p_over_q_ref if not ramp_update_each_particle
+    p_over_q_ref = p_over_q_ref isa TimeDependentParam ? p_over_q_ref(bunch.t_ref) : p_over_q_ref
+    if !(p_over_q_ref ≈ p_over_q_ref_initial)
+        kc = push(kc, make_kernel_call(BeamTracking.reference_momentum_shift!, (p_over_q_ref_initial, p_over_q_ref - p_over_q_ref_initial, Val{!ramp_particle_energy_without_rf}())))
+        bunch.p_over_q_ref = p_over_q_ref
     end
   end
 
@@ -282,7 +282,7 @@ function universal!(
   bunch.t_ref += L / beta_gamma_to_v(beta_gamma_ref0)
 
   # If ramping, now need to uniformly ramp all particles to same reference energy
-  if p_over_q_ref isa TimeDependentParam
+  if ramp_per_particle
     # If TimeDependentParam, at end ramp all 
     # uniformly to p_over_q_ref(t_ref at end)
     bunch.p_over_q_ref = p_over_q_ref(bunch.t_ref)
