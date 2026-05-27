@@ -18,3 +18,6 @@ Shift coordinates due to a change in reference energy `dE`.
     end
   end
 end
+
+# Fallback
+fma(a, b, c) = a * b + c
