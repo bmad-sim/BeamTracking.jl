@@ -295,7 +295,7 @@ end
 #---------------------------------------------------------------------------------------------------
 # universal! for SaganCavity tracking.
 
-function universal!(coords, tm::SaganCavity, ele, ramp_particle_energy_without_rf, bunch, L,
+function universal!(coords, tm::SaganCavity, ele, ramp_particle_energy_without_rf, ramp_update_each_particle, bunch, L,
   p_over_q_ref, alignmentparams, bendparams, bmultipoleparams, patchparams, apertureparams,
   rfparams, beamlineparams, mapparams, fourpotentialparams; kwargs...) 
 
@@ -310,11 +310,14 @@ function universal!(coords, tm::SaganCavity, ele, ramp_particle_energy_without_r
 
   # Ramping
   if p_over_q_ref isa TimeDependentParam
+    if ramp_update_each_particle
+      error("ramp_update_each_particle = true not yet implemented for SaganCavity") # TODO
+    end
     p_over_q_ref_initial = bunch.p_over_q_ref
     p_over_q_ref_final = p_over_q_ref(bunch.t_ref)
     if !(p_over_q_ref_initial ≈ p_over_q_ref_final)
       kc = push(kc, make_kernel_call(BeamTracking.reference_momentum_shift!, (p_over_q_ref_initial, 
-                                       p_over_q_ref_final-p_over_q_ref_initial, !ramp_particle_energy_without_rf)))
+                                       p_over_q_ref_final-p_over_q_ref_initial, Val{!ramp_particle_energy_without_rf}())))
       setfield!(bunch, :p_over_q_ref, p_over_q_ref_final)
     end
   end
