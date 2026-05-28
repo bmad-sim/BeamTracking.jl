@@ -427,7 +427,7 @@ end
 
 
 # =========== IMPLICIT ============= #
-@inline function implicit_in(tm::Yoshida, bunch)
+@inline function implicit_in(tm::Yoshida, p_over_q_ref, bunch)
   p_over_q_ref = p_over_q_ref
   tilde_m, _, beta_0 = BeamTracking.drift_params(bunch.species, p_over_q_ref)
   return KernelCall(BeamTracking.bmad_to_mad!, (beta_0, tilde_m, 0))
@@ -463,7 +463,7 @@ end
   return integration_launcher(BeamTracking.implicit_integrator!, params, photon_params, tm, nothing, L)
 end
 
-@inline function implicit_out(tm::Yoshida, bunch)
+@inline function implicit_out(tm::Yoshida, p_over_q_ref, bunch)
   p_over_q_ref = p_over_q_ref
   tilde_m, _, beta_0 = BeamTracking.drift_params(bunch.species, p_over_q_ref)
   return KernelCall(BeamTracking.mad_to_bmad!, (beta_0, tilde_m, 0))
