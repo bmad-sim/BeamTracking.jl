@@ -24,7 +24,6 @@ function _track!(
   rp = deval(ele.RFParams)
   lp = deval(ele.BeamlineParams)
   fpp = deval(ele.FourPotentialParams)
-  @show ele.s, ele.name
 
   if scalar_params
     L = scalarize(L)
