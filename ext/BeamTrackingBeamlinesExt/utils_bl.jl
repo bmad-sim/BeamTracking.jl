@@ -56,50 +56,6 @@ end
 
 #---------------------------------------------------------------------------------------------------
 
-function check_species!(species_ref::Species, bunch::Bunch, notify=true)
-  if isnullspecies(bunch.species)
-    if isnullspecies(species_ref)
-      error("Bunch species has not been set")
-    else
-      if notify
-        println("Setting bunch.species = $species_ref (reference species from the Beamline)")
-      end
-      setfield!(bunch, :species, species_ref)
-    end
-  elseif !isnullspecies(species_ref) && species_ref != bunch.species && notify
-    println("WARNING: The species of the bunch does NOT equal the reference species of the Beamline.")
-  end
-  return
-end
-
-function check_p_over_q_ref!(ibp::InitialBeamlineParams, ref, bunch::Bunch, notify=true)
-  t_ref = bunch.t_ref
-  if isnan(bunch.p_over_q_ref)
-    if isnothing(ref)
-      if notify
-        println("WARNING: Both the bunch and beamline do not have any set reference energy. If any LineElements have unnormalized fields stored as independent variables, there will be an error.")
-      end
-    else
-      p_over_q_ref = ibp.p_over_q_ref
-      if notify
-        if ref isa TimeDependentParam
-          println("Setting bunch.p_over_q_ref = $(p_over_q_ref(t_ref)) (reference p_over_q_ref from the Beamline at t_ref = $t_ref)")
-        else
-          println("Setting bunch.p_over_q_ref = $p_over_q_ref (reference p_over_q_ref from the Beamline)")
-        end
-      end
-      if p_over_q_ref isa TimeDependentParam
-        setfield!(bunch, :p_over_q_ref, typeof(bunch.p_over_q_ref)(p_over_q_ref(t_ref)))
-      else
-        setfield!(bunch, :p_over_q_ref, typeof(bunch.p_over_q_ref)(p_over_q_ref))
-      end
-    end
-  end
-  return
-end
-
-#---------------------------------------------------------------------------------------------------
-
 get_n_multipoles(::BMultipoleParams{T,N}) where {T,N} = N
 
 make_static(a::StaticArray) = SVector(a)
