@@ -18,7 +18,7 @@ function sagan_cavity_zero_L!(i, coords::Coords,
 
   # Reference energy shift
   dP0c = dpc_given_dE(P0c, dE_ref, mass)
-  reference_momentum_shift!(i, coords, P0c, dP0c, true)
+  reference_momentum_shift!(i, coords, P0c, dP0c, Val{true}())
   P0c += dP0c
 
   # Multipole kick
@@ -47,7 +47,7 @@ end
 
   # Reference energy shift
   dP0c = dpc_given_dE(P0c, dE_ref, mass)
-  reference_momentum_shift!(i, coords, P0c, dP0c, true)
+  reference_momentum_shift!(i, coords, P0c, dP0c, Val{true}())
   P0c += dP0c
 
   # Outside Drift
@@ -61,7 +61,7 @@ end
 
 @makekernel fastgtpsa=true function sagan_cavity_thick!(i, coords::Coords, 
               val_rad_damping_on, val_rad_fluctuations_on, val_traveling_wave, 
-              mass, q, P0c, dE_ref, t_ref, num_cells, 
+              mass, q, P0c, dE_ref, t_ref, n_cells, 
               val_has_mult, val_has_sol, m_order, Bn, Bs, 
               a, q_gradient, rf_omega, t_phi0, L_active, L)
 
@@ -75,15 +75,15 @@ end
   sagan_cavity_fringe!(i, coords, a, q_gradient, rf_omega, t_phi0, t_ref, mass, P0c, +1)
 
   # Body Loop
-  # num_cells == 0 => single kick in center
+  # n_cells == 0 => single kick in center
 
-  if num_cells == 0
+  if n_cells == 0
     sagan_cavity_inside_drift!(i, coords, val_rad_damping_on, val_rad_fluctuations_on, val_traveling_wave,
               val_has_mult, val_has_sol, m_order, Bn .* q_over_p_ref, Bs .* q_over_p_ref, 
               q, q_gradient, a, mass, P0c, L_active/2)
     sagan_cavity_kick!(i, coords, a, q_gradient*L_active, rf_omega, t_phi0, t_ref, mass, P0c)
     dP0c = dpc_given_dE(P0c, dE_ref, mass)
-    reference_momentum_shift!(i, coords, P0c, dP0c, true)
+    reference_momentum_shift!(i, coords, P0c, dP0c, Val{true}())
     P0c += dP0c
     q_over_p_ref = q * C_LIGHT / P0c
 
@@ -92,23 +92,23 @@ end
                 q, q_gradient, a, mass, P0c, L_active/2)
 
   else
-    for i_step = 0:num_cells
-      i_step == 0 || i_step == num_cells ? kick_factor = 2 : kick_factor = 1
+    for i_step = 0:n_cells
+      i_step == 0 || i_step == n_cells ? kick_factor = 2 : kick_factor = 1
 
       # Longitudinal kick
-      sagan_cavity_kick!(i, coords, a, q_gradient*L_active/(num_cells*kick_factor), rf_omega, t_phi0, t_ref, mass, P0c)
+      sagan_cavity_kick!(i, coords, a, q_gradient*L_active/(n_cells*kick_factor), rf_omega, t_phi0, t_ref, mass, P0c)
 
       # Reference energy shift
-      dP0c = dpc_given_dE(P0c, dE_ref/(num_cells*kick_factor), mass)
-      reference_momentum_shift!(i, coords, P0c, dP0c, true)
+      dP0c = dpc_given_dE(P0c, dE_ref/(n_cells*kick_factor), mass)
+      reference_momentum_shift!(i, coords, P0c, dP0c, Val{true}())
       P0c += dP0c
       q_over_p_ref = q * C_LIGHT / P0c
 
       # Drift
-      if i_step == num_cells; break; end
+      if i_step == n_cells; break; end
       sagan_cavity_inside_drift!(i, coords, val_rad_damping_on, val_rad_fluctuations_on, val_traveling_wave,
            val_has_mult, val_has_sol, m_order, Bn .* q_over_p_ref, Bs .* q_over_p_ref, 
-           q, q_gradient, a, mass, P0c, L_active/num_cells)
+           q, q_gradient, a, mass, P0c, L_active/n_cells)
     end
   end
 

@@ -14,10 +14,17 @@ function track!(
   ele::LineElement;
   scalar_params::Bool=false,
   ramp_particle_energy_without_rf::Bool=false,
+  ramp_update_each_particle::Bool=false,
+  _p_over_q_ref=nothing,
   kwargs...
 )
+  if isnothing(_p_over_q_ref)
+    p_over_q_ref = ele.p_over_q_ref
+  else
+    p_over_q_ref = _p_over_q_ref
+  end
   coords = bunch.coords
-  @noinline _track!(coords, bunch, ele, ele.tracking_method, scalar_params, ramp_particle_energy_without_rf; kwargs...)
+  @noinline _track!(coords, bunch, ele,  p_over_q_ref, ele.tracking_method, scalar_params, ramp_particle_energy_without_rf, ramp_update_each_particle; kwargs...)
   return bunch
 end
 
@@ -26,15 +33,16 @@ function track!(
   bl::Beamline; 
   scalar_params::Bool=false,
   ramp_particle_energy_without_rf::Bool=false,
+  ramp_update_each_particle::Bool=false,
   kwargs...
 )
   if length(bl.line) == 0
     return bunch
   end
-  check_bl_bunch!(bl, bunch)
+  __, p_over_q_ref = check_bl_bunch!(bunch, bl)
   
   for ele in bl.line
-    track!(bunch, ele; scalar_params, ramp_particle_energy_without_rf, kwargs...)
+    track!(bunch, ele; scalar_params, ramp_particle_energy_without_rf, ramp_update_each_particle, kwargs...)
   end
 
   return bunch

@@ -25,7 +25,7 @@ end
 # ===============  I N T E G R A T O R S  ===============
 #
 
-@inline function order_two_integrator!(i, coords::Coords, ker, params, photon_params, ds_step, num_steps, edge_params, ::Val{fringe_in}, ::Val{fringe_out}, L) where {fringe_in,fringe_out}
+@inline function order_two_integrator!(i, coords::Coords, ker, params, photon_params, ds_step, n_steps, edge_params, ::Val{fringe_in}, ::Val{fringe_out}, L) where {fringe_in,fringe_out}
   @inbounds begin
     if !isnothing(edge_params) && fringe_in
       a, tilde_m, Ksol, Kn0, e1, e2 = edge_params
@@ -35,10 +35,10 @@ end
     if !isnothing(photon_params)
       stochastic_radiation!(i, coords, s, photon_params..., ds_step / 2)
     end
-    for step in 1:num_steps
+    for step in 1:n_steps
       ker(i, coords, s, params..., ds_step)
       s += ds_step
-      if !isnothing(photon_params) && (step < num_steps)
+      if !isnothing(photon_params) && (step < n_steps)
         stochastic_radiation!(i, coords, s, photon_params..., ds_step)
       end
       execute_callbacks(coords, ds_step, compute_g(ker, params))
@@ -55,7 +55,7 @@ end
 end
 
 
-@inline function order_four_integrator!(i, coords::Coords, ker, params, photon_params, ds_step, num_steps, edge_params, ::Val{fringe_in}, ::Val{fringe_out}, L) where {fringe_in,fringe_out}
+@inline function order_four_integrator!(i, coords::Coords, ker, params, photon_params, ds_step, n_steps, edge_params, ::Val{fringe_in}, ::Val{fringe_out}, L) where {fringe_in,fringe_out}
   @inbounds begin
     w0 = -1.7024143839193153215916254339390434324741363525390625*ds_step
     w1 =  1.3512071919596577718181151794851757586002349853515625*ds_step
@@ -67,14 +67,14 @@ end
     if !isnothing(photon_params)
       stochastic_radiation!(i, coords, s, photon_params..., ds_step / 2)
     end
-    for step in 1:num_steps
+    for step in 1:n_steps
       ker(i, coords, s, params..., w1)
       s += w1
       ker(i, coords, s, params..., w0)
       s += w0
       ker(i, coords, s, params..., w1)
       s += w1
-      if !isnothing(photon_params) && (step < num_steps)
+      if !isnothing(photon_params) && (step < n_steps)
         stochastic_radiation!(i, coords, s, photon_params..., ds_step)
       end
       execute_callbacks(coords, ds_step, compute_g(ker, params))
@@ -91,7 +91,7 @@ end
 end
 
 
-@inline function order_six_integrator!(i, coords::Coords, ker, params, photon_params, ds_step, num_steps, edge_params, ::Val{fringe_in}, ::Val{fringe_out}, L) where {fringe_in,fringe_out}
+@inline function order_six_integrator!(i, coords::Coords, ker, params, photon_params, ds_step, n_steps, edge_params, ::Val{fringe_in}, ::Val{fringe_out}, L) where {fringe_in,fringe_out}
   @inbounds begin
     w0 =  1.315186320683911169737712043570355*ds_step
     w1 = -1.17767998417887100694641568096432*ds_step
@@ -105,7 +105,7 @@ end
     if !isnothing(photon_params)
       stochastic_radiation!(i, coords, s, photon_params..., ds_step / 2)
     end
-    for step in 1:num_steps
+    for step in 1:n_steps
       ker(i, coords, s, params..., w3)
       s += w3
       ker(i, coords, s, params..., w2)
@@ -120,7 +120,7 @@ end
       s += w2
       ker(i, coords, s, params..., w3)
       s += w3
-      if !isnothing(photon_params) && (step < num_steps)
+      if !isnothing(photon_params) && (step < n_steps)
         stochastic_radiation!(i, coords, s, photon_params..., ds_step)
       end
       execute_callbacks(coords, ds_step, compute_g(ker, params))
@@ -137,7 +137,7 @@ end
 end
 
 
-@inline function order_eight_integrator!(i, coords::Coords, ker, params, photon_params, ds_step, num_steps, edge_params, ::Val{fringe_in}, ::Val{fringe_out}, L) where {fringe_in,fringe_out}
+@inline function order_eight_integrator!(i, coords::Coords, ker, params, photon_params, ds_step, n_steps, edge_params, ::Val{fringe_in}, ::Val{fringe_out}, L) where {fringe_in,fringe_out}
   @inbounds begin
     w0 =  1.7084530707869978*ds_step
     w1 =  0.102799849391985*ds_step
@@ -155,7 +155,7 @@ end
     if !isnothing(photon_params)
       stochastic_radiation!(i, coords, s, photon_params..., ds_step / 2)
     end
-    for step in 1:num_steps
+    for step in 1:n_steps
       ker(i, coords, s, params..., w7)
       s += w7
       ker(i, coords, s, params..., w6)
@@ -186,7 +186,7 @@ end
       s += w6
       ker(i, coords, s, params..., w7)
       s += w7
-      if !isnothing(photon_params) && (step < num_steps)
+      if !isnothing(photon_params) && (step < n_steps)
         stochastic_radiation!(i, coords, s, photon_params..., ds_step)
       end
       execute_callbacks(coords, ds_step, compute_g(ker, params))

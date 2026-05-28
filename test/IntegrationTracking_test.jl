@@ -81,9 +81,9 @@
       beta_0 = 1/sqrt(1 + tilde_m^2)
       params = (nothing, tilde_m, beta_0, a, T(0), w, w_inv, Kn0, mm, kn, ks)
       ker = BeamTracking.bkb_multipole!
-      num_steps = 10
+      n_steps = 10
       ds_step = T(0.2)
-      return ker, params, nothing, ds_step, num_steps, nothing, Val{false}(), Val{false}(), L
+      return ker, params, nothing, ds_step, n_steps, nothing, Val{false}(), Val{false}(), L
     end
 
     function integrator_args(::Type{T}) where {T}
@@ -103,9 +103,9 @@
       beta_0 = 1/sqrt(1 + tilde_m^2)
       params = (nothing, beta_0, gamsqr_0, tilde_m, a, mm, kn, ks)
       ker = BeamTracking.dkd_multipole!
-      num_steps = 1
+      n_steps = 1
       ds_step = T(2)
-      return ker, params, nothing, ds_step, num_steps, nothing, Val{false}(), Val{false}(), L
+      return ker, params, nothing, ds_step, n_steps, nothing, Val{false}(), Val{false}(), L
     end
 
     function cavity_args(::Type{T}) where {T}

@@ -1,56 +1,48 @@
 Base.promote_rule(::Type{DefExpr{T}}, ::Type{TimeDependentParam}) where {T} = DefExpr{TimeDependentParam}
 
 Beamlines.DefExpr{T}(a::TimeDependentParam) where {T} = DefExpr{T}(()->convert(T,a))
-#DefExpr{T}(a::DefExpr) where {T} = DefExpr{T}(()->convert(T,a()))
 
-function check_bl_bunch!(bl::Beamline, bunch::Bunch, notify::Bool=true)
-  ibp = first(bl.line).InitialBeamlineParams
+"""
+    check_bl_bunch!(bunch::Bunch, bl::Beamline, notify::Bool=true)
 
-  if isnothing(ibp)
-    # TODO: For branch/lattices, this should go back to the previous branch 
-    # and get that ref recursively (bc it inherits the previous). For now, 
-    # we can just assume nothing.
-    ibp = InitialBeamlineParams()
-    ref = nothing
-    species_ref = Species()
-  else
-    ref = getfield(ibp, :ref)
-    species_ref = getfield(ibp, :species_ref)
-  end
-  check_species!(species_ref, bunch, notify)
-  check_p_over_q_ref!(ibp, ref, bunch, notify)
-  return
+Ensures the Bunch and Beamline have the same species, by setting the 
+Bunch with the Beamline species if not set. 
+"""
+function check_bl_bunch!(bunch::Bunch, bl::Beamline, notify::Bool=true)
+  species_ref = Beamlines.trygetproperty(bl, :species_ref)
+  p_over_q_ref = Beamlines.trygetproperty(bl, :p_over_q_ref)
+  return _check_bunch!(bunch, species_ref, p_over_q_ref, notify)
 end
 
-#---------------------------------------------------------------------------------------------------
-
-function check_species!(species_ref::Species, bunch::Bunch, notify=true)
+# Ensures the 
+function _check_bunch!(bunch, species_ref, p_over_q_ref, notify::Bool=true)
   if isnullspecies(bunch.species)
-    if isnullspecies(species_ref)
-      error("Bunch species has not been set")
+    if species_ref isa Beamlines.GetError
+      error("Neither the Bunch nor the Beamline has set a species.")
     else
       if notify
         println("Setting bunch.species = $species_ref (reference species from the Beamline)")
       end
       setfield!(bunch, :species, species_ref)
     end
-  elseif !isnullspecies(species_ref) && species_ref != bunch.species && notify
-    println("WARNING: The species of the bunch does NOT equal the reference species of the Beamline.")
+  elseif !(species_ref isa Beamlines.GetError) && species_ref != bunch.species && notify
+    error("The species of the bunch currently must equal the reference species of the Beamline.")
   end
-  return
-end
 
-function check_p_over_q_ref!(ibp::InitialBeamlineParams, ref, bunch::Bunch, notify=true)
   t_ref = bunch.t_ref
   if isnan(bunch.p_over_q_ref)
-    if isnothing(ref)
+    if p_over_q_ref isa Beamlines.GetError
       if notify
-        println("WARNING: Both the bunch and beamline do not have any set reference energy. If any LineElements have unnormalized fields stored as independent variables, there will be an error.")
+        println("
+          WARNING: Both the bunch and beamline do not have any set reference energy. 
+          If any LineElements have unnormalized fields stored as independent variables, 
+          or if there is spin tracking, there will be NaNs.
+        ")
       end
+      p_over_q_ref = bunch.p_over_q_ref
     else
-      p_over_q_ref = ibp.p_over_q_ref
       if notify
-        if ref isa TimeDependentParam
+        if p_over_q_ref isa TimeDependentParam
           println("Setting bunch.p_over_q_ref = $(p_over_q_ref(t_ref)) (reference p_over_q_ref from the Beamline at t_ref = $t_ref)")
         else
           println("Setting bunch.p_over_q_ref = $p_over_q_ref (reference p_over_q_ref from the Beamline)")
@@ -62,11 +54,8 @@ function check_p_over_q_ref!(ibp::InitialBeamlineParams, ref, bunch::Bunch, noti
         setfield!(bunch, :p_over_q_ref, typeof(bunch.p_over_q_ref)(p_over_q_ref))
       end
     end
-  elseif !isnothing(ref)  && !(ibp.p_over_q_ref ≈ bunch.p_over_q_ref) && !(ibp.p_over_q_ref isa TimeDependentParam) && notify
-    println("WARNING:The reference energy of the bunch does NOT equal the reference energy of the Beamline. 
-              Normalized field strengths in tracking ALWAYS use the reference energy of the bunch.")
   end
-  return
+  return bunch.species, p_over_q_ref
 end
 
 #---------------------------------------------------------------------------------------------------
@@ -219,23 +208,23 @@ end
 
 #---------------------------------------------------------------------------------------------------
 """
-    rf_step_calc(num_cells, L_active, rf_omega, L) -> num_cells_out, L_active_out
+    rf_step_calc(n_cells, L_active, rf_omega, L) -> n_cells_out, L_active_out
 
-For an element of length `L`, calculate the number of RF cells (kicks) `num_cells_out` and the active length 
-`L_active_out` given the input number of cells `num_cells` and the active length length `L_active`.
+For an element of length `L`, calculate the number of RF cells (kicks) `n_cells_out` and the active length 
+`L_active_out` given the input number of cells `n_cells` and the active length length `L_active`.
 
 If `L_active` is negative, `L_active_out` is set to the element length `L`.
-If `num_cells` is negative, `num_cells_out` is set so that the cell length is near half a wavelength.
-If `L_active` is zero, `num_cells_out` is set to zero.
+If `n_cells` is negative, `n_cells_out` is set so that the cell length is near half a wavelength.
+If `L_active` is zero, `n_cells_out` is set to zero.
 """
-function rf_step_calc(num_cells, L_active, rf_omega, L)  
+function rf_step_calc(n_cells, L_active, rf_omega, L)  
   L_active < 0 ? L_act = L : L_act = L_active
 
-  if num_cells < 0
+  if n_cells < 0
     return round(rf_omega * L_act / (pi * C_LIGHT)), L_act
   elseif L_active == 0
     return 0, L_active
   else
-    return num_cells, L_act
+    return n_cells, L_act
   end
 end

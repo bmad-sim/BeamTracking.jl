@@ -873,11 +873,11 @@ zf_mn4  = [ 0., 3.140908277834687e-8, -3.1503450227072763e-8, 3.140908186274627e
     @test all(inv_rot_quaternion(dx_rot, dy_rot, dz_rot) .≈ Winv)
 
     b0 = Bunch([0.01 0.02 0.03 0.04 0.05 0.06], p_over_q_ref=10.0)
-    BeamTracking.reference_momentum_shift!(1, b0.coords, 10.0, 10.0, false)
+    BeamTracking.reference_momentum_shift!(1, b0.coords, 10.0, 10.0, Val{false}())
     @test b0.coords.v ≈ [0.01 0.01 0.03 0.02 0.05 0.06] # pz is not changed for fake ramping
 
     b0 = Bunch([0.01 0.02 0.03 0.04 0.05 0.06], p_over_q_ref=10.0)
-    BeamTracking.reference_momentum_shift!(1, b0.coords, 10.0, 10.0, true)
+    BeamTracking.reference_momentum_shift!(1, b0.coords, 10.0, 10.0, Val{true}())
     @test b0.coords.v ≈ [0.01 0.01 0.03 0.02 0.05 -0.47]
   end
 

@@ -60,12 +60,46 @@ end
 
 _generic_kernel!(i, coords, kc) = __generic_kernel!(i, coords, kc.chain, kc.ref)
 
-@unroll function __generic_kernel!(i, coords::Coords, chain, ref)
+@generated function __generic_kernel!(i, coords, chain::T, ref) where {T}
+  N = length(T.parameters)
+  if N > 0 && first(T.parameters) <: KernelCall{typeof(reference_momentum_shift!),Tuple{<:Any,TimeFunction}}
+    # Static check that everything is ok
+    if last(T.parameters) <: KernelCall{typeof(reference_momentum_shift!),Tuple{TimeFunction,TimeFunction}}
+      return :(__generic_kernel_ramp!(i, coords, chain, ref))
+    else
+      error("
+        Kernels with time-dependent reference energies must start and end with `reference_momentum_shift!`,
+        where the entering one transforms all particles to have individual reference momenta, and the exiting 
+        transforms all particles to a uniform reference momentum at the end of the element equal to 
+        p_over_q_ref(bunch.t_ref at end).
+      ")
+    end
+  else
+    return :(__generic_kernel_noramp!(i, coords, chain, ref))
+  end
+end
+ 
+@unroll function __generic_kernel_noramp!(i, coords::Coords, chain, ref)
   @unroll for kcall in chain
     bargs = process_batch_args(i, kcall.args)
     args = process_time_args(i, coords, bargs, ref)
     (kcall.kernel)(i, coords, args...)
   end
+  return nothing
+end
+
+# For ramping we need to do something special:
+@unroll function __generic_kernel_ramp!(i, coords::Coords, chain, ref)
+  @assert last(chain).kernel == reference_momentum_shift! 
+  @assert last(chain).args[1] isa TimeFunction
+  @assert last(chain).args[2] isa TimeFunction
+  # Have to store each particles initial time:
+  t_initial = compute_time(coords.v[i,ZI], coords.v[i,PZI], ref)
+  @inline __generic_kernel_noramp!(i, coords, Base.front(chain), ref)
+  # With initial particle's time we now know the dp_over_q_ref to evaluate for the last function
+  p_over_q_ref_in_ele = teval(last(chain).args[1], t_initial)
+  dp_over_q_ref_in_ele = teval(last(chain).args[2], t_initial)
+  reference_momentum_shift!(i, coords, p_over_q_ref_in_ele, dp_over_q_ref_in_ele, last(chain).args[3])
   return nothing
 end
 

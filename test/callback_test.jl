@@ -1,6 +1,6 @@
 @testset "Callbacks" begin
     ring = include("lattices/esr.jl")
-    foreach(x->x.tracking_method=Yoshida(num_steps=10), ring.line)
+    foreach(x->x.tracking_method=Yoshida(n_steps=10), ring.line)
     n_thickeles = count(x->x.L != 0, ring.line)
 
     # One before everything

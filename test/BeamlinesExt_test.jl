@@ -423,7 +423,7 @@
     @test quaternion_coeffs_approx_equal(q_expected, q_z, 1e-14)
 
     # Pure bend:
-    ele = LineElement(L=2.0, g=0.1, tracking_method=Yoshida(order=6, num_steps=10, fringe_at=Fringe.NoEnd))   
+    ele = LineElement(L=2.0, g=0.1, tracking_method=Yoshida(order=6, n_steps=10, fringe_at=Fringe.NoEnd))   
     v = [0.01 0.02 0.03 0.04 0.05 0.06]
     q = [1.0 0.0 0.0 0.0]
     b0 = Bunch(v, q, p_over_q_ref=p_over_q_ref, species=Species("electron"))
@@ -458,7 +458,7 @@
     @test quaternion_coeffs_approx_equal(q_expected, q_z, 6e-9)
 
     # SK multiple steps:
-    ele = LineElement(L=2.0, Ksol=0.1, Kn1=0.1, tracking_method=SolenoidKick(order=4, num_steps=2, fringe_at=Fringe.NoEnd))
+    ele = LineElement(L=2.0, Ksol=0.1, Kn1=0.1, tracking_method=SolenoidKick(order=4, n_steps=2, fringe_at=Fringe.NoEnd))
     v = collect(transpose(@vars(D10)))
     q = TPS64{D10}[1 0 0 0]
     b0 = Bunch(v, q, p_over_q_ref=p_over_q_ref, species=Species("electron"))
@@ -494,7 +494,7 @@
     @test quaternion_coeffs_approx_equal(q_expected, q_z, 6e-9)
 
     # Straight pure dipole (BK):
-    ele = LineElement(L=2.0, Kn0=0.1, tracking_method=BendKick(order=6, num_steps=10, fringe_at=Fringe.NoEnd))
+    ele = LineElement(L=2.0, Kn0=0.1, tracking_method=BendKick(order=6, n_steps=10, fringe_at=Fringe.NoEnd))
     v = collect(transpose(@vars(D10)))
     q = TPS64{D10}[1 0 0 0]
     b0 = Bunch(v, q, p_over_q_ref=p_over_q_ref, species=Species("electron"))
@@ -518,7 +518,7 @@
     @test quaternion_coeffs_approx_equal(q_expected, q_z, 6e-9)
 
     # Straight dipole with quadrupole (BK):
-    ele = LineElement(L=2.0, Kn0=0.1, Kn1=0.1, tracking_method=BendKick(order=6, num_steps=10, fringe_at=Fringe.NoEnd))
+    ele = LineElement(L=2.0, Kn0=0.1, Kn1=0.1, tracking_method=BendKick(order=6, n_steps=10, fringe_at=Fringe.NoEnd))
     v = collect(transpose(@vars(D10)))
     q = TPS64{D10}[1 0 0 0]
     b0 = Bunch(v, q, p_over_q_ref=p_over_q_ref, species=Species("electron"))
@@ -530,7 +530,7 @@
     @test quaternion_coeffs_approx_equal(q_expected, q_z, 2e-6)
 
     # Straight dipole with quadrupole (MK):
-    ele = LineElement(L=2.0, Kn0=0.1, Kn1=0.1, tracking_method=Yoshida(order=6, num_steps=10, fringe_at=Fringe.NoEnd))
+    ele = LineElement(L=2.0, Kn0=0.1, Kn1=0.1, tracking_method=Yoshida(order=6, n_steps=10, fringe_at=Fringe.NoEnd))
     v = collect(transpose(@vars(D10)))
     q = TPS64{D10}[1 0 0 0]
     b0 = Bunch(v, q, p_over_q_ref=p_over_q_ref, species=Species("electron"))
@@ -602,7 +602,7 @@
     @test quaternion_coeffs_approx_equal(q_expected, q_z, 1e-7)
 
     # MK multiple steps:
-    ele = LineElement(L=2.0, Kn1=0.1, Kn3=100.0, tracking_method=MatrixKick(order=2, num_steps=2))
+    ele = LineElement(L=2.0, Kn1=0.1, Kn3=100.0, tracking_method=MatrixKick(order=2, n_steps=2))
     v = collect(transpose(@vars(D10)))
     q = TPS64{D10}[1 0 0 0]
     b0 = Bunch(v, q, p_over_q_ref=p_over_q_ref, species=Species("electron"))
@@ -614,7 +614,7 @@
     @test quaternion_coeffs_approx_equal(q_expected, q_z, 2e-7)
 
     # Quadrupole with dipole and sextupole (MK):
-    ele = LineElement(L=2.0, Kn0=0.1, Kn1=0.2, Kn2=0.3, tracking_method=MatrixKick(order=6, num_steps=10, fringe_at=Fringe.NoEnd))
+    ele = LineElement(L=2.0, Kn0=0.1, Kn1=0.2, Kn2=0.3, tracking_method=MatrixKick(order=6, n_steps=10, fringe_at=Fringe.NoEnd))
     v = [0.01 0.02 0.03 0.04 0.05 0.06]
     q = [1.0 0.0 0.0 0.0]
     b0 = Bunch(v, q, p_over_q_ref=p_over_q_ref, species=Species("electron"))
@@ -650,7 +650,7 @@
     @test quaternion_coeffs_approx_equal(q_expected, q_z, 7e-8)
 
     # DK multiple steps:
-    ele = LineElement(L=2.0, Kn2=10.0, tracking_method=Yoshida(order=4, num_steps=2))
+    ele = LineElement(L=2.0, Kn2=10.0, tracking_method=Yoshida(order=4, n_steps=2))
     v = collect(transpose(@vars(D10)))
     q = TPS64{D10}[1 0 0 0]
     b0 = Bunch(v, q, p_over_q_ref=p_over_q_ref, species=Species("electron"))
@@ -747,7 +747,7 @@
     @test quaternion_coeffs_approx_equal(q_expected, q_z, 1e-7)
 
     # With solenoid (RK4):
-    ele = LineElement(L=4.01667, voltage=3321.0942126011,  zero_phase=PhaseRef.AboveTransition, rf_frequency=591142.68014977, Ksol=0.6, tracking_method=Yoshida(order=6, num_steps=2, fringe_at=Fringe.NoEnd))
+    ele = LineElement(L=4.01667, voltage=3321.0942126011,  zero_phase=PhaseRef.AboveTransition, rf_frequency=591142.68014977, Ksol=0.6, tracking_method=Yoshida(order=6, n_steps=2, fringe_at=Fringe.NoEnd))
     v = [0.01 0.02 0.03 0.04 0.05 0.06]
     q = [1.0 0.0 0.0 0.0]
     b0 = Bunch(v, q, p_over_q_ref=p_over_q_ref, species=Species("electron"))
@@ -759,7 +759,7 @@
     @test b0.coords.q ≈ q_expected
 
     # With sextupole:
-    ele = LineElement(L=4.01667, voltage=3321.0942126011, zero_phase=PhaseRef.AboveTransition,  rf_frequency=591142.68014977, phi0=0.1, Kn2=1.3, tracking_method=Yoshida(order=6, num_steps=20))
+    ele = LineElement(L=4.01667, voltage=3321.0942126011, zero_phase=PhaseRef.AboveTransition,  rf_frequency=591142.68014977, phi0=0.1, Kn2=1.3, tracking_method=Yoshida(order=6, n_steps=20))
     v = [0.01 0.02 0.03 0.04 0.05 0.06]
     q = [1.0 0.0 0.0 0.0]
     b0 = Bunch(v, q, p_over_q_ref=p_over_q_ref, species=Species("electron"))
@@ -771,7 +771,7 @@
     @test b0.coords.q ≈ q_expected
 
     # With solenoid and quadrupole:
-    ele = LineElement(L=4.01667, voltage=3321.0942126011,  zero_phase=PhaseRef.AboveTransition, rf_frequency=591142.68014977, Ksol=-0.3, Kn1=0.15, tracking_method=Yoshida(order=6, num_steps=20, fringe_at=Fringe.NoEnd))
+    ele = LineElement(L=4.01667, voltage=3321.0942126011,  zero_phase=PhaseRef.AboveTransition, rf_frequency=591142.68014977, Ksol=-0.3, Kn1=0.15, tracking_method=Yoshida(order=6, n_steps=20, fringe_at=Fringe.NoEnd))
     v = [0.01 0.02 0.03 0.04 0.05 0.06]
     q = [1.0 0.0 0.0 0.0]
     b0 = Bunch(v, q, p_over_q_ref=p_over_q_ref, species=Species("electron"))
@@ -792,7 +792,7 @@
     @test b0.coords.v ≈ v_expected
 
     # Quadrupole with deterministic radiation:
-    ele = LineElement(L=2.0, Kn1=0.1, tracking_method=MatrixKick(order=6, num_steps=2, radiation_damping_on=true))
+    ele = LineElement(L=2.0, Kn1=0.1, tracking_method=MatrixKick(order=6, n_steps=2, radiation_damping_on=true))
     v = [0.01 0.02 0.03 0.04 0.05 0.06]
     b0 = Bunch(v, p_over_q_ref=-18e9/C_LIGHT, species=Species("electron"))
     bl = Beamline([ele], p_over_q_ref=-18e9/C_LIGHT, species_ref=Species("electron"))
@@ -801,7 +801,7 @@
     @test b0.coords.v ≈ v_expected
 
     # Sextupole with deterministic radiation:
-    ele = LineElement(L=0.8, Kn2=1.3, tracking_method=DriftKick(order=6, num_steps=5, radiation_damping_on=true))
+    ele = LineElement(L=0.8, Kn2=1.3, tracking_method=DriftKick(order=6, n_steps=5, radiation_damping_on=true))
     v = [0.01 0.02 0.03 0.04 0.05 0.06]
     b0 = Bunch(v, p_over_q_ref=-18e9/C_LIGHT, species=Species("electron"))
     bl = Beamline([ele], p_over_q_ref=-18e9/C_LIGHT, species_ref=Species("electron"))
@@ -810,7 +810,7 @@
     @test b0.coords.v ≈ v_expected
 
     # Solenoid with deterministic radiation:
-    ele = LineElement(L=1.5, Ksol=0.3, tracking_method=SolenoidKick(order=6, num_steps=2, radiation_damping_on=true))
+    ele = LineElement(L=1.5, Ksol=0.3, tracking_method=SolenoidKick(order=6, n_steps=2, radiation_damping_on=true))
     v = [0.01 0.02 0.03 0.04 0.05 0.06]
     b0 = Bunch(v, p_over_q_ref=-18e9/C_LIGHT, species=Species("electron"))
     bl = Beamline([ele], p_over_q_ref=-18e9/C_LIGHT, species_ref=Species("electron"))
@@ -819,7 +819,7 @@
     @test b0.coords.v ≈ v_expected
 
     # Cavity-solenoid with deterministic radiation:
-    ele = LineElement(L=0.5, Ksol=0.3, rf_frequency=1e8,  zero_phase=PhaseRef.AboveTransition, voltage=-0.25e6, tracking_method=Yoshida(order=6, num_steps = 5, radiation_damping_on=true))
+    ele = LineElement(L=0.5, Ksol=0.3, rf_frequency=1e8,  zero_phase=PhaseRef.AboveTransition, voltage=-0.25e6, tracking_method=Yoshida(order=6, n_steps = 5, radiation_damping_on=true))
 
     v = [0.01 0.02 0.03 0.04 0.05 0.06]
     b0 = Bunch(v, p_over_q_ref=-18e9/C_LIGHT, species=Species("electron"))
@@ -867,7 +867,7 @@
         -a0*c0*cosh(s)*sin(t)*sin(x)*sinh(y), a0*c0*cos(x)*cosh(s)*cosh(y)*sin(t), a0*c0*cos(x)*sin(t)*sinh(s)*sinh(y), a0*c0*cos(t)*cos(x)*cosh(s)*sinh(y))
       return potential, jac
     end
-    ele = LineElement(four_potential=crazy, four_potential_params=(1.0, 1.0), four_potential_normalized=true, L=1.2, tracking_method=Yoshida(order=8, num_steps=60, radiation_damping_on=true))
+    ele = LineElement(four_potential=crazy, four_potential_params=(1.0, 1.0), four_potential_normalized=true, L=1.2, tracking_method=Yoshida(order=8, n_steps=60, radiation_damping_on=true))
     v = [0.01 0.02 0.03 0.04 0.05 0.06]
     q = [1.0 0.0 0.0 0.0]
     b0 = Bunch(v, q, p_over_q_ref=p_over_q_ref, species=Species("electron"))
@@ -887,7 +887,7 @@
                -Kn0*(1 + g*x), 0.0, 0.0, 0.0)
       return potential, jac
     end
-    ele = LineElement(L=2.0, g_ref=0.1, four_potential=dipole, four_potential_params=(0.1, 0.1), four_potential_normalized=true, tracking_method=Yoshida(order=6, num_steps=10, radiation_damping_on=true))
+    ele = LineElement(L=2.0, g_ref=0.1, four_potential=dipole, four_potential_params=(0.1, 0.1), four_potential_normalized=true, tracking_method=Yoshida(order=6, n_steps=10, radiation_damping_on=true))
     v = zeros(6)
     b0 = Bunch(v, p_over_q_ref=-18e9/C_LIGHT, species=Species("electron"))
     bl = Beamline([ele], p_over_q_ref=-18e9/C_LIGHT, species_ref=Species("electron"))
@@ -926,10 +926,10 @@
     @test q_init == b0.coords.q
 
     # Errors:
-    @test_throws ErrorException MatrixKick(ds_step = 0.1, num_steps = 2)
-    @test_throws ErrorException BendKick(order = 2, num_steps = -2)
+    @test_throws ErrorException MatrixKick(ds_step = 0.1, n_steps = 2)
+    @test_throws ErrorException BendKick(order = 2, n_steps = -2)
     @test_throws ErrorException DriftKick(ds_step = -0.1)
-    @test_throws ErrorException SolenoidKick(num_steps = -2)
+    @test_throws ErrorException SolenoidKick(n_steps = -2)
     @test_throws ErrorException Yoshida(order = 5)
   end  
 end

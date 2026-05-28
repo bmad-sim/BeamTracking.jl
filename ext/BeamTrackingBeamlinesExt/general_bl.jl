@@ -1,6 +1,6 @@
 #---------------------------------------------------------------------------------------------------
 
-@inline function alignment(tm, bunch, alignmentparams, bendparams, L, entering)
+@inline function alignment(tm, p_over_q_ref, bunch, alignmentparams, bendparams, L, entering)
   if !isactive(alignmentparams); return nothing; end
 
   x_off = alignmentparams.x_offset
@@ -38,7 +38,7 @@ end
 
 #---------------------------------------------------------------------------------------------------
 
-@inline function aperture(tm, bunch, apertureparams, entering)
+@inline function aperture(tm, p_over_q_ref, bunch, apertureparams, entering)
   x1 = apertureparams.x1_limit
   x2 = apertureparams.x2_limit
   y1 = apertureparams.y1_limit
@@ -60,27 +60,27 @@ end
 
 #---------------------------------------------------------------------------------------------------
 
-@inline function rfcavity(tm, bunch, bmultipoleparams, rfparams, beamlineparams, L)
+@inline function rfcavity(tm, p_over_q_ref, bunch, bmultipoleparams, rfparams, beamlineparams, L)
   if !isactive(bmultipoleparams)
-    return pure_rf(tm, bunch, rfparams, beamlineparams, L)
+    return pure_rf(tm, p_over_q_ref, bunch, rfparams, beamlineparams, L)
   else
-    return bmultipole_rf(tm, bunch, bmultipoleparams, rfparams, beamlineparams, L)
+    return bmultipole_rf(tm, p_over_q_ref, bunch, bmultipoleparams, rfparams, beamlineparams, L)
   end
 end
 
 #---------------------------------------------------------------------------------------------------
 
-@inline function pure_patch(tm, bunch, patchparams, L) 
-  tilde_m, gamsqr_0, beta_0 = BeamTracking.drift_params(bunch.species, bunch.p_over_q_ref)
+@inline function pure_patch(tm, p_over_q_ref, bunch, patchparams, L) 
+  tilde_m, gamsqr_0, beta_0 = BeamTracking.drift_params(bunch.species, p_over_q_ref)
   winv = inv_rot_quaternion(patchparams.dx_rot, patchparams.dy_rot, patchparams.dz_rot)
   return make_kernel_call(BeamTracking.patch!, (beta_0, gamsqr_0, tilde_m, patchparams.dt, patchparams.dx, patchparams.dy, patchparams.dz, winv, L))
 end
 
-@inline pure_map(tm, bunch, mapparams, L) = make_kernel_call(BeamTracking.map!, (mapparams.transport_map, mapparams.transport_map_params, L))
+@inline pure_map(tm, p_over_q_ref, bunch, mapparams, L) = make_kernel_call(BeamTracking.map!, (mapparams.transport_map, mapparams.transport_map_params, L))
 
 #---------------------------------------------------------------------------------------------------
 
-@inline function ibs_kick(tm, bunch, bendparams, L)
+@inline function ibs_kick(tm, p_over_q_ref, bunch, bendparams, L)
   p_over_q_ref = bunch.p_over_q_ref
   if !isnothing(bendparams)
     g = bendparams.g_ref
@@ -105,7 +105,7 @@ end
   else
     log_N = log(sum(bunch.coords.weight))
   end
-  tilde_m, gamsqr_0, _ = BeamTracking.drift_params(bunch.species, p_over_q_ref)
+  tilde_m, gamsqr_0, _ = BeamTracking.drift_params(bunch.species, bunch.p_over_q_ref)
   log_p0 = log_m + log_c_light - log(tilde_m)
   gamma_0 = sqrt(gamsqr_0)
   backend = get_backend(bunch.coords.v)
