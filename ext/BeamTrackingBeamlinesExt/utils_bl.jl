@@ -33,7 +33,11 @@ function _check_bunch!(bunch, species_ref, p_over_q_ref, notify::Bool=true)
   if isnan(bunch.p_over_q_ref)
     if p_over_q_ref isa Beamlines.GetError
       if notify
-        println("WARNING: Both the bunch and beamline do not have any set reference energy. If any LineElements have unnormalized fields stored as independent variables, there will be NaNs.")
+        println("
+          WARNING: Both the bunch and beamline do not have any set reference energy. 
+          If any LineElements have unnormalized fields stored as independent variables, 
+          or if there is spin tracking, there will be NaNs.
+        ")
       end
       p_over_q_ref = bunch.p_over_q_ref
     else
