@@ -21,7 +21,7 @@ TimeDependentParam(a::Number) = TimeDependentParam((t)->a, true)
 TimeDependentParam(a::TimeDependentParam) = a
 
 # Make these apply via convert
-Base.convert(::Type{D}, a::Number) where {D<:TimeDependentParam} = D(a,true)
+Base.convert(::Type{D}, a::Number) where {D<:TimeDependentParam} = D((t)->a,true)
 Base.convert(::Type{D}, a::D) where {D<:TimeDependentParam} = a
 
 Base.zero(::TimeDependentParam) = TimeDependentParam((t)->0, true)
