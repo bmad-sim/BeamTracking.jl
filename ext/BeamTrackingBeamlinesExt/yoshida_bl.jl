@@ -28,28 +28,26 @@ end
   p_over_q_ref = p_over_q_ref
   mm = bm.order
   knl, ksl = get_integrated_strengths(bm, 0, p_over_q_ref)
-  params = (SA[mm], SA[knl], SA[ksl], -1)
   if isnothing(bunch.coords.q)
-    return make_kernel_call(BeamTracking.multipole_kick!, params)
-  else  
+    params = (SA[mm], SA[knl], SA[ksl], 0, 0, 0)
+  else
     tilde_m = 1/BeamTracking.R_to_beta_gamma(bunch.species, p_over_q_ref)
-    return make_kernel_call(BeamTracking.integrate_with_spin_thin!, 
-      (BeamTracking.multipole_kick!, params, gyromagnetic_anomaly(bunch.species), 0, tilde_m, SA[mm], SA[knl], SA[ksl]))
+    params = (SA[mm], SA[knl], SA[ksl], gyromagnetic_anomaly(bunch.species), 0, tilde_m)
   end
+  return make_kernel_call(BeamTracking.integrate_thin!, params)
 end
 
 @inline function thin_bdipole(tm::Yoshida, p_over_q_ref, bunch, bm)
   p_over_q_ref = p_over_q_ref
   mm = bm.order
   knl, ksl = get_integrated_strengths(bm, 0, p_over_q_ref)
-  params = (mm, knl, ksl, -1)
   if isnothing(bunch.coords.q)
-    return make_kernel_call(BeamTracking.multipole_kick!, params)
-  else  
+    params = (mm, knl, ksl, 0, 0, 0)
+  else
     tilde_m = 1/BeamTracking.R_to_beta_gamma(bunch.species, p_over_q_ref)
-    return make_kernel_call(BeamTracking.integrate_with_spin_thin!, 
-      (BeamTracking.multipole_kick!, params, gyromagnetic_anomaly(bunch.species), 0, tilde_m, mm, knl, ksl))
+    params = (mm, knl, ksl, gyromagnetic_anomaly(bunch.species), 0, tilde_m)
   end
+  return make_kernel_call(BeamTracking.integrate_thin!, params)
 end
 
 @inline thin_pure_bquadrupole(tm::Yoshida, p_over_q_ref, bunch, bm) = thin_pure_bdipole(tm, p_over_q_ref, bunch, bm)

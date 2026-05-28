@@ -149,12 +149,6 @@ end
 
 #---------------------------------------------------------------------------------------------------
 
-@makekernel fastgtpsa=true function integrate_with_spin_thin!(i, coords::Coords, ker, params, a, g, tilde_m, mm, knl, ksl)
-  rotate_spin!(i, coords, a, g, tilde_m, mm, knl, ksl, 1/2)
-  ker(i, coords, params...)
-  rotate_spin!(i, coords, a, g, tilde_m, mm, knl, ksl, 1/2)
-end
-
 
 @makekernel fastgtpsa=true function rotate_spin_field!(i, coords::Coords, a, g, tilde_m, ax, ay, e_vec, b_vec, L)
   q2 = coords.q
