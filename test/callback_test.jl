@@ -2,9 +2,10 @@
     ring = include("lattices/esr.jl")
     foreach(x->x.tracking_method=Yoshida(n_steps=10), ring.line)
     n_thickeles = count(x->x.L != 0, ring.line)
+    n_thineles = count(x->x.L == 0, ring.line)
 
     # One before everything
-    s_pos = zeros(1+10*n_thickeles)
+    s_pos = zeros(1 + 10*n_thickeles + n_thineles)
     cur_idx = 1
     function s_in_ele(coords, ds_step, g)
         cur_idx += 1
