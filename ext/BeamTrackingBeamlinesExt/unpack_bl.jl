@@ -281,6 +281,10 @@ function universal!(
   # using the energy at the start of the element:
   bunch.t_ref += L / beta_gamma_to_v(beta_gamma_ref0)
 
+  if first(kc.chain).kernel == BeamTracking.blank_kernel! # Still execute callbacks if nothing happened.
+    BeamTracking.execute_callbacks(bunch.coords, 0, (0, 0))
+  end
+
   # If ramping, now need to uniformly ramp all particles to same reference energy
   if ramp_per_particle
     # If TimeDependentParam, at end ramp all 
