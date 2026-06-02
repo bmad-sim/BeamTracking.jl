@@ -122,11 +122,11 @@ function process_time_args(i, coords, args, ref)
 end
 
 # Function to execute callbacks
-execute_callbacks(coords, ds_step, g) = _execute_callbacks(coords.callbacks, coords, ds_step, g)
+execute_callbacks!(i, coords, ds_step, g) = _execute_callbacks!(i, coords.callbacks, coords, ds_step, g)
 
-@unroll function _execute_callbacks(callbacks, coords, ds_step, g)
+@unroll function _execute_callbacks!(i, callbacks, coords, ds_step, g)
   @unroll for callback in callbacks
-    callback(coords, ds_step, g)
+    callback(i, coords, ds_step, g)
   end
   return nothing
 end

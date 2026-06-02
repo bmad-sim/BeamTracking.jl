@@ -274,6 +274,14 @@ function universal!(
     kc = push(kc, @inline(aperture(tm, p_over_q_ref, bunch, apertureparams, false)))
   end
 
+  # 1: generic execute callbacks
+  # 2: add necessary arguments for transformation e.g. s, alignment, etc
+  if !isnothing(bunch.callbacks)
+    n_steps, ds_step = BeamTracking.find_steps(tm, L)
+    g = compute_g(kc.chain)
+    kc = push(kc, make_kernel_call(BeamTracking.execute_callbacks!, (ds_step, g)))
+  end
+
   # noinline necessary here for small binaries and faster execution
   @noinline launch!(coords, kc; kwargs...)
 
@@ -282,7 +290,7 @@ function universal!(
   bunch.t_ref += L / beta_gamma_to_v(beta_gamma_ref0)
 
   if first(kc.chain).kernel == BeamTracking.blank_kernel! # Still execute callbacks if nothing happened.
-    BeamTracking.execute_callbacks(bunch.coords, 0, (0, 0))
+    BeamTracking.execute_callbacks!(1, bunch.coords, 0, (0, 0))
   end
 
   # If ramping, now need to uniformly ramp all particles to same reference energy
