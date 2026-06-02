@@ -1,6 +1,5 @@
 # Note: for exact transformations, use Yoshida order 2 because higher orders won't increase accuracy
 @inline drift(tm::SciBmadStandard, p_over_q_ref, bunch, L) = drift(Yoshida(order=2), p_over_q_ref, bunch, L) 
-@inline pure_patch(tm::SciBmadStandard, p_over_q_ref, bunch, patchparams, L) = pure_patch(Exact(), p_over_q_ref, bunch, patchparams, L)
 
 @inline pure_rf(tm::SciBmadStandard, p_over_q_ref, bunch, rfparams, beamlineparams, L)                = pure_rf(Yoshida(), p_over_q_ref, bunch, rfparams, beamlineparams, L)                        
 @inline pure_bsolenoid(tm::SciBmadStandard, p_over_q_ref, bunch, bm0, L)                              = pure_bsolenoid(Yoshida(order=2), p_over_q_ref, bunch, bm0, L)                             

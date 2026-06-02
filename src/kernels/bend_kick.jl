@@ -25,7 +25,17 @@ Arguments
   knl = kn .* L ./ 2
   ksl = ks .* L ./ 2
 
-  rotation!( i, coords, w, 0)
+  rel_p = 1 + coords.v[i,PZI]
+  px = coords.v[i,PXI]
+  py = coords.v[i,PYI]
+  P_s2 = rel_p*rel_p - px*px - py*py
+  good_momenta = (P_s2 > 0)
+  alive_at_start = (coords.state[i] == STATE_ALIVE)
+  coords.state[i] = vifelse(!good_momenta & alive_at_start, STATE_LOST, coords.state[i])
+
+  if !isnothing(w)
+    rotation!(i, coords, w, 0)
+  end
 
   if !isnothing(coords.q)
     rotate_spin!(i, coords, a, g, tilde_m, mm, kn, ks, L / 2)
@@ -48,7 +58,9 @@ Arguments
     rotate_spin!(i, coords, a, g, tilde_m, mm, kn, ks, L / 2)
   end
 
-  rotation!( i, coords, w_inv, 0)
+  if !isnothing(w_inv)
+    rotation!(i, coords, w_inv, 0)
+  end
 end 
 
 """
@@ -154,17 +166,23 @@ end
 
 
 @makekernel function exact_bend_with_rotation!(i, coords::Coords, e1, e2, theta, a, g, Kn0, w, w_inv, tilde_m, beta_0, L)
-  rotation!(i, coords, w, 0)
+  if !isnothing(w)
+    rotation!(i, coords, w, 0)
+  end
   linear_bend_fringe!(i, coords, a, tilde_m, 0, Kn0, e1, 1)
   exact_bend!(i, coords, theta, g, Kn0, tilde_m, beta_0, L)
   linear_bend_fringe!(i, coords, a, tilde_m, 0, Kn0, e2, -1)
-  rotation!(i, coords, w_inv, 0)
+  if !isnothing(w_inv)
+    rotation!(i, coords, w_inv, 0)
+  end
 end
 
 
 # This is separate because the spin can be transported exactly here
 @makekernel function exact_curved_drift!(i, coords::Coords, s, e1, e2, g, w, w_inv, a, tilde_m, beta_0, L) 
-  rotation!(i, coords, w, 0)
+  if !isnothing(w)
+    rotation!(i, coords, w, 0)
+  end
   if !isnothing(coords.q)
     rotate_spin!(i, coords, a, g, tilde_m, SA[0], SA[0], SA[0], L / 2)
   end
@@ -172,5 +190,7 @@ end
   if !isnothing(coords.q)
     rotate_spin!(i, coords, a, g, tilde_m, SA[0], SA[0], SA[0], L / 2)
   end
-  rotation!(i, coords, w_inv, 0)
+  if !isnothing(w_inv)
+    rotation!(i, coords, w_inv, 0)
+  end
 end

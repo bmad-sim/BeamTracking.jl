@@ -159,8 +159,13 @@ end
   kn, ks = get_strengths(bm1, L, p_over_q_ref)
   Kn0 = sqrt(kn^2 + ks^2)
   tilt = atan2(ks, kn)
-  w = rot_quaternion(0,0,tilt)
-  w_inv = inv_rot_quaternion(0,0,tilt)
+  if tilt ≈ 0
+    w = nothing
+    w_inv = nothing
+  else
+    w = rot_quaternion(0, 0, tilt)
+    w_inv = inv_rot_quaternion(0, 0, tilt)
+  end
   q = chargeof(bunch.species)
   mc2 = massof(bunch.species)
   E_ref = mc2/tilde_m/beta_0
@@ -183,8 +188,13 @@ end
   kn, ks = get_strengths(bm, L, p_over_q_ref)
   Kn0 = sqrt(kn[1]^2 + ks[1]^2)
   tilt = atan2(ks[1], kn[1])
-  w = rot_quaternion(0,0,tilt)
-  w_inv = inv_rot_quaternion(0,0,tilt)
+  if tilt ≈ 0
+    w = nothing
+    w_inv = nothing
+  else
+    w = rot_quaternion(0, 0, tilt)
+    w_inv = inv_rot_quaternion(0, 0, tilt)
+  end
   q = chargeof(bunch.species)
   mc2 = massof(bunch.species)
   a = gyromagnetic_anomaly(bunch.species)
@@ -214,8 +224,13 @@ end
   quad_tilt = atan2(ks[2], kn[2]) / 2
   quad_tilt_0 = zero(quad_tilt)
   tilt = ifelse(mm[2] == 2, quad_tilt, quad_tilt_0)
-  w = rot_quaternion(0,0,tilt)
-  w_inv = inv_rot_quaternion(0,0,tilt)
+  if tilt ≈ 0
+    w = nothing
+    w_inv = nothing
+  else
+    w = rot_quaternion(0, 0, tilt)
+    w_inv = inv_rot_quaternion(0, 0, tilt)
+  end
   q = chargeof(bunch.species)
   mc2 = massof(bunch.species)
   a = gyromagnetic_anomaly(bunch.species)
@@ -241,8 +256,13 @@ end
     return thick_pure_bquadrupole(DriftKick(order=tm.order, n_steps=tm.n_steps, ds_step=tm.ds_step, radiation_damping_on=tm.radiation_damping_on, radiation_fluctuations_on=tm.radiation_fluctuations_on), p_over_q_ref, bunch, bm, L)
   end
   tilt = atan2(ks, kn) / 2
-  w = rot_quaternion(0,0,tilt)
-  w_inv = inv_rot_quaternion(0,0,tilt)
+  if tilt ≈ 0
+    w = nothing
+    w_inv = nothing
+  else
+    w = rot_quaternion(0, 0, tilt)
+    w_inv = inv_rot_quaternion(0, 0, tilt)
+  end
   q = chargeof(bunch.species)
   mc2 = massof(bunch.species)
   a = gyromagnetic_anomaly(bunch.species)
@@ -270,8 +290,13 @@ end
     return thick_bquadrupole(DriftKick(order=tm.order, n_steps=tm.n_steps, ds_step=tm.ds_step, radiation_damping_on=tm.radiation_damping_on, radiation_fluctuations_on=tm.radiation_fluctuations_on), p_over_q_ref, bunch, bm, L)
   end
   tilt = atan2(ks[1], kn[1]) / 2
-  w = rot_quaternion(0,0,tilt)
-  w_inv = inv_rot_quaternion(0,0,tilt)
+  if tilt ≈ 0
+    w = nothing
+    w_inv = nothing
+  else
+    w = rot_quaternion(0, 0, tilt)
+    w_inv = inv_rot_quaternion(0, 0, tilt)
+  end
   q = chargeof(bunch.species)
   mc2 = massof(bunch.species)
   a = gyromagnetic_anomaly(bunch.species)
@@ -301,8 +326,13 @@ end
   ntilt = -bendparams.tilt_ref
   e1 = bendparams.e1
   e2 = bendparams.e2
-  w = rot_quaternion(0,0,ntilt)
-  w_inv = inv_rot_quaternion(0,0,ntilt)
+  if ntilt ≈ 0
+    w = nothing
+    w_inv = nothing
+  else
+    w = rot_quaternion(0, 0, ntilt)
+    w_inv = inv_rot_quaternion(0, 0, ntilt)
+  end
   tilde_m, _, beta_0 = BeamTracking.drift_params(bunch.species, p_over_q_ref)
   params = (e1, e2, g, w, w_inv, gyromagnetic_anomaly(bunch.species), tilde_m, beta_0)
   return integration_launcher(BeamTracking.exact_curved_drift!, params, nothing, tm, nothing, L)
@@ -318,8 +348,13 @@ end
   mm = bm1.order
   Kn0, Ks0 = get_strengths(bm1, L, p_over_q_ref)
   Ks0 ≈ 0 || error("A skew dipole field cannot yet be used in a bend")
-  w = rot_quaternion(0,0,ntilt)
-  w_inv = inv_rot_quaternion(0,0,ntilt)
+  if ntilt ≈ 0
+    w = nothing
+    w_inv = nothing
+  else
+    w = rot_quaternion(0, 0, ntilt)
+    w_inv = inv_rot_quaternion(0, 0, ntilt)
+  end
   a = gyromagnetic_anomaly(bunch.species)
   edge_params = (a, tilde_m, 0, Kn0, e1, e2)
   q = chargeof(bunch.species)
@@ -347,8 +382,13 @@ end
   kn, ks = get_strengths(bm, L, p_over_q_ref)
   Kn0 = kn[1]
   ks[1] ≈ 0 || error("A skew dipole field cannot yet be used in a bend")
-  w = rot_quaternion(0,0,ntilt)
-  w_inv = inv_rot_quaternion(0,0,ntilt)
+  if ntilt ≈ 0
+    w = nothing
+    w_inv = nothing
+  else
+    w = rot_quaternion(0, 0, ntilt)
+    w_inv = inv_rot_quaternion(0, 0, ntilt)
+  end
   a = gyromagnetic_anomaly(bunch.species)
   edge_params = (a, tilde_m, 0, Kn0, e1, e2)
   q = chargeof(bunch.species)
@@ -436,17 +476,22 @@ end
   tilde_m, _, beta_0 = BeamTracking.drift_params(bunch.species, p_over_q_ref)
   if !isnothing(bp)
     g = bp.g_ref
-    tilt = bp.tilt_ref
+    ntilt = -bp.tilt_ref
     (bp.e1 ≈ 0 && bp.e2 ≈ 0) || error("Edge angles are not used in implicit integration")
   else
     g = 0
-    tilt = 0
+    ntilt = 0
   end
   potential_and_jac = fpp.four_potential
   potential_params = fpp.four_potential_params
   normalized = Val{fpp.four_potential_normalized}()
-  w = rot_quaternion(0,0,tilt)
-  w_inv = inv_rot_quaternion(0,0,tilt)
+  if ntilt ≈ 0
+    w = nothing
+    w_inv = nothing
+  else
+    w = rot_quaternion(0, 0, ntilt)
+    w_inv = inv_rot_quaternion(0, 0, ntilt)
+  end
   a = gyromagnetic_anomaly(bunch.species)
   E_ref = BeamTracking.R_to_E(bunch.species, p_over_q_ref)
   q = chargeof(bunch.species)

@@ -3,16 +3,39 @@ function compute_g(::K, params::P) where {K, P}
   if K == typeof(bkb_multipole!)
     g = params[5]
     w = params[6]
-    costilt = w[1]
-    sintilt = w[4]
+    if !isnothing(w)
+      costilt = w[1]
+      sintilt = w[4]
+    else
+      costilt = 1
+      sintilt = 0
+    end
     gx = g*costilt
     gy = g*sintilt
     return (gx, gy)
   elseif K == typeof(exact_curved_drift!)
     g = params[3]
     w = params[4]
-    costilt = w[1]
-    sintilt = w[4] 
+    if !isnothing(w)
+      costilt = w[1]
+      sintilt = w[4]
+    else
+      costilt = 1
+      sintilt = 0
+    end
+    gx = g*costilt
+    gy = g*sintilt
+    return (gx, gy)
+  elseif K == typeof(implicit_integrator!)
+    g = params[5]
+    w = params[6]
+    if !isnothing(w)
+      costilt = w[1]
+      sintilt = w[4]
+    else
+      costilt = 1
+      sintilt = 0
+    end
     gx = g*costilt
     gy = g*sintilt
     return (gx, gy)
