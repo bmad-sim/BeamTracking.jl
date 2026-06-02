@@ -476,17 +476,22 @@ end
   tilde_m, _, beta_0 = BeamTracking.drift_params(bunch.species, p_over_q_ref)
   if !isnothing(bp)
     g = bp.g_ref
-    tilt = bp.tilt_ref
+    ntilt = -bp.tilt_ref
     (bp.e1 ≈ 0 && bp.e2 ≈ 0) || error("Edge angles are not used in implicit integration")
   else
     g = 0
-    tilt = 0
+    ntilt = 0
   end
   potential_and_jac = fpp.four_potential
   potential_params = fpp.four_potential_params
   normalized = Val{fpp.four_potential_normalized}()
-  w = rot_quaternion(0,0,tilt)
-  w_inv = inv_rot_quaternion(0,0,tilt)
+  if ntilt ≈ 0
+    w = nothing
+    w_inv = nothing
+  else
+    w = rot_quaternion(0, 0, ntilt)
+    w_inv = inv_rot_quaternion(0, 0, ntilt)
+  end
   a = gyromagnetic_anomaly(bunch.species)
   E_ref = BeamTracking.R_to_E(bunch.species, p_over_q_ref)
   q = chargeof(bunch.species)

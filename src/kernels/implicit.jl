@@ -1,6 +1,8 @@
 function implicit_integrator!(i, coords::Coords, s, radiation_params, beta_0, tilde_m, a, g, w, w_inv, potential_and_jac::U, potential_params, p_over_q_ref, normalized, L) where {U}
   @inbounds begin
-    rotation!(i, coords, w, 0)
+    if !isnothing(w)
+      rotation!(i, coords, w, 0)
+    end
 
     s += L / 2
 
@@ -23,7 +25,9 @@ function implicit_integrator!(i, coords::Coords, s, radiation_params, beta_0, ti
       deterministic_radiation_implicit!(i, coords, s, q, mc2, E_ref, g, potential_and_jac, potential_params, p_over_q_ref, normalized, L / 2)
     end
 
-    rotation!(i, coords, w_inv, 0)
+    if !isnothing(w_inv)
+      rotation!(i, coords, w_inv, 0)
+    end
   end
   return nothing
 end
