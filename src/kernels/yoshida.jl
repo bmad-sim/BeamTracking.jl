@@ -26,6 +26,19 @@ function compute_g(::K, params::P) where {K, P}
     gx = g*costilt
     gy = g*sintilt
     return (gx, gy)
+  elseif K == typeof(implicit_integrator!)
+    g = params[5]
+    w = params[6]
+    if !isnothing(w)
+      costilt = w[1]
+      sintilt = w[4]
+    else
+      costilt = 1
+      sintilt = 0
+    end
+    gx = g*costilt
+    gy = g*sintilt
+    return (gx, gy)
   else
     return (0, 0)
   end
