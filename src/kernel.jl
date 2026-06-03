@@ -80,14 +80,15 @@ _generic_kernel!(i, coords, kc) = __generic_kernel!(i, coords, kc.chain, kc.ref)
 end
 
 @unroll function __generic_kernel_noramp!(i, coords::Coords, chain::T, ref) where {T}
-  body_callbacks, L, last_ds_step, last_g = process_callbacks(coords.callbacks, chain)
+  callback_chain = KernelChain(Val{3}(), ref)
+  body_callbacks, L, last_ds_step, last_g = process_callbacks(coords.callbacks, KernelChain(chain, ref), callback_chain)
   body_coords = Coords(coords.state, coords.v, coords.q, coords.weight, body_callbacks)
   @unroll for kcall in chain
     bargs = process_batch_args(i, kcall.args)
     args = process_time_args(i, body_coords, bargs, ref)
     (kcall.kernel)(i, body_coords, args...)
   end
-  execute_callbacks(coords, L, last_ds_step, last_g)
+  execute_callbacks(i, coords, L, last_ds_step, last_g)
   return nothing
 end
 
@@ -98,14 +99,15 @@ end
   @assert last(chain).args[2] isa TimeFunction
   # Have to store each particles initial time:
   t_initial = compute_time(coords.v[i,ZI], coords.v[i,PZI], ref)
-  body_callbacks, L, last_ds_step, last_g = process_callbacks(coords.callbacks, chain)
+  callback_chain = KernelChain(Val{3}(), ref)
+  body_callbacks, L, last_ds_step, last_g = process_callbacks(coords.callbacks, KernelChain(chain, ref), callback_chain)
   body_coords = Coords(coords.state, coords.v, coords.q, coords.weight, body_callbacks)
   @inline __generic_kernel_noramp!(i, body_coords, Base.front(chain), ref)
   # With initial particle's time we now know the dp_over_q_ref to evaluate for the last function
   p_over_q_ref_in_ele = teval(last(chain).args[1], t_initial)
   dp_over_q_ref_in_ele = teval(last(chain).args[2], t_initial)
   reference_momentum_shift!(i, body_coords, p_over_q_ref_in_ele, dp_over_q_ref_in_ele, last(chain).args[3])
-  execute_callbacks(coords, L, last_ds_step, last_g)
+  execute_callbacks(i, coords, L, last_ds_step, last_g)
   return nothing
 end
 

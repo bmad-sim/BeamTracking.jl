@@ -1,7 +1,21 @@
+#=
+Callbacks must have the signature
+
+i, coords, cur_s, last_ds_step, last_g, transforms_out, transforms_in
+
+where transforms_out and transforms_in are KernelChain of kernels with signatures
+i, coords, cur_s
+
+that must be applied in order to transform coords from the body frame to global frame (out)
+and back from the global frame to the body frame (in)
+
+Users can then decide in their callbacks if they 
+
+=#
 
 # For no callbacks, it doesn't matter what L, last_ds_step, and last_g 
 # are since the callbacks will never be called.
-process_callbacks(callbacks::Tuple{}, chain::T) where {T} = callbacks, 0, 0, 0 
+process_callbacks(callbacks::Tuple{}, chain::T, callback_chain::S) where {T,S} = callbacks, 0, 0, 0 
 #=
 @generated function beval(f::T, t) where {T<:Tuple}
   N = length(T.parameters)
@@ -13,28 +27,28 @@ end
 # This function looks at a Tuple of KernelCalls and returns 
 # new set of callbacks that acts on coords including automatic 
 # transformation back to 
-@generated function process_callbacks(callbacks::C, chain::T) where {C, T}
+@generated function process_callbacks(callbacks::C, chain::T, callback_chain::S) where {C, T, S}
   # Cases: Misalignments, Implicit, Ramping all require transformation back to global standard coordinates
   N = length(T.parameters)
   
   # First check if ramp_update_each_particle, in which case the first KernelCall will 
   # be a time-dependent reference_momentum_shift! that we must undo. This one is 
   # hard bc we need to know t_initial to undo it. For now, just don't support it.
-  if first(T) <: KernelCall{typeof(reference_momentum_shift!),Tuple{<:Any,TimeFunction}}
+  if first(T.parameters) <: KernelCall{typeof(reference_momentum_shift!),Tuple{<:Any,TimeFunction}}
     error("Callbacks with ramp_update_each_particle = true are not supported yet.")
   end
 
   # Remove apertures:
-  if first(T) <: KernelCall{<:Union{typeof(track_aperture_elliptical!),typeof(track_aperture_rectangular!)}}
-    return :(transform_callbacks(callbacks, Base.tail(chain)))
-  elseif last(T) <: KernelCall{<:Union{typeof(track_aperture_elliptical!),typeof(track_aperture_rectangular!)}}
-    return :(transform_callbacks(callbacks, Base.front(chain)))
+  if first(T.parameters) <: KernelCall{<:Union{typeof(track_aperture_elliptical!),typeof(track_aperture_rectangular!)}}
+    return :(process_callbacks(callbacks, Base.tail(chain), callback_chain))
+  elseif last(T.parameters) <: KernelCall{<:Union{typeof(track_aperture_elliptical!),typeof(track_aperture_rectangular!)}}
+    return :(process_callbacks(callbacks, Base.front(chain), callback_chain))
   end
 
   # Misalignments:
-  if first(T) <: KernelCall{typeof(track_coord_transform!)}
+  if first(T.parameters) <: KernelCall{typeof(track_coord_transform!)}
 
-  end
+  end 
   
 
   if N > 0 && first(T.parameters) <: KernelCall{typeof(reference_momentum_shift!),Tuple{<:Any,TimeFunction}}
@@ -55,11 +69,11 @@ end
 end
 
 # Function to execute callbacks
-execute_callbacks(coords, cur_s, last_ds_step, last_g) = _execute_callbacks(coords.callbacks, coords, cur_s, last_ds_step, last_g)
+execute_callbacks(i, coords, cur_s, last_ds_step, last_g) = _execute_callbacks(i, coords.callbacks, coords, cur_s, last_ds_step, last_g)
 
-@unroll function _execute_callbacks(callbacks, coords, cur_s, last_ds_step, last_g)
+@unroll function _execute_callbacks(i, callbacks, coords, cur_s, last_ds_step, last_g)
   @unroll for callback in callbacks
-    callback(coords, cur_s, last_ds_step, last_g)
+    callback(i, coords, cur_s, last_ds_step, last_g)
   end
   return nothing
 end
