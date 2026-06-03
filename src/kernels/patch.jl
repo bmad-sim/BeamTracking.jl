@@ -39,5 +39,4 @@ end
     sqrt((1 + tilde_m*tilde_m)/(rel_p*rel_p + tilde_m*tilde_m)))
     v[i,ZI] = vifelse(alive, new_z, v[i,ZI])
   end
-  execute_callbacks(coords, L, (0, 0))
 end 

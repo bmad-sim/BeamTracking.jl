@@ -40,6 +40,7 @@ include("utils/random.jl")
 include("types.jl")
 include("time.jl")
 include("batch.jl")
+include("callbacks.jl")
 include("kernel.jl")
 include("tracking_methods.jl")
 

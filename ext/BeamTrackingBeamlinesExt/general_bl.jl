@@ -16,15 +16,12 @@
 
   if isactive(bendparams) && (bendparams.g_ref != 0 || bendparams.tilt_ref != 0)
     if entering
-      dr, q = BeamTracking.coord_alignment_bend_entering(x_off, y_off, z_off, 
-                x_rot, y_rot, tilt, bendparams.g_ref, bendparams.tilt_ref, ele_orient, L)
-      return make_kernel_call(BeamTracking.track_coord_transform!, (dr, q))
+      mid_r, mid_q, st, ct = BeamTracking.coord_alignment_bend_mid(x_off, y_off, z_off, x_rot, y_rot, tilt, bendparams.g_ref, bendparams.tilt_ref, L)
+      return make_kernel_call(BeamTracking.track_coord_transform_at_s!, (mid_r, mid_q, st, ct, bendparams.g_ref, L, 0, Val{true}()))
     else
-      dr, q = BeamTracking.coord_alignment_bend_exiting(x_off, y_off, z_off, 
-                x_rot, y_rot, tilt, bendparams.g_ref, bendparams.tilt_ref, ele_orient, L)
-      return make_kernel_call(BeamTracking.track_coord_transform!, (dr, q))
+      mid_r, mid_q, st, ct = BeamTracking.coord_alignment_bend_mid(x_off, y_off, z_off, x_rot, y_rot, tilt, bendparams.g_ref, bendparams.tilt_ref, L)
+      return make_kernel_call(BeamTracking.track_coord_transform_at_s!, (mid_r, mid_q, st, ct, bendparams.g_ref, L, L, Val{false}()))
     end
-
   else
     if entering
       return make_kernel_call(BeamTracking.track_alignment_straight_entering!, (x_off, y_off, z_off, 

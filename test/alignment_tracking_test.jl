@@ -52,18 +52,17 @@ ms2 = [
 
 @testset "AlignmentKernel" begin
   # bend tests
-
-  r, q = BeamTracking.coord_alignment_bend_entering(0.1, 0.2, 0.3, -0.1, 0.2, 0.3, 0.15, 0.4, +1, 3.0)
+  mid_r, mid_q, st, ct = BeamTracking.coord_alignment_bend_mid(0.1, 0.2, 0.3, -0.1, 0.2, 0.3, 0.15, 0.4, 3.0)
   bunch = Bunch(copy(vb1))
-  BeamTracking.launch!(bunch.coords, make_kernel_call(BeamTracking.track_coord_transform!, (r, q)))
+  BeamTracking.launch!(bunch.coords, make_kernel_call(BeamTracking.track_coord_transform_at_s!, (mid_r, mid_q, st, ct, 0.15, 3.0, 0, Val{true}())))
   @test bunch.coords.v ≈ vb_enter
-  test_matrix(mb1, make_kernel_call(BeamTracking.track_coord_transform!, (r, q)))
+  test_matrix(mb1, make_kernel_call(BeamTracking.track_coord_transform_at_s!, (mid_r, mid_q, st, ct, 0.15, 3.0, 0, Val{true}())))
 
-  r, q = BeamTracking.coord_alignment_bend_exiting(0.1, 0.2, 0.3, -0.1, 0.2, 0.3, 0.15, 0.4, +1, 3.0)
+  mid_r, mid_q, st, ct = BeamTracking.coord_alignment_bend_mid(0.1, 0.2, 0.3, -0.1, 0.2, 0.3, 0.15, 0.4, 3.0)
   bunch = Bunch(copy(vb1))
-  BeamTracking.launch!(bunch.coords, make_kernel_call(BeamTracking.track_coord_transform!, (r, q)))
-  @test bunch.coords.v ≈ vb_exit
-  test_matrix(mb2, make_kernel_call(BeamTracking.track_coord_transform!, (r, q)))
+  BeamTracking.launch!(bunch.coords, make_kernel_call(BeamTracking.track_coord_transform_at_s!, (mid_r, mid_q, st, ct, 0.15, 3.0, 3.0, Val{false}())))
+  @test bunch.coords.v ≈ vb_enter
+  test_matrix(mb2, make_kernel_call(BeamTracking.track_coord_transform_at_s!, (mid_r, mid_q, st, ct, 0.15, 3.0, 3.0, Val{false}())))
 
   # Straight tests
 
