@@ -80,15 +80,16 @@ _generic_kernel!(i, coords, kc) = __generic_kernel!(i, coords, kc.chain, kc.ref)
 end
 
 @unroll function __generic_kernel_noramp!(i, coords::Coords, chain::T, ref) where {T}
-  callback_chain = KernelChain(Val{3}(), ref)
-  body_callbacks, L, last_ds_step, last_g = process_callbacks(coords.callbacks, KernelChain(chain, ref), callback_chain)
-  body_coords = Coords(coords.state, coords.v, coords.q, coords.weight, body_callbacks)
+  transforms_out, transforms_in = construct_transforms(chain, KernelChain(Val{3}(), ref), KernelChain(Val{3}(), ref))
+  body_callback = construct_main_callback(coords.callbacks, transforms_out, transforms_in)
+  body_coords = Coords(coords.state, coords.v, coords.q, coords.weight, body_callback)
   @unroll for kcall in chain
     bargs = process_batch_args(i, kcall.args)
     args = process_time_args(i, body_coords, bargs, ref)
     (kcall.kernel)(i, body_coords, args...)
   end
-  execute_callbacks(i, coords, L, last_ds_step, last_g)
+  exit_callback = construct_main_callback(coords.callbacks, KernelChain(Val{3}(), ref), KernelChain(Val{3}(), ref))
+  exit_callback(i, coords, L, last_ds_step, last_g)
   return nothing
 end
 

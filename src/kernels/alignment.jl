@@ -6,7 +6,7 @@
 @inline function track_alignment_straight_at_s!(i, coords::Coords, x_off, y_off, z_off,
                                   x_rot, y_rot, tilt, ele_orient, L, s, ::Val{in}) where {in}
   # Signed longitudinal distance from the element center (rotation center) to the s-face.
-  L2 = @FastGTPSA (0.5*L - s) * ele_orient
+  L2 = @FastGTPSA (L/2 - s) * ele_orient
 
   if in
     q = inv_rot_quaternion(x_rot, y_rot, tilt)
