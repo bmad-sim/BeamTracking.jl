@@ -65,6 +65,8 @@ include("kernels/ibs_kick.jl")
 include("kernels/implicit.jl")
 include("kernels/thin.jl")
 
+include("utils/find_stuff.jl")
+
 # Empty tracking method to be imported+implemented by package extensions
 function track! end
 

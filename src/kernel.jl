@@ -19,27 +19,39 @@ end
 Adapt.@adapt_structure KernelCall
 
 # Store the state of the reference coordinate system
-# Needed for time-dependent parameters
-struct RefState{T,U}
-  t::T          # Reference time
-  beta_gamma::U # Reference energy
+@kwdef struct RefState{S,T,U,V,W,X,Y}
+  t_enter::S          # Reference time at entrance
+  beta_gamma_enter::T # Reference energy at entrance
+  t_exit::U           = t_enter # Reference time at exit
+  beta_gamma_exit::V  = beta_gamma_enter # Reference energy at exit
+  L::W                = 0
+  g::X                = (0, 0)
+  ds_step::Y          = 0
 end
 
 # Alias
-struct KernelChain{C<:Tuple{Vararg{<:KernelCall}}, S<:Union{Nothing,RefState}}
+struct KernelChain{C<:Tuple{Vararg{<:KernelCall}}, S<:RefState, TOUT<:Tuple{Vararg{<:KernelCall}}, TIN<:Tuple{Vararg{<:KernelCall}}}
   chain::C  # The tuple of KernelCalls
-  ref::S    # An optional RefState for the initial time-dependent parameters
-  KernelChain(chain, ref=nothing) = new{typeof(chain), typeof(ref)}(chain, ref)
+  ref::S    # A RefState
+  transforms_out::TOUT
+  transforms_in::TIN
+  function KernelChain(chain, ref, transforms_out=ntuple(t->KernelCall(), Val{3}()), transforms_in=ntuple(t->KernelCall(), Val{3}()))
+    new{typeof(chain), typeof(ref), typeof(transforms_out), typeof(transforms_in)}(chain, ref, transforms_out, transforms_in)
+  end
 end
 
 # In case KernelChain contains batch GPU array
 Adapt.@adapt_structure KernelChain
 
-KernelChain(::Val{N}, ref=nothing) where {N} = KernelChain(ntuple(t->KernelCall(), Val{N}()), ref)
+KernelChain(::Val{N}, ref, transforms_out=ntuple(t->KernelCall(), Val{3}()), transforms_in=ntuple(t->KernelCall(), Val{3}())) where {N} = KernelChain(ntuple(t->KernelCall(), Val{N}()), ref, transforms_out, transforms_in)
 
 push(kc::KernelChain, kcall::Nothing) = kc
+push_transforms_out(kc::KernelChain, tout::Nothing) = kc
+push_transforms_in(kc::KernelChain, tin::Nothing) = kc
 
 push(kc::KernelChain, kcall) = @reset kc.chain = _push(kc.chain, kcall)
+push_transforms_out(kc::KernelChain, tout) = @reset kc.transforms_out = _push(kc.transforms_out, tout)
+push_transforms_in(kc::KernelChain, tin) = @reset kc.transforms_in = _push(kc.transforms_in, tin)
 
 @unroll function _push(chain, kcall)
   i = 0
@@ -58,14 +70,14 @@ end
   @inline _generic_kernel!(i, coords, kc)
 end
 
-_generic_kernel!(i, coords, kc) = __generic_kernel!(i, coords, kc.chain, kc.ref)
+_generic_kernel!(i, coords, kc) = __generic_kernel!(i, coords, kc.chain, kc.ref, kc.transforms_out, kc.transforms_in)
 
-@generated function __generic_kernel!(i, coords, chain::T, ref) where {T}
+@generated function __generic_kernel!(i, coords, chain::T, ref, transforms_out, transforms_in) where {T}
   N = length(T.parameters)
   if N > 0 && first(T.parameters) <: KernelCall{typeof(reference_momentum_shift!),Tuple{<:Any,TimeFunction}}
     # Static check that everything is ok
     if last(T.parameters) <: KernelCall{typeof(reference_momentum_shift!),Tuple{TimeFunction,TimeFunction}}
-      return :(__generic_kernel_ramp!(i, coords, chain, ref))
+      return :(__generic_kernel_ramp!(i, coords, chain, ref, transforms_out, transforms_in))
     else
       error("
         Kernels with time-dependent reference energies must start and end with `reference_momentum_shift!`,
@@ -75,40 +87,44 @@ _generic_kernel!(i, coords, kc) = __generic_kernel!(i, coords, kc.chain, kc.ref)
       ")
     end
   else
-    return :(__generic_kernel_noramp!(i, coords, chain, ref))
+    return :(__generic_kernel_noramp!(i, coords, chain, ref, transforms_out, transforms_in))
   end
 end
 
-@unroll function __generic_kernel_noramp!(i, coords::Coords, chain::T, ref) where {T}
-  transforms_out, transforms_in = construct_transforms(chain, KernelChain(Val{3}(), ref), KernelChain(Val{3}(), ref))
-  body_callback = construct_main_callback(coords.callbacks, transforms_out, transforms_in)
+function __generic_kernel_noramp!(i, coords::Coords, chain, ref, transforms_out, transforms_in)
+  body_callback = construct_main_callback(coords, transforms_out, transforms_in, ref.t_enter, ref.beta_gamma_enter, ref.ds_step, ref.g)
   body_coords = Coords(coords.state, coords.v, coords.q, coords.weight, body_callback)
-  @unroll for kcall in chain
-    bargs = process_batch_args(i, kcall.args)
-    args = process_time_args(i, body_coords, bargs, ref)
-    (kcall.kernel)(i, body_coords, args...)
-  end
-  exit_callback = construct_main_callback(coords.callbacks, KernelChain(Val{3}(), ref), KernelChain(Val{3}(), ref))
-  exit_callback(i, coords, L, last_ds_step, last_g)
+  __generic_kernel_noramp_body!(i, body_coords, chain, ref.t_enter, ref.beta_gamma_enter)
+  # note: can pass 0's for t_ref_transform and beta_gamma_ref_transform because those are not used now 
+  exit_callback = construct_main_callback(coords, (), (), 0, 0, ref.ds_step, ref.g)
+  exit_callback(i, coords, ref.L, ref.t_exit)
   return nothing
 end
 
+
+@unroll function __generic_kernel_noramp_body!(i, body_coords, chain, t_ref_enter, beta_gamma_ref_enter)
+  @unroll for kcall in chain
+    bargs = process_batch_args(i, kcall.args)
+    args = process_time_args(i, body_coords, bargs, t_ref_enter, beta_gamma_ref_enter)
+    (kcall.kernel)(i, body_coords, args...)
+  end
+end
+
 # For ramping we need to do something special:
-@unroll function __generic_kernel_ramp!(i, coords::Coords, chain, ref)
+function __generic_kernel_ramp!(i, coords::Coords, chain, ref, transforms_out, transforms_in)
   @assert last(chain).kernel == reference_momentum_shift! 
   @assert last(chain).args[1] isa TimeFunction
   @assert last(chain).args[2] isa TimeFunction
   # Have to store each particles initial time:
-  t_initial = compute_time(coords.v[i,ZI], coords.v[i,PZI], ref)
-  callback_chain = KernelChain(Val{3}(), ref)
-  body_callbacks, L, last_ds_step, last_g = process_callbacks(coords.callbacks, KernelChain(chain, ref), callback_chain)
-  body_coords = Coords(coords.state, coords.v, coords.q, coords.weight, body_callbacks)
-  @inline __generic_kernel_noramp!(i, body_coords, Base.front(chain), ref)
+  t_initial = compute_time(coords.v[i,ZI], coords.v[i,PZI], ref.t_enter, ref.beta_gamma_enter)
+  @inline __generic_kernel_noramp!(i, coords, Base.front(chain), ref, transforms_out, transforms_in)
   # With initial particle's time we now know the dp_over_q_ref to evaluate for the last function
   p_over_q_ref_in_ele = teval(last(chain).args[1], t_initial)
   dp_over_q_ref_in_ele = teval(last(chain).args[2], t_initial)
-  reference_momentum_shift!(i, body_coords, p_over_q_ref_in_ele, dp_over_q_ref_in_ele, last(chain).args[3])
-  execute_callbacks(i, coords, L, last_ds_step, last_g)
+  reference_momentum_shift!(i, coords, p_over_q_ref_in_ele, dp_over_q_ref_in_ele, last(chain).args[3])
+  # note: can pass 0's for t_ref_transform and beta_gamma_ref_transform because those are not used now 
+  exit_callback = construct_main_callback(coords, (), (), 0, 0, ref.ds_step, ref.g)
+  exit_callback(i, coords, ref.L, ref.t_exit)
   return nothing
 end
 
@@ -120,9 +136,9 @@ function process_batch_args(i, args)
   end
 end
 
-function process_time_args(i, coords, args, ref)
-  if !isnothing(ref) && static_timecheck(args) 
-    let t = compute_time(coords.v[i,ZI], coords.v[i,PZI], ref)
+function process_time_args(i, coords, args, t_ref, beta_gamma_ref)
+  if static_timecheck(args) 
+    let t = compute_time(coords.v[i,ZI], coords.v[i,PZI], t_ref, beta_gamma_ref)
       return teval(args, t)
     end
   else
@@ -217,7 +233,7 @@ function check_kwargs(mac, kwargs...)
 end
 
 # Also allow launch! on single KernelCalls
-@inline launch!(coords::Coords, kcall::KernelCall; kwargs...) = launch!(coords, KernelChain((kcall,)); kwargs...)
+@inline launch!(coords::Coords, kcall::KernelCall; kwargs...) = launch!(coords, KernelChain((kcall,), RefState(0,0,0,0,0,0,0)); kwargs...)
 
 macro makekernel(args...)
   kwargs = args[1:length(args)-1]

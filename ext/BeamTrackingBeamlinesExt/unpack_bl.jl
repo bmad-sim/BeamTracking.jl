@@ -64,17 +64,29 @@ function universal!(
   fourpotentialparams;
   kwargs...
 ) 
+  # Compute information about reference coordinate system:
+  t_enter = bunch.t_ref
   if p_over_q_ref isa TimeDependentParam
-    beta_gamma_ref0 = R_to_beta_gamma(bunch.species, p_over_q_ref(bunch.t_ref))
+    beta_gamma_enter = R_to_beta_gamma(bunch.species, p_over_q_ref(t_enter))
   else
-    beta_gamma_ref0 = R_to_beta_gamma(bunch.species, p_over_q_ref)
+    beta_gamma_enter = R_to_beta_gamma(bunch.species, p_over_q_ref)
   end
-
-  # Current KernelChain length is 9 because we have up to
+  g = isnothing(bendparams) ? (0,0) : reverse((bendparams.g_ref .* sincos(bendparams.tilt_ref)))
+  ds_step = (L == 0 || isactive(patchparams)) ? L : BeamTracking.find_steps(tm, L)[2]
+  # Reference time evolution thru element assumes constant energy
+  # using the energy at the start of the element:
+  t_exit = bunch.t_ref + L / beta_gamma_to_v(beta_gamma_enter)
+  if p_over_q_ref isa TimeDependentParam
+    beta_gamma_exit = R_to_beta_gamma(bunch.species, p_over_q_ref(t_exit))
+  else
+    beta_gamma_exit = R_to_beta_gamma(bunch.species, p_over_q_ref)
+  end
+  
+  # Current KernelChain length is 10 because we have up to
   # 2 aperture, 2 alignment, 1 body kernel, 1 IBS kernel,
   # 2 kernels to update the particles' reference energy,
   # and 2 for coordinate conversion with implicit
-  kc = KernelChain(Val{10}(), RefState(bunch.t_ref, beta_gamma_ref0))
+  kc = KernelChain(Val{10}(), RefState(; t_enter, beta_gamma_enter, t_exit, beta_gamma_exit, L, g, ds_step))
 
   p_over_q_ref_initial = bunch.p_over_q_ref
   ramp_per_particle = p_over_q_ref isa TimeDependentParam && ramp_update_each_particle
@@ -277,13 +289,8 @@ function universal!(
   # noinline necessary here for small binaries and faster execution
   @noinline launch!(coords, kc; kwargs...)
 
-  # Reference time evolution thru element assumes constant energy
-  # using the energy at the start of the element:
-  bunch.t_ref += L / beta_gamma_to_v(beta_gamma_ref0)
-
-  if first(kc.chain).kernel == BeamTracking.blank_kernel! # Still execute callbacks if nothing happened.
-    BeamTracking.execute_callbacks(bunch.coords, 0, 0, (0, 0))
-  end
+  # Update reference time
+  bunch.t_ref = t_exit
 
   # If ramping, now need to uniformly ramp all particles to same reference energy
   if ramp_per_particle
