@@ -58,13 +58,14 @@ end
     if !isnothing(photon_params)
       stochastic_radiation!(i, coords, s, photon_params..., ds_step / 2)
     end
+    g = compute_g(ker, params)
     for step in 1:(n_steps-1)
       ker(i, coords, s, params..., ds_step)
       s += ds_step
       if !isnothing(photon_params)
         stochastic_radiation!(i, coords, s, photon_params..., ds_step)
       end
-      execute_callbacks(i, coords, s, ds_step, compute_g(ker, params))
+      execute_callbacks(i, coords, s, ds_step, g)
     end
     ker(i, coords, s, params..., ds_step)
     s += ds_step
@@ -92,6 +93,7 @@ end
     if !isnothing(photon_params)
       stochastic_radiation!(i, coords, s, photon_params..., ds_step / 2)
     end
+    g = compute_g(ker, params)
     for step in 1:(n_steps-1)
       ker(i, coords, s, params..., w1)
       s += w1
@@ -102,7 +104,7 @@ end
       if !isnothing(photon_params)
         stochastic_radiation!(i, coords, s, photon_params..., ds_step)
       end
-      execute_callbacks(i, coords, s, ds_step, compute_g(ker, params))
+      execute_callbacks(i, coords, s, ds_step, g)
     end
     ker(i, coords, s, params..., w1)
     s += w1
@@ -136,6 +138,7 @@ end
     if !isnothing(photon_params)
       stochastic_radiation!(i, coords, s, photon_params..., ds_step / 2)
     end
+    g = compute_g(ker, params)
     for step in 1:(n_steps-1)
       ker(i, coords, s, params..., w3)
       s += w3
@@ -154,7 +157,7 @@ end
       if !isnothing(photon_params)
         stochastic_radiation!(i, coords, s, photon_params..., ds_step)
       end
-      execute_callbacks(i, coords, s, ds_step, compute_g(ker, params))
+      execute_callbacks(i, coords, s, ds_step, g)
     end
     ker(i, coords, s, params..., w3)
     s += w3
@@ -200,6 +203,7 @@ end
     if !isnothing(photon_params)
       stochastic_radiation!(i, coords, s, photon_params..., ds_step / 2)
     end
+    g = compute_g(ker, params)
     for step in 1:(n_steps-1)
       ker(i, coords, s, params..., w7)
       s += w7
@@ -234,7 +238,7 @@ end
       if !isnothing(photon_params)
         stochastic_radiation!(i, coords, s, photon_params..., ds_step)
       end
-      execute_callbacks(i, coords, s, ds_step, compute_g(ker, params))
+      execute_callbacks(i, coords, s, ds_step, g)
     end
     ker(i, coords, s, params..., w7)
     s += w7

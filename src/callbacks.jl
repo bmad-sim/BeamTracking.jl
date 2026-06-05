@@ -111,3 +111,40 @@ execute_callbacks(i, coords, cur_s, last_ds_step, last_g) = __execute_callbacks(
   end
   return nothing
 end
+
+#=
+
+THIS IS NOT A NICE SOLUTION! We should explore more general solutions rather than 
+KernelChain introspection. Nonetheless, it works for now.
+
+=#
+@generated function find_L_ds_step_and_g(chain::C) where {C}
+  if length(C.parameters) == 0
+    return :(0, 0, 0)
+  end
+
+  yoshida_kcall_idx = findfirst(x->x <: typeof(order_two_integrator!) || x <: typeof(order_four_integrator!) ||
+        x <: typeof(order_six_integrator!) || x <: typeof(order_eight_integrator!), C.parameters)
+  if !isnothing(yoshida_kcall_idx)
+    return quote
+      ker = chain[$yoshida_kcall_idx].args[1]
+      params = chain[$yoshida_kcall_idx].args[2]
+      L = chain[$yoshida_kcall_idx].args[9]
+      ds_step = chain[$yoshida_kcall_idx].args[4]
+      g = compute_g(ker, params)
+      return L, ds_step, g
+    end
+  end
+
+  thin_kcall_idx = findfirst(x->x <: typeof(integrate_thin!), C.params)
+  if !isnothing(thin_kcall_idx)
+    return :(0, 0, 0)
+  end
+
+
+  if any(x -> x <: typeof(order_two_integrator!) || x <: typeof(order_four_integrator!) ||
+        x <: typeof(order_six_integrator!) || x <: typeof(order_eight_integrator!))
+    kcall = findfirst(x->x)
+    # ds_step is 
+  end
+end
