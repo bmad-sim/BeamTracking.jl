@@ -16,18 +16,17 @@ find_steps(::Any, L) = (1, L)
 # Temporary disgusting solution for callbacks - Yoshida
 @generated function compute_dt_ref(s, ker::K, params) where {K}
   idx = find_m_tilde(ker)
-  
-  #=if idx == 0
+  if idx == 0
     return quote
       beta_gamma_ref = 0
       return s / beta_gamma_to_v(beta_gamma_ref)
     end
-  else=#
+  else
     return quote
-      beta_gamma_ref = 1/params[$idx]
+      beta_gamma_ref = params[$idx]
       return s / beta_gamma_to_v(beta_gamma_ref)
     end
-  #end
+  end
 end
 
 find_m_tilde(::Type{K}) where {K<:typeof(implicit_integrator!)} = 3

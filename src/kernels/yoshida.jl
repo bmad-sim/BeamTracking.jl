@@ -88,7 +88,7 @@ end
       a, tilde_m, Ksol, Kn0, e1, e2 = edge_params
       linear_bend_fringe!(i, coords, a, tilde_m, Ksol, Kn0, e1, 1)
     end
-    s = 0
+    s = zero(w0)
     if !isnothing(photon_params)
       stochastic_radiation!(i, coords, s, photon_params..., ds_step / 2)
     end
@@ -111,7 +111,7 @@ end
         stochastic_radiation!(i, coords, s, photon_params..., ds_step)
       end
       dt_ref = compute_dt_ref(s, ker, params)
-      #execute_callbacks(i, coords, s, 0)
+      execute_callbacks(i, coords, s, dt_ref)
     end
     ker(i, coords, s, params..., w3)
     s += w3
