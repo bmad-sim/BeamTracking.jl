@@ -613,21 +613,25 @@ function stochastic_radiation!(i, coords::Coords, s, ::typeof(implicit_integrato
   return nothing
 end
 
-@makekernel fastgtpsa=true function callback_implicit!(i, coords, cur_s, cur_t_ref, beta_0, tilde_m, potential_and_jac, potential_params, p_over_q_ref, normalized, ::Val{in}) where {in}
+function callback_implicit!(i, coords, cur_s, cur_t_ref, beta_0, tilde_m, potential_and_jac, potential_params, p_over_q_ref, normalized, ::Val{in}) where {in}
+  @inbounds begin @FastGTPSA begin
     v = coord.v
     t = (cur_s/beta_0 - v[i,ZI])/C_LIGHT
 
     phi = potential_and_jac(v[i,XI], v[i,YI], cur_s, t, potential_params)[1][1]
+    
     if !normalized
       phi = phi/p_over_q_ref/C_LIGHT
     else
       phi = phi/C_LIGHT
     end
-  if in
-    bmad_to_mad!(i, coords, beta_0, tilde_m, phi)
-  else
-    mad_to_bmad!(i, coords, beta_0, tilde_m, phi)
-  end
+
+    if in
+      bmad_to_mad!(i, coords, beta_0, tilde_m, phi)
+    else
+      mad_to_bmad!(i, coords, beta_0, tilde_m, phi)
+    end
+  end end
 end
 
 scalar(x::TPS) = TPSAInterface.scalar(x)
