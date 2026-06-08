@@ -62,16 +62,3 @@ end
   end
   return nothing
 end
-
-#=
-# Function to execute main_callbac
-# after addition of transform_out and transform_in, this reall just executes the main callback
-execute_callbacks(i, coords, cur_s, last_ds_step, last_g) = __execute_callbacks(i, coords.callbacks, coords, cur_s, cur_t_ref, last_ds_step, last_g)
-
-@unroll function __execute_callbacks(i, callbacks, coords, cur_s, cur_t_ref, last_ds_step, last_g)
-  @unroll for callback in callbacks
-    callback(i, coords, cur_s, cur_t_ref, last_ds_step, last_g)
-  end
-  return nothing
-end
-=#

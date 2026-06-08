@@ -93,6 +93,8 @@ function universal!(
 
   if ramp_per_particle
     kc = push(kc, make_kernel_call(BeamTracking.reference_momentum_shift!, (bunch.p_over_q_ref, p_over_q_ref-bunch.p_over_q_ref, Val{!ramp_particle_energy_without_rf}())))
+    kc = push_transforms_out(kc, make_kernel_call((i, coords, cur_s, cur_t_ref)->error("transforms_out! not supported yet with ramp_update_each_particle = true")))
+    kc = push_transforms_in(kc, make_kernel_call((i, coords, cur_s, cur_t_ref)->error("transforms_in! not supported yet with ramp_update_each_particle = true")))
   else
     # Make sure to evaluate p_over_q_ref if not ramp_update_each_particle
     p_over_q_ref = p_over_q_ref isa TimeDependentParam ? p_over_q_ref(bunch.t_ref) : p_over_q_ref

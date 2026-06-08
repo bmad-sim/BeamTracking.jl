@@ -123,6 +123,7 @@ function __generic_kernel_ramp!(i, coords::Coords, chain, ref, transforms_out, t
   dp_over_q_ref_in_ele = teval(last(chain).args[2], t_initial)
   reference_momentum_shift!(i, coords, p_over_q_ref_in_ele, dp_over_q_ref_in_ele, last(chain).args[3])
   # note: can pass 0's for t_ref_transform and beta_gamma_ref_transform because those are not used now 
+  # since transforms are empty tuples at the end (back in global frame)
   exit_callback = construct_main_callback(coords, (), (), 0, 0, ref.ds_step, ref.g)
   exit_callback(i, coords, ref.L, ref.t_exit)
   return nothing
