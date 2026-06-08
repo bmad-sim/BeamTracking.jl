@@ -21,6 +21,14 @@
   end
 end
 
+# TRANSFORM FOR CALLBACKS:
+# note this doesn't have the s argument after L, instead using cur_s
+@inline function callback_alignment_straight_at_s!(
+  i, coords, cur_s, cur_t_ref, x_off, y_off, z_off, x_rot, y_rot, tilt, ele_orient, L, in
+  )
+  return track_alignment_straight_at_s!(i, coords, x_off, y_off, z_off, x_rot, y_rot, tilt, ele_orient, L, cur_s, in)
+end
+
 #---------------------------------------------------------------------------------------------------
 """
     function track_coord_transform!(i, coords::Coords, r, q)
@@ -51,4 +59,12 @@ end
     r_inv = .-quat_rotate(r, q_inv)
     track_coord_transform!(i, coords, r_inv, q_inv)
   end
+end
+
+# TRANSFORM FOR CALLBACKS:
+# note this doesn't have the s argument after L, instead using cur_s
+@inline function callback_coord_bend_transform_at_s!(
+  i, coords, cur_s, cur_t_ref, mid_r, mid_q, st, ct, g_ref, L, in,
+  )
+  return track_coord_bend_transform_at_s!(i, coords, mid_r, mid_q, st, ct, g_ref, L, cur_s, in)
 end

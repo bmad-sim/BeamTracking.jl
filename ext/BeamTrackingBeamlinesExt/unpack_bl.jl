@@ -315,7 +315,47 @@ function universal!(coords, tm::SaganCavity, ele, ramp_particle_energy_without_r
   isactive(rfparams) || error("SaganCavity Tracking through element $ele_name without RFParams is undefined")
 
   beta_gamma_ref = R_to_beta_gamma(bunch.species, bunch.p_over_q_ref)
-  kc = KernelChain(Val{6}(), RefState(bunch.t_ref, beta_gamma_ref))
+
+  # Compute information about reference coordinate system:
+  t_enter = bunch.t_ref
+  if p_over_q_ref isa TimeDependentParam
+    beta_gamma_enter = R_to_beta_gamma(bunch.species, p_over_q_ref(t_enter))
+  else
+    beta_gamma_enter = R_to_beta_gamma(bunch.species, p_over_q_ref)
+  end
+  g = isnothing(bendparams) ? (0,0) : reverse((bendparams.g_ref .* sincos(bendparams.tilt_ref)))
+  ds_step = (L == 0 || isactive(patchparams)) ? L : BeamTracking.find_steps(tm, L)[2]
+  # reference time change
+  if L != 0
+    species = bunch.species
+    p1_over_q_ref = p_over_q_ref
+    rf_omega = rf_omega_calc(rfparams, beamlineparams)
+    n_cells, L_active = rf_step_calc(tm.n_cells, tm.L_active, rf_omega, L)
+    L_outer = (L - L_active) / 2
+    E1_ref = R_to_E(species, p1_over_q_ref)
+    dE_ref = beamlineparams.dE_ref
+    E0_ref = E1_ref - dE_ref
+    dt_ref = L_outer/E_to_v(species, E0_ref) + L_outer/E_to_v(species, E1_ref)
+ 
+    if n_cells == 0
+      L_inner = L_active / 2
+      dt_ref += L_inner/E_to_v(species, E0_ref) + L_inner/E_to_v(species, E1_ref)
+    else
+      for i_step = 1:n_cells
+        E_now_ref = E0_ref + (i_step - 1/2) * dE_ref / n_cells
+        dt_ref += L_active / (n_cells * E_to_v(species, E_now_ref))
+      end
+    end
+    t_exit = dt_ref
+  else
+    t_exit = 0
+  end
+  if p_over_q_ref isa TimeDependentParam
+    beta_gamma_exit = R_to_beta_gamma(bunch.species, p_over_q_ref(t_exit))
+  else
+    beta_gamma_exit = R_to_beta_gamma(bunch.species, p_over_q_ref)
+  end
+  kc = KernelChain(Val{10}(), RefState(; t_enter, beta_gamma_enter, t_exit, beta_gamma_exit, L, g, ds_step))
 
   # Ramping
   if p_over_q_ref isa TimeDependentParam
@@ -370,34 +410,10 @@ function universal!(coords, tm::SaganCavity, ele, ramp_particle_energy_without_r
 
   # noinline necessary here for small binaries and faster execution
   @noinline launch!(coords, kc; kwargs...)
-
-  # reference time change
-  if L != 0
-    species = bunch.species
-    p1_over_q_ref = beamlineparams.beamline.p_over_q_ref
-    rf_omega = rf_omega_calc(rfparams, beamlineparams)
-    n_cells, L_active = rf_step_calc(tm.n_cells, tm.L_active, rf_omega, L)
-    L_outer = (L - L_active) / 2
-    E1_ref = R_to_E(species, p1_over_q_ref)
-    dE_ref = beamlineparams.dE_ref
-    E0_ref = E1_ref - dE_ref
-    dt_ref = L_outer/E_to_v(species, E0_ref) + L_outer/E_to_v(species, E1_ref)
- 
-    if n_cells == 0
-      L_inner = L_active / 2
-      dt_ref += L_inner/E_to_v(species, E0_ref) + L_inner/E_to_v(species, E1_ref)
-    else
-      for i_step = 1:n_cells
-        E_now_ref = E0_ref + (i_step - 1/2) * dE_ref / n_cells
-        dt_ref += L_active / (n_cells * E_to_v(species, E_now_ref))
-      end
-    end
-
-    bunch.t_ref += dt_ref
-  end
-
+  
+  bunch.t_ref = t_exit
+  
   return nothing
-
 end
 
 #---------------------------------------------------------------------------------------------------
