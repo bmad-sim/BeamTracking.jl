@@ -19,7 +19,7 @@
         stochastic_radiation!(i, coords, s, photon_params..., ds_step)
       end
       dt_ref = compute_dt_ref(s, ker, params)
-      (coords.callbacks)(i, coords, s, dt_ref)
+      execute_callbacks(i, coords, s, dt_ref)
     end
     ker(i, coords, s, params..., ds_step)
     s += ds_step
@@ -58,7 +58,7 @@ end
         stochastic_radiation!(i, coords, s, photon_params..., ds_step)
       end
       dt_ref = compute_dt_ref(s, ker, params)
-      (coords.callbacks)(i, coords, s, dt_ref)
+      execute_callbacks(i, coords, s, dt_ref)
     end
     ker(i, coords, s, params..., w1)
     s += w1
@@ -111,7 +111,7 @@ end
         stochastic_radiation!(i, coords, s, photon_params..., ds_step)
       end
       dt_ref = compute_dt_ref(s, ker, params)
-      (coords.callbacks)(i, coords, s, dt_ref)
+      #execute_callbacks(i, coords, s, 0)
     end
     ker(i, coords, s, params..., w3)
     s += w3
@@ -192,7 +192,7 @@ end
         stochastic_radiation!(i, coords, s, photon_params..., ds_step)
       end
       dt_ref = compute_dt_ref(s, ker, params)
-      (coords.callbacks)(i, coords, s, dt_ref)
+      execute_callbacks(i, coords, s, dt_ref)
     end
     ker(i, coords, s, params..., w7)
     s += w7

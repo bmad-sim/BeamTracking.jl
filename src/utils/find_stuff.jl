@@ -14,16 +14,27 @@ end
 find_steps(::Any, L) = (1, L)
 
 # Temporary disgusting solution for callbacks - Yoshida
-function compute_dt_ref(s, ker, params)
-  beta_gamma_ref = find_beta_gamma_ref(ker, params)
-  return s / beta_gamma_to_v(beta_gamma_ref)
+@generated function compute_dt_ref(s, ker::K, params) where {K}
+  idx = find_m_tilde(ker)
+  
+  #=if idx == 0
+    return quote
+      beta_gamma_ref = 0
+      return s / beta_gamma_to_v(beta_gamma_ref)
+    end
+  else=#
+    return quote
+      beta_gamma_ref = 1/params[$idx]
+      return s / beta_gamma_to_v(beta_gamma_ref)
+    end
+  #end
 end
 
-find_beta_gamma_ref(::typeof(implicit_integrator!), params::P) where {P} = 1/params[3]
-find_beta_gamma_ref(::typeof(exact_drift!), params::P) where {P} = 1/params[3]
-find_beta_gamma_ref(::typeof(sks_multipole!), params::P) where {P} = 1/params[4]
-find_beta_gamma_ref(::typeof(dkd_multipole!), params::P) where {P} = 1/params[4]
-find_beta_gamma_ref(::typeof(bkb_multipole!), params::P) where {P} = 1/params[2]
-find_beta_gamma_ref(::typeof(mkm_quadrupole!), params::P) where {P} = 1/params[4]
-find_beta_gamma_ref(::typeof(exact_curved_drift!), params::P) where {P} = 1/params[7]
-find_beta_gamma_ref(::K, params::P) where {K,P} = 0 # Fallback
+find_m_tilde(::Type{K}) where {K<:typeof(implicit_integrator!)} = 3
+find_m_tilde(::Type{K}) where {K<:typeof(exact_drift!)} = 3
+find_m_tilde(::Type{K}) where {K<:typeof(sks_multipole!)} = 4
+find_m_tilde(::Type{K}) where {K<:typeof(dkd_multipole!)} = 4
+find_m_tilde(::Type{K}) where {K<:typeof(bkb_multipole!)} = 2
+find_m_tilde(::Type{K}) where {K<:typeof(mkm_quadrupole!)} = 4
+find_m_tilde(::Type{K}) where {K<:typeof(exact_curved_drift!)} = 7
+find_m_tilde(::Type{K}) where {K} = 0 # Fallback

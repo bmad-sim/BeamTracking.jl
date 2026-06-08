@@ -23,12 +23,12 @@ function construct_main_callback(coords, _transforms_out, _transforms_in, t_ref_
   # perhaps we will want to refactor this if we want TimeDependentParam to evolve inside of elements, 
   # but much lower priority.
   let _transforms_in = _transforms_in, _transforms_out = _transforms_out, t_ref_transform=t_ref_transform, beta_gamma_ref_transform=beta_gamma_ref_transform, callbacks=coords.callbacks, ds_step=ds_step, g=g
-    return (i, coords, cur_s, cur_dt_ref) -> begin
+    return ((i, coords, cur_s, cur_dt_ref) -> begin
       transforms_out! = _merge_transforms(_evaluate_transforms_args(i, coords, _transforms_out, t_ref_transform, beta_gamma_ref_transform))
       transforms_in! = _merge_transforms(_evaluate_transforms_args(i, coords, _transforms_in, t_ref_transform, beta_gamma_ref_transform))
-      _execute_callbacks(i, callbacks, coords, cur_s, t_ref_transform+cur_dt_ref, ds_step, g, transforms_out!, transforms_in!)
+      _execute_callbacks_with_transforms(i, callbacks, coords, cur_s, t_ref_transform+cur_dt_ref, ds_step, g, transforms_out!, transforms_in!)
       return nothing
-    end
+    end,)
   end
 end
 
@@ -56,9 +56,18 @@ end
   return nothing                                                                                                               
 end          
 
-@unroll function _execute_callbacks(i, callbacks, coords, cur_s, cur_t_ref, last_ds_step, last_g, transforms_out!, transforms_in!)
+@unroll function _execute_callbacks_with_transforms(i, callbacks, coords, cur_s, cur_t_ref, last_ds_step, last_g, transforms_out!, transforms_in!)
   @unroll for callback in callbacks
     callback(i, coords, cur_s, cur_t_ref, last_ds_step, last_g, transforms_out!, transforms_in!)
+  end
+  return nothing
+end
+
+execute_callbacks(i, coords, cur_s, cur_t_ref) = _execute_callbacks(i, coords, coords.callbacks, cur_s, cur_t_ref)
+
+@unroll function _execute_callbacks(i, coords, callbacks, cur_s, cur_t_ref)
+  @unroll for callback in callbacks
+    callback(i, coords, cur_s, cur_t_ref)
   end
   return nothing
 end
