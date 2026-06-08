@@ -45,6 +45,21 @@ end
 @def_integrator_struct(SolenoidKick)
 @def_integrator_struct(DriftKick)
 
+function remake(::Type{T}, ytm::AbstractYoshida) where {T<:AbstractYoshida}
+  return T(
+    order = ytm.order,
+    n_steps = ytm.n_steps,
+    ds_step = ytm.ds_step,
+    radiation_damping_on = ytm.radiation_damping_on,
+    radiation_fluctuations_on = ytm.radiation_fluctuations_on,
+    fringe_at = ytm.fringe_at,
+    ibs_damping_on = ytm.ibs_damping_on,
+    ibs_fluctuations_on = ytm.ibs_fluctuations_on,
+  )
+end
+
+
+
 # ========== Exact ===========================
 
 struct Exact

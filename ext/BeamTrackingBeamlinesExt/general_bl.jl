@@ -1,6 +1,6 @@
 #---------------------------------------------------------------------------------------------------
 
-@inline function alignment(tm, p_over_q_ref, bunch, alignmentparams, bendparams, L, entering)
+@inline function alignment(tm, kc, p_over_q_ref, bunch, alignmentparams, bendparams, L, entering)
   if !isactive(alignmentparams); return nothing; end
 
   x_off = alignmentparams.x_offset
@@ -17,67 +17,65 @@
   if isactive(bendparams) && (bendparams.g_ref != 0 || bendparams.tilt_ref != 0)
     if entering
       mid_r, mid_q, st, ct = BeamTracking.coord_alignment_bend_mid(x_off, y_off, z_off, x_rot, y_rot, tilt, bendparams.g_ref, bendparams.tilt_ref, L)
-      return make_kernel_call(BeamTracking.track_coord_bend_transform_at_s!, (mid_r, mid_q, st, ct, bendparams.g_ref, L, 0, Val{true}()))
+      return push(kc, make_kernel_call(BeamTracking.track_coord_bend_transform_at_s!, (mid_r, mid_q, st, ct, bendparams.g_ref, L, 0, Val{true}())))
     else
       mid_r, mid_q, st, ct = BeamTracking.coord_alignment_bend_mid(x_off, y_off, z_off, x_rot, y_rot, tilt, bendparams.g_ref, bendparams.tilt_ref, L)
-      return make_kernel_call(BeamTracking.track_coord_bend_transform_at_s!, (mid_r, mid_q, st, ct, bendparams.g_ref, L, L, Val{false}()))
+      return push(kc, make_kernel_call(BeamTracking.track_coord_bend_transform_at_s!, (mid_r, mid_q, st, ct, bendparams.g_ref, L, L, Val{false}())))
     end
   else
     if entering
-      return make_kernel_call(BeamTracking.track_alignment_straight_at_s!, (x_off, y_off, z_off, 
-                                                     x_rot, y_rot, tilt, ele_orient, L, 0, Val{true}()))
+      return push(kc, make_kernel_call(BeamTracking.track_alignment_straight_at_s!, (x_off, y_off, z_off, x_rot, y_rot, tilt, ele_orient, L, 0, Val{true}())))
     else
-      return make_kernel_call(BeamTracking.track_alignment_straight_at_s!, (x_off, y_off, z_off, 
-                                                     x_rot, y_rot, tilt, ele_orient, L, L, Val{false}()))
+      return push(kc, make_kernel_call(BeamTracking.track_alignment_straight_at_s!, (x_off, y_off, z_off, x_rot, y_rot, tilt, ele_orient, L, L, Val{false}())))
     end
   end
 end
 
 #---------------------------------------------------------------------------------------------------
 
-@inline function aperture(tm, p_over_q_ref, bunch, apertureparams, entering)
+@inline function aperture(tm, kc, p_over_q_ref, bunch, apertureparams, entering)
   x1 = apertureparams.x1_limit
   x2 = apertureparams.x2_limit
   y1 = apertureparams.y1_limit
   y2 = apertureparams.y2_limit
 
   if entering && apertureparams.aperture_at == ApertureAt.Exit
-      return make_kernel_call()
+      return kc
   elseif !entering && apertureparams.aperture_at == ApertureAt.Entrance
-      return make_kernel_call()
+      return kc
   elseif apertureparams.aperture_shape == ApertureShape.Elliptical
     if any(isinf, (x1, x2, y1, y2))
       error("Invalid ApertureParams limits for elliptical aperture: check if all limits have been set")
     end
-    return make_kernel_call(BeamTracking.track_aperture_elliptical!, (x1, x2, y1, y2))
+    return push(kc, make_kernel_call(BeamTracking.track_aperture_elliptical!, (x1, x2, y1, y2)))
   else  
-    return make_kernel_call(BeamTracking.track_aperture_rectangular!, (x1, x2, y1, y2))
+    return push(kc, make_kernel_call(BeamTracking.track_aperture_rectangular!, (x1, x2, y1, y2)))
   end
 end
 
 #---------------------------------------------------------------------------------------------------
 
-@inline function rfcavity(tm, p_over_q_ref, bunch, bmultipoleparams, rfparams, beamlineparams, L)
+@inline function rfcavity(tm, kc, p_over_q_ref, bunch, bmultipoleparams, rfparams, beamlineparams, L)
   if !isactive(bmultipoleparams)
-    return pure_rf(tm, p_over_q_ref, bunch, rfparams, beamlineparams, L)
+    return pure_rf(tm, kc, p_over_q_ref, bunch, rfparams, beamlineparams, L)
   else
-    return bmultipole_rf(tm, p_over_q_ref, bunch, bmultipoleparams, rfparams, beamlineparams, L)
+    return bmultipole_rf(tm, kc, p_over_q_ref, bunch, bmultipoleparams, rfparams, beamlineparams, L)
   end
 end
 
 #---------------------------------------------------------------------------------------------------
 
-@inline function pure_patch(tm, p_over_q_ref, bunch, patchparams, L) 
+@inline function pure_patch(tm, kc, p_over_q_ref, bunch, patchparams, L) 
   tilde_m, gamsqr_0, beta_0 = BeamTracking.drift_params(bunch.species, p_over_q_ref)
   winv = inv_rot_quaternion(patchparams.dx_rot, patchparams.dy_rot, patchparams.dz_rot)
-  return make_kernel_call(BeamTracking.patch!, (beta_0, gamsqr_0, tilde_m, patchparams.dt, patchparams.dx, patchparams.dy, patchparams.dz, winv, L))
+  return push(kc, make_kernel_call(BeamTracking.patch!, (beta_0, gamsqr_0, tilde_m, patchparams.dt, patchparams.dx, patchparams.dy, patchparams.dz, winv, L)))
 end
 
-@inline pure_map(tm, p_over_q_ref, bunch, mapparams, L) = make_kernel_call(BeamTracking.map!, (mapparams.transport_map, mapparams.transport_map_params, L))
+@inline pure_map(tm, kc, p_over_q_ref, bunch, mapparams, L) = push(kc, make_kernel_call(BeamTracking.map!, (mapparams.transport_map, mapparams.transport_map_params, L)))
 
 #---------------------------------------------------------------------------------------------------
 
-@inline function ibs_kick(tm, p_over_q_ref, bunch, bendparams, L)
+@inline function ibs_kick(tm, kc, p_over_q_ref, bunch, bendparams, L)
   p_over_q_ref = bunch.p_over_q_ref
   if !isnothing(bendparams)
     g = bendparams.g_ref
@@ -146,5 +144,5 @@ end
                                                                                                  sigma_inv[6,6])
   
   params = (backend, tilde_m, gamma_0, Val{tm.ibs_damping_on}(), Val{tm.ibs_fluctuations_on}(), b_coeff, integrals, diffusion_lambdas, diffusion_P, P, sigma_inv_t, means, g, w, w_inv, L)
-  return make_kernel_call(BeamTracking.ibs_damping_and_diffusion!, params)
+  return push(kc, make_kernel_call(BeamTracking.ibs_damping_and_diffusion!, params))
 end
