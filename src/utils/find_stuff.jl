@@ -18,8 +18,7 @@ find_steps(::Any, L) = (1, L)
   idx = find_m_tilde(ker)
   if idx == 0
     return quote
-      beta_gamma_ref = 0
-      return s / beta_gamma_to_v(beta_gamma_ref)
+      return 0
     end
   else
     return quote

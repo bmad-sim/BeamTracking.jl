@@ -7,7 +7,7 @@
     # One before everything
     s_pos = zeros(1 + 10*n_thickeles + n_thineles)
     cur_idx = 1
-    function s_in_ele(coords, ds_step, g)
+    function s_in_ele(i, coords, cur_s, cur_t_ref, ds_step, g, transforms_out!, transforms_in!)
         cur_idx += 1
         s_pos[cur_idx] = s_pos[cur_idx-1] + ds_step
     end
