@@ -143,9 +143,7 @@ function universal!(
     end
 
   elseif isactive(fourpotentialparams)    
-    if isactive(alignmentparams)
-      error("Tracking through a LineElement containing both FourPotentialParams and AlignmentParams is undefined")
-    elseif isactive(bmultipoleparams)
+    if isactive(bmultipoleparams)
       error("Tracking through a LineElement containing both FourPotentialParams and BMultipoleParams not currently defined")
     elseif isactive(rfparams)
       error("Tracking through a LineElement containing both FourPotentialParams and RFParams not currently defined")

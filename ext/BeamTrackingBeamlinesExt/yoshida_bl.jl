@@ -504,7 +504,7 @@ end
       BeamTracking.callback_implicit!, (beta_0, tilde_m, potential_and_jac, potential_params, p_over_q_ref, normalized, Val{false}())
     )
   )
-  kc = push_transforms_out(kc, make_kernel_call(
+  kc = push_transforms_in(kc, make_kernel_call(
       BeamTracking.callback_implicit!, (beta_0, tilde_m, potential_and_jac, potential_params, p_over_q_ref, normalized, Val{true}())
     )
   )

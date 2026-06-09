@@ -613,9 +613,9 @@ function stochastic_radiation!(i, coords::Coords, s, ::typeof(implicit_integrato
   return nothing
 end
 
-function callback_implicit!(i, coords, cur_s, cur_t_ref, beta_0, tilde_m, potential_and_jac, potential_params, p_over_q_ref, normalized, ::Val{in}) where {in}
+function callback_implicit!(i, coords, cur_s, cur_t_ref, beta_0, tilde_m, potential_and_jac, potential_params, p_over_q_ref, ::Val{normalized}, ::Val{in}) where {normalized,in}
   @inbounds begin @FastGTPSA begin
-    v = coord.v
+    v = coords.v
     t = (cur_s/beta_0 - v[i,ZI])/C_LIGHT
 
     phi = potential_and_jac(v[i,XI], v[i,YI], cur_s, t, potential_params)[1][1]
