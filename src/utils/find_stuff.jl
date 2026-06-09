@@ -22,7 +22,7 @@ find_steps(::Any, L) = (1, L)
     end
   else
     return quote
-      beta_gamma_ref = params[$idx]
+      beta_gamma_ref = 1 / params[$idx]
       return s / beta_gamma_to_v(beta_gamma_ref)
     end
   end
