@@ -1,49 +1,3 @@
-# Utility to provide g for callbacks:
-function compute_g(::K, params::P) where {K, P}
-  if K == typeof(bkb_multipole!)
-    g = params[5]
-    w = params[6]
-    if !isnothing(w)
-      costilt = w[1]
-      sintilt = w[4]
-    else
-      costilt = 1
-      sintilt = 0
-    end
-    gx = g*costilt
-    gy = g*sintilt
-    return (gx, gy)
-  elseif K == typeof(exact_curved_drift!)
-    g = params[3]
-    w = params[4]
-    if !isnothing(w)
-      costilt = w[1]
-      sintilt = w[4]
-    else
-      costilt = 1
-      sintilt = 0
-    end
-    gx = g*costilt
-    gy = g*sintilt
-    return (gx, gy)
-  elseif K == typeof(implicit_integrator!)
-    g = params[5]
-    w = params[6]
-    if !isnothing(w)
-      costilt = w[1]
-      sintilt = w[4]
-    else
-      costilt = 1
-      sintilt = 0
-    end
-    gx = g*costilt
-    gy = g*sintilt
-    return (gx, gy)
-  else
-    return (0, 0)
-  end
-end
-
 #
 # ===============  I N T E G R A T O R S  ===============
 #
@@ -58,14 +12,17 @@ end
     if !isnothing(photon_params)
       stochastic_radiation!(i, coords, s, photon_params..., ds_step / 2)
     end
-    for step in 1:n_steps
+    for step in 1:(n_steps-1)
       ker(i, coords, s, params..., ds_step)
       s += ds_step
-      if !isnothing(photon_params) && (step < n_steps)
+      if !isnothing(photon_params)
         stochastic_radiation!(i, coords, s, photon_params..., ds_step)
       end
-      execute_callbacks(coords, ds_step, compute_g(ker, params))
+      dt_ref = compute_dt_ref(s, ker, params)
+      execute_callbacks(i, coords, s, dt_ref)
     end
+    ker(i, coords, s, params..., ds_step)
+    s += ds_step
     if !isnothing(photon_params)
       stochastic_radiation!(i, coords, s, photon_params..., ds_step / 2)
     end
@@ -90,18 +47,25 @@ end
     if !isnothing(photon_params)
       stochastic_radiation!(i, coords, s, photon_params..., ds_step / 2)
     end
-    for step in 1:n_steps
+    for step in 1:(n_steps-1)
       ker(i, coords, s, params..., w1)
       s += w1
       ker(i, coords, s, params..., w0)
       s += w0
       ker(i, coords, s, params..., w1)
       s += w1
-      if !isnothing(photon_params) && (step < n_steps)
+      if !isnothing(photon_params)
         stochastic_radiation!(i, coords, s, photon_params..., ds_step)
       end
-      execute_callbacks(coords, ds_step, compute_g(ker, params))
+      dt_ref = compute_dt_ref(s, ker, params)
+      execute_callbacks(i, coords, s, dt_ref)
     end
+    ker(i, coords, s, params..., w1)
+    s += w1
+    ker(i, coords, s, params..., w0)
+    s += w0
+    ker(i, coords, s, params..., w1)
+    s += w1
     if !isnothing(photon_params)
       stochastic_radiation!(i, coords, s, photon_params..., ds_step / 2)
     end
@@ -124,11 +88,11 @@ end
       a, tilde_m, Ksol, Kn0, e1, e2 = edge_params
       linear_bend_fringe!(i, coords, a, tilde_m, Ksol, Kn0, e1, 1)
     end
-    s = 0
+    s = zero(w0)
     if !isnothing(photon_params)
       stochastic_radiation!(i, coords, s, photon_params..., ds_step / 2)
     end
-    for step in 1:n_steps
+    for step in 1:(n_steps-1)
       ker(i, coords, s, params..., w3)
       s += w3
       ker(i, coords, s, params..., w2)
@@ -143,11 +107,26 @@ end
       s += w2
       ker(i, coords, s, params..., w3)
       s += w3
-      if !isnothing(photon_params) && (step < n_steps)
+      if !isnothing(photon_params)
         stochastic_radiation!(i, coords, s, photon_params..., ds_step)
       end
-      execute_callbacks(coords, ds_step, compute_g(ker, params))
+      dt_ref = compute_dt_ref(s, ker, params)
+      execute_callbacks(i, coords, s, dt_ref)
     end
+    ker(i, coords, s, params..., w3)
+    s += w3
+    ker(i, coords, s, params..., w2)
+    s += w2
+    ker(i, coords, s, params..., w1)
+    s += w1
+    ker(i, coords, s, params..., w0)
+    s += w0
+    ker(i, coords, s, params..., w1)
+    s += w1
+    ker(i, coords, s, params..., w2)
+    s += w2
+    ker(i, coords, s, params..., w3)
+    s += w3
     if !isnothing(photon_params)
       stochastic_radiation!(i, coords, s, photon_params..., ds_step / 2)
     end
@@ -178,7 +157,7 @@ end
     if !isnothing(photon_params)
       stochastic_radiation!(i, coords, s, photon_params..., ds_step / 2)
     end
-    for step in 1:n_steps
+    for step in 1:(n_steps-1)
       ker(i, coords, s, params..., w7)
       s += w7
       ker(i, coords, s, params..., w6)
@@ -209,11 +188,42 @@ end
       s += w6
       ker(i, coords, s, params..., w7)
       s += w7
-      if !isnothing(photon_params) && (step < n_steps)
+      if !isnothing(photon_params)
         stochastic_radiation!(i, coords, s, photon_params..., ds_step)
       end
-      execute_callbacks(coords, ds_step, compute_g(ker, params))
+      dt_ref = compute_dt_ref(s, ker, params)
+      execute_callbacks(i, coords, s, dt_ref)
     end
+    ker(i, coords, s, params..., w7)
+    s += w7
+    ker(i, coords, s, params..., w6)
+    s += w6
+    ker(i, coords, s, params..., w5)
+    s += w5
+    ker(i, coords, s, params..., w4)
+    s += w4
+    ker(i, coords, s, params..., w3)
+    s += w3
+    ker(i, coords, s, params..., w2)
+    s += w2
+    ker(i, coords, s, params..., w1)
+    s += w1
+    ker(i, coords, s, params..., w0)
+    s += w0
+    ker(i, coords, s, params..., w1) 
+    s += w1
+    ker(i, coords, s, params..., w2)
+    s += w2
+    ker(i, coords, s, params..., w3)
+    s += w3
+    ker(i, coords, s, params..., w4)
+    s += w4
+    ker(i, coords, s, params..., w5)
+    s += w5
+    ker(i, coords, s, params..., w6)
+    s += w6
+    ker(i, coords, s, params..., w7)
+    s += w7
     if !isnothing(photon_params)
       stochastic_radiation!(i, coords, s, photon_params..., ds_step / 2)
     end

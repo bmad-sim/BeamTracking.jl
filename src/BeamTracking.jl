@@ -40,6 +40,7 @@ include("utils/random.jl")
 include("types.jl")
 include("time.jl")
 include("batch.jl")
+include("callbacks.jl")
 include("kernel.jl")
 include("tracking_methods.jl")
 
@@ -63,6 +64,8 @@ include("kernels/yoshida.jl")
 include("kernels/ibs_kick.jl")
 include("kernels/implicit.jl")
 include("kernels/thin.jl")
+
+include("utils/find_stuff.jl")
 
 # Empty tracking method to be imported+implemented by package extensions
 function track! end

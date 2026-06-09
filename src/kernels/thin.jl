@@ -6,5 +6,4 @@
   if !isnothing(coords.q)
     rotate_spin!(i, coords, a, g, tilde_m, mm, knl, ksl, 1/2)
   end
-  execute_callbacks(coords, 0, (0, 0))
 end

@@ -1,0 +1,38 @@
+function find_steps(tm::BeamTracking.AbstractYoshida, L) 
+  if L == 0
+    return (1, L)
+  end
+  ds_step = tm.ds_step
+  n_steps = tm.n_steps
+  if ds_step < 0
+    ds_step = L / n_steps
+    return (n_steps, ds_step)
+  else
+    return (ceil(Int, L / ds_step), ds_step)
+  end
+end
+find_steps(::Any, L) = (1, L)
+
+# Temporary disgusting solution for callbacks - Yoshida
+@generated function compute_dt_ref(s, ker::K, params) where {K}
+  idx = find_m_tilde(ker)
+  if idx == 0
+    return quote
+      return 0
+    end
+  else
+    return quote
+      beta_gamma_ref = 1 / params[$idx]
+      return s / beta_gamma_to_v(beta_gamma_ref)
+    end
+  end
+end
+
+find_m_tilde(::Type{K}) where {K<:typeof(implicit_integrator!)} = 3
+find_m_tilde(::Type{K}) where {K<:typeof(exact_drift!)} = 3
+find_m_tilde(::Type{K}) where {K<:typeof(sks_multipole!)} = 4
+find_m_tilde(::Type{K}) where {K<:typeof(dkd_multipole!)} = 4
+find_m_tilde(::Type{K}) where {K<:typeof(bkb_multipole!)} = 2
+find_m_tilde(::Type{K}) where {K<:typeof(mkm_quadrupole!)} = 4
+find_m_tilde(::Type{K}) where {K<:typeof(exact_curved_drift!)} = 7
+find_m_tilde(::Type{K}) where {K} = 0 # Fallback
