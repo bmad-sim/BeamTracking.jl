@@ -26,10 +26,10 @@
     orbits = zeros(n_steps, 6)
     quats = zeros(n_steps, 4)
     s = zeros(n_steps)
+    t = zeros(n_steps)
     orbitsx = zeros(n_steps, 6)
     quatsx = zeros(n_steps, 4)
     sx = zeros(n_steps)
-    t = zeros(n_steps)
     tx = zeros(n_steps)
     function savestuff!(i, coords, cur_s, cur_t_ref, ds_step, g, transforms_out!, transforms_in!)
         i_step = round(Int, cur_s/ds_step)
@@ -136,4 +136,28 @@
     bx = Beamline([crazyelex], species_ref=Species("electron"), E_ref=1.1*massof(Species("electron")))
     b0x = Bunch(v=[0.01 0.02 0.03 0.04 0.05 0.06], q=[1.0 0.0 0.0 0.0], callbacks=(savestuffx!,))
     track!(b0x, bx)
+
+    # CUDA test
+    #=
+    n_steps = 100
+    function crazy(x, y, s, t, p)
+        a0, c0 = p
+        potential = (a0*Beamlines.C_LIGHT*sin(x)*cos(y)*sinh(s)*cosh(t), a0*cosh(x)*sin(y)*cos(s)*sinh(t), a0*sinh(x)*cosh(y)*sin(s)*cos(t), a0*c0*cos(x)*sinh(y)*cosh(s)*sin(t))
+        jac =  (a0*Beamlines.C_LIGHT*cos(x)*cos(y)*cosh(t)*sinh(s), -a0*Beamlines.C_LIGHT*cosh(t)*sin(x)*sin(y)*sinh(s), a0*Beamlines.C_LIGHT*cos(y)*cosh(s)*cosh(t)*sin(x), a0*Beamlines.C_LIGHT*cos(y)*sin(x)*sinh(s)*sinh(t),
+                a0*cos(s)*sin(y)*sinh(t)*sinh(x),  a0*cos(s)*cos(y)*cosh(x)*sinh(t), -a0*cosh(x)*sin(s)*sin(y)*sinh(t),  a0*cos(s)*cosh(t)*cosh(x)*sin(y),
+                a0*cos(t)*cosh(x)*cosh(y)*sin(s),  a0*cos(t)*sin(s)*sinh(x)*sinh(y),  a0*cos(s)*cos(t)*cosh(y)*sinh(x), -a0*cosh(y)*sin(s)*sin(t)*sinh(x),
+                -a0*c0*cosh(s)*sin(t)*sin(x)*sinh(y), a0*c0*cos(x)*cosh(s)*cosh(y)*sin(t), a0*c0*cos(x)*sin(t)*sinh(s)*sinh(y), a0*c0*cos(t)*cos(x)*cosh(s)*sinh(y))
+        return potential, jac
+    end
+    function cusayhi(i, coords, cur_s, cur_t_ref, ds_step, g, transforms_out!, transforms_in!)
+        transforms_out!(i, coords, cur_s, cur_t_ref)
+        @cuprintln("hello! orbit:", coords.v[i,1], " ", coords.v[i,2], " ", coords.v[i,3], " ", coords.v[i,4], " ", coords.v[i,5], " ", coords.v[i,6], " ")
+        @cuprintln("hello! quat:", coords.q[i,1], " ", coords.q[i,2], " ", coords.q[i,3], " ", coords.q[i,4])
+        transforms_in!(i, coords, cur_s, cur_t_ref)
+    end
+    crazyelex = Marker(four_potential=crazy, four_potential_params=(1.0, 1.0), four_potential_normalized=true, L=1.2, x_offset=0.1, y_offset=0.2, z_offset=0.3, x_rot=0.4, y_rot=0.5, tilt=0.6, tracking_method=Yoshida(n_steps=n_steps))
+    bx = Beamline([crazyelex], species_ref=Species("electron"), E_ref=1.1*Beamlines.massof(Species("electron")))
+    b0x = Bunch(v=CuArray([0.01 0.02 0.03 0.04 0.05 0.06]), q=CuArray([1.0 0.0 0.0 0.0]), callbacks=(cusayhi,))
+    track!(b0x, bx)
+    =#
 end
