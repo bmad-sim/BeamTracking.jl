@@ -1,7 +1,7 @@
 using BeamTracking
 using Beamlines
 
-species = Species("#3He--")
+species = Species("electron")
 E0 = 1e10
 
 @elements begin
