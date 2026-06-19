@@ -159,7 +159,7 @@ function implicit_step!(i, coords::Coords, s, beta_0, tilde_m, g, potential_and_
     else
       find_root_p = find_root_p_fp
     end
-    p_new = find_root_p_fp(i, coords, v_new, s, beta_0, tilde_m, g, potential_and_jac, potential_params, p_over_q_ref, Val{normalized}(), ds/2)
+    p_new = find_root_p(i, coords, v_new, s, beta_0, tilde_m, g, potential_and_jac, potential_params, p_over_q_ref, Val{normalized}(), ds/2)
     v_new = (v_new[XI], p_new[1], v_new[YI], p_new[2], v_new[ZI], p_new[3])
 
     x_new = (v_new[XI], v_new[YI], v_new[ZI]) .+ (ds/2 .* dH_dp(v_new, s, beta_0, tilde_m, g, potential_and_jac, potential_params, p_over_q_ref, Val{normalized}(), Val{true}()))
