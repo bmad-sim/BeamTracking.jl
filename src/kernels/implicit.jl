@@ -1,4 +1,4 @@
-function implicit_integrator!(i, coords::Coords, s, radiation_params, beta_0, tilde_m, a, g, w, w_inv, potential_and_jac::U, potential_params, p_over_q_ref, normalized, L) where {U}
+function implicit_integrator!(i, coords::Coords, s, radiation_params, beta_0, tilde_m, a, g, w, w_inv, potential_and_jac::U, potential_params, p_over_q_ref, normalized, implicit_use_newton, L) where {U}
   @inbounds begin
     if !isnothing(w)
       rotation!(i, coords, w, 0)
@@ -15,7 +15,7 @@ function implicit_integrator!(i, coords::Coords, s, radiation_params, beta_0, ti
       rotate_spin_implicit!(i, coords, s, a, g, beta_0, tilde_m, potential_and_jac, potential_params, p_over_q_ref, normalized, L / 2)
     end
 
-    implicit_step!(i, coords, s, beta_0, tilde_m, g, potential_and_jac, potential_params, p_over_q_ref, normalized, L)
+    implicit_step!(i, coords, s, beta_0, tilde_m, g, potential_and_jac, potential_params, p_over_q_ref, normalized, implicit_use_newton, L)
 
     if !isnothing(coords.q)
       rotate_spin_implicit!(i, coords, s, a, g, beta_0, tilde_m, potential_and_jac, potential_params, p_over_q_ref, normalized, L / 2)
@@ -33,7 +33,7 @@ function implicit_integrator!(i, coords::Coords, s, radiation_params, beta_0, ti
 end
 
 
-function implicit_step!(i, coords::Coords, s, beta_0, tilde_m, g, potential_and_jac::U, potential_params, p_over_q_ref, ::Val{normalized}, ds) where {U, normalized}
+function implicit_step!(i, coords::Coords, s, beta_0, tilde_m, g, potential_and_jac::U, potential_params, p_over_q_ref, ::Val{normalized}, ::Val{implicit_use_newton}, ds) where {U, normalized, implicit_use_newton}
   @inbounds begin
     v = coords.v
     T = typeof(scalar(v[i,XI]))
@@ -42,7 +42,12 @@ function implicit_step!(i, coords::Coords, s, beta_0, tilde_m, g, potential_and_
     v_orig::NTuple{6,T} = (scalar(v[i,XI]), scalar(v[i,PXI]), scalar(v[i,YI]), scalar(v[i,PYI]), scalar(v[i,ZI]), scalar(v[i,PZI]))
     v_new::NTuple{6,T} = v_orig
 
-    x_new::NTuple{3,T} = find_root_x_fp(i, coords, v_new, s, beta_0, tilde_m, g, potential_and_jac, potential_params, p_over_q_ref, Val{normalized}(), ds/2)
+    if implicit_use_newton
+      find_root_x = find_root_x_newton
+    else
+      find_root_x = find_root_x_fp
+    end
+    x_new::NTuple{3,T} = find_root_x(i, coords, v_new, s, beta_0, tilde_m, g, potential_and_jac, potential_params, p_over_q_ref, Val{normalized}(), ds/2)
     v_new = (x_new[1], v_new[PXI], x_new[2], v_new[PYI], x_new[3], v_new[PZI])
 
     p_new::NTuple{3,T} = (v_new[PXI], v_new[PYI], v_new[PZI]) .- (ds/2 .* dH_dx(v_new, s, beta_0, tilde_m, g, potential_and_jac, potential_params, p_over_q_ref, Val{normalized}(), Val{true}()))
@@ -149,6 +154,11 @@ function implicit_step!(i, coords::Coords, s, beta_0, tilde_m, g, potential_and_
     end
 
     v_orig = v_new
+    if implicit_use_newton
+      find_root_p = find_root_p_newton
+    else
+      find_root_p = find_root_p_fp
+    end
     p_new = find_root_p_fp(i, coords, v_new, s, beta_0, tilde_m, g, potential_and_jac, potential_params, p_over_q_ref, Val{normalized}(), ds/2)
     v_new = (v_new[XI], p_new[1], v_new[YI], p_new[2], v_new[ZI], p_new[3])
 
