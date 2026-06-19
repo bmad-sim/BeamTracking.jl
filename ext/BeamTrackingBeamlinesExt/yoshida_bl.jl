@@ -491,7 +491,7 @@ end
   q = chargeof(bunch.species)
   mc2 = massof(bunch.species)
   radiation_params = ifelse(tm.radiation_damping_on, (q, mc2, E_ref), nothing)
-  params = (radiation_params, beta_0, tilde_m, a, g, w, w_inv, potential_and_jac, potential_params, p_over_q_ref, normalized, Val{tm.implicit_use_newton}())
+  params = (radiation_params, beta_0, tilde_m, a, g, w, w_inv, potential_and_jac, potential_params, p_over_q_ref, normalized, Val{tm.implicit_use_newton}(), Val{tm.implicit_check_alive}())
   if isprimitivetype(eltype(bunch.coords.v)) && tm.radiation_fluctuations_on
     photon_params = (BeamTracking.implicit_integrator!, get_backend(bunch.coords.v), q, mc2, E_ref, g, potential_and_jac, potential_params, p_over_q_ref, normalized)
   else
