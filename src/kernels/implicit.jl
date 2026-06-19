@@ -42,7 +42,7 @@ function implicit_step!(i, coords::Coords, s, beta_0, tilde_m, g, potential_and_
     v_orig::NTuple{6,T} = (scalar(v[i,XI]), scalar(v[i,PXI]), scalar(v[i,YI]), scalar(v[i,PYI]), scalar(v[i,ZI]), scalar(v[i,PZI]))
     v_new::NTuple{6,T} = v_orig
 
-    x_new::NTuple{3,T} = find_root_x(i, coords, v_new, s, beta_0, tilde_m, g, potential_and_jac, potential_params, p_over_q_ref, Val{normalized}(), ds/2)
+    x_new::NTuple{3,T} = find_root_x_fp(i, coords, v_new, s, beta_0, tilde_m, g, potential_and_jac, potential_params, p_over_q_ref, Val{normalized}(), ds/2)
     v_new = (x_new[1], v_new[PXI], x_new[2], v_new[PYI], x_new[3], v_new[PZI])
 
     p_new::NTuple{3,T} = (v_new[PXI], v_new[PYI], v_new[PZI]) .- (ds/2 .* dH_dx(v_new, s, beta_0, tilde_m, g, potential_and_jac, potential_params, p_over_q_ref, Val{normalized}(), Val{true}()))
@@ -149,7 +149,7 @@ function implicit_step!(i, coords::Coords, s, beta_0, tilde_m, g, potential_and_
     end
 
     v_orig = v_new
-    p_new = find_root_p(i, coords, v_new, s, beta_0, tilde_m, g, potential_and_jac, potential_params, p_over_q_ref, Val{normalized}(), ds/2)
+    p_new = find_root_p_fp(i, coords, v_new, s, beta_0, tilde_m, g, potential_and_jac, potential_params, p_over_q_ref, Val{normalized}(), ds/2)
     v_new = (v_new[XI], p_new[1], v_new[YI], p_new[2], v_new[ZI], p_new[3])
 
     x_new = (v_new[XI], v_new[YI], v_new[ZI]) .+ (ds/2 .* dH_dp(v_new, s, beta_0, tilde_m, g, potential_and_jac, potential_params, p_over_q_ref, Val{normalized}(), Val{true}()))
@@ -275,7 +275,57 @@ function implicit_step!(i, coords::Coords, s, beta_0, tilde_m, g, potential_and_
 end
 
 
-function find_root_x(i, coords::Coords, v, s, beta_0, tilde_m, g, potential_and_jac::U, potential_params, p_over_q_ref, normalized, ds) where {U}
+function find_root_x_fp(i, coords::Coords, v, s, beta_0, tilde_m, g, potential_and_jac::U, potential_params, p_over_q_ref, normalized, ds) where {U}
+  @inbounds begin
+    ε = my_eps(v[1])
+    T = eltype(v)
+    N_max = 100
+    N = 1
+    x::NTuple{3,T}  = (v[XI], v[YI], v[ZI])
+    x0::NTuple{3,T} = (v[XI], v[YI], v[ZI])
+    norm_x = sqrt(x[1]*x[1] + x[2]*x[2] + x[3]*x[3])
+    conv = (ε*norm_x < 0) # always false but SIMD vector for SIMD vector inputs
+    while !all(conv) && N <= N_max
+      v_new::NTuple{6,T} = (x[1], v[PXI], x[2], v[PYI], x[3], v[PZI])
+      x_new = x0 .+ (ds .* dH_dp(v_new, s, beta_0, tilde_m, g, potential_and_jac, potential_params, p_over_q_ref, normalized, Val{true}()))
+      diff = x_new .- x
+      norm_diff = sqrt(diff[1]*diff[1] + diff[2]*diff[2] + diff[3]*diff[3])
+      conv = ((norm_diff < ε*norm_x) | (norm_diff < ε))
+      x = x_new
+      N += 1
+    end
+    coords.state[i] = vifelse(!conv & (coords.state[i] == STATE_ALIVE), STATE_IMPLICIT_NONCONVERGENCE, coords.state[i])
+    return x
+  end
+end
+
+
+function find_root_p_fp(i, coords::Coords, v, s, beta_0, tilde_m, g, potential_and_jac::U, potential_params, p_over_q_ref, normalized, ds) where {U}
+  @inbounds begin
+    ε = my_eps(v[1])
+    T = eltype(v)
+    N_max = 100
+    N = 1
+    p::NTuple{3,T}  = (v[PXI], v[PYI], v[PZI])
+    p0::NTuple{3,T} = (v[PXI], v[PYI], v[PZI])
+    norm_p = sqrt(p[1]*p[1] + p[2]*p[2] + p[3]*p[3])
+    conv = (ε*norm_p < 0) # always false but SIMD vector for SIMD vector inputs
+    while !all(conv) && N <= N_max
+      v_new::NTuple{6,T} = (v[XI], p[1], v[YI], p[2], v[ZI], p[3])
+      p_new = p0 .- (ds .* dH_dx(v_new, s, beta_0, tilde_m, g, potential_and_jac, potential_params, p_over_q_ref, normalized, Val{true}()))
+      diff = p_new .- p
+      norm_diff = sqrt(diff[1]*diff[1] + diff[2]*diff[2] + diff[3]*diff[3])
+      conv = ((norm_diff < ε*norm_p) | (norm_diff < ε))
+      p = p_new
+      N += 1
+    end
+    coords.state[i] = vifelse(!conv & (coords.state[i] == STATE_ALIVE), STATE_IMPLICIT_NONCONVERGENCE, coords.state[i])
+    return p
+  end
+end
+
+
+function find_root_x_newton(i, coords::Coords, v, s, beta_0, tilde_m, g, potential_and_jac::U, potential_params, p_over_q_ref, normalized, ds) where {U}
   @inbounds begin
     ε = my_eps(v[1])
     T = eltype(v)
@@ -305,7 +355,7 @@ function find_root_x(i, coords::Coords, v, s, beta_0, tilde_m, g, potential_and_
 end
 
 
-function find_root_p(i, coords::Coords, v, s, beta_0, tilde_m, g, potential_and_jac::U, potential_params, p_over_q_ref, normalized, ds) where {U}
+function find_root_p_newton(i, coords::Coords, v, s, beta_0, tilde_m, g, potential_and_jac::U, potential_params, p_over_q_ref, normalized, ds) where {U}
   @inbounds begin
     ε = my_eps(v[1])
     T = eltype(v)
@@ -557,7 +607,6 @@ Rotates spin for implicit integrators.
 function rotate_spin_implicit!(i, coords::Coords, s, a, g, beta_0, tilde_m, potential_and_jac::U, potential_params, p_over_q_ref, normalized, L) where {U}
   @inbounds begin @FastGTPSA begin
     v = coords.v
-
     t = (s/beta_0 - v[i,ZI])/C_LIGHT
 
     phi, ax, ay, ex, ey, ez, bx, by, bz = implicit_fields(v[i,XI], v[i,YI], s, t, g, potential_and_jac, potential_params, p_over_q_ref, normalized)
