@@ -1,34 +1,25 @@
 function implicit_integrator!(i, coords::Coords, s, radiation_params, beta_0, tilde_m, a, g, w, w_inv, potential_and_jac::U, potential_params, p_over_q_ref, normalized, implicit_use_newton, L) where {U}
-  @inbounds begin
+  @inbounds begin @FastGTPSA begin
+    s += L / 2
+
     if !isnothing(w)
       rotation!(i, coords, w, 0)
     end
 
-    s += L / 2
-
-    if !isnothing(radiation_params)
-      q, mc2, E_ref = radiation_params
-      deterministic_radiation_implicit!(i, coords, s, q, mc2, E_ref, g, potential_and_jac, potential_params, p_over_q_ref, normalized, L / 2)
-    end
-
-    if !isnothing(coords.q)
-      rotate_spin_implicit!(i, coords, s, a, g, beta_0, tilde_m, potential_and_jac, potential_params, p_over_q_ref, normalized, L / 2)
+    if !isnothing(radiation_params) || !isnothing(coords.q)
+      deterministic_radiation_and_spin_implicit!(i, coords, s, radiation_params, a, g, beta_0, tilde_m, potential_and_jac, potential_params, p_over_q_ref, normalized, Val{true}(), L / 2)
     end
 
     implicit_step!(i, coords, s, beta_0, tilde_m, g, potential_and_jac, potential_params, p_over_q_ref, normalized, implicit_use_newton, L)
 
-    if !isnothing(coords.q)
-      rotate_spin_implicit!(i, coords, s, a, g, beta_0, tilde_m, potential_and_jac, potential_params, p_over_q_ref, normalized, L / 2)
-    end
-
-    if !isnothing(radiation_params)
-      deterministic_radiation_implicit!(i, coords, s, q, mc2, E_ref, g, potential_and_jac, potential_params, p_over_q_ref, normalized, L / 2)
+    if !isnothing(radiation_params) || !isnothing(coords.q)
+      deterministic_radiation_and_spin_implicit!(i, coords, s, radiation_params, a, g, beta_0, tilde_m, potential_and_jac, potential_params, p_over_q_ref, normalized, Val{false}(), L / 2)
     end
 
     if !isnothing(w_inv)
       rotation!(i, coords, w_inv, 0)
     end
-  end
+  end end
   return nothing
 end
 
@@ -598,9 +589,9 @@ end
 
 
 """
-Rotates spin for implicit integrators.
+Rotates spins and applies radiation damping kicks for implicit integrators.
 """
-function rotate_spin_implicit!(i, coords::Coords, s, a, g, beta_0, tilde_m, potential_and_jac::U, potential_params, p_over_q_ref, normalized, L) where {U}
+function deterministic_radiation_and_spin_implicit!(i, coords, s, radiation_params, a, g, beta_0, tilde_m, potential_and_jac::U, potential_params, p_over_q_ref, normalized, ::Val{rad_first}, L) where {U, rad_first}
   @inbounds begin @FastGTPSA begin
     v = coords.v
     t = (s/beta_0 - v[i,ZI])/C_LIGHT
@@ -610,29 +601,24 @@ function rotate_spin_implicit!(i, coords::Coords, s, a, g, beta_0, tilde_m, pote
     b_vec = (bx, by, bz)
 
     mad_to_bmad!(i, coords, beta_0, tilde_m, phi)
-    rotate_spin_field!(i, coords, a, g, tilde_m, ax, ay, e_vec, b_vec, L)
+    if rad_first
+      if !isnothing(radiation_params)
+        q, mc2, E_ref = radiation_params
+        deterministic_radiation_field!(i, coords, q, mc2, E_ref, g, ax, ay, e_vec, b_vec, L)
+      end
+      if !isnothing(coords.q)
+        rotate_spin_field!(i, coords, a, g, tilde_m, ax, ay, e_vec, b_vec, L)
+      end
+    else
+      if !isnothing(coords.q)
+        rotate_spin_field!(i, coords, a, g, tilde_m, ax, ay, e_vec, b_vec, L)
+      end
+      if !isnothing(radiation_params)
+        q, mc2, E_ref = radiation_params
+        deterministic_radiation_field!(i, coords, q, mc2, E_ref, g, ax, ay, e_vec, b_vec, L)
+      end
+    end
     bmad_to_mad!(i, coords, beta_0, tilde_m, phi)
-  end end
-  return nothing
-end
-
-
-""" 
-Applies radiation damping kick for implicit integrators.
-"""
-function deterministic_radiation_implicit!(i, coords::Coords, s, q, mc2, E_ref, g, potential_and_jac::U, potential_params, p_over_q_ref, normalized, L) where {U}
-  @inbounds begin @FastGTPSA begin
-    v = coords.v
-    t = (s - v[i,ZI])/C_LIGHT # radiation is only accurate when beta_0 is approximately 1
-    tilde_m = mc2/E_ref
-
-    phi, ax, ay, ex, ey, ez, bx, by, bz = implicit_fields(v[i,XI], v[i,YI], s, t, g, potential_and_jac, potential_params, p_over_q_ref, normalized)
-    e_vec = (ex, ey, ez)
-    b_vec = (bx, by, bz)
-
-    mad_to_bmad!(i, coords, 1, tilde_m, phi)
-    deterministic_radiation_field!(i, coords, q, mc2, E_ref, g, ax, ay, e_vec, b_vec, L) 
-    bmad_to_mad!(i, coords, 1, tilde_m, phi)
   end end
   return nothing
 end
