@@ -18,7 +18,7 @@ L: element length
 @makekernel fastgtpsa=true function mkm_quadrupole!(i, coords::Coords, s, radiation_params, beta_0, gamsqr_0, tilde_m, a, w, w_inv, k1, mm, kn, ks, L)
   knl = kn .* L ./ 2
   ksl = ks .* L ./ 2
-
+  
   rel_p = 1 + coords.v[i,PZI]
   px = coords.v[i,PXI]
   py = coords.v[i,PYI]
