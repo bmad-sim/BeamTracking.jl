@@ -113,33 +113,52 @@ end
 
 
 """
-Gives radiation damping kick in a multipole. It is assumed that
+Gives radiation damping and spin kicks in a multipole. It is assumed that
 the coordinate system has already been rotated such that the curvature
 is in the horizontal plane.
 """
-@makekernel fastgtpsa=true function deterministic_radiation_multipole!(i, coords::Coords, q, mc2, E_ref, g, mm, kn, ks, L) 
-  v = coords.v
+@inline function deterministic_radiation_and_spin_multipole!(i, coords, radiation_params, a, g, tilde_m, mm, kn, ks, ::Val{rad_first}, L) where {rad_first}
+  @inbounds begin @FastGTPSA begin
+    v = coords.v
 
-  # Vector potential is (ax, ay, does-not-matter)
-  if mm[1] == 0
-    ax = -v[i,YI] * kn[1] / 2
-    ay =  v[i,XI] * kn[1] / 2
-  else
-    ax = zero(v[i,XI])
-    ay = ax
-  end
+    # Vector potential is (ax, ay, does-not-matter)
+    if mm[1] == 0
+      ax = -v[i,YI] * kn[1] / 2
+      ay =  v[i,XI] * kn[1] / 2
+    else
+      ax = zero(v[i,XI])
+      ay = ax
+    end
 
-  bx, by = normalized_field(mm, kn, ks, v[i,XI], v[i,YI], -1)
-  zero_0 = zero(kn[1])
-  if mm[1] == 0
-    b_vec = (bx, by, kn[1])
-  else
-    b_vec = (bx, by, zero_0)
-  end
+    bx, by = normalized_field(mm, kn, ks, v[i,XI], v[i,YI], -1)
+    zero_0 = zero(kn[1])
+    if mm[1] == 0
+      b_vec = (bx, by, kn[1])
+    else
+      b_vec = (bx, by, zero_0)
+    end
 
-  e_vec = (zero_0, zero_0, zero_0)  # No electric multipole component
+    e_vec = (zero_0, zero_0, zero_0)  # No electric multipole component
 
-  deterministic_radiation_field!(i, coords, q, mc2, E_ref, g, ax, ay, e_vec, b_vec, L)
+    if rad_first
+      if !isnothing(radiation_params)
+        q, mc2, E_ref = radiation_params
+        deterministic_radiation_field!(i, coords, q, mc2, E_ref, g, ax, ay, e_vec, b_vec, L)
+      end
+      if !isnothing(coords.q)
+        rotate_spin_field!(i, coords, a, g, tilde_m, ax, ay, e_vec, b_vec, L)
+      end
+    else
+      if !isnothing(coords.q)
+        rotate_spin_field!(i, coords, a, g, tilde_m, ax, ay, e_vec, b_vec, L)
+      end
+      if !isnothing(radiation_params)
+        q, mc2, E_ref = radiation_params
+        deterministic_radiation_field!(i, coords, q, mc2, E_ref, g, ax, ay, e_vec, b_vec, L)
+      end
+    end
+  end end
+  return nothing
 end
 
 

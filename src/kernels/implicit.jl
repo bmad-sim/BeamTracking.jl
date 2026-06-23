@@ -324,11 +324,11 @@ function find_root_x_newton(i, coords::Coords, v, s, beta_0, tilde_m, g, potenti
     conv = (ε*norm_x < 0) # always false but SIMD vector for SIMD vector inputs
     while !all(conv) && N <= N_max
       v_new::NTuple{6,T} = (x[1], v[PXI], x[2], v[PYI], x[3], v[PZI])
-      hess::NTuple{9,T} = mixed_hessian_H(v_new, s, beta_0, tilde_m, g, potential_and_jac, potential_params, p_over_q_ref, normalized, Val{true}()) # TODO: function that returns hessian and dH_dp
-      J = (1 - ds*hess[1],    -ds*hess[4],    -ds*hess[7],
-              -ds*hess[2], 1 - ds*hess[5],    -ds*hess[8],
-              -ds*hess[3],    -ds*hess[6], 1 - ds*hess[9])
-      F::NTuple{3,T} = x .- x0 .- (ds .* dH_dp(v_new, s, beta_0, tilde_m, g, potential_and_jac, potential_params, p_over_q_ref, normalized, Val{true}())[1])
+      hess, p_deriv = mixed_hessian_and_dH_dp(v_new, s, beta_0, tilde_m, g, potential_and_jac, potential_params, p_over_q_ref, normalized, Val{true}())
+      J::NTuple{9,T} = (1 - ds*hess[1],    -ds*hess[4],    -ds*hess[7],
+                           -ds*hess[2], 1 - ds*hess[5],    -ds*hess[8],
+                           -ds*hess[3],    -ds*hess[6], 1 - ds*hess[9])
+      F::NTuple{3,T} = x .- x0 .- (ds .* p_deriv)
       norm_F = sqrt(F[1]*F[1] + F[2]*F[2] + F[3]*F[3])
       sol = solve_3x3_cramer(J, -1 .* F)
       norm_sol = sqrt(sol[1]*sol[1] + sol[2]*sol[2] + sol[3]*sol[3])
@@ -354,11 +354,11 @@ function find_root_p_newton(i, coords::Coords, v, s, beta_0, tilde_m, g, potenti
     conv = (ε*norm_p < 0) # always false but SIMD vector for SIMD vector inputs
     while !all(conv) && N <= N_max
       v_new::NTuple{6,T} = (v[XI], p[1], v[YI], p[2], v[ZI], p[3])
-      hess::NTuple{9,T} = mixed_hessian_H(v_new, s, beta_0, tilde_m, g, potential_and_jac, potential_params, p_over_q_ref, normalized, Val{true}()) # TODO: function that returns hessian and dH_dx
-      J = (1 + ds*hess[1],     ds*hess[2],     ds*hess[3],
-               ds*hess[4], 1 + ds*hess[5],     ds*hess[6],
-               ds*hess[7],     ds*hess[8], 1 + ds*hess[9])
-      F::NTuple{3,T} = p .- p0 .+ (ds .* dH_dx(v_new, s, beta_0, tilde_m, g, potential_and_jac, potential_params, p_over_q_ref, normalized, Val{true}())[1])
+      hess, x_deriv = mixed_hessian_and_dH_dx(v_new, s, beta_0, tilde_m, g, potential_and_jac, potential_params, p_over_q_ref, normalized, Val{true}())
+      J::NTuple{9,T} = (1 + ds*hess[1],     ds*hess[2],     ds*hess[3],
+                            ds*hess[4], 1 + ds*hess[5],     ds*hess[6],
+                            ds*hess[7],     ds*hess[8], 1 + ds*hess[9])
+      F::NTuple{3,T} = p .- p0 .+ (ds .* x_deriv)
       norm_F = sqrt(F[1]*F[1] + F[2]*F[2] + F[3]*F[3])
       sol = solve_3x3_cramer(J, -1 .* F)
       norm_sol = sqrt(sol[1]*sol[1] + sol[2]*sol[2] + sol[3]*sol[3])
@@ -532,6 +532,150 @@ function mixed_hessian_H(v, s, beta_0, tilde_m, g, potential_and_jac::U, potenti
 end
 
 
+function mixed_hessian_and_dH_dx(v, s, beta_0, tilde_m, g, potential_and_jac::U, potential_params, p_over_q_ref, ::Val{normalized}, ::Val{scalarize}) where {U, normalized, scalarize}
+  @inbounds begin
+    h = 1 + g*v[XI]
+    t = (s/beta_0 - v[ZI])/C_LIGHT
+
+    potential, derivatives = potential_and_jac(v[XI], v[YI], s, t, potential_params)
+    phi, ax, ay, az = potential
+    if !normalized
+      phi = phi/p_over_q_ref/C_LIGHT
+      ax =  ax/p_over_q_ref
+      ay =  ay/p_over_q_ref
+      az =  az/p_over_q_ref
+
+      dphi_dx, dax_dx, day_dx, daz_dx = derivatives[1]/p_over_q_ref/C_LIGHT, derivatives[5]/p_over_q_ref, derivatives[9]/p_over_q_ref, derivatives[13]/p_over_q_ref
+      dphi_dy, dax_dy, day_dy, daz_dy = derivatives[2]/p_over_q_ref/C_LIGHT, derivatives[6]/p_over_q_ref, derivatives[10]/p_over_q_ref, derivatives[14]/p_over_q_ref
+      dphi_dt, dax_dt, day_dt, daz_dt = derivatives[4]/p_over_q_ref/C_LIGHT, derivatives[8]/p_over_q_ref, derivatives[12]/p_over_q_ref, derivatives[16]/p_over_q_ref
+    else
+      phi = phi/C_LIGHT
+      dphi_dx, dax_dx, day_dx, daz_dx = derivatives[1]/C_LIGHT, derivatives[5], derivatives[9], derivatives[13]
+      dphi_dy, dax_dy, day_dy, daz_dy = derivatives[2]/C_LIGHT, derivatives[6], derivatives[10], derivatives[14]
+      dphi_dt, dax_dt, day_dt, daz_dt = derivatives[4]/C_LIGHT, derivatives[8], derivatives[12], derivatives[16]
+    end
+    dphi_dz = -dphi_dt/C_LIGHT
+    dax_dz =  -dax_dt/C_LIGHT
+    day_dz =  -day_dt/C_LIGHT
+    daz_dz =  -daz_dt/C_LIGHT
+
+    px = v[PXI] - ax
+    py = v[PYI] - ay
+    rel_p = v[PZI] + 1/beta_0 - phi
+    
+    ps2 = rel_p*rel_p - tilde_m*tilde_m - px*px - py*py
+    good_momenta = (ps2 > 0)
+    ps2_1 = one(ps2)
+    ps = sqrt(vifelse(good_momenta, ps2, ps2_1))
+    h_over_ps3 = h/(ps2*ps)
+
+    middle_factor_x = h_over_ps3*(rel_p*dphi_dx - px*dax_dx - py*day_dx)
+    middle_factor_y = h_over_ps3*(rel_p*dphi_dy - px*dax_dy - py*day_dy)
+    middle_factor_z = h_over_ps3*(rel_p*dphi_dz - px*dax_dz - py*day_dz)
+
+    d2H_dxdpx = px*middle_factor_x - h*dax_dx/ps + g*px/ps
+    d2H_dxdpy = py*middle_factor_x - h*day_dx/ps + g*py/ps
+    d2H_dxdpz = -rel_p*middle_factor_x + h*dphi_dx/ps - g*rel_p/ps
+
+    d2H_dydpx = px*middle_factor_y - h*dax_dy/ps
+    d2H_dydpy = py*middle_factor_y - h*day_dy/ps
+    d2H_dydpz = -rel_p*middle_factor_y + h*dphi_dy/ps
+
+    d2H_dzdpx = px*middle_factor_z - h*dax_dz/ps
+    d2H_dzdpy = py*middle_factor_z - h*day_dz/ps
+    d2H_dzdpz = -rel_p*middle_factor_z + h*dphi_dz/ps
+
+    dH_dx = h*(rel_p*dphi_dx - px*dax_dx - py*day_dx)/ps - daz_dx - g*ps
+    dH_dy = h*(rel_p*dphi_dy - px*dax_dy - py*day_dy)/ps - daz_dy
+    dH_dz = h*(rel_p*dphi_dz - px*dax_dz - py*day_dz)/ps - daz_dz
+
+    if scalarize
+      return (scalar(d2H_dxdpx), scalar(d2H_dxdpy), scalar(d2H_dxdpz), 
+              scalar(d2H_dydpx), scalar(d2H_dydpy), scalar(d2H_dydpz), 
+              scalar(d2H_dzdpx), scalar(d2H_dzdpy), scalar(d2H_dzdpz)),
+              (scalar(dH_dx), scalar(dH_dy), scalar(dH_dz))
+    else
+      return (d2H_dxdpx, d2H_dxdpy, d2H_dxdpz, 
+              d2H_dydpx, d2H_dydpy, d2H_dydpz, 
+              d2H_dzdpx, d2H_dzdpy, d2H_dzdpz),
+              (dH_dx, dH_dy, dH_dz)
+    end
+  end
+end
+
+
+function mixed_hessian_and_dH_dp(v, s, beta_0, tilde_m, g, potential_and_jac::U, potential_params, p_over_q_ref, ::Val{normalized}, ::Val{scalarize}) where {U, normalized, scalarize}
+  @inbounds begin
+    h = 1 + g*v[XI]
+    t = (s/beta_0 - v[ZI])/C_LIGHT
+
+    potential, derivatives = potential_and_jac(v[XI], v[YI], s, t, potential_params)
+    phi, ax, ay, az = potential
+    if !normalized
+      phi = phi/p_over_q_ref/C_LIGHT
+      ax =  ax/p_over_q_ref
+      ay =  ay/p_over_q_ref
+      az =  az/p_over_q_ref
+
+      dphi_dx, dax_dx, day_dx, daz_dx = derivatives[1]/p_over_q_ref/C_LIGHT, derivatives[5]/p_over_q_ref, derivatives[9]/p_over_q_ref, derivatives[13]/p_over_q_ref
+      dphi_dy, dax_dy, day_dy, daz_dy = derivatives[2]/p_over_q_ref/C_LIGHT, derivatives[6]/p_over_q_ref, derivatives[10]/p_over_q_ref, derivatives[14]/p_over_q_ref
+      dphi_dt, dax_dt, day_dt, daz_dt = derivatives[4]/p_over_q_ref/C_LIGHT, derivatives[8]/p_over_q_ref, derivatives[12]/p_over_q_ref, derivatives[16]/p_over_q_ref
+    else
+      phi = phi/C_LIGHT
+      dphi_dx, dax_dx, day_dx, daz_dx = derivatives[1]/C_LIGHT, derivatives[5], derivatives[9], derivatives[13]
+      dphi_dy, dax_dy, day_dy, daz_dy = derivatives[2]/C_LIGHT, derivatives[6], derivatives[10], derivatives[14]
+      dphi_dt, dax_dt, day_dt, daz_dt = derivatives[4]/C_LIGHT, derivatives[8], derivatives[12], derivatives[16]
+    end
+    dphi_dz = -dphi_dt/C_LIGHT
+    dax_dz =  -dax_dt/C_LIGHT
+    day_dz =  -day_dt/C_LIGHT
+    daz_dz =  -daz_dt/C_LIGHT
+
+    px = v[PXI] - ax
+    py = v[PYI] - ay
+    rel_p = v[PZI] + 1/beta_0 - phi
+    
+    ps2 = rel_p*rel_p - tilde_m*tilde_m - px*px - py*py
+    good_momenta = (ps2 > 0)
+    ps2_1 = one(ps2)
+    ps = sqrt(vifelse(good_momenta, ps2, ps2_1))
+    h_over_ps3 = h/(ps2*ps)
+
+    middle_factor_x = h_over_ps3*(rel_p*dphi_dx - px*dax_dx - py*day_dx)
+    middle_factor_y = h_over_ps3*(rel_p*dphi_dy - px*dax_dy - py*day_dy)
+    middle_factor_z = h_over_ps3*(rel_p*dphi_dz - px*dax_dz - py*day_dz)
+
+    d2H_dxdpx = px*middle_factor_x - h*dax_dx/ps + g*px/ps
+    d2H_dxdpy = py*middle_factor_x - h*day_dx/ps + g*py/ps
+    d2H_dxdpz = -rel_p*middle_factor_x + h*dphi_dx/ps - g*rel_p/ps
+
+    d2H_dydpx = px*middle_factor_y - h*dax_dy/ps
+    d2H_dydpy = py*middle_factor_y - h*day_dy/ps
+    d2H_dydpz = -rel_p*middle_factor_y + h*dphi_dy/ps
+
+    d2H_dzdpx = px*middle_factor_z - h*dax_dz/ps
+    d2H_dzdpy = py*middle_factor_z - h*day_dz/ps
+    d2H_dzdpz = -rel_p*middle_factor_z + h*dphi_dz/ps
+
+    dH_dpx =  h*px/ps
+    dH_dpy =  h*py/ps
+    dH_dpz = -h*rel_p/ps + 1/beta_0
+
+    if scalarize
+      return (scalar(d2H_dxdpx), scalar(d2H_dxdpy), scalar(d2H_dxdpz), 
+              scalar(d2H_dydpx), scalar(d2H_dydpy), scalar(d2H_dydpz), 
+              scalar(d2H_dzdpx), scalar(d2H_dzdpy), scalar(d2H_dzdpz)),
+              (scalar(dH_dpx), scalar(dH_dpy), scalar(dH_dpz))
+    else
+      return (d2H_dxdpx, d2H_dxdpy, d2H_dxdpz, 
+              d2H_dydpx, d2H_dydpy, d2H_dydpz, 
+              d2H_dzdpx, d2H_dzdpy, d2H_dzdpz),
+              (dH_dpx, dH_dpy, dH_dpz)
+    end
+  end
+end
+
+
 """
 Solves Ax = y for x using Cramer's rule, where A is a 3x3 matrix and y is a 3-vector.
 """
@@ -644,6 +788,7 @@ function stochastic_radiation!(i, coords::Coords, s, ::typeof(implicit_integrato
   return nothing
 end
 
+
 function callback_implicit!(i, coords, cur_s, cur_t_ref, beta_0, tilde_m, potential_and_jac, potential_params, p_over_q_ref, ::Val{normalized}, ::Val{in}) where {normalized,in}
   @inbounds begin @FastGTPSA begin
     v = coords.v
@@ -665,9 +810,11 @@ function callback_implicit!(i, coords, cur_s, cur_t_ref, beta_0, tilde_m, potent
   end end
 end
 
+
 scalar(x::TPS) = TPSAInterface.scalar(x)
 scalar(x::ForwardDiff.Dual) = ForwardDiff.value(x)
 scalar(x) = x
+
 
 my_eps(::SIMD.Vec{N,T}) where {N,T} = eps(T)
 my_eps(::T) where {T} = eps(T)
