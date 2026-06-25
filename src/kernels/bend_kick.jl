@@ -37,9 +37,9 @@ Arguments
     rotation!(i, coords, w, 0)
   end
 
-  if !isnothing(coords.q)
-    rotate_spin!(i, coords, a, g, tilde_m, mm, kn, ks, L / 2)
-  end
+  #if !isnothing(coords.q)
+  #  rotate_spin!(i, coords, a, g, tilde_m, mm, kn, ks, L / 2)
+  #end
 
   if !isnothing(radiation_params)
     q, mc2, E_ref = radiation_params
@@ -47,16 +47,24 @@ Arguments
   end
 
   multipole_kick!(i, coords, mm, knl, ksl, 1)
-  exact_bend!(i, coords, g*L, g, k0, tilde_m, beta_0, L)
+  if !isnothing(coords.q)
+    exact_bend!(i, coords, g * L / 2, g, k0, tilde_m, beta_0, L / 2)
+    bend_dominant_rotation!(i, coords, g, k0, a, tilde_m, L / 2)
+    bend_magnus!(i, coords, g, k0, a, tilde_m, L)
+    bend_dominant_rotation!(i, coords, g, k0, a, tilde_m, L / 2)
+    exact_bend!(i, coords, g * L / 2, g, k0, tilde_m, beta_0, L / 2)
+  else
+    exact_bend!(i, coords, g*L, g, k0, tilde_m, beta_0, L)
+  end
   multipole_kick!(i, coords, mm, knl, ksl, 1)
 
   if !isnothing(radiation_params)
     deterministic_radiation_multipole!(i, coords, q, mc2, E_ref, g, mm, kn, ks, L / 2)
   end
 
-  if !isnothing(coords.q)
-    rotate_spin!(i, coords, a, g, tilde_m, mm, kn, ks, L / 2)
-  end
+  #if !isnothing(coords.q)
+  #  rotate_spin!(i, coords, a, g, tilde_m, mm, kn, ks, L / 2)
+  #end
 
   if !isnothing(w_inv)
     rotation!(i, coords, w_inv, 0)
@@ -193,4 +201,76 @@ end
   if !isnothing(w_inv)
     rotation!(i, coords, w_inv, 0)
   end
+end
+
+
+@makekernel fastgtpsa=true function bend_magnus!(i, coords::Coords, g, Kn0, a, tilde_m, L)
+  v = coords.v
+  x = v[i,XI]
+  px = v[i,PXI]
+  px2 = px*px
+  y = v[i,YI]
+  py = v[i,PYI]
+  py2 = py*py
+  rel_p = 1 + v[i,PZI]
+  rel_p2 = rel_p*rel_p
+  beta_gamma = rel_p / tilde_m
+  gamma = sqrt(1 + beta_gamma*beta_gamma)
+  h = 1 + g*x
+
+  ps2 = rel_p2 - px2 - py2
+  good_momenta = (ps2 > 0)
+  alive_at_start = (coords.state[i] == STATE_ALIVE)
+  coords.state[i] = vifelse(!good_momenta & alive_at_start, STATE_LOST, coords.state[i])
+  alive = (coords.state[i] == STATE_ALIVE)
+  ps2_1 = one(ps2)
+  ps = sqrt(vifelse(good_momenta, ps2, ps2_1))
+
+  pt2 = rel_p2 - py2
+  good_momenta = (pt2 > 0)
+  alive_at_start = (coords.state[i] == STATE_ALIVE)
+  coords.state[i] = vifelse(!good_momenta & alive_at_start, STATE_LOST, coords.state[i])
+  alive = (coords.state[i] == STATE_ALIVE)
+  pt2_1 = one(pt2)
+  pt = sqrt(vifelse(good_momenta, pt2, pt2_1))
+
+  g1 = gamma - 1 # make numerically stable
+  factor = a*Kn0*L*h*g1/rel_p2
+  enhancement = 1 + a*gamma
+  factor2 = L*Kn0*enhancement/ps
+
+  o1 = factor*px*py/ps
+  o2 = factor*py2/ps - factor2*g*x - factor2*px2/(pt*(pt + ps))
+  o3 = factor*py
+  q1 = expq((o1, o2, o3), alive)
+
+  q2 = coords.q
+  q3 = quat_mul(q1, q2[i,Q0], q2[i,QX], q2[i,QY], q2[i,QZ])
+  q2[i,Q0], q2[i,QX], q2[i,QY], q2[i,QZ] = q3
+end
+
+
+@makekernel fastgtpsa=true function bend_dominant_rotation!(i, coords::Coords, g, Kn0, a, tilde_m, L)
+  v = coords.v
+  py = v[i,PYI]
+  rel_p = 1 + v[i,PZI]
+  beta_gamma = rel_p / tilde_m
+  gamma = sqrt(1 + beta_gamma*beta_gamma)
+
+  pt2 = rel_p*rel_p - py*py
+  good_momenta = (pt2 > 0)
+  alive_at_start = (coords.state[i] == STATE_ALIVE)
+  coords.state[i] = vifelse(!good_momenta & alive_at_start, STATE_LOST, coords.state[i])
+  alive = (coords.state[i] == STATE_ALIVE)
+  pt2_1 = one(pt2)
+  pt = sqrt(vifelse(good_momenta, pt2, pt2_1))
+
+  o1 = zero(Kn0)
+  o2 = L*(g - Kn0*(1+a*gamma)/pt)
+  o3 = o1
+  q1 = expq((o1, o2, o3), alive)
+
+  q2 = coords.q
+  q3 = quat_mul(q1, q2[i,Q0], q2[i,QX], q2[i,QY], q2[i,QZ])
+  q2[i,Q0], q2[i,QX], q2[i,QY], q2[i,QZ] = q3
 end

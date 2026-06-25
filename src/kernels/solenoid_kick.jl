@@ -20,7 +20,7 @@ sn: vector of skew multipole strengths scaled by Bρ0
 L:  element length
 """
 @makekernel fastgtpsa=true function sks_multipole!(i, coords::Coords, s, radiation_params, beta_0, gamsqr_0, tilde_m, a, Ksol, mm, kn, ks, L)
-  exact_solenoid!(i, coords, Ksol, beta_0, gamsqr_0, tilde_m, L / 2)
+  exact_solenoid!(i, coords, Ksol, beta_0, gamsqr_0, tilde_m, a, L / 2)
 
   if !isnothing(radiation_params)
     q, mc2, E_ref = radiation_params
@@ -28,15 +28,17 @@ L:  element length
   end
 
   multipole_and_spin_kick!(i, coords, mm, kn, ks, a, tilde_m, L)
+  #exact_solenoid!(i, coords, Ksol, beta_0, gamsqr_0, tilde_m, a, L)
 
   if !isnothing(radiation_params)
     deterministic_radiation_multipole!(i, coords, q, mc2, E_ref, 0, mm, kn, ks, L / 2)
   end
 
-  exact_solenoid!(i, coords, Ksol, beta_0, gamsqr_0, tilde_m, L / 2)
+  exact_solenoid!(i, coords, Ksol, beta_0, gamsqr_0, tilde_m, a, L / 2)
 end 
 
-@makekernel fastgtpsa=true function exact_solenoid!(i, coords::Coords, ks, beta_0, gamsqr_0, tilde_m, L)
+
+@makekernel fastgtpsa=true function exact_solenoid!(i, coords::Coords, ks, beta_0, gamsqr_0, tilde_m, a, L)
   v = coords.v
 
   # Recurring variables
@@ -52,8 +54,8 @@ end
   pr2_1 = one(pr2)
   pr = sqrt(vifelse(good_momenta, pr2, pr2_1))
 
-  s = sin(ks * L / pr)
-  cp = 1 + cos(ks * L / pr)
+  s, c = sincos(ks * L / pr)
+  cp = 1 + c
   cm = 2 - cp
   # Temporaries
   x_0 = v[i,XI]
@@ -73,4 +75,21 @@ end
   v[i,PXI] = vifelse(alive, new_px, v[i,PXI])
   v[i,YI]  = vifelse(alive, new_y, v[i,YI])
   v[i,PYI] = vifelse(alive, new_py, v[i,PYI])
+#=
+  beta_gamma = rel_p / tilde_m
+  gamma = sqrt(1 + beta_gamma*beta_gamma)
+  coeff = a*ks*L*(gamma-1)/(rel_p*rel_p)
+  o1 = coeff*px_k
+  o2 = coeff*py_k
+  o3 = -ks*L*(1+a)/pr - a*ks*L*pt2*(gamma-1)/(pr*rel_p*rel_p) + ks*L/pr
+  q1 = expq((o1, o2, o3), alive)
+
+  pr2_0 = zero(pr2)
+  s, c = sincos(-ks*L/(2*pr))
+  q2 = vifelse(alive, (c, pr2_0, pr2_0, s), (pr2_1, pr2_0, pr2_0, pr2_0))
+  q3 = quat_mul(q2, q1)
+  q = coords.q
+  q4 = quat_mul(q3, q[i,Q0], q[i,QX], q[i,QY], q[i,QZ])
+  q[i,Q0], q[i,QX], q[i,QY], q[i,QZ] = q4
+=#
 end
