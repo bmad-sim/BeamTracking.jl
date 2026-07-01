@@ -27,9 +27,9 @@ L: element length
   alive_at_start = (coords.state[i] == STATE_ALIVE)
   coords.state[i] = vifelse(!good_momenta & alive_at_start, STATE_LOST, coords.state[i])
 
-  #if !isnothing(coords.q)
-  #  rotate_spin!(i, coords, a, 0, tilde_m, mm, kn, ks, L / 2)
-  #end
+  if !isnothing(coords.q)
+    rotate_spin!(i, coords, a, 0, tilde_m, mm, knl, ksl, -1)
+  end
 
   if !isnothing(radiation_params)
     q, mc2, E_ref = radiation_params
@@ -41,10 +41,7 @@ L: element length
   if !isnothing(w)
     rotation!(i, coords, w, 0)
   end
-  #quadrupole_matrix!(i, coords, k1, L)
-  quadrupole_matrix!(i, coords, k1, L / 2)
-  quadrupole_magnus!(i, coords, k1, a, tilde_m, L)
-  quadrupole_matrix!(i, coords, k1, L / 2)
+  quadrupole_matrix!(i, coords, k1, L)
   if !isnothing(w_inv)
     rotation!(i, coords, w_inv, 0)
   end
@@ -55,9 +52,9 @@ L: element length
     deterministic_radiation_multipole!(i, coords, q, mc2, E_ref, 0, mm, kn, ks, L / 2)
   end
 
-  #if !isnothing(coords.q)
-  #  rotate_spin!(i, coords, a, 0, tilde_m, mm, kn, ks, L / 2)
-  #end
+  if !isnothing(coords.q)
+    rotate_spin!(i, coords, a, 0, tilde_m, mm, knl, ksl, -1)
+  end
 end
 
 """
@@ -76,7 +73,7 @@ s: element length
   v = coords.v
   alive = (coords.state[i] == STATE_ALIVE)
 
-  focus = k1 >= 0  # horizontally focusing if positive
+  focus = (k1 >= 0)  # horizontally focusing if positive
 
   rel_p = 1 + v[i,PZI]
   xp = v[i,PXI] / rel_p  # x'
@@ -155,38 +152,3 @@ s: element length
   v[i,YI] = vifelse(alive, new_y, v[i,YI])
   v[i,ZI] = vifelse(alive, new_z, v[i,ZI])
 end 
-
-@makekernel fastgtpsa=true function quadrupole_magnus!(i, coords::Coords, k1, a, tilde_m, L)
-  v = coords.v
-  x = v[i,XI]
-  px = v[i,PXI]
-  y = v[i,YI]
-  py = v[i,PYI]
-  rel_p = 1 + v[i,PZI]
-  rel_p2 = rel_p*rel_p
-  beta_gamma = rel_p / tilde_m
-  gamma = sqrt(1 + beta_gamma*beta_gamma)
-
-  ps2 = rel_p2 - px*px - py*py
-  good_momenta = (ps2 > 0)
-  alive_at_start = (coords.state[i] == STATE_ALIVE)
-  coords.state[i] = vifelse(!good_momenta & alive_at_start, STATE_LOST, coords.state[i])
-  alive = (coords.state[i] == STATE_ALIVE)
-  ps2_1 = one(ps2)
-  ps = sqrt(vifelse(good_momenta, ps2, ps2_1))
-
-  g1 = gamma - 1 # make numerically stable
-  k1L = k1*L
-  cross_coords = x*py + y*px
-  dom = -k1L*(1 + a*gamma)/ps
-  coeff = k1L*a*cross_coords*g1/(rel_p2*ps)
-
-  o1 = coeff*px + dom*y
-  o2 = coeff*py + dom*x
-  o3 = coeff*ps
-  q1 = expq((o1, o2, o3), alive)
-
-  q2 = coords.q
-  q3 = quat_mul(q1, q2[i,Q0], q2[i,QX], q2[i,QY], q2[i,QZ])
-  q2[i,Q0], q2[i,QX], q2[i,QY], q2[i,QZ] = q3
-end

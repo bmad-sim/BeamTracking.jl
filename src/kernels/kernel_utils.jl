@@ -4,7 +4,7 @@
     multipole_kick!(i, coords, mm, knL, ksL, -1)
   else
     multipole_kick!(i, coords, mm, knL ./ 2, ksL ./ 2, -1)
-    rotate_spin!(i, coords, a, 0, tilde_m, mm, knL, ksL)
+    rotate_spin!(i, coords, a, 0, tilde_m, mm, knL, ksL, -1)
     multipole_kick!(i, coords, mm, knL ./ 2, ksL ./ 2, -1)
   end
 end
@@ -14,7 +14,7 @@ end
     multipole_kick!(i, coords, mm, kn.*L, ks.*L, -1)
   else
     multipole_kick!(i, coords, mm, kn .* (L/2), ks .* (L/2), -1)
-    rotate_spin!(i, coords, a, 0, tilde_m, mm, kn, ks, L)
+    rotate_spin!(i, coords, a, 0, tilde_m, mm, kn, ks, -1, L)
     multipole_kick!(i, coords, mm, kn .* (L/2), ks .* (L/2), -1)
   end
 end

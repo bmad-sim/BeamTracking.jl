@@ -1,7 +1,7 @@
 @inline function thick_pure_bsolenoid(tm::Exact, kc, p_over_q_ref, bunch, bm0, L)
   Ksol, _ = get_strengths(bm0, L, p_over_q_ref)
   tilde_m, gamsqr_0, beta_0 = BeamTracking.drift_params(bunch.species, p_over_q_ref)
-  return push(kc, make_kernel_call(BeamTracking.exact_solenoid!, (Ksol, beta_0, gamsqr_0, tilde_m, L)))
+  return push(kc, make_kernel_call(BeamTracking.exact_solenoid!, (Ksol, beta_0, gamsqr_0, tilde_m, 0, L)))
 end
 
 @inline function drift(tm::Exact, kc, p_over_q_ref, bunch, L)
