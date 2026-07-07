@@ -29,7 +29,7 @@ L:  element length
   end
 
   if !isnothing(coords.q)
-    rotate_spin!(i, coords, a, 0, tilde_m, mm, knL, ksL, 0)
+    rotate_spin!(i, coords, a, 0, tilde_m, mm, kn, ks, 0, L / 2)
   end
 
   multipole_kick!(i, coords, mm, knL, ksL, 0)
@@ -37,7 +37,7 @@ L:  element length
   multipole_kick!(i, coords, mm, knL, ksL, 0)
 
   if !isnothing(coords.q)
-    rotate_spin!(i, coords, a, 0, tilde_m, mm, knL, ksL, 0)
+    rotate_spin!(i, coords, a, 0, tilde_m, mm, kn, ks, 0, L / 2)
   end
 
   if !isnothing(radiation_params)
@@ -97,7 +97,7 @@ end
     coeff = a*ks*L*gamma_minus_1/rel_p2
     o1 = coeff*px_k
     o2 = coeff*py_k
-    o3 = -arg*a*(1 + pt2*gamma_minus_1/rel_p2)
+    o3 = -a*arg*(1 + pt2*gamma_minus_1/rel_p2)
     q1 = expq((o1, o2, o3), alive)
 
     pr2_0 = zero(pr2)
@@ -107,4 +107,5 @@ end
     q4 = quat_mul(q3, q[i,Q0], q[i,QX], q[i,QY], q[i,QZ])
     q[i,Q0], q[i,QX], q[i,QY], q[i,QZ] = q4
   end
+
 end

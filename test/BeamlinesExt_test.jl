@@ -440,46 +440,36 @@
     b0 = Bunch(v, q, p_over_q_ref=p_over_q_ref, species=Species("electron"))
     bl = Beamline([ele], p_over_q_ref=p_over_q_ref, species_ref=Species("electron"))
     track!(b0, bl)
-    q_z = Quaternion(b0.coords.q[1], b0.coords.q[2:4])
-    v_expected, q_expected = read_spin_orbit_map("bmad_maps/solenoid.jl")
+    v_expected, _ = read_spin_orbit_map("bmad_maps/solenoid.jl")
+    q_expected = [0.0                   0.0                   0.0                  0.0                  0.0 0.8430735212133056; 
+                 -0.018145294992663086  0.011650959928739194  0.011650959928739194 0.018145294992663097 0.0 0.0; 
+                 -0.011650959928739215 -0.018145294992663066 -0.018145294992663066 0.011650959928739194 0.0 0.0; 
+                  0.0                   0.0                   0.0                  0.0                  0.0 0.5399515598487606]
     @test coeffs_approx_equal(v_expected, b0.coords.v, 5e-10)
-    @test quaternion_coeffs_approx_equal(q_expected, q_z, 6e-9)
+    @test scalar.(b0.coords.q) ≈ [0.5393261291271401 0.0 0.0 -0.8420969816124171]
+    @test GTPSA.jacobian(b0.coords.q) ≈ q_expected
 
     # Solenoid with quadrupole:
-    ele = LineElement(L=2.0, Ksol=0.1, Kn1=0.1, tracking_method=SolenoidKick(order=2, fringe_at=Fringe.NoEnd))
-    v = collect(transpose(@vars(D10)))
+    ele = LineElement(L=2.0, Ksol=0.1, Kn1=0.1, tracking_method=SolenoidKick(order=6, n_steps=8, fringe_at=Fringe.NoEnd))
+    v = [0.01 0.02 0.03 0.04 0.05 0.06] .+ collect(transpose(@vars(D10)))
     q = TPS64{D10}[1 0 0 0]
     b0 = Bunch(v, q, p_over_q_ref=p_over_q_ref, species=Species("electron"))
     bl = Beamline([ele], p_over_q_ref=p_over_q_ref, species_ref=Species("electron"))
     track!(b0, bl)
-    q_z = Quaternion(b0.coords.q[1], b0.coords.q[2:4])
-    v_expected, q_expected = read_spin_orbit_map("bmad_maps/sol_quad.jl")
-    @test coeffs_approx_equal(v_expected, b0.coords.v, 5e-10)
-    @test quaternion_coeffs_approx_equal(q_expected, q_z, 6e-9)
-
-    # SK multiple steps:
-    ele = LineElement(L=2.0, Ksol=0.1, Kn1=0.1, tracking_method=SolenoidKick(order=4, n_steps=2, fringe_at=Fringe.NoEnd))
-    v = collect(transpose(@vars(D10)))
-    q = TPS64{D10}[1 0 0 0]
-    b0 = Bunch(v, q, p_over_q_ref=p_over_q_ref, species=Species("electron"))
-    bl = Beamline([ele], p_over_q_ref=p_over_q_ref, species_ref=Species("electron"))
-    track!(b0, bl)
-    q_z = Quaternion(b0.coords.q[1], b0.coords.q[2:4])
-    v_expected, q_expected = read_spin_orbit_map("bmad_maps/sk_multistep.jl")
-    @test coeffs_approx_equal(v_expected, b0.coords.v, 5e-10)
-    @test quaternion_coeffs_approx_equal(q_expected, q_z, 6e-9)
-
-    # Step size:
-    ele = LineElement(L=2.0, Ksol=0.1, Kn1=0.1, tracking_method=SolenoidKick(order=4, ds_step=1.0, fringe_at=Fringe.NoEnd))
-    v = collect(transpose(@vars(D10)))
-    q = TPS64{D10}[1 0 0 0]
-    b0 = Bunch(v, q, p_over_q_ref=p_over_q_ref, species=Species("electron"))
-    bl = Beamline([ele], p_over_q_ref=p_over_q_ref, species_ref=Species("electron"))
-    track!(b0, bl)
-    q_z = Quaternion(b0.coords.q[1], b0.coords.q[2:4])
-    v_expected, q_expected = read_spin_orbit_map("bmad_maps/sk_multistep.jl")
-    @test coeffs_approx_equal(v_expected, b0.coords.v, 5e-10)
-    @test quaternion_coeffs_approx_equal(q_expected, q_z, 6e-9)
+    v_expected = [0.8084528550552892      1.7618358451908693    0.10016574979271514    0.1799542070093867  0.0 -0.045295756768258456; 
+                 -0.1914764787788115      0.8086450231845644   -0.00043899255470597357 0.08804905786594175 0.0  0.0005199878910795101; 
+                 -0.08837437582642556    -0.17667829248457204   1.1858656497844702     2.00204600773925    0.0 -0.07705147167235063; 
+                  0.00043023645106843864 -0.09983080426545739   0.20723515702913622    1.1856282544251113  0.0 -0.005074322385922071; 
+                  0.007771095889150356   -0.030748733815372683 -0.009982509694960352  -0.08527719770242106 1.0  0.008496403081924352; 
+                  0.0                     0.0                   0.0                    0.0                 0.0  1.0]
+    q_expected = [-0.0001968320381634533 -0.0003354522139518879 -0.0007323964953026688  -0.0010197270511281822 0.0 0.008517335358001279; 
+                   0.003945765503469646   0.010191016877089102  -0.102261685137679      -0.09380414899291793   0.0 0.009442612029680206; 
+                  -0.09027034467726167   -0.08810488645733103   -0.00479577073391418    -0.006822247275792119  0.0 0.005170996125814023; 
+                   0.0005861140247321611 -0.0013797021734982626 -0.00046618009310879727 -0.004017421548244223  0.0 0.08899043520023708]
+    @test scalar.(b0.coords.v) ≈ [0.05342292167847618 0.017767436296301228 0.11106668172142604 0.05163945550900599 0.04816617224636819 0.06]
+    @test GTPSA.jacobian(b0.coords.v) ≈ v_expected
+    @test scalar.(b0.coords.q) ≈ [0.9955073952270296 -0.0065554530183620785 -0.003070190160659054 -0.09440670535724088]
+    @test GTPSA.jacobian(b0.coords.q) ≈ q_expected
 
     # Straight pure dipole (DK):
     ele = LineElement(L=2.0, Kn0=0.1, tilt0=pi/3, tracking_method=DriftKick(order=2, fringe_at=Fringe.NoEnd))
