@@ -26,7 +26,7 @@ function omega_multipole(i, coords::Coords, a, g, tilde_m, mm, kn, ks, excluding
 
     e_vec = (zero_0, zero_0, zero_0)   # No electric multipole component
 
-    omega = omega_field(i, coords, a, g, tilde_m, ax, ay, e_vec, b_vec, L)
+    omega = omega_field(i, coords, a, g, tilde_m, ax, ay, e_vec, b_vec, Val{excluding != 1}(), L)
   end end
 
   return omega
@@ -47,7 +47,7 @@ function omega_multipole(i, coords::Coords, a, g, tilde_m, mm, KnL, KsL, excludi
     b_vec = (bx, by, zero_0)
     e_vec = (zero_0, zero_0, zero_0)   # No electric multipole component
 
-    omega = omega_field(i, coords, a, g, tilde_m, zero(v[i,XI]), zero(v[i,XI]), e_vec, b_vec, 1)
+    omega = omega_field(i, coords, a, g, tilde_m, zero(v[i,XI]), zero(v[i,XI]), e_vec, b_vec, Val{excluding != 1}(), 1)
   end end
 
   return omega
@@ -56,23 +56,24 @@ end
 #---------------------------------------------------------------------------------------------------
 
 """
-    omega_field(i, coords::Coords, a, g, tilde_m, ax, ay, e_vec, b_vec, L) -> omega_vec
+    omega_field(i, coords::Coords, a, g, tilde_m, ax, ay, e_vec, b_vec, include_curvature, L) -> omega_vec
 
 This function computes the integrated spin-precession vector using the fields.
 
 ## Input:
 
-- `a`         Anomalous magnetic moment.
-- `g`         Reference bend strength 1/radius when in a bend element.
-- `tilde_m    Normalized mass `mass / P0c`
-- `ax`, `ay`  Transverse vector potential components.
-- `e_vec`     Normalized electric field `e_field * q / P_ref`
-- `b_vec`     Normalized magnetic field `b_field * q / P_ref`
+- `a`                  Anomalous magnetic moment.
+- `g`                  Reference bend strength 1/radius when in a bend element.
+- `tilde_m             Normalized mass `mass / P0c`
+- `ax`, `ay`           Transverse vector potential components.
+- `e_vec`              Normalized electric field `e_field * q / P_ref`
+- `b_vec`              Normalized magnetic field `b_field * q / P_ref`
+- `include_curvature`  If true, include the curvature term in the spin precession.
 
 ## Output:
 - `omega_vec  3D Rotation tuple. 
 """
-function omega_field(i, coords::Coords, a, g, tilde_m, ax, ay, e_vec, b_vec, L)
+function omega_field(i, coords::Coords, a, g, tilde_m, ax, ay, e_vec, b_vec, ::Val{include_curvature}, L) where {include_curvature}
   @FastGTPSA begin @inbounds begin
     v = coords.v
     px = v[i,PXI] - ax
@@ -119,7 +120,7 @@ function omega_field(i, coords::Coords, a, g, tilde_m, ax, ay, e_vec, b_vec, L)
     e_part_z = (betax*e_vec[2] - betay*e_vec[1]) * coeff3
 
     ox = (b_perp_x + b_para_x + e_part_x) * L        
-    oy = (b_perp_y + b_para_y + e_part_y + g) * L
+    oy = (b_perp_y + b_para_y + e_part_y + vifelse(include_curvature, g, 0)) * L
     oz = (b_perp_z + b_para_z + e_part_z) * L
 
     omega = (ox, oy, oz)
@@ -153,7 +154,7 @@ end
 @makekernel fastgtpsa=true function rotate_spin_field!(i, coords::Coords, a, g, tilde_m, ax, ay, e_vec, b_vec, L)
   q2 = coords.q
   alive = (coords.state[i] == STATE_ALIVE)
-  q1 = expq(omega_field(i, coords, a, g, tilde_m, ax, ay, e_vec, b_vec, L), alive)
+  q1 = expq(omega_field(i, coords, a, g, tilde_m, ax, ay, e_vec, b_vec, Val{true}(), L), alive)
   q3 = quat_mul(q1, q2[i,Q0], q2[i,QX], q2[i,QY], q2[i,QZ])
   q2[i,Q0], q2[i,QX], q2[i,QY], q2[i,QZ] = q3
 end

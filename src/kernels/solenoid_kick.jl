@@ -88,13 +88,14 @@ end
   v[i,YI]  = vifelse(alive, new_y,  v[i,YI])
   v[i,PYI] = vifelse(alive, new_py, v[i,PYI])
 
-  if !isnothing(coords.q)
+  if !isnothing(coords.q) && !isnothing(a)
     q = coords.q
 
     beta_gamma = rel_p/tilde_m
     beta_gamma2 = beta_gamma*beta_gamma
     gamma_minus_1 = beta_gamma2/(1 + sqrt(1 + beta_gamma2))
     coeff = a*ks*L*gamma_minus_1/rel_p2
+
     o1 = coeff*px_k
     o2 = coeff*py_k
     o3 = -a*arg*(1 + pt2*gamma_minus_1/rel_p2)
@@ -107,5 +108,4 @@ end
     q4 = quat_mul(q3, q[i,Q0], q[i,QX], q[i,QY], q[i,QZ])
     q[i,Q0], q[i,QX], q[i,QY], q[i,QZ] = q4
   end
-
 end

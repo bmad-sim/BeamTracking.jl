@@ -50,5 +50,5 @@ end
   w_inv = inv_rot_quaternion(0,0,-tilt)
   theta = g * L
   tilde_m, _, beta_0 = BeamTracking.drift_params(bunch.species, p_over_q_ref)
-  return push(kc, make_kernel_call(BeamTracking.exact_curved_drift!, (0, e1, e2, g, w, w_inv, gyromagnetic_anomaly(bunch.species), tilde_m, beta_0, L)))
+  return push(kc, make_kernel_call(BeamTracking.exact_bend_with_rotation!, (e1, e1, theta, gyromagnetic_anomaly(bunch.species), g, 0, w, w_inv, tilde_m, beta_0, L)))
 end

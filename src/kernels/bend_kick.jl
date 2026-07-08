@@ -38,7 +38,7 @@ Arguments
   end
 
   if !isnothing(coords.q)
-    rotate_spin!(i, coords, a, g, tilde_m, mm, kn, ks, -1, L / 2)
+    rotate_spin!(i, coords, a, g, tilde_m, mm, kn, ks, 1, L / 2)
   end
 
   if !isnothing(radiation_params)
@@ -55,7 +55,7 @@ Arguments
   end
 
   if !isnothing(coords.q)
-    rotate_spin!(i, coords, a, g, tilde_m, mm, kn, ks, -1, L / 2)
+    rotate_spin!(i, coords, a, g, tilde_m, mm, kn, ks, 1, L / 2)
   end
 
   if !isnothing(w_inv)
@@ -64,7 +64,7 @@ Arguments
 end 
 
 """
-    exact_bend!(i, coords::Coords, theta, g, Kn0, tilde_m, beta_0, L)
+    exact_bend!(i, coords::Coords, theta, g, Kn0, tilde_m, beta_0, a, L)
 
 Tracks a particle through a sector bend via exact tracking.
 
@@ -74,6 +74,7 @@ Tracks a particle through a sector bend via exact tracking.
 - 'Kn0'      -- normalized dipole field
 - 'tilde_m'  -- mc2/p0c
 - 'beta_0'   -- p0c/E0
+- 'a'        -- anomalous gyromagnetic ratio
 - 'L'        -- length
 """
 @makekernel fastgtpsa=true function exact_bend!(i, coords::Coords, theta, g, Kn0, tilde_m, beta_0, a, L)
@@ -81,8 +82,9 @@ Tracks a particle through a sector bend via exact tracking.
   px_0 = v[i,PXI]
   py_0 = v[i,PYI]
   rel_p = 1 + v[i,PZI]
+  rel_p2 = rel_p*rel_p
 
-  pt2 = rel_p*rel_p - v[i,PYI]*v[i,PYI]
+  pt2 = rel_p2 - v[i,PYI]*v[i,PYI]
   good_momenta = (pt2 > 0)
   alive_at_start = (coords.state[i] == STATE_ALIVE)
   coords.state[i] = vifelse(!good_momenta & alive_at_start, STATE_LOST, coords.state[i])
@@ -133,31 +135,43 @@ Tracks a particle through a sector bend via exact tracking.
   new_x = v[i,XI]*cos(theta) - L*L*g*cosc_theta + xi
   new_px = pt*sin(phi1 - thetap)
   new_y = v[i,YI] + v[i,PYI]*Lp/pt
-  delta_z = -rel_p*Lp/pt + L*rel_p/sqrt(tilde_m*tilde_m + rel_p*rel_p)/beta_0
-  new_z = v[i,ZI] + delta_z
-  v[i,XI]  = vifelse(alive, new_x, v[i,XI])
+  new_z = v[i,ZI] - rel_p*Lp/pt + L*rel_p/sqrt(tilde_m*tilde_m + rel_p*rel_p)/beta_0
+  v[i,XI]  = vifelse(alive, new_x,  v[i,XI])
   v[i,PXI] = vifelse(alive, new_px, v[i,PXI])
-  v[i,YI]  = vifelse(alive, new_y, v[i,YI])
-  v[i,ZI]  = vifelse(alive, new_z, v[i,ZI])
-#=
-  beta_gamma = rel_p / tilde_m
-  gamma = sqrt(1 + beta_gamma*beta_gamma)
-  beta = beta_gamma/gamma
-  t = L/(beta_0*C_LIGHT) - delta_z/(beta*C_LIGHT)
-  coeff = a*t*beta*C_LIGHT*Kn0*(gamma-1)*py_0/(rel_p*rel_p*rel_p)
-  o1 = coeff*px_0
-  o2 = coeff*py_0 - a*gamma*t*beta*C_LIGHT*Kn0/rel_p
-  o3 = coeff*sqrt(rel_p*rel_p - px_0*px_0 - py_0*py_0) # have to use vifelse
-  q1 = expq((o1, o2, o3), alive)
+  v[i,YI]  = vifelse(alive, new_y,  v[i,YI])
+  v[i,ZI]  = vifelse(alive, new_z,  v[i,ZI])
 
-  pt2_0 = zero(pt2)
-  s, c = sincos(-beta*C_LIGHT*Kn0*t/(2*rel_p) + g*L/2)
-  q2 = vifelse(alive, (c, pt2_0, s, pt2_0), (pt2_1, pt2_0, pt2_0, pt2_0))
-  q3 = quat_mul(q2, q1)
-  q = coords.q
-  q4 = quat_mul(q3, q[i,Q0], q[i,QX], q[i,QY], q[i,QZ])
-  q[i,Q0], q[i,QX], q[i,QY], q[i,QZ] = q4
-=#
+  if !isnothing(coords.q) && !isnothing(a)
+    q = coords.q
+
+    ps2 = pt2 - px_0*px_0
+    good_momenta = (ps2 > 0)
+    alive_at_start = (coords.state[i] == STATE_ALIVE)
+    coords.state[i] = vifelse(!good_momenta & alive_at_start, STATE_LOST, coords.state[i])
+    alive = (coords.state[i] == STATE_ALIVE)
+    ps2_1 = one(ps2)
+    ps = sqrt(vifelse(good_momenta, ps2, ps2_1))
+
+    beta_gamma = rel_p/tilde_m
+    beta_gamma2 = beta_gamma*beta_gamma
+    gamma_minus_1 = beta_gamma2/(1 + sqrt(1 + beta_gamma2))
+    gamma = gamma_minus_1 + 1
+    vt_over_rel_p = Lp/pt
+    factor = vt_over_rel_p*Kn0
+    coeff = a*factor*gamma_minus_1*py_0/rel_p2
+
+    o1 = coeff*px_0
+    o2 = coeff*py_0 - a*gamma*factor
+    o3 = coeff*ps
+    q1 = expq((o1, o2, o3), alive)
+
+    pt2_0 = zero(pt2)
+    s, c = sincos((theta - factor)/2)
+    q2 = vifelse(alive, (c, pt2_0, s, pt2_0), (pt2_1, pt2_0, pt2_0, pt2_0))
+    q3 = quat_mul(q2, q1)
+    q4 = quat_mul(q3, q[i,Q0], q[i,QX], q[i,QY], q[i,QZ])
+    q[i,Q0], q[i,QX], q[i,QY], q[i,QZ] = q4
+  end
 end
 
 
@@ -190,26 +204,8 @@ end
     rotation!(i, coords, w, 0)
   end
   linear_bend_fringe!(i, coords, a, tilde_m, 0, Kn0, e1, 1)
-  exact_bend!(i, coords, theta, g, Kn0, tilde_m, beta_0, 0, L)
+  exact_bend!(i, coords, theta, g, Kn0, tilde_m, beta_0, a, L)
   linear_bend_fringe!(i, coords, a, tilde_m, 0, Kn0, e2, -1)
-  if !isnothing(w_inv)
-    rotation!(i, coords, w_inv, 0)
-  end
-end
-
-
-# This is separate because the spin can be transported exactly here
-@makekernel function exact_curved_drift!(i, coords::Coords, s, e1, e2, g, w, w_inv, a, tilde_m, beta_0, L) 
-  if !isnothing(w)
-    rotation!(i, coords, w, 0)
-  end
-  if !isnothing(coords.q)
-    rotate_spin!(i, coords, a, g, tilde_m, SA[0], SA[0], SA[0], -1, L / 2)
-  end
-  exact_bend!(i, coords, g*L, g, 0, tilde_m, beta_0, a, L)
-  if !isnothing(coords.q)
-    rotate_spin!(i, coords, a, g, tilde_m, SA[0], SA[0], SA[0], -1, L / 2)
-  end
   if !isnothing(w_inv)
     rotation!(i, coords, w_inv, 0)
   end

@@ -137,7 +137,7 @@ function omega_cavity(i, coords::Coords, a, tilde_m, omega, t_ref, E0_normalized
       ay = ex
     end
 
-    ox, oy, oz = omega_field(i, coords, a, 0, tilde_m, ax, ay, e_vec, b_vec, L)
+    ox, oy, oz = omega_field(i, coords, a, 0, tilde_m, ax, ay, e_vec, b_vec, Val{false}(), L)
     if length(mm) > 0
       ox1, oy1, oz1 = omega_multipole(i, coords, a, 0, tilde_m, mm, kn, ks, 0, L)
       omega = (ox + ox1, oy + oy1, oz + oz1)
