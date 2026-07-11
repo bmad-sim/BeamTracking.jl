@@ -42,7 +42,7 @@ function track!(
   end
   __, p_over_q_ref = check_bl_bunch!(bunch, bl)
   context = bl.context
-  @show context
+  
   for ele in bl.line
     track!(bunch, ele; context, scalar_params, ramp_particle_energy_without_rf, ramp_update_each_particle, kwargs...)
   end
