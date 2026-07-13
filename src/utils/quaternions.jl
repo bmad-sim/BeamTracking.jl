@@ -12,7 +12,14 @@ function sincos_quaternion(x)
   return s_out, c_out
 end
 
+# New GTPSA-native sincosq:
+"""
+This function computes sin(sqrt(x))/sqrt(x) and cos(sqrt(x)), which are both 
+necessary for exponentiating a rotation vector into a quaternion.
+"""
+sincos_quaternion(x::TPS) = sincosq(x)
 
+#= OLD FUNCTION:
 """
 This function computes sin(sqrt(x))/sqrt(x) and cos(sqrt(x)), which are both 
 necessary for exponentiating a rotation vector into a quaternion.
@@ -52,7 +59,7 @@ function sincos_quaternion(x::TPS{T}) where {T}
   end
   return result_sin, result_cos
 end
-
+=#
 
 """
 This function computes exp(-i/2 v⋅σ) as a quaternion, where σ is the 
