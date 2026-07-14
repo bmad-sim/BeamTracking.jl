@@ -3,7 +3,7 @@
     #t_ref += (s + L/2)/(beta_0*C_LIGHT)
     multipoles = (length(mm) > 0)
     if sol
-      exact_solenoid!(i, coords, Ksol, beta_0, gamsqr_0, tilde_m, L / 2)
+      exact_solenoid!(i, coords, Ksol, beta_0, gamsqr_0, tilde_m, a, L / 2)
     else
       exact_drift!(i, coords, s, beta_0, gamsqr_0, tilde_m, L / 2)
     end
@@ -36,7 +36,7 @@
     end
 
     if sol
-      exact_solenoid!(i, coords, Ksol, beta_0, gamsqr_0, tilde_m, L / 2)
+      exact_solenoid!(i, coords, Ksol, beta_0, gamsqr_0, tilde_m, a, L / 2)
     else
       exact_drift!(i, coords, s, beta_0, gamsqr_0, tilde_m, L / 2)
     end
@@ -137,9 +137,9 @@ function omega_cavity(i, coords::Coords, a, tilde_m, omega, t_ref, E0_normalized
       ay = ex
     end
 
-    ox, oy, oz = omega_field(i, coords, a, 0, tilde_m, ax, ay, e_vec, b_vec, L)
+    ox, oy, oz = omega_field(i, coords, a, 0, tilde_m, ax, ay, e_vec, b_vec, Val{false}(), L)
     if length(mm) > 0
-      ox1, oy1, oz1 = omega_multipole(i, coords, a, 0, tilde_m, mm, kn, ks, L)
+      ox1, oy1, oz1 = omega_multipole(i, coords, a, 0, tilde_m, mm, kn, ks, 0, L)
       omega = (ox + ox1, oy + oy1, oz + oz1)
     else
       omega = (ox, oy, oz)

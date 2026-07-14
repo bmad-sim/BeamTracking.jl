@@ -28,7 +28,7 @@ L: element length
   coords.state[i] = vifelse(!good_momenta & alive_at_start, STATE_LOST, coords.state[i])
 
   if !isnothing(coords.q)
-    rotate_spin!(i, coords, a, 0, tilde_m, mm, kn, ks, L / 2)
+    rotate_spin!(i, coords, a, 0, tilde_m, mm, knl, ksl, -1)
   end
 
   if !isnothing(radiation_params)
@@ -37,7 +37,9 @@ L: element length
   end
 
   multipole_kick!(i, coords, mm, knl, ksl, 2)
+
   quadrupole_kick!(i, coords, beta_0, gamsqr_0, tilde_m, L / 2)
+
   if !isnothing(w)
     rotation!(i, coords, w, 0)
   end
@@ -45,7 +47,9 @@ L: element length
   if !isnothing(w_inv)
     rotation!(i, coords, w_inv, 0)
   end
+
   quadrupole_kick!(i, coords, beta_0, gamsqr_0, tilde_m, L / 2)
+  
   multipole_kick!(i, coords, mm, knl, ksl, 2)
 
   if !isnothing(radiation_params)
@@ -53,7 +57,7 @@ L: element length
   end
 
   if !isnothing(coords.q)
-    rotate_spin!(i, coords, a, 0, tilde_m, mm, kn, ks, L / 2)
+    rotate_spin!(i, coords, a, 0, tilde_m, mm, knl, ksl, -1)
   end
 end
 
@@ -73,7 +77,7 @@ s: element length
   v = coords.v
   alive = (coords.state[i] == STATE_ALIVE)
 
-  focus = k1 >= 0  # horizontally focusing if positive
+  focus = (k1 >= 0)  # horizontally focusing if positive
 
   rel_p = 1 + v[i,PZI]
   xp = v[i,PXI] / rel_p  # x'

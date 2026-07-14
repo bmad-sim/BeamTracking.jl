@@ -34,5 +34,4 @@ find_m_tilde(::Type{K}) where {K<:typeof(sks_multipole!)} = 4
 find_m_tilde(::Type{K}) where {K<:typeof(dkd_multipole!)} = 4
 find_m_tilde(::Type{K}) where {K<:typeof(bkb_multipole!)} = 2
 find_m_tilde(::Type{K}) where {K<:typeof(mkm_quadrupole!)} = 4
-find_m_tilde(::Type{K}) where {K<:typeof(exact_curved_drift!)} = 7
 find_m_tilde(::Type{K}) where {K} = 0 # Fallback
