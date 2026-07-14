@@ -165,9 +165,10 @@ Tracks a particle through a sector bend via exact tracking.
     o3 = coeff*ps
     q1 = expq((o1, o2, o3), alive)
 
-    pt2_0 = zero(pt2)
-    s, c = sincos((theta - factor)/2)
-    q2 = vifelse(alive, (c, pt2_0, s, pt2_0), (pt2_1, pt2_0, pt2_0, pt2_0))
+    theta_0 = zero(theta - factor)
+    angle = vifelse(alive, (theta - factor)/2, theta_0)
+    s, c = sincos(angle)
+    q2 = (c, theta_0, s, theta_0)
     q3 = quat_mul(q2, q1)
     q4 = quat_mul(q3, q[i,Q0], q[i,QX], q[i,QY], q[i,QZ])
     q[i,Q0], q[i,QX], q[i,QY], q[i,QZ] = q4

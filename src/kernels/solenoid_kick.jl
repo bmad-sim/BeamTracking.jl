@@ -101,9 +101,10 @@ end
     o3 = -a*arg*(1 + pt2*gamma_minus_1/rel_p2)
     q1 = expq((o1, o2, o3), alive)
 
-    pr2_0 = zero(pr2)
-    s, c = sincos(-arg/2)
-    q2 = vifelse(alive, (c, pr2_0, pr2_0, s), (pr2_1, pr2_0, pr2_0, pr2_0))
+    arg_0 = zero(arg)
+    angle = vifelse(alive, -arg/2, arg_0)
+    s, c = sincos(angle)
+    q2 = (c, arg_0, arg_0, s)
     q3 = quat_mul(q2, q1)
     q4 = quat_mul(q3, q[i,Q0], q[i,QX], q[i,QY], q[i,QZ])
     q[i,Q0], q[i,QX], q[i,QY], q[i,QZ] = q4

@@ -26,7 +26,7 @@ function omega_multipole(i, coords::Coords, a, g, tilde_m, mm, kn, ks, excluding
 
     e_vec = (zero_0, zero_0, zero_0)   # No electric multipole component
 
-    omega = omega_field(i, coords, a, g, tilde_m, ax, ay, e_vec, b_vec, Val{excluding != 1}(), L)
+    omega = omega_field(i, coords, a, g, tilde_m, ax, ay, e_vec, b_vec, Val{false}(), L)
   end end
 
   return omega
@@ -47,7 +47,7 @@ function omega_multipole(i, coords::Coords, a, g, tilde_m, mm, KnL, KsL, excludi
     b_vec = (bx, by, zero_0)
     e_vec = (zero_0, zero_0, zero_0)   # No electric multipole component
 
-    omega = omega_field(i, coords, a, g, tilde_m, zero(v[i,XI]), zero(v[i,XI]), e_vec, b_vec, Val{excluding != 1}(), 1)
+    omega = omega_field(i, coords, a, g, tilde_m, zero(v[i,XI]), zero(v[i,XI]), e_vec, b_vec, Val{false}(), 1)
   end end
 
   return omega
@@ -120,7 +120,7 @@ function omega_field(i, coords::Coords, a, g, tilde_m, ax, ay, e_vec, b_vec, ::V
     e_part_z = (betax*e_vec[2] - betay*e_vec[1]) * coeff3
 
     ox = (b_perp_x + b_para_x + e_part_x) * L        
-    oy = (b_perp_y + b_para_y + e_part_y + vifelse(include_curvature, g, 0)) * L
+    oy = (b_perp_y + b_para_y + e_part_y + vifelse(include_curvature, g, zero(g))) * L
     oz = (b_perp_z + b_para_z + e_part_z) * L
 
     omega = (ox, oy, oz)

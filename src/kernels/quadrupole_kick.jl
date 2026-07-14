@@ -37,7 +37,9 @@ L: element length
   end
 
   multipole_kick!(i, coords, mm, knl, ksl, 2)
+
   quadrupole_kick!(i, coords, beta_0, gamsqr_0, tilde_m, L / 2)
+
   if !isnothing(w)
     rotation!(i, coords, w, 0)
   end
@@ -45,7 +47,9 @@ L: element length
   if !isnothing(w_inv)
     rotation!(i, coords, w_inv, 0)
   end
+
   quadrupole_kick!(i, coords, beta_0, gamsqr_0, tilde_m, L / 2)
+  
   multipole_kick!(i, coords, mm, knl, ksl, 2)
 
   if !isnothing(radiation_params)
