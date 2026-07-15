@@ -1,7 +1,13 @@
 # Curved
-@makekernel fastgtpsa=true function fringe!(i, coords::Coords, a, tilde_m, Kn0, w, w_inv, e, sign)
+@makekernel fastgtpsa=true function fringe!(i, coords::Coords, a, tilde_m, Kn0, w, w_inv, e1, e2, sign)
   v = coords.v
   alive = (coords.state[i] == STATE_ALIVE)
+
+  if sign > 0
+    e = e1
+  else
+    e = e2
+  end
 
   f = Kn0*tan(e)
 
@@ -30,53 +36,149 @@ end
 
 
 # Straight
-@makekernel fastgtpsa=true function fringe!(i, coords::Coords, a, tilde_m, Ksol, Kn0, Ks0, Kn1, w, w_inv, sign)
+@makekernel fastgtpsa=true function fringe!(i, coords::Coords, a, tilde_m, Ksol, Kn0, w0, w0_inv, Kn1, w1, w1_inv, sign)
   v = coords.v
   alive = (coords.state[i] == STATE_ALIVE)
-
   rel_p = 1 + v[i,PZI]
-  Kn1_over_rel_p = Kn1/rel_p
 
-  if !isnothing(coords.q)
-    s = 2*w[1]*w[4]
-    c = w[1]^2 - w[4]^2
-    b = (-sign*v[i,XI]*Ksol/2, -sign*v[i,YI]*Ksol/2, sign*v[i,YI]*Kn0 + sign*v[i,XI]*Ks0)
-    b_rotated = (b[1]*c + b[2]*s, b[2]*c - b[1]*s, b[3]) # rotate opposite sense of w
-  end
-
-  # Need to rotate so that quadrupole component is upright
-  if !isnothing(w)
-    rotation!(i, coords, w, 0)
-  end
-
-  if !isnothing(coords.q)
-    b_quad = (0, 0, 0)
-    b_vec = b_rotated .+ b_quad
+  # Solenoid
+  if !isnothing(Ksol) && !isnothing(coords.q)
+    b_vec = (-sign*v[i,XI]*Ksol/2, -sign*v[i,YI]*Ksol/2, 0)
     rotate_spin_field!(i, coords, a, 0, tilde_m, 0, 0, (0, 0, 0), b_vec, 1/2)
   end
 
-  x2 = v[i,XI]*v[i,XI]
-  x3 = x2*v[i,XI]
-  y2 = v[i,YI]*v[i,YI]
-  y3 = y2*v[i,YI]
-  new_x = v[i,XI] + sign*Kn1_over_rel_p/12*(x3 + 3*y2*v[i,XI])
-  new_px = v[i,PXI] + sign*Kn1_over_rel_p/4*(2*v[i,XI]*v[i,YI]*v[i,PYI] - (x2 + y2)*v[i,PXI]) 
-  new_y = v[i,YI] - sign*Kn1_over_rel_p/12*(y3 + 3*x2*v[i,YI])
-  new_py = v[i,PYI] - sign*Kn1_over_rel_p/4*(2*v[i,XI]*v[i,YI]*v[i,PXI] - (x2 + y2)*v[i,PYI])
-  new_z = v[i,ZI] + sign*Kn1_over_rel_p/12*(y3*v[i,PYI] - x3*v[i,PXI] + 3*x2*v[i,YI]*v[i,PYI] - 3*y2*v[i,XI]*v[i,PXI])
-  v[i,XI] =  vifelse(alive, new_x,  v[i,XI])
-  v[i,PXI] = vifelse(alive, new_px, v[i,PXI])
-  v[i,YI] =  vifelse(alive, new_y,  v[i,YI])
-  v[i,PYI] = vifelse(alive, new_py, v[i,PYI])
-  v[i,ZI] =  vifelse(alive, new_z,  v[i,ZI])
+  # Dipole
+  if !isnothing(Kn0) && !isnothing(coords.q)
+    if !isnothing(w0)
+      rotation!(i, coords, w0, 0)
+    end
+    b_vec = (0, 0, sign*v[i,YI]*Kn0)
+    rotate_spin_field!(i, coords, a, 0, tilde_m, 0, 0, (0, 0, 0), b_vec, 1/2)
+    if !isnothing(w0_inv)
+      rotation!(i, coords, w0_inv, 0)
+    end
+  end
 
-  if !isnothing(coords.q)
+  # Quadrupole
+  if !isnothing(Kn1) && !isnothing(coords.q)
+    if !isnothing(w1)
+      rotation!(i, coords, w1, 0)
+    end
+    b_vec = (0, 0, sign*v[i,XI]*v[i,YI]*Kn1)
+    rotate_spin_field!(i, coords, a, 0, tilde_m, 0, 0, (0, 0, 0), b_vec, 1/2)
+    if !isnothing(w1_inv)
+      rotation!(i, coords, w1_inv, 0)
+    end
+  end
+
+  # Solenoid
+  if !isnothing(Ksol)
     ax = -v[i,YI]*Ksol/2
     ay =  v[i,XI]*Ksol/2
+  else
+    ax = 0
+    ay = 0
+  end
+
+  # Dipole
+  if !isnothing(Kn0)
+    if !isnothing(w0)
+      rotation!(i, coords, w0, 0)
+    end
+
+    px = v[i,PXI] - ax
+    py = v[i,PYI] - ay
+    ps2 = rel_p*rel_p - px*px - py*py
+    good_momenta = (ps2 > 0)
+    coords.state[i] = vifelse(!good_momenta & alive, STATE_LOST, coords.state[i])
+    alive = (coords.state[i] == STATE_ALIVE)
+    ps2_1 = one(ps2)
+    ps = sqrt(vifelse(good_momenta, ps2, ps2_1))
+
+    xp = px/ps
+    yp = py/ps
+    yp_factor = 1 + yp*yp
+
+    y_sqrt2 = 1 + sign*Kn0*xp*yp/yp_factor*2*v[i,YI]
+    good_sqrt = (y_sqrt2 > 0)
+    coords.state[i] = vifelse(!good_sqrt & alive, STATE_LOST, coords.state[i])
+    alive = (coords.state[i] == STATE_ALIVE)
+    y_sqrt2_1 = one(y_sqrt2)
+    y_sqrt = sqrt(vifelse(good_sqrt, y_sqrt2, y_sqrt2_1))
+
+    new_y  = 2*v[i,YI]/(1 + y_sqrt)
+    new_py = v[i,PYI] - sign*Kn0*xp/yp*factor*new_y
+    new_x  = v[i,XI]  + sign*Kn0/(2*ps)*new_y*new_y/yp_factor*((1 + xp*xp) - 2*xp*xp*yp*yp/yp_factor)
+    new_z  = v[i,ZI]  - sign*Kn0*rel_p*xp/(2*ps2)*(1 - yp*yp)/(yp_factor*yp_factor)*new_y*new_y
+
+    v[i,XI]  = vifelse(alive, new_x,  v[i,XI])
+    v[i,PXI] = vifelse(alive, new_px, v[i,PXI])
+    v[i,YI]  = vifelse(alive, new_y,  v[i,YI])
+    v[i,PYI] = vifelse(alive, new_py, v[i,PYI])
+    v[i,ZI]  = vifelse(alive, new_z,  v[i,ZI])
+
+    if !isnothing(w0_inv)
+      rotation!(i, coords, w0_inv, 0)
+    end
+  end
+
+  # Quadrupole
+  if !isnothing(Kn1)
+    if !isnothing(w1)
+      rotation!(i, coords, w1, 0)
+    end
+
+    Kn1_over_rel_p = Kn1/rel_p
+
+    x2 = v[i,XI]*v[i,XI]
+    x3 = v[i,XI]*x2
+    y2 = v[i,YI]*v[i,YI]
+    y3 = v[i,YI]*y2
+
+    new_x  = v[i,XI]  + sign*Kn1_over_rel_p/12*(x3 + 3*y2*v[i,XI])
+    new_px = v[i,PXI] + sign*Kn1_over_rel_p/4*(2*v[i,XI]*v[i,YI]*v[i,PYI] - (x2 + y2)*v[i,PXI]) 
+    new_y  = v[i,YI]  - sign*Kn1_over_rel_p/12*(y3 + 3*x2*v[i,YI])
+    new_py = v[i,PYI] - sign*Kn1_over_rel_p/4*(2*v[i,XI]*v[i,YI]*v[i,PXI] - (x2 + y2)*v[i,PYI])
+    new_z  = v[i,ZI]  + sign*Kn1_over_rel_p/12*(y3*v[i,PYI] - x3*v[i,PXI] + 3*x2*v[i,YI]*v[i,PYI] - 3*y2*v[i,XI]*v[i,PXI])
+
+    v[i,XI]  = vifelse(alive, new_x,  v[i,XI])
+    v[i,PXI] = vifelse(alive, new_px, v[i,PXI])
+    v[i,YI]  = vifelse(alive, new_y,  v[i,YI])
+    v[i,PYI] = vifelse(alive, new_py, v[i,PYI])
+    v[i,ZI]  = vifelse(alive, new_z,  v[i,ZI])
+
+    if !isnothing(w1_inv)
+      rotation!(i, coords, w1_inv, 0)
+    end
+  end
+
+  # Solenoid
+  if !isnothing(Ksol) && !isnothing(coords.q)
+    b_vec = (-sign*v[i,XI]*Ksol/2, -sign*v[i,YI]*Ksol/2, 0)
     rotate_spin_field!(i, coords, a, 0, tilde_m, ax, ay, (0, 0, 0), b_vec, 1/2)
   end
 
-  if !isnothing(w_inv)
-    rotation!(i, coords, w_inv, 0)
+  # Dipole
+  if !isnothing(Kn0) && !isnothing(coords.q)
+    if !isnothing(w0)
+      rotation!(i, coords, w0, 0)
+    end
+    b_vec = (0, 0, sign*v[i,YI]*Kn0)
+    rotate_spin_field!(i, coords, a, 0, tilde_m, ax, ay, (0, 0, 0), b_vec, 1/2)
+    if !isnothing(w0_inv)
+      rotation!(i, coords, w0_inv, 0)
+    end
+  end
+
+  # Quadrupole
+  if !isnothing(Kn1) && !isnothing(coords.q)
+    if !isnothing(w1)
+      rotation!(i, coords, w1, 0)
+    end
+    b_vec = (0, 0, sign*v[i,XI]*v[i,YI]*Kn1)
+    rotate_spin_field!(i, coords, a, 0, tilde_m, ax, ay, (0, 0, 0), b_vec, 1/2)
+    if !isnothing(w1_inv)
+      rotation!(i, coords, w1_inv, 0)
+    end
   end
 end
