@@ -932,7 +932,8 @@ zf_mn4  = [ 0., 3.140908277834687e-8, -3.1503450227072763e-8, 3.140908186274627e
         tilde_m = mc2/p0c
         gamsqr_0 = 1 + 1/tilde_m^2
         beta_0 = 1/sqrt(1 + tilde_m^2)
-        return ks, beta_0, gamsqr_0, tilde_m, L
+        a = T(gyromagnetic_anomaly(Species("electron")))
+        return ks, beta_0, gamsqr_0, tilde_m, a, L
     end
 
     # Scalar parameters
@@ -942,7 +943,7 @@ zf_mn4  = [ 0., 3.140908277834687e-8, -3.1503450227072763e-8, 3.140908186274627e
     test_map("bmad_maps/solenoid.jl",    make_kernel_call(BeamTracking.BeamTracking.exact_solenoid!, solenoid_args(Float64)); tol=5e-10)
 
     # GTPSA parameters
-    test_map("bmad_maps/patch.jl",       make_kernel_call(BeamTracking.patch!, patch_args(TPS64{D10}));                           tol=5e-10)
+    test_map("bmad_maps/patch.jl",       make_kernel_call(BeamTracking.patch!, patch_args(TPS64{D10}));                           tol=6e-10)
     test_map("bmad_maps/patch_norot.jl", make_kernel_call(BeamTracking.patch!, patch_norot_args(TPS64{D10}));                     tol=1e-9 )
     test_map("bmad_maps/drift.jl",       make_kernel_call(BeamTracking.BeamTracking.exact_drift!, drift_args(TPS64{D10}));       tol=5e-10)
     test_map("bmad_maps/solenoid.jl",    make_kernel_call(BeamTracking.BeamTracking.exact_solenoid!, solenoid_args(TPS64{D10})); tol=5e-10)

@@ -3,6 +3,7 @@ function _track!(
   coords::Coords,
   bunch::Bunch,
   ele::LineElement, 
+  context::Context,
   p_over_q_ref,
   tm,
   scalar_params,
@@ -15,15 +16,15 @@ function _track!(
   # float call is required because L is allowed to be any type
   # in order to keep binaries smaller for tracking routines, 
   # we don't want to compile separate routines for Int64
-  ap = deval(ele.AlignmentParams)
-  bp = deval(ele.BendParams)
-  bm = deval(ele.BMultipoleParams)
-  pp = deval(ele.PatchParams)
-  dp = deval(ele.ApertureParams)
-  mp = deval(ele.MapParams)
-  rp = deval(ele.RFParams)
-  lp = deval(ele.BeamlineParams)
-  fpp = deval(ele.FourPotentialParams)
+  ap = deval(ele.AlignmentParams, context)
+  bp = deval(ele.BendParams, context)
+  bm = deval(ele.BMultipoleParams, context)
+  pp = deval(ele.PatchParams, context)
+  dp = deval(ele.ApertureParams, context)
+  mp = deval(ele.MapParams, context)
+  rp = deval(ele.RFParams, context)
+  lp = deval(ele.BeamlineParams, context)
+  fpp = deval(ele.FourPotentialParams, context)
 
   if scalar_params
     L = scalarize(L)

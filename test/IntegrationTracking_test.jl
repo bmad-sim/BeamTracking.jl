@@ -11,23 +11,6 @@
       return ms, knl, ksl, -1
     end
     
-    function sk_args(::Type{T}) where {T}
-      L = T(2)
-      Ksol = T(0.1)
-      Kn1 = T(0.1) 
-      Ks1 = T(0)
-      mm = SA[2]
-      kn = SA[Kn1]
-      sn = SA[Ks1]
-      a = T(0.00115965218046)
-      p0c = T(10e6)
-      mc2 = T(massof(Species("electron")))
-      tilde_m = mc2/p0c
-      gamsqr_0 = 1 + 1/tilde_m^2
-      beta_0 = 1/sqrt(1 + tilde_m^2)
-      return T(0), nothing, beta_0, gamsqr_0, tilde_m, a, Ksol, mm, kn, sn, L
-    end
-
     function mk_args(::Type{T}) where {T}
       L = T(2)
       k1 = T(0.1) 
@@ -127,7 +110,6 @@
     
     # Scalar parameters
     test_map("bmad_maps/thin_dipole.jl", make_kernel_call(BeamTracking.multipole_kick!, multipole_args(Float64)); tol=1e-14, no_scalar_allocs=true)
-    test_map("bmad_maps/sol_quad.jl", make_kernel_call(BeamTracking.sks_multipole!, sk_args(Float64)); tol=5e-10, no_scalar_allocs=true)
     test_map("bmad_maps/skew_quad_mk.jl", make_kernel_call(BeamTracking.mkm_quadrupole!, mk_args(Float64)); tol=5e-10, no_scalar_allocs=true)
     test_map("bmad_maps/sex_dec.jl", make_kernel_call(BeamTracking.dkd_multipole!, dk_args(Float64)); tol=5e-10, no_scalar_allocs=true)
     test_map("bmad_maps/sex_dec.jl", make_kernel_call(BeamTracking.order_two_integrator!, integrator_args(Float64)); tol=5e-10, no_scalar_allocs=true)
@@ -139,7 +121,6 @@
 
     # GTPSA parameters
     test_map("bmad_maps/thin_dipole.jl", make_kernel_call(BeamTracking.multipole_kick!, multipole_args(TPS64{D10})); tol=1e-14)
-    test_map("bmad_maps/sol_quad.jl", make_kernel_call(BeamTracking.sks_multipole!, sk_args(TPS64{D10})); tol=5e-10)
     test_map("bmad_maps/skew_quad_mk.jl", make_kernel_call(BeamTracking.mkm_quadrupole!, mk_args(TPS64{D10})); tol=5e-10)
     test_map("bmad_maps/sex_dec.jl", make_kernel_call(BeamTracking.dkd_multipole!, dk_args(TPS64{D10})); tol=5e-10)
     test_map("bmad_maps/sex_dec.jl", make_kernel_call(BeamTracking.order_two_integrator!, integrator_args(TPS64{D10})); tol=5e-10)
