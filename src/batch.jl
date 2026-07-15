@@ -268,8 +268,23 @@ Base.broadcastable(o::BatchParam) = Ref(o)
 
 Base.isapprox(b::BatchParam, n::Number; kwargs...) = all(x->isapprox(x, n, kwargs...), b.batch)
 Base.isapprox(n::Number, b::BatchParam; kwargs...) = all(x->isapprox(n, x, kwargs...), b.batch)
-Base.:(==)(b::BatchParam, n::Number) = all(x->x == n, b.batch)
-Base.:(==)(n::Number, b::BatchParam) = all(x->n == x, b.batch)
+for t = (:(<), :(<=), :isless, :(==))
+@eval begin
+
+function Base.$t(b1::BatchParam, b2::BatchParam)
+  return all(($t).(b1.batch, b2.batch))
+end
+
+function Base.$t(b1::BatchParam, a::Number)
+  return all(x->($t)(x, a), b1.batch)
+end
+
+function Base.$t(a::Number, b1::BatchParam)
+  return all(x->($t)(a, x), b1.batch)
+end
+
+end
+end
 Base.isinf(b::BatchParam) = all(x->isinf(x), b.batch)
 
 batch_lower(bp) = bp
