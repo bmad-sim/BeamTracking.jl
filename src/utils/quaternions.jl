@@ -4,19 +4,17 @@ necessary for exponentiating a rotation vector into a quaternion.
 """
 function sincos_quaternion(x)
   threshold = 7.3e-8 # sqrt(24*eps(Float64))
-  sq = sqrt(x)
-  s, c = sincos(sq)
+  abs_x = abs(x)
+  sq = sqrt(abs_x)
+  s = vifelse(x > 0, sin(sq), sinh(sq))
+  c = vifelse(x > 0, cos(sq), cosh(sq))
   s = s/sq
-  s_out = vifelse(x > threshold, s, 1-x/6)
-  c_out = vifelse(x > threshold, c, 1-x/2)
+  s_out = vifelse(abs_x > threshold, s, 1 - x/6)
+  c_out = vifelse(abs_x > threshold, c, 1 - x/2)
   return s_out, c_out
 end
 
 # New GTPSA-native sincosq:
-"""
-This function computes sin(sqrt(x))/sqrt(x) and cos(sqrt(x)), which are both 
-necessary for exponentiating a rotation vector into a quaternion.
-"""
 sincos_quaternion(x::TPS) = sincosq(x)
 
 #= OLD FUNCTION:
