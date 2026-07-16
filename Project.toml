@@ -52,7 +52,7 @@ StaticArrays = "1"
 Statistics = "1"
 TPSAInterface = "0.3.0"
 Unrolled = "0.1.5"
-julia = "1.9"
+julia = "1.10"
 
 [extras]
 Beamlines = "5bb90b03-0719-46b8-8ce4-1ef3afd3cd4b"
