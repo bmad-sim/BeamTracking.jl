@@ -27,9 +27,11 @@ Unrolled = "9602ed7d-8fef-5bc8-8597-8f21381861e8"
 [weakdeps]
 Beamlines = "5bb90b03-0719-46b8-8ce4-1ef3afd3cd4b"
 CUDA = "052768ef-5323-5732-b1bb-66c8b64840ba"
+PythonCall = "6099a3de-0909-46bc-b1f4-468b9a2dfc0d"
 
 [extensions]
 BeamTrackingBeamlinesExt = "Beamlines"
+BeamTrackingPythonCallExt = "PythonCall"
 
 [compat]
 Accessors = "0.1.42"
@@ -44,6 +46,7 @@ HostCPUFeatures = "0.1"
 KernelAbstractions = "0.9.35"
 LinearAlgebra = "1"
 MacroTools = "0.5.16"
+PythonCall = "0.9"
 ReferenceFrameRotations = "3"
 SIMD = "3.7.1"
 SIMDMathFunctions = "0.1.3"
