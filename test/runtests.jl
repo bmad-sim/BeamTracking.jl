@@ -9,7 +9,8 @@ using Test,
       ReferenceFrameRotations,
       SIMD,
       KernelAbstractions,
-      ForwardDiff
+      ForwardDiff,
+      PythonCall
 
 using BeamTracking: Coords, KernelCall, make_kernel_call, Q0, QX, QY, QZ, STATE_ALIVE, STATE_LOST, C_LIGHT,
       STATE_LOST_NEG_X, STATE_LOST_POS_X, STATE_LOST_NEG_Y, STATE_LOST_POS_Y, STATE_LOST_PZ, STATE_LOST_Z,
@@ -218,3 +219,4 @@ include("IntegrationTracking_test.jl")
 include("collective_test.jl")
 include("callback_test.jl")
 include("ImplicitTracking_test.jl")
+include("PythonCallExt_test.jl")
