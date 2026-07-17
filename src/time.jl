@@ -68,8 +68,37 @@ Base.broadcastable(o::TimeDependentParam) = Ref(o)
 
 Base.isapprox(d::TimeDependentParam, n::Number; kwargs...) = d._isconst ? isapprox(d(0), n) : false
 Base.isapprox(n::Number, d::TimeDependentParam; kwargs...) = d._isconst ? isapprox(n, d(0)) : false
-Base.:(==)(d::TimeDependentParam, n::Number) = d._isconst ? d(0) == n : false
-Base.:(==)(n::Number, d::TimeDependentParam) = d._isconst ? n == d(0) : false
+
+for t = (:(<), :(<=), :isless, :(==))
+@eval begin
+
+function Base.$t(t1::TimeDependentParam, t2::TimeDependentParam)
+  if t1._isconst && t2._isconst
+    return ($t)(t1(0), t2(0))
+  else
+    return false
+  end
+end
+
+function Base.$t(t1::TimeDependentParam, a::Number)
+  if t1._isconst
+    return ($t)(t1(0), a)
+  else
+    return false
+  end
+end
+
+function Base.$t(a::Number, t1::TimeDependentParam)
+    if t1._isconst
+    return ($t)(a, t1(0))
+  else
+    return false
+  end
+end
+
+end
+end
+
 Base.isinf(d::TimeDependentParam) = d._isconst ? isinf(d(0)) : false
 
 @inline teval(f::TimeFunction, t) = f(t)
