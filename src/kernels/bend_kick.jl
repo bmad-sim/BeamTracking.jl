@@ -22,6 +22,7 @@ Arguments
 - 'L'        -- length
 """
 @makekernel fastgtpsa=true function bkb_multipole!(i, coords::Coords, s, radiation_params, tilde_m, beta_0, a, g, w, w_inv, k0, mm, kn, ks, L)
+  other_multipoles = (length(mm) > 1)
   knl = kn .* L ./ 2
   ksl = ks .* L ./ 2
 
@@ -37,7 +38,7 @@ Arguments
     rotation!(i, coords, w, 0)
   end
 
-  if !isnothing(coords.q)
+  if !isnothing(coords.q) && other_multipoles
     rotate_spin!(i, coords, a, g, tilde_m, mm, kn, ks, 1, L / 2)
   end
 
@@ -46,15 +47,21 @@ Arguments
     deterministic_radiation_multipole!(i, coords, q, mc2, E_ref, g, mm, kn, ks, L / 2)
   end
 
-  multipole_kick!(i, coords, mm, knl, ksl, 1)
+  if other_multipoles
+    multipole_kick!(i, coords, mm, knl, ksl, 1)
+  end
+
   exact_bend!(i, coords, g*L, g, k0, tilde_m, beta_0, a, L)
-  multipole_kick!(i, coords, mm, knl, ksl, 1)
+
+  if other_multipoles
+    multipole_kick!(i, coords, mm, knl, ksl, 1)
+  end
 
   if !isnothing(radiation_params)
     deterministic_radiation_multipole!(i, coords, q, mc2, E_ref, g, mm, kn, ks, L / 2)
   end
 
-  if !isnothing(coords.q)
+  if !isnothing(coords.q) && other_multipoles
     rotate_spin!(i, coords, a, g, tilde_m, mm, kn, ks, 1, L / 2)
   end
 
