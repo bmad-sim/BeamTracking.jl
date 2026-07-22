@@ -180,9 +180,9 @@ end
   if !isnothing(w)
     rotation!(i, coords, w, 0)
   end
-  linear_bend_fringe!(i, coords, a, tilde_m, 0, Kn0, e1, 1)
+  fringe!(i, coords, a, tilde_m, Kn0, nothing, nothing, e1, e2, 1)
   exact_bend!(i, coords, theta, g, Kn0, tilde_m, beta_0, a, L)
-  linear_bend_fringe!(i, coords, a, tilde_m, 0, Kn0, e2, -1)
+  fringe!(i, coords, a, tilde_m, Kn0, nothing, nothing, e1, e2, -1)
   if !isnothing(w_inv)
     rotation!(i, coords, w_inv, 0)
   end

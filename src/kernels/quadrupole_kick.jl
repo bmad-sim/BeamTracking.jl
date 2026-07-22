@@ -27,8 +27,8 @@ L: element length
   alive_at_start = (coords.state[i] == STATE_ALIVE)
   coords.state[i] = vifelse(!good_momenta & alive_at_start, STATE_LOST, coords.state[i])
 
-  if !isnothing(coords.q) && length(mm) > 1
-    rotate_spin!(i, coords, a, 0, tilde_m, mm, knl, ksl, 2)
+  if !isnothing(coords.q)
+    rotate_spin!(i, coords, a, 0, tilde_m, mm, knl, ksl, -1)
   end
 
   if !isnothing(radiation_params)
@@ -43,15 +43,7 @@ L: element length
   if !isnothing(w)
     rotation!(i, coords, w, 0)
   end
-
-  if !isnothing(coords.q)
-    quadrupole_matrix!(i, coords, k1, L / 2)
-    quadrupole_magnus!(i, coords, k1, tilde_m, a, L)
-    quadrupole_matrix!(i, coords, k1, L / 2)
-  else
-    quadrupole_matrix!(i, coords, k1, L)
-  end
-
+  quadrupole_matrix!(i, coords, k1, L)
   if !isnothing(w_inv)
     rotation!(i, coords, w_inv, 0)
   end
@@ -64,11 +56,10 @@ L: element length
     deterministic_radiation_multipole!(i, coords, q, mc2, E_ref, 0, mm, kn, ks, L / 2)
   end
 
-  if !isnothing(coords.q) && length(mm) > 1
-    rotate_spin!(i, coords, a, 0, tilde_m, mm, knl, ksl, 2)
+  if !isnothing(coords.q)
+    rotate_spin!(i, coords, a, 0, tilde_m, mm, knl, ksl, -1)
   end
 end
-
 
 """
 quadrupole_matrix!()
@@ -89,8 +80,6 @@ s: element length
   focus = (k1 >= 0)  # horizontally focusing if positive
 
   rel_p = 1 + v[i,PZI]
-  x = v[i,XI]
-  y = v[i,YI]
   xp = v[i,PXI] / rel_p  # x'
   yp = v[i,PYI] / rel_p  # y'
   arg = k1*s*s/rel_p
@@ -102,17 +91,17 @@ s: element length
   sx = vifelse(focus, sinecu,  shinecu)
   sy = vifelse(focus, shinecu, sinecu)
 
-  new_px = v[i,PXI] * cx - k1 * x * s * sx
-  new_py = v[i,PYI] * cy + k1 * y * s * sy
+  new_px = v[i,PXI] * cx - k1 * v[i,XI] * s * sx
+  new_py = v[i,PYI] * cy + k1 * v[i,YI] * s * sy
   new_z  = v[i,ZI]  - (s / 4) * (  xp * xp * (1 + sx * cx)
                                     + yp * yp * (1 + sy * cy)
                                     + k1 / rel_p
-                                        * ( x*x * (1 - sx * cx)
-                                          - y*y * (1 - sy * cy) )
-                                  ) + arg * (x * xp * sx * sx
-                                  - y * yp * sy * sy) / 2
-  new_x  = x * cx + xp * s * sx
-  new_y  = y * cy + yp * s * sy
+                                        * ( v[i,XI]*v[i,XI] * (1 - sx * cx)
+                                          - v[i,YI]*v[i,YI] * (1 - sy * cy) )
+                                  ) + arg * (v[i,XI] * xp * sx * sx
+                                  - v[i,YI] * yp * sy * sy) / 2
+  new_x  = v[i,XI] * cx + xp * s * sx
+  new_y  = v[i,YI] * cy + yp * s * sy
   v[i,PXI] = vifelse(alive, new_px, v[i,PXI])
   v[i,PYI] = vifelse(alive, new_py, v[i,PYI])
   v[i,ZI]  = vifelse(alive, new_z,  v[i,ZI])
@@ -164,73 +153,3 @@ s: element length
   v[i,YI] = vifelse(alive, new_y, v[i,YI])
   v[i,ZI] = vifelse(alive, new_z, v[i,ZI])
 end 
-
-
-function quadrupole_magnus!(i, coords::Coords, k1, tilde_m, a, s)
-  v = coords.v
-  q = coords.q
-  alive = (coords.state[i] == STATE_ALIVE)
-
-  focus = (k1 >= 0)  # horizontally focusing if positive
-
-  rel_p = 1 + v[i,PZI]
-  x = v[i,XI]
-  y = v[i,YI]
-  xp = v[i,PXI] / rel_p  # x'
-  yp = v[i,PYI] / rel_p  # y'
-  arg = k1*s*s/(4*rel_p)
-
-  pt2 = v[i,PXI]*v[i,PXI] + v[i,PYI]*v[i,PYI]
-  ps2 = rel_p*rel_p - pt2
-  good_momenta = (ps2 > 0)
-  alive_at_start = (coords.state[i] == STATE_ALIVE)
-  coords.state[i] = vifelse(!good_momenta & alive_at_start, STATE_LOST, coords.state[i])
-  alive = (coords.state[i] == STATE_ALIVE)
-  ps2_1 = one(ps2)
-  ps = sqrt(vifelse(good_momenta, ps2, ps2_1))
-
-  sinecu,  cosine  = sincos_quaternion( arg)
-  shinecu, coshine = sincos_quaternion(-arg)
-  cx = vifelse(focus, cosine,  coshine)
-  cy = vifelse(focus, coshine, cosine)
-  sx = vifelse(focus, sinecu,  shinecu)
-  sy = vifelse(focus, shinecu, sinecu)
-
-  beta_gamma = rel_p/tilde_m
-  beta_gamma2 = beta_gamma*beta_gamma
-  gamma_minus_1 = beta_gamma2/(1 + sqrt(1 + beta_gamma2))
-  gamma = gamma_minus_1 + 1
-  chi = 1 + a*gamma
-  coeff1 = -k1*chi*s/rel_p
-  coeff2 = -k1*chi*pt2*s/(ps*rel_p*(ps + rel_p))
-  coeff3 =  k1*a*gamma_minus_1*s*(y*xp + x*yp)/ps
-
-  b01 = coeff1*y*sy
-  b02 = coeff1*x*sx
-  b03 = a*k1*gamma_minus_1*s*(xp*y*sx*cy + yp*x*sy*cx)/rel_p
-
-  b11 = 
-  b12 = 
-  b13 = 
-
-  o1, o2, o3 = (b01, b02, b03) .- cross((b01, b02, b03), (b11, b12, b13))
-
-  o1 += coeff2*y + coeff3*xp
-  o2 += coeff2*x + coeff3*yp
-
-  q1 = expq((o1, o2, o3), alive)
-  q2 = quat_mul(q1, q[i,Q0], q[i,QX], q[i,QY], q[i,QZ])
-  q[i,Q0], q[i,QX], q[i,QY], q[i,QZ] = q2
-end
-
-
-function cross(v1, v2)
-  @inbounds begin @FastGTPSA begin
-    a1, b1, c1 = v1
-    a2, b2, c2 = v2
-    o1 = b1*c2 - b2*c1
-    o2 = c1*a2 - c2*a1
-    o3 = a1*b2 - a2*b1
-  end end
-  return (o1, o2, o3)
-end

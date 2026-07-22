@@ -894,6 +894,30 @@
     v_expected = [-0.0001092610284174973 -0.00016340536870756257 0.0 0.0 5.461341618518875e-6 -0.0016395105602759578]
     @test b0.coords.v ≈ v_expected
 
+    # Dipole hard-edge fringe:
+    ele = LineElement(Kn0=0.1, L=1.0, tracking_method=BendKick(order=2, fringe_at=Fringe.BothEnds))
+    v = [0.01 0.02 0.03 0.04 0.05 0.06]
+    q = [1.0 0.0 0.0 0.0]
+    b0 = Bunch(v, q, p_over_q_ref=p_over_q_ref, species=Species("electron"))
+    bl = Beamline([ele], p_over_q_ref=p_over_q_ref, species_ref=Species("electron"))
+    track!(b0, bl)
+    v_expected = [-0.0185407314436441 -0.07999999999999999 0.06773781043103988 0.0394311017804856 0.0486403579195499 0.06]
+    q_expected = [0.9988283540819322 0.00022881568956878987 -0.04835817826999246 0.0018312071881943616]
+    @test b0.coords.v ≈ v_expected
+    @test b0.coords.q ≈ q_expected 
+
+    # Quadrupole hard-edge fringe:
+    ele = LineElement(Kn1=0.36, L=1.0, tracking_method=MatrixKick(order=6, n_steps=10, fringe_at=Fringe.BothEnds))
+    v = [0.01 0.02 0.03 0.04 0.05 0.06]
+    q = [1.0 0.0 0.0 0.0]
+    b0 = Bunch(v, q, p_over_q_ref=p_over_q_ref, species=Species("electron"))
+    bl = Beamline([ele], p_over_q_ref=p_over_q_ref, species_ref=Species("electron"))
+    track!(b0, bl)
+    v_expected = [0.026172709210547637 0.013283654892913688 0.0752222208993626 0.0583923740672597 0.048976075148431955 0.06]
+    q_expected = [0.9999550310129977 -0.008905896376194768 -0.0032459810037083338 0.00029080723839939075]
+    @test b0.coords.v ≈ v_expected
+    @test b0.coords.q ≈ q_expected 
+
     # Particle lost in dipole (momentum is too small):
     b0 = Bunch([0.4 0.4 0.4 0.4 0.4 -0.5], [1.0 0.0 0.0 0.0], p_over_q_ref=p_over_q_ref, species=Species("electron"))
     v_init = copy(b0.coords.v)
@@ -908,7 +932,7 @@
     b0 = Bunch([0.4 0.4 0.4 0.4 0.4 -0.5], [1.0 0.0 0.0 0.0], p_over_q_ref=p_over_q_ref, species=Species("electron"))
     v_init = copy(b0.coords.v)
     q_init = copy(b0.coords.q)
-    ele_quad = LineElement(L=1.0, Kn1=1e-8, tracking_method=MatrixKick())
+    ele_quad = LineElement(L=1.0, Kn1=1e-8, tracking_method=MatrixKick(fringe_at=Fringe.NoEnd))
     track!(b0, Beamline([ele_quad], p_over_q_ref=p_over_q_ref))
     @test b0.coords.state[1] == STATE_LOST
     @test v_init == b0.coords.v

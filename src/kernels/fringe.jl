@@ -83,6 +83,8 @@ end
     x3 = v[i,XI]*x2
     y2 = v[i,YI]*v[i,YI]
     y3 = v[i,YI]*y2
+    x2y = x2*v[i,YI]
+    y2x = y2*v[i,XI]
 
     alphax = -sign*Kn1_over_rel_p/4*(x2 + y2)
     alphay = -sign*Kn1_over_rel_p/2*v[i,XI]*v[i,YI]
@@ -90,11 +92,11 @@ end
     px_over_delta = v[i,PXI]/delta
     py_over_delta = v[i,PYI]/delta
 
-    new_x  = v[i,XI] + sign*Kn1_over_rel_p/12*(x3 + 3*y2*v[i,XI])
-    new_y  = v[i,YI] - sign*Kn1_over_rel_p/12*(y3 + 3*x2*v[i,YI])
+    new_x  = v[i,XI] + sign*Kn1_over_rel_p/12*(x3 + 3*y2x)
+    new_y  = v[i,YI] - sign*Kn1_over_rel_p/12*(y3 + 3*x2y)
     new_px = (1 + alphax)*px_over_delta -       alphay*py_over_delta
     new_py =       alphay*px_over_delta + (1 - alphax)*py_over_delta
-    new_z  = v[i,ZI] + sign*Kn1_over_rel_p/(12*rel_p)*(y3*new_py - x3*new_px + 3*x2*v[i,YI]*new_py - 3*y2*v[i,XI]*new_px)
+    new_z  = v[i,ZI] + sign*Kn1_over_rel_p/(12*rel_p)*(y3*new_py - x3*new_px + 3*x2y*new_py - 3*y2x*new_px)
 
     v[i,XI]  = vifelse(alive, new_x,  v[i,XI])
     v[i,PXI] = vifelse(alive, new_px, v[i,PXI])
