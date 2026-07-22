@@ -894,6 +894,18 @@
     v_expected = [-0.0001092610284174973 -0.00016340536870756257 0.0 0.0 5.461341618518875e-6 -0.0016395105602759578]
     @test b0.coords.v ≈ v_expected
 
+    # Solenoid hard-edge fringe:
+    ele = LineElement(Ksol=2.0, L=1.0, tracking_method=SolenoidKick(order=2, fringe_at=Fringe.BothEnds))
+    v = [0.01 0.02 0.03 0.04 0.05 0.06]
+    q = [1.0 0.0 0.0 0.0]
+    b0 = Bunch(v, q, p_over_q_ref=p_over_q_ref, species=Species("electron"))
+    bl = Beamline([ele], p_over_q_ref=p_over_q_ref, species_ref=Species("electron"))
+    track!(b0, bl)
+    v_expected = [0.05344208147045112 0.0014068714384027799 0.011406871438402784 -0.0034420814704511204 0.0486268409937747 0.06]
+    q_expected = [0.5850869992845447 0.005047034551437897 -0.020079160216966062 -0.8107062094466929]
+    @test b0.coords.v ≈ v_expected
+    @test b0.coords.q ≈ q_expected 
+
     # Dipole hard-edge fringe:
     ele = LineElement(Kn0=0.1, L=1.0, tracking_method=BendKick(order=2, fringe_at=Fringe.BothEnds))
     v = [0.01 0.02 0.03 0.04 0.05 0.06]
