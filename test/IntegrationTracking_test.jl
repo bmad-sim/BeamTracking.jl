@@ -66,7 +66,7 @@
       ker = BeamTracking.bkb_multipole!
       n_steps = 10
       ds_step = T(0.2)
-      return ker, params, nothing, ds_step, n_steps, nothing, Val{false}(), Val{false}(), L
+      return ker, params, nothing, ds_step, n_steps, (a, tilde_m, Ks1, nothing, nothing, Ks1, Ks1), Val{true}(), Val{true}(), L
     end
 
     function integrator_args(::Type{T}) where {T}
@@ -88,7 +88,7 @@
       ker = BeamTracking.dkd_multipole!
       n_steps = 1
       ds_step = T(2)
-      return ker, params, nothing, ds_step, n_steps, nothing, Val{false}(), Val{false}(), L
+      return ker, params, nothing, ds_step, n_steps, (a, tilde_m, Ks4, Ks4, nothing, nothing, Ks4, nothing, nothing), Val{true}(), Val{true}(), L
     end
 
     function cavity_args(::Type{T}) where {T}

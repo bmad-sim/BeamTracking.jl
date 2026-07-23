@@ -20,6 +20,7 @@ sn: vector of skew multipole strengths scaled by Bρ0
 L:  element length
 """
 @makekernel fastgtpsa=true function sks_multipole!(i, coords::Coords, s, radiation_params, beta_0, gamsqr_0, tilde_m, a, Ksol, mm, kn, ks, L)
+  other_multipoles = (length(mm) > 1)
   knL = kn .* (L / 2)
   ksL = ks .* (L / 2)
 
@@ -28,15 +29,21 @@ L:  element length
     deterministic_radiation_multipole!(i, coords, q, mc2, E_ref, 0, mm, kn, ks, L / 2)
   end
 
-  if !isnothing(coords.q)
+  if !isnothing(coords.q) && other_multipoles
     rotate_spin!(i, coords, a, 0, tilde_m, mm, kn, ks, 0, L / 2)
   end
 
-  multipole_kick!(i, coords, mm, knL, ksL, 0)
-  exact_solenoid!(i, coords, Ksol, beta_0, gamsqr_0, tilde_m, a, L)
-  multipole_kick!(i, coords, mm, knL, ksL, 0)
+  if other_multipoles
+    multipole_kick!(i, coords, mm, knL, ksL, 0)
+  end
 
-  if !isnothing(coords.q)
+  exact_solenoid!(i, coords, Ksol, beta_0, gamsqr_0, tilde_m, a, L)
+
+  if other_multipoles
+    multipole_kick!(i, coords, mm, knL, ksL, 0)
+  end
+
+  if !isnothing(coords.q) && other_multipoles
     rotate_spin!(i, coords, a, 0, tilde_m, mm, kn, ks, 0, L / 2)
   end
 

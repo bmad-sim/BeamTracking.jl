@@ -5,8 +5,7 @@
 @inline function order_two_integrator!(i, coords::Coords, ker, params, photon_params, ds_step, n_steps, edge_params, ::Val{fringe_in}, ::Val{fringe_out}, L) where {fringe_in,fringe_out}
   @inbounds begin
     if !isnothing(edge_params) && fringe_in
-      a, tilde_m, Ksol, Kn0, e1, e2 = edge_params
-      linear_bend_fringe!(i, coords, a, tilde_m, Ksol, Kn0, e1, 1)
+      fringe!(i, coords, edge_params..., 1)
     end
     s = 0
     if !isnothing(photon_params)
@@ -27,8 +26,7 @@
       stochastic_radiation!(i, coords, s, photon_params..., ds_step / 2)
     end
     if !isnothing(edge_params) && fringe_out
-      a, tilde_m, Ksol, Kn0, e1, e2 = edge_params
-      linear_bend_fringe!(i, coords, a, tilde_m, Ksol, Kn0, e2, -1)
+      fringe!(i, coords, edge_params..., -1)
     end
   end
   return nothing
@@ -40,8 +38,7 @@ end
     w0 = -1.7024143839193153215916254339390434324741363525390625*ds_step
     w1 =  1.3512071919596577718181151794851757586002349853515625*ds_step
     if !isnothing(edge_params) && fringe_in
-      a, tilde_m, Ksol, Kn0, e1, e2 = edge_params
-      linear_bend_fringe!(i, coords, a, tilde_m, Ksol, Kn0, e1, 1)
+      fringe!(i, coords, edge_params..., 1)
     end
     s = 0
     if !isnothing(photon_params)
@@ -70,8 +67,7 @@ end
       stochastic_radiation!(i, coords, s, photon_params..., ds_step / 2)
     end
     if !isnothing(edge_params) && fringe_out
-      a, tilde_m, Ksol, Kn0, e1, e2 = edge_params
-      linear_bend_fringe!(i, coords, a, tilde_m, Ksol, Kn0, e2, -1)
+      fringe!(i, coords, edge_params..., -1)
     end
   end
   return nothing
@@ -85,10 +81,9 @@ end
     w2 =  0.235573213359358133684793182978535*ds_step
     w3 =  0.784513610477557263819497633866351*ds_step
     if !isnothing(edge_params)  && fringe_in
-      a, tilde_m, Ksol, Kn0, e1, e2 = edge_params
-      linear_bend_fringe!(i, coords, a, tilde_m, Ksol, Kn0, e1, 1)
+      fringe!(i, coords, edge_params..., 1)
     end
-    s = zero(w0)
+    s = 0
     if !isnothing(photon_params)
       stochastic_radiation!(i, coords, s, photon_params..., ds_step / 2)
     end
@@ -131,8 +126,7 @@ end
       stochastic_radiation!(i, coords, s, photon_params..., ds_step / 2)
     end
     if !isnothing(edge_params) && fringe_out
-      a, tilde_m, Ksol, Kn0, e1, e2 = edge_params
-      linear_bend_fringe!(i, coords, a, tilde_m, Ksol, Kn0, e2, -1)
+      fringe!(i, coords, edge_params..., -1)
     end
   end
   return nothing
@@ -150,8 +144,7 @@ end
     w6 =  0.253693336566229*ds_step
     w7 =  0.914844246229740*ds_step
     if !isnothing(edge_params) && fringe_in
-      a, tilde_m, Ksol, Kn0, e1, e2 = edge_params
-      linear_bend_fringe!(i, coords, a, tilde_m, Ksol, Kn0, e1, 1)
+      fringe!(i, coords, edge_params..., 1)
     end
     s = 0
     if !isnothing(photon_params)
@@ -227,9 +220,8 @@ end
     if !isnothing(photon_params)
       stochastic_radiation!(i, coords, s, photon_params..., ds_step / 2)
     end
-    if !isnothing(edge_params)  && fringe_out
-      a, tilde_m, Ksol, Kn0, e1, e2 = edge_params
-      linear_bend_fringe!(i, coords, a, tilde_m, Ksol, Kn0, e2, -1)
+    if !isnothing(edge_params) && fringe_out
+      fringe!(i, coords, edge_params..., -1)
     end
   end
   return nothing

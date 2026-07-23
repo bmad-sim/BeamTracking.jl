@@ -64,6 +64,7 @@ include("kernels/yoshida.jl")
 include("kernels/ibs_kick.jl")
 include("kernels/implicit.jl")
 include("kernels/thin.jl")
+include("kernels/fringe.jl")
 
 include("utils/find_stuff.jl")
 

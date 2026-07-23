@@ -16,6 +16,7 @@ ks: vector of skew multipole strengths scaled by Bρ0
 L: element length
 """
 @makekernel fastgtpsa=true function mkm_quadrupole!(i, coords::Coords, s, radiation_params, beta_0, gamsqr_0, tilde_m, a, w, w_inv, k1, mm, kn, ks, L)
+  other_multipoles = (length(mm) > 1)
   knl = kn .* L ./ 2
   ksl = ks .* L ./ 2
   
@@ -36,7 +37,9 @@ L: element length
     deterministic_radiation_multipole!(i, coords, q, mc2, E_ref, 0, mm, kn, ks, L / 2)
   end
 
-  multipole_kick!(i, coords, mm, knl, ksl, 2)
+  if other_multipoles
+    multipole_kick!(i, coords, mm, knl, ksl, 2)
+  end
 
   quadrupole_kick!(i, coords, beta_0, gamsqr_0, tilde_m, L / 2)
 
@@ -50,7 +53,9 @@ L: element length
 
   quadrupole_kick!(i, coords, beta_0, gamsqr_0, tilde_m, L / 2)
   
-  multipole_kick!(i, coords, mm, knl, ksl, 2)
+  if other_multipoles
+    multipole_kick!(i, coords, mm, knl, ksl, 2)
+  end
 
   if !isnothing(radiation_params)
     deterministic_radiation_multipole!(i, coords, q, mc2, E_ref, 0, mm, kn, ks, L / 2)
