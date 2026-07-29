@@ -1,12 +1,12 @@
 # ========== Fringe  ===========================
 @enumx Fringe NoEnd BothEnds EntranceEnd ExitEnd
 
-# ========== Yoshida ===========================
-abstract type AbstractYoshida end
+# ========== Symplectic ===========================
+abstract type AbstractSymplectic end
 
 macro def_integrator_struct(name)
   quote
-    struct $(esc(name)) <: AbstractYoshida
+    struct $(esc(name)) <: AbstractSymplectic
       order::Int
       n_steps::Int 
       ds_step::Float64
@@ -16,8 +16,9 @@ macro def_integrator_struct(name)
       ibs_damping_on::Bool
       ibs_fluctuations_on::Bool
       implicit_use_newton::Bool
+      use_optimized_schemes::Bool
   
-      function $(esc(name))(; order::Int=4, n_steps::Int=-1, ds_step::Float64=-1.0, radiation_damping_on::Bool=false, radiation_fluctuations_on::Bool=false, fringe_at::Fringe.T=Fringe.BothEnds, ibs_damping_on::Bool=false, ibs_fluctuations_on::Bool=false, implicit_use_newton::Bool=false)
+      function $(esc(name))(; order::Int=4, n_steps::Int=-1, ds_step::Float64=-1.0, radiation_damping_on::Bool=false, radiation_fluctuations_on::Bool=false, fringe_at::Fringe.T=Fringe.BothEnds, ibs_damping_on::Bool=false, ibs_fluctuations_on::Bool=false, implicit_use_newton::Bool=false, use_optimized_schemes::Bool=true)
         _order = order
         _n_steps = n_steps
         _ds_step = ds_step
@@ -34,19 +35,19 @@ macro def_integrator_struct(name)
         elseif _ds_step > 0
           _n_steps = -1
         end
-        return new(_order, _n_steps, _ds_step, radiation_damping_on, radiation_fluctuations_on, fringe_at, ibs_damping_on, ibs_fluctuations_on, implicit_use_newton)
+        return new(_order, _n_steps, _ds_step, radiation_damping_on, radiation_fluctuations_on, fringe_at, ibs_damping_on, ibs_fluctuations_on, implicit_use_newton, use_optimized_schemes)
       end
     end
   end
 end
 
-@def_integrator_struct(Yoshida) # Automatically selects split
+@def_integrator_struct(Symplectic) # Automatically selects split
 @def_integrator_struct(MatrixKick)
 @def_integrator_struct(BendKick)
 @def_integrator_struct(SolenoidKick)
 @def_integrator_struct(DriftKick)
 
-function remake(::Type{T}, ytm::AbstractYoshida) where {T<:AbstractYoshida}
+function remake(::Type{T}, ytm::AbstractSymplectic) where {T<:AbstractSymplectic}
   return T(
     order = ytm.order,
     n_steps = ytm.n_steps,
@@ -56,7 +57,8 @@ function remake(::Type{T}, ytm::AbstractYoshida) where {T<:AbstractYoshida}
     fringe_at = ytm.fringe_at,
     ibs_damping_on = ytm.ibs_damping_on,
     ibs_fluctuations_on = ytm.ibs_fluctuations_on,
-    implicit_use_newton = ytm.implicit_use_newton
+    implicit_use_newton = ytm.implicit_use_newton,
+    use_optimized_schemes = ytm.use_optimized_schemes
   )
 end
 

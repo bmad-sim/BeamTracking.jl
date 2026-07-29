@@ -28,8 +28,8 @@ L: element length
   alive_at_start = (coords.state[i] == STATE_ALIVE)
   coords.state[i] = vifelse(!good_momenta & alive_at_start, STATE_LOST, coords.state[i])
 
-  if !isnothing(coords.q)
-    rotate_spin!(i, coords, a, 0, tilde_m, mm, knl, ksl, -1)
+  if !isnothing(coords.q) && other_multipoles
+    rotate_spin!(i, coords, a, 0, tilde_m, mm, knl, ksl, 2)
   end
 
   if !isnothing(radiation_params)
@@ -46,7 +46,13 @@ L: element length
   if !isnothing(w)
     rotation!(i, coords, w, 0)
   end
-  quadrupole_matrix!(i, coords, k1, L)
+
+  if !isnothing(coords.q)
+    quadrupole_magnus6!(i, coords, k1, tilde_m, a, L)
+  else
+    quadrupole_matrix!(i, coords, k1, L)
+  end
+
   if !isnothing(w_inv)
     rotation!(i, coords, w_inv, 0)
   end
@@ -61,10 +67,11 @@ L: element length
     deterministic_radiation_multipole!(i, coords, q, mc2, E_ref, 0, mm, kn, ks, L / 2)
   end
 
-  if !isnothing(coords.q)
-    rotate_spin!(i, coords, a, 0, tilde_m, mm, knl, ksl, -1)
+  if !isnothing(coords.q) && other_multipoles
+    rotate_spin!(i, coords, a, 0, tilde_m, mm, knl, ksl, 2)
   end
 end
+
 
 """
 quadrupole_matrix!()
@@ -158,3 +165,106 @@ s: element length
   v[i,YI] = vifelse(alive, new_y, v[i,YI])
   v[i,ZI] = vifelse(alive, new_z, v[i,ZI])
 end 
+
+
+function quadrupole_magnus6!(i, coords::Coords, k1, tilde_m, a, L)
+  v = coords.v
+  q = coords.q
+
+  rel_p = 1 + v[i,PZI]
+  rel_p2 = rel_p*rel_p
+
+  eta = sqrt(15)/10*L
+
+  quadrupole_matrix!(i, coords, k1, L/2 - eta)
+
+  x_1  = v[i,XI]
+  px_1 = v[i,PXI]
+  y_1  = v[i,YI]
+  py_1 = v[i,PYI]
+
+  ps_1_2 = rel_p2 - px_1*px_1 - py_1*py_1
+  good_momenta = (ps_1_2 > 0)
+  alive_at_start = (coords.state[i] == STATE_ALIVE)
+  coords.state[i] = vifelse(!good_momenta & alive_at_start, STATE_LOST, coords.state[i])
+  alive = (coords.state[i] == STATE_ALIVE)
+  ps_1_1 = one(ps_1_2)
+  ps_1 = sqrt(vifelse(good_momenta, ps_1_2, ps_1_1))
+
+  quadrupole_matrix!(i, coords, k1, eta)
+
+  x_2  = v[i,XI]
+  px_2 = v[i,PXI]
+  y_2  = v[i,YI]
+  py_2 = v[i,PYI]
+
+  ps_2_2 = rel_p2 - px_2*px_2 - py_2*py_2
+  good_momenta = (ps_2_2 > 0)
+  alive_at_start = (coords.state[i] == STATE_ALIVE)
+  coords.state[i] = vifelse(!good_momenta & alive_at_start, STATE_LOST, coords.state[i])
+  alive = (coords.state[i] == STATE_ALIVE)
+  ps_2_1 = one(ps_2_2)
+  ps_2 = sqrt(vifelse(good_momenta, ps_2_2, ps_2_1))
+
+  quadrupole_matrix!(i, coords, k1, eta)
+
+  x_3  = v[i,XI]
+  px_3 = v[i,PXI]
+  y_3  = v[i,YI]
+  py_3 = v[i,PYI]
+
+  ps_3_2 = rel_p2 - px_3*px_3 - py_3*py_3
+  good_momenta = (ps_3_2 > 0)
+  alive_at_start = (coords.state[i] == STATE_ALIVE)
+  coords.state[i] = vifelse(!good_momenta & alive_at_start, STATE_LOST, coords.state[i])
+  alive = (coords.state[i] == STATE_ALIVE)
+  ps_3_1 = one(ps_3_2)
+  ps_3 = sqrt(vifelse(good_momenta, ps_3_2, ps_3_1))
+
+  quadrupole_matrix!(i, coords, k1, L/2 - eta)
+
+  beta_gamma = rel_p/tilde_m
+  beta_gamma2 = beta_gamma*beta_gamma
+  gamma_minus_1 = beta_gamma2/(1 + sqrt(1 + beta_gamma2))
+  gamma = gamma_minus_1 + 1
+  chi = 1 + a*gamma
+  k1_chi = -k1*chi
+  k1_g = k1*a*gamma_minus_1/rel_p2
+
+  coeff1_1 = k1_chi/ps_1
+  coeff1_2 = k1_chi/ps_2
+  coeff1_3 = k1_chi/ps_3
+
+  coeff2_1 = k1_g*(x_1*py_1 + y_1*px_1)/ps_1
+  coeff2_2 = k1_g*(x_2*py_2 + y_2*px_2)/ps_2
+  coeff2_3 = k1_g*(x_3*py_3 + y_3*px_3)/ps_3
+
+  a1 = (coeff1_1*y_1 + coeff2_1*px_1, coeff1_1*x_1 + coeff2_1*py_1, coeff2_1*ps_1)
+  a2 = (coeff1_2*y_2 + coeff2_2*px_2, coeff1_2*x_2 + coeff2_2*py_2, coeff2_2*ps_2)
+  a3 = (coeff1_3*y_3 + coeff2_3*px_3, coeff1_3*x_3 + coeff2_3*py_3, coeff2_3*ps_3)
+
+  alpha1 = L .* a2
+  alpha2 = (eta*10/3) .* (a3 .- a1)
+  alpha3 = (10*L/3) .* (a3 .- (2 .* a2) .+ a1)
+
+  c1 = cross(alpha1, alpha2)
+  c2 = cross(alpha1, (2 .* alpha3) .+ c1) ./ (-60)
+
+  omega = alpha1 .+ (alpha3 ./ 12) .+ (cross((-20 .* alpha1) .- alpha3 .+ c1, alpha2 .+ c2) ./ 240)
+
+  q1 = expq(omega, alive)
+  q2 = quat_mul(q1, q[i,Q0], q[i,QX], q[i,QY], q[i,QZ])
+  q[i,Q0], q[i,QX], q[i,QY], q[i,QZ] = q2
+end
+
+
+function cross(v1, v2)
+  @inbounds begin @FastGTPSA begin
+    a1, b1, c1 = v1
+    a2, b2, c2 = v2
+    o1 = b1*c2 - b2*c1
+    o2 = c1*a2 - c2*a1
+    o3 = a1*b2 - a2*b1
+  end end
+  return (o1, o2, o3)
+end
