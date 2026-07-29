@@ -167,7 +167,8 @@ s: element length
 end 
 
 
-@makekernel fastgtpsa=true function quadrupole_magnus6!(i, coords::Coords, k1, tilde_m, a, L)
+# There seems to be a bug with FastGTPSA temps not being released
+@makekernel fastgtpsa=false function quadrupole_magnus6!(i, coords::Coords, k1, tilde_m, a, L)
   v = coords.v
   q = coords.q
 
