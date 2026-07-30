@@ -172,73 +172,75 @@ end
   v = coords.v
   q = coords.q
 
-  rel_p = 1 + v[i,PZI]
-  rel_p2 = rel_p*rel_p
+  @FastGTPSA begin
+    rel_p = 1 + v[i,PZI]
+    rel_p2 = rel_p*rel_p
 
-  eta = sqrt(15)/10*L
+    eta = sqrt(15)/10*L
 
-  quadrupole_matrix!(i, coords, k1, L/2 - eta)
+    quadrupole_matrix!(i, coords, k1, L/2 - eta)
 
-  x_1  = v[i,XI]
-  px_1 = v[i,PXI]
-  y_1  = v[i,YI]
-  py_1 = v[i,PYI]
+    x_1  = v[i,XI]
+    px_1 = v[i,PXI]
+    y_1  = v[i,YI]
+    py_1 = v[i,PYI]
 
-  ps_1_2 = rel_p2 - px_1*px_1 - py_1*py_1
-  good_momenta = (ps_1_2 > 0)
-  alive_at_start = (coords.state[i] == STATE_ALIVE)
-  coords.state[i] = vifelse(!good_momenta & alive_at_start, STATE_LOST, coords.state[i])
-  alive = (coords.state[i] == STATE_ALIVE)
-  ps_1_1 = one(ps_1_2)
-  ps_1 = sqrt(vifelse(good_momenta, ps_1_2, ps_1_1))
+    ps_1_2 = rel_p2 - px_1*px_1 - py_1*py_1
+    good_momenta = (ps_1_2 > 0)
+    alive_at_start = (coords.state[i] == STATE_ALIVE)
+    coords.state[i] = vifelse(!good_momenta & alive_at_start, STATE_LOST, coords.state[i])
+    alive = (coords.state[i] == STATE_ALIVE)
+    ps_1_1 = one(ps_1_2)
+    ps_1 = sqrt(vifelse(good_momenta, ps_1_2, ps_1_1))
 
-  quadrupole_matrix!(i, coords, k1, eta)
+    quadrupole_matrix!(i, coords, k1, eta)
 
-  x_2  = v[i,XI]
-  px_2 = v[i,PXI]
-  y_2  = v[i,YI]
-  py_2 = v[i,PYI]
+    x_2  = v[i,XI]
+    px_2 = v[i,PXI]
+    y_2  = v[i,YI]
+    py_2 = v[i,PYI]
 
-  ps_2_2 = rel_p2 - px_2*px_2 - py_2*py_2
-  good_momenta = (ps_2_2 > 0)
-  alive_at_start = (coords.state[i] == STATE_ALIVE)
-  coords.state[i] = vifelse(!good_momenta & alive_at_start, STATE_LOST, coords.state[i])
-  alive = (coords.state[i] == STATE_ALIVE)
-  ps_2_1 = one(ps_2_2)
-  ps_2 = sqrt(vifelse(good_momenta, ps_2_2, ps_2_1))
+    ps_2_2 = rel_p2 - px_2*px_2 - py_2*py_2
+    good_momenta = (ps_2_2 > 0)
+    alive_at_start = (coords.state[i] == STATE_ALIVE)
+    coords.state[i] = vifelse(!good_momenta & alive_at_start, STATE_LOST, coords.state[i])
+    alive = (coords.state[i] == STATE_ALIVE)
+    ps_2_1 = one(ps_2_2)
+    ps_2 = sqrt(vifelse(good_momenta, ps_2_2, ps_2_1))
 
-  quadrupole_matrix!(i, coords, k1, eta)
+    quadrupole_matrix!(i, coords, k1, eta)
 
-  x_3  = v[i,XI]
-  px_3 = v[i,PXI]
-  y_3  = v[i,YI]
-  py_3 = v[i,PYI]
+    x_3  = v[i,XI]
+    px_3 = v[i,PXI]
+    y_3  = v[i,YI]
+    py_3 = v[i,PYI]
 
-  ps_3_2 = rel_p2 - px_3*px_3 - py_3*py_3
-  good_momenta = (ps_3_2 > 0)
-  alive_at_start = (coords.state[i] == STATE_ALIVE)
-  coords.state[i] = vifelse(!good_momenta & alive_at_start, STATE_LOST, coords.state[i])
-  alive = (coords.state[i] == STATE_ALIVE)
-  ps_3_1 = one(ps_3_2)
-  ps_3 = sqrt(vifelse(good_momenta, ps_3_2, ps_3_1))
+    ps_3_2 = rel_p2 - px_3*px_3 - py_3*py_3
+    good_momenta = (ps_3_2 > 0)
+    alive_at_start = (coords.state[i] == STATE_ALIVE)
+    coords.state[i] = vifelse(!good_momenta & alive_at_start, STATE_LOST, coords.state[i])
+    alive = (coords.state[i] == STATE_ALIVE)
+    ps_3_1 = one(ps_3_2)
+    ps_3 = sqrt(vifelse(good_momenta, ps_3_2, ps_3_1))
 
-  quadrupole_matrix!(i, coords, k1, L/2 - eta)
+    quadrupole_matrix!(i, coords, k1, L/2 - eta)
 
-  beta_gamma = rel_p/tilde_m
-  beta_gamma2 = beta_gamma*beta_gamma
-  gamma_minus_1 = beta_gamma2/(1 + sqrt(1 + beta_gamma2))
-  gamma = gamma_minus_1 + 1
-  chi = 1 + a*gamma
-  k1_chi = -k1*chi
-  k1_g = k1*a*gamma_minus_1/rel_p2
+    beta_gamma = rel_p/tilde_m
+    beta_gamma2 = beta_gamma*beta_gamma
+    gamma_minus_1 = beta_gamma2/(1 + sqrt(1 + beta_gamma2))
+    gamma = gamma_minus_1 + 1
+    chi = 1 + a*gamma
+    k1_chi = -k1*chi
+    k1_g = k1*a*gamma_minus_1/rel_p2
 
-  coeff1_1 = k1_chi/ps_1
-  coeff1_2 = k1_chi/ps_2
-  coeff1_3 = k1_chi/ps_3
+    coeff1_1 = k1_chi/ps_1
+    coeff1_2 = k1_chi/ps_2
+    coeff1_3 = k1_chi/ps_3
 
-  coeff2_1 = k1_g*(x_1*py_1 + y_1*px_1)/ps_1
-  coeff2_2 = k1_g*(x_2*py_2 + y_2*px_2)/ps_2
-  coeff2_3 = k1_g*(x_3*py_3 + y_3*px_3)/ps_3
+    coeff2_1 = k1_g*(x_1*py_1 + y_1*px_1)/ps_1
+    coeff2_2 = k1_g*(x_2*py_2 + y_2*px_2)/ps_2
+    coeff2_3 = k1_g*(x_3*py_3 + y_3*px_3)/ps_3
+  end
 
   a1 = (coeff1_1*y_1 + coeff2_1*px_1, coeff1_1*x_1 + coeff2_1*py_1, coeff2_1*ps_1)
   a2 = (coeff1_2*y_2 + coeff2_2*px_2, coeff1_2*x_2 + coeff2_2*py_2, coeff2_2*ps_2)
@@ -260,12 +262,12 @@ end
 
 
 function cross(v1, v2)
-  @inbounds begin @FastGTPSA begin
+  @inbounds begin
     a1, b1, c1 = v1
     a2, b2, c2 = v2
     o1 = b1*c2 - b2*c1
     o2 = c1*a2 - c2*a1
     o3 = a1*b2 - a2*b1
-  end end
+  end
   return (o1, o2, o3)
 end
