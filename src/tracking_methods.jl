@@ -22,8 +22,8 @@ macro def_integrator_struct(name)
         _order = order
         _n_steps = n_steps
         _ds_step = ds_step
-        if _order ∉ (2, 4, 6, 8)
-          error("Symplectic integration only supports orders 2, 4, 6, and 8")
+        if _order ∉ (2, 4, 6, 8, 10)
+          error("Symplectic integration only supports orders 2, 4, 6, 8, and 10")
         elseif _n_steps == -1 && _ds_step == -1.0
           _n_steps = 1
         elseif _n_steps > 0 && _ds_step > 0

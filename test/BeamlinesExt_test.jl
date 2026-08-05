@@ -787,7 +787,7 @@
     @test b0.coords.q ≈ q_expected
 
     # With sextupole:
-    ele = LineElement(L=4.01667, voltage=3321.0942126011, zero_phase=PhaseRef.AboveTransition, rf_frequency=591142.68014977, phi0=0.1, Kn2=1.3, tracking_method=Symplectic(order=6, n_steps=10))
+    ele = LineElement(L=4.01667, voltage=3321.0942126011, zero_phase=PhaseRef.AboveTransition, rf_frequency=591142.68014977, phi0=0.1, Kn2=1.3, tracking_method=Symplectic(order=10, n_steps=3))
     v = [0.01 0.02 0.03 0.04 0.05 0.06]
     q = [1.0 0.0 0.0 0.0]
     b0 = Bunch(v, q, p_over_q_ref=p_over_q_ref, species=Species("electron"))

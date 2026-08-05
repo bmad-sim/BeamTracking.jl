@@ -19,6 +19,10 @@
     return make_kernel_call(BeamTracking.order_six_integrator!, (ker, params, photon_params, ds_step, n_steps, edge_params, fin, fout, Val{tm.use_optimized_schemes}(), L))
   elseif order == 8
     return make_kernel_call(BeamTracking.order_eight_integrator!, (ker, params, photon_params, ds_step, n_steps, edge_params, fin, fout, Val{tm.use_optimized_schemes}(), L))
+  elseif order == 10
+    return make_kernel_call(BeamTracking.order_ten_integrator!, (ker, params, photon_params, ds_step, n_steps, edge_params, fin, fout, Val{tm.use_optimized_schemes}(), L))
+  else
+    error("Integration order $order not supported")
   end
 end
 

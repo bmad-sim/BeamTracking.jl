@@ -335,3 +335,188 @@ end
   end
   return nothing
 end
+
+
+@inline function order_ten_integrator!(i, coords::Coords, ker, params, photon_params, ds_step, n_steps, edge_params, ::Val{fringe_in}, ::Val{fringe_out}, use_optimized_schemes, L) where {fringe_in, fringe_out}
+  @inbounds begin
+    w0  =  0.049317735759594537917680008339338*ds_step
+    w1  =  0.049674370639729879054568800279461*ds_step
+    w2  =  0.050665090759924496335874344156866*ds_step
+    w3  =  0.051942502962449647037182904015976*ds_step
+    w4  = -0.39203335370863990644808193642610*ds_step
+    w5  = -0.0048663605831352617621956593099771*ds_step
+    w6  =  0.41143087395589023782070411897608*ds_step
+    w7  =  0.10308739852747107731580277001372*ds_step
+    w8  = -0.39910563013603589787862981058340*ds_step
+    w9  =  0.36613344954622675119314812353150*ds_step
+    w10 =  0.11199342399981020488957508073640*ds_step
+    w11 =  0.074973343155891435666137105641410*ds_step
+    w12 = -0.26973340565451071434460973222411*ds_step
+    w13 =  0.13096206107716486317465685927961*ds_step
+    w14 = -0.22959284159390709415121339679655*ds_step
+    w15 =  0.027918383235078066109520273275299*ds_step
+    w16 =  0.31309610341510852776481247192647*ds_step
+    w17 =  0.078795722521686419263907679337684*ds_step
+    if !isnothing(edge_params) && fringe_in
+      fringe!(i, coords, edge_params..., 1)
+    end
+    s = 0
+    if !isnothing(photon_params)
+      stochastic_radiation!(i, coords, s, photon_params..., ds_step / 2)
+    end
+    for step in 1:(n_steps-1)
+      ker(i, coords, s, params..., w17)
+      s += w17
+      ker(i, coords, s, params..., w16)
+      s += w16
+      ker(i, coords, s, params..., w15)
+      s += w15
+      ker(i, coords, s, params..., w14)
+      s += w14
+      ker(i, coords, s, params..., w13)
+      s += w13
+      ker(i, coords, s, params..., w12)
+      s += w12
+      ker(i, coords, s, params..., w11)
+      s += w11
+      ker(i, coords, s, params..., w10)
+      s += w10
+      ker(i, coords, s, params..., w9)
+      s += w9
+      ker(i, coords, s, params..., w8)
+      s += w8
+      ker(i, coords, s, params..., w7)
+      s += w7
+      ker(i, coords, s, params..., w6)
+      s += w6
+      ker(i, coords, s, params..., w5)
+      s += w5
+      ker(i, coords, s, params..., w4)
+      s += w4
+      ker(i, coords, s, params..., w3)
+      s += w3
+      ker(i, coords, s, params..., w2)
+      s += w2
+      ker(i, coords, s, params..., w1)
+      s += w1
+      ker(i, coords, s, params..., w0)
+      s += w0
+      ker(i, coords, s, params..., w1)
+      s += w1
+      ker(i, coords, s, params..., w2)
+      s += w2
+      ker(i, coords, s, params..., w3)
+      s += w3
+      ker(i, coords, s, params..., w4)
+      s += w4
+      ker(i, coords, s, params..., w5)
+      s += w5
+      ker(i, coords, s, params..., w6)
+      s += w6
+      ker(i, coords, s, params..., w7)
+      s += w7
+      ker(i, coords, s, params..., w8)
+      s += w8
+      ker(i, coords, s, params..., w9)
+      s += w9
+      ker(i, coords, s, params..., w10)
+      s += w10
+      ker(i, coords, s, params..., w11)
+      s += w11
+      ker(i, coords, s, params..., w12)
+      s += w12
+      ker(i, coords, s, params..., w13)
+      s += w13
+      ker(i, coords, s, params..., w14)
+      s += w14
+      ker(i, coords, s, params..., w15)
+      s += w15
+      ker(i, coords, s, params..., w16)
+      s += w16
+      ker(i, coords, s, params..., w17)
+      s += w17
+      if !isnothing(photon_params)
+        stochastic_radiation!(i, coords, s, photon_params..., ds_step)
+      end
+      dt_ref = compute_dt_ref(s, ker, params)
+      execute_callbacks(i, coords, s, dt_ref)
+    end
+    ker(i, coords, s, params..., w17)
+    s += w17
+    ker(i, coords, s, params..., w16)
+    s += w16
+    ker(i, coords, s, params..., w15)
+    s += w15
+    ker(i, coords, s, params..., w14)
+    s += w14
+    ker(i, coords, s, params..., w13)
+    s += w13
+    ker(i, coords, s, params..., w12)
+    s += w12
+    ker(i, coords, s, params..., w11)
+    s += w11
+    ker(i, coords, s, params..., w10)
+    s += w10
+    ker(i, coords, s, params..., w9)
+    s += w9
+    ker(i, coords, s, params..., w8)
+    s += w8
+    ker(i, coords, s, params..., w7)
+    s += w7
+    ker(i, coords, s, params..., w6)
+    s += w6
+    ker(i, coords, s, params..., w5)
+    s += w5
+    ker(i, coords, s, params..., w4)
+    s += w4
+    ker(i, coords, s, params..., w3)
+    s += w3
+    ker(i, coords, s, params..., w2)
+    s += w2
+    ker(i, coords, s, params..., w1)
+    s += w1
+    ker(i, coords, s, params..., w0)
+    s += w0
+    ker(i, coords, s, params..., w1)
+    s += w1
+    ker(i, coords, s, params..., w2)
+    s += w2
+    ker(i, coords, s, params..., w3)
+    s += w3
+    ker(i, coords, s, params..., w4)
+    s += w4
+    ker(i, coords, s, params..., w5)
+    s += w5
+    ker(i, coords, s, params..., w6)
+    s += w6
+    ker(i, coords, s, params..., w7)
+    s += w7
+    ker(i, coords, s, params..., w8)
+    s += w8
+    ker(i, coords, s, params..., w9)
+    s += w9
+    ker(i, coords, s, params..., w10)
+    s += w10
+    ker(i, coords, s, params..., w11)
+    s += w11
+    ker(i, coords, s, params..., w12)
+    s += w12
+    ker(i, coords, s, params..., w13)
+    s += w13
+    ker(i, coords, s, params..., w14)
+    s += w14
+    ker(i, coords, s, params..., w15)
+    s += w15
+    ker(i, coords, s, params..., w16)
+    s += w16
+    ker(i, coords, s, params..., w17)
+    s += w17
+    if !isnothing(photon_params)
+      stochastic_radiation!(i, coords, s, photon_params..., ds_step / 2)
+    end
+    if !isnothing(edge_params) && fringe_out
+      fringe!(i, coords, edge_params..., -1)
+    end
+  end
+  return nothing
+end
