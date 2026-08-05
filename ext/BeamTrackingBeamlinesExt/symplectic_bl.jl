@@ -12,19 +12,23 @@
   fin  = fringe_in(tm.fringe_at)
   fout = fringe_out(tm.fringe_at)
   if order == 2
-    return make_kernel_call(BeamTracking.order_two_integrator!, (ker, params, photon_params, ds_step, n_steps, edge_params, fin, fout, L))
+    return make_kernel_call(BeamTracking.order_two_integrator!, (ker, params, photon_params, ds_step, n_steps, edge_params, fin, fout, Val{tm.use_optimized_schemes}(), L))
   elseif order == 4
-    return make_kernel_call(BeamTracking.order_four_integrator!, (ker, params, photon_params, ds_step, n_steps, edge_params, fin, fout, L))
+    return make_kernel_call(BeamTracking.order_four_integrator!, (ker, params, photon_params, ds_step, n_steps, edge_params, fin, fout, Val{tm.use_optimized_schemes}(), L))
   elseif order == 6
-    return make_kernel_call(BeamTracking.order_six_integrator!, (ker, params, photon_params, ds_step, n_steps, edge_params, fin, fout, L))
+    return make_kernel_call(BeamTracking.order_six_integrator!, (ker, params, photon_params, ds_step, n_steps, edge_params, fin, fout, Val{tm.use_optimized_schemes}(), L))
   elseif order == 8
-    return make_kernel_call(BeamTracking.order_eight_integrator!, (ker, params, photon_params, ds_step, n_steps, edge_params, fin, fout, L))
+    return make_kernel_call(BeamTracking.order_eight_integrator!, (ker, params, photon_params, ds_step, n_steps, edge_params, fin, fout, Val{tm.use_optimized_schemes}(), L))
+  elseif order == 10
+    return make_kernel_call(BeamTracking.order_ten_integrator!, (ker, params, photon_params, ds_step, n_steps, edge_params, fin, fout, Val{tm.use_optimized_schemes}(), L))
+  else
+    error("Integration order $order not supported")
   end
 end
 
 # =========== STRAIGHT ELEMENTS ============= #
 # === Thin elements === #
-@inline function thin_pure_bdipole(tm::Yoshida, kc, p_over_q_ref, bunch, bm)
+@inline function thin_pure_bdipole(tm::Symplectic, kc, p_over_q_ref, bunch, bm)
   p_over_q_ref = p_over_q_ref
   mm = bm.order
   knl, ksl = get_integrated_strengths(bm, 0, p_over_q_ref)
@@ -37,7 +41,7 @@ end
   return push(kc, make_kernel_call(BeamTracking.integrate_thin!, params))
 end
 
-@inline function thin_bdipole(tm::Yoshida, kc, p_over_q_ref, bunch, bm)
+@inline function thin_bdipole(tm::Symplectic, kc, p_over_q_ref, bunch, bm)
   p_over_q_ref = p_over_q_ref
   mm = bm.order
   knl, ksl = get_integrated_strengths(bm, 0, p_over_q_ref)
@@ -50,23 +54,23 @@ end
   return push(kc, make_kernel_call(BeamTracking.integrate_thin!, params))
 end
 
-@inline thin_pure_bquadrupole(tm::Yoshida, kc, p_over_q_ref, bunch, bm) = thin_pure_bdipole(tm, kc, p_over_q_ref, bunch, bm)
+@inline thin_pure_bquadrupole(tm::Symplectic, kc, p_over_q_ref, bunch, bm) = thin_pure_bdipole(tm, kc, p_over_q_ref, bunch, bm)
 
-@inline thin_bquadrupole(tm::Yoshida, kc, p_over_q_ref, bunch, bm) = thin_bdipole(tm, kc, p_over_q_ref, bunch, bm)
+@inline thin_bquadrupole(tm::Symplectic, kc, p_over_q_ref, bunch, bm) = thin_bdipole(tm, kc, p_over_q_ref, bunch, bm)
 
-@inline thin_pure_bmultipole(tm::Yoshida, kc, p_over_q_ref, bunch, bm) = thin_pure_bdipole(tm, kc, p_over_q_ref, bunch, bm)
+@inline thin_pure_bmultipole(tm::Symplectic, kc, p_over_q_ref, bunch, bm) = thin_pure_bdipole(tm, kc, p_over_q_ref, bunch, bm)
 
-@inline thin_bmultipole(tm::Yoshida, kc, p_over_q_ref, bunch, bm) = thin_bdipole(tm, kc, p_over_q_ref, bunch, bm)
+@inline thin_bmultipole(tm::Symplectic, kc, p_over_q_ref, bunch, bm) = thin_bdipole(tm, kc, p_over_q_ref, bunch, bm)
 
 
 # === Thick elements === #
-@inline function drift(tm::Union{Yoshida,DriftKick}, kc, p_over_q_ref, bunch, L)
+@inline function drift(tm::Union{Symplectic,DriftKick}, kc, p_over_q_ref, bunch, L)
   tilde_m, gamsqr_0, beta_0 = BeamTracking.drift_params(bunch.species, p_over_q_ref)
   params = (beta_0, gamsqr_0, tilde_m)
   return push(kc, integration_launcher(BeamTracking.exact_drift!, params, nothing, tm, nothing, L))
 end
 
-@inline function thick_pure_bsolenoid(tm::Union{Yoshida,SolenoidKick}, kc, p_over_q_ref, bunch, bm, L) 
+@inline function thick_pure_bsolenoid(tm::Union{Symplectic,SolenoidKick}, kc, p_over_q_ref, bunch, bm, L) 
   p_over_q_ref = p_over_q_ref
   tilde_m, gamsqr_0, beta_0 = BeamTracking.drift_params(bunch.species, p_over_q_ref)
   mm = SA[bm.order]
@@ -88,7 +92,7 @@ end
   return push(kc, integration_launcher(BeamTracking.sks_multipole!, params, photon_params, tm, edge_params, L))
 end
 
-@inline function thick_bsolenoid(tm::Union{Yoshida,SolenoidKick}, kc, p_over_q_ref, bunch, bm, L) 
+@inline function thick_bsolenoid(tm::Union{Symplectic,SolenoidKick}, kc, p_over_q_ref, bunch, bm, L) 
   p_over_q_ref = p_over_q_ref
   tilde_m, gamsqr_0, beta_0 = BeamTracking.drift_params(bunch.species, p_over_q_ref)
   mm = bm.order
@@ -183,7 +187,7 @@ end
   return push(kc, integration_launcher(BeamTracking.dkd_multipole!, params, photon_params, tm, edge_params, L))
 end
 
-@inline function thick_bdipole(tm::Union{Yoshida,DriftKick}, kc, p_over_q_ref, bunch, bm, L)
+@inline function thick_bdipole(tm::Union{Symplectic,DriftKick}, kc, p_over_q_ref, bunch, bm, L)
   p_over_q_ref = p_over_q_ref
   tilde_m, gamsqr_0, beta_0 = BeamTracking.drift_params(bunch.species, p_over_q_ref)
   mm = bm.order
@@ -230,7 +234,7 @@ end
   return push(kc, integration_launcher(BeamTracking.dkd_multipole!, params, photon_params, tm, edge_params, L))
 end
 
-@inline function thick_pure_bdipole(tm::Union{Yoshida,BendKick}, kc, p_over_q_ref, bunch, bm1, L) 
+@inline function thick_pure_bdipole(tm::Union{Symplectic,BendKick}, kc, p_over_q_ref, bunch, bm1, L) 
   p_over_q_ref = p_over_q_ref
   tilde_m, _, beta_0 = BeamTracking.drift_params(bunch.species, p_over_q_ref)
   mm = bm1.order
@@ -343,7 +347,7 @@ end
   return push(kc, integration_launcher(BeamTracking.mkm_quadrupole!, params, photon_params, tm, edge_params, L))
 end
 
-@inline function thick_pure_bquadrupole(tm::Union{Yoshida,MatrixKick}, kc, p_over_q_ref, bunch, bm, L)
+@inline function thick_pure_bquadrupole(tm::Union{Symplectic,MatrixKick}, kc, p_over_q_ref, bunch, bm, L)
   p_over_q_ref = p_over_q_ref
   tilde_m, gamsqr_0, beta_0 = BeamTracking.drift_params(bunch.species, p_over_q_ref)
   mm = bm.order
@@ -375,7 +379,7 @@ end
 @inline thick_pure_bquadrupole(tm::DriftKick, kc, p_over_q_ref, bunch, bm, L) = 
   thick_pure_bdipole(tm, kc, p_over_q_ref, bunch, bm, L)
 
-@inline function thick_bquadrupole(tm::Union{Yoshida,MatrixKick}, kc, p_over_q_ref, bunch, bm, L)
+@inline function thick_bquadrupole(tm::Union{Symplectic,MatrixKick}, kc, p_over_q_ref, bunch, bm, L)
   p_over_q_ref = p_over_q_ref
   tilde_m, gamsqr_0, beta_0 = BeamTracking.drift_params(bunch.species, p_over_q_ref)
   mm = bm.order
@@ -406,15 +410,15 @@ end
 
 @inline thick_bquadrupole(tm::DriftKick, kc, p_over_q_ref, bunch, bm, L) = thick_bdipole(tm, kc, p_over_q_ref, bunch, bm, L)
 
-@inline thick_pure_bmultipole(tm::Union{Yoshida,DriftKick}, kc, p_over_q_ref, bunch, bm, L) = 
+@inline thick_pure_bmultipole(tm::Union{Symplectic,DriftKick}, kc, p_over_q_ref, bunch, bm, L) = 
   thick_pure_bdipole(remake(DriftKick, tm), kc, p_over_q_ref, bunch, bm, L)
 
-@inline thick_bmultipole(tm::Union{Yoshida,DriftKick}, kc, p_over_q_ref, bunch, bm, L) = 
+@inline thick_bmultipole(tm::Union{Symplectic,DriftKick}, kc, p_over_q_ref, bunch, bm, L) = 
   thick_bdipole(remake(DriftKick, tm), kc, p_over_q_ref, bunch, bm, L)
 
 
 # =========== BENDING ELEMENTS ============= #
-@inline function thick_bend_no_field(tm::Union{Yoshida,BendKick}, kc, p_over_q_ref, bunch, bendparams, L)
+@inline function thick_bend_no_field(tm::Union{Symplectic,BendKick}, kc, p_over_q_ref, bunch, bendparams, L)
   g = bendparams.g_ref
   ntilt = -bendparams.tilt_ref
   e1 = bendparams.e1
@@ -431,7 +435,7 @@ end
   return push(kc, integration_launcher(BeamTracking.bkb_multipole!, params, nothing, tm, nothing, L))
 end
 
-@inline function thick_bend_pure_bdipole(tm::Union{Yoshida,BendKick}, kc, p_over_q_ref, bunch, bendparams, bm1, L)
+@inline function thick_bend_pure_bdipole(tm::Union{Symplectic,BendKick}, kc, p_over_q_ref, bunch, bendparams, bm1, L)
   p_over_q_ref = p_over_q_ref
   tilde_m, _, beta_0 = BeamTracking.drift_params(bunch.species, p_over_q_ref)
   g = bendparams.g_ref
@@ -463,7 +467,7 @@ end
   return push(kc, integration_launcher(BeamTracking.bkb_multipole!, params, photon_params, tm, edge_params, L))
 end
 
-@inline function thick_bend_bdipole(tm::Union{Yoshida,BendKick}, kc, p_over_q_ref, bunch, bendparams, bm, L)
+@inline function thick_bend_bdipole(tm::Union{Symplectic,BendKick}, kc, p_over_q_ref, bunch, bendparams, bm, L)
   @warn "Straight multipoles are being used in a curved reference system. Maxwell's equations in free space are not satisfied." maxlog=1
   p_over_q_ref = p_over_q_ref
   tilde_m, _, beta_0 = BeamTracking.drift_params(bunch.species, p_over_q_ref)
@@ -499,7 +503,7 @@ end
 
 
 # =========== RF ============= #
-@inline function thick_pure_rf(tm::Union{Yoshida,DriftKick}, kc, p_over_q_ref, bunch, rfparams, beamlineparams, L)
+@inline function thick_pure_rf(tm::Union{Symplectic,DriftKick}, kc, p_over_q_ref, bunch, rfparams, beamlineparams, L)
   p_over_q_ref = p_over_q_ref
   omega = rf_omega_calc(rfparams, beamlineparams)
   t_ref = (rf_phi0_calc(rfparams, beamlineparams.beamline.species_ref) - pi/2)/omega
@@ -519,7 +523,7 @@ end
   return push(kc, integration_launcher(BeamTracking.cavity!, params, photon_params, tm, nothing, L))
 end
 
-@inline function thick_bmultipole_rf(tm::Union{Yoshida,DriftKick,SolenoidKick}, kc, p_over_q_ref, bunch, bm, rfparams, beamlineparams, L)
+@inline function thick_bmultipole_rf(tm::Union{Symplectic,DriftKick,SolenoidKick}, kc, p_over_q_ref, bunch, bm, rfparams, beamlineparams, L)
   p_over_q_ref = p_over_q_ref
   omega = rf_omega_calc(rfparams, beamlineparams)
   t_ref = (rf_phi0_calc(rfparams, beamlineparams.beamline.species_ref) - pi/2) / omega
@@ -574,7 +578,7 @@ end
 
 
 # =========== IMPLICIT ============= #
-@inline function implicit(tm::Yoshida, kc, p_over_q_ref, bunch, fpp, bp, L)
+@inline function implicit(tm::Symplectic, kc, p_over_q_ref, bunch, fpp, bp, L)
   p_over_q_ref = p_over_q_ref
   tilde_m, _, beta_0 = BeamTracking.drift_params(bunch.species, p_over_q_ref)
   if !isnothing(bp)

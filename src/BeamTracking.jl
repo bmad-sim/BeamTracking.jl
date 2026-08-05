@@ -24,7 +24,7 @@ import GTPSA: sincu, sinhcu
 
 export Species
 export Bunch, State, ParticleView, Time, TimeDependentParam, BatchParam
-export Yoshida, Yoshida, MatrixKick, BendKick, SolenoidKick, DriftKick, Exact
+export Symplectic, MatrixKick, BendKick, SolenoidKick, DriftKick, Exact
 export Fringe, SaganCavity, track!
 
 
@@ -60,7 +60,7 @@ include("kernels/sagan_cavity.jl")
 include("kernels/solenoid_kick.jl")
 include("kernels/spin.jl")
 include("kernels/transforms.jl")
-include("kernels/yoshida.jl")
+include("kernels/integrators.jl")
 include("kernels/ibs_kick.jl")
 include("kernels/implicit.jl")
 include("kernels/thin.jl")

@@ -5,7 +5,7 @@ using Random
 
   # Here just check that they don't bug out
   drift = Drift(L = 2.0, 
-  tracking_method = Yoshida(ibs_damping_on = true, ibs_fluctuations_on = true))
+  tracking_method = Symplectic(ibs_damping_on = true, ibs_fluctuations_on = true))
   line = Beamline([drift], species_ref = Species("electron"), E_ref = 18e9)
 
   v0 = randn(10,6)
