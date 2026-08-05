@@ -36,23 +36,21 @@ jobs:
           - symplectic
           - batch_time
           - core
-        # Every platform the suite ran on before, spelled out as one axis so it
-        # cross-products with `group`. An `include:` block cannot be used here:
-        # its entries conflict on os/version/arch, so GitHub adds them as
-        # standalone combinations with no `group` key.
+        # Every os/arch the suite ran on before, on lts and the latest stable
+        # release ('1' tracks it, so this needs no edit when 1.13 ships).
+        # Spelled out as one axis so it cross-products with `group`; an
+        # `include:` block cannot be used here, since its entries conflict on
+        # os/version/arch and GitHub would add them as standalone combinations
+        # with no `group` key.
         platform:
           - {os: ubuntu-latest, arch: x64, version: 'lts'}
-          - {os: ubuntu-latest, arch: x64, version: '1.11'}
-          - {os: ubuntu-latest, arch: x64, version: '1.12'}
+          - {os: ubuntu-latest, arch: x64, version: '1'}
           - {os: ubuntu-24.04-arm, arch: aarch64, version: 'lts'}
-          - {os: ubuntu-24.04-arm, arch: aarch64, version: '1.11'}
-          - {os: ubuntu-24.04-arm, arch: aarch64, version: '1.12'}
+          - {os: ubuntu-24.04-arm, arch: aarch64, version: '1'}
           - {os: macos-latest, arch: aarch64, version: 'lts'}
-          - {os: macos-latest, arch: aarch64, version: '1.11'}
-          - {os: macos-latest, arch: aarch64, version: '1.12'}
+          - {os: macos-latest, arch: aarch64, version: '1'}
           - {os: windows-latest, arch: x64, version: 'lts'}
-          - {os: windows-latest, arch: x64, version: '1.11'}
-          - {os: windows-latest, arch: x64, version: '1.12'}
+          - {os: windows-latest, arch: x64, version: '1'}
     steps:
       - uses: actions/checkout@v7
       - uses: julia-actions/setup-julia@v3
