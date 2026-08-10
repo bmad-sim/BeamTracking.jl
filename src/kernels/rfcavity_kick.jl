@@ -1,6 +1,5 @@
 @inline function cavity!(i, coords::Coords, s, radiation_params, beta_0, gamsqr_0, tilde_m, a, omega, t_ref, E0_normalized, Ksol, ::Val{sol}, mm, kn, ks, L) where {sol}
   @inbounds begin @FastGTPSA begin
-    #t_ref += (s + L/2)/(beta_0*C_LIGHT)
     multipoles = (length(mm) > 0)
     if sol
       exact_solenoid!(i, coords, Ksol, beta_0, gamsqr_0, tilde_m, a, L / 2)
@@ -103,8 +102,17 @@ end
   bmad_to_mad!(i, coords, beta_0, tilde_m, 0)
 
   t = t_ref - v[i,ZI]/C_LIGHT
-  new_pz = v[i,PZI] + L*E0_normalized/C_LIGHT*sin(omega*t)
+  s, c = sincos(omega*t)
+  r2 = v[i,XI]*v[i,XI] + v[i,YI]*v[i,YI]
+  denom = omega*tilde_m*tilde_m/(C_LIGHT*C_LIGHT)
+  coeff = L*E0_normalized*denom/2*c
 
+  new_px = v[i,PXI] + coeff*v[i,XI]
+  new_py = v[i,PYI] + coeff*v[i,YI]
+  new_pz = v[i,PZI] + L*E0_normalized/C_LIGHT*(1 + omega*r2*denom/4)*s
+
+  v[i,PXI] = vifelse(alive, new_px, v[i,PXI])
+  v[i,PYI] = vifelse(alive, new_py, v[i,PYI])
   v[i,PZI] = vifelse(alive, new_pz, v[i,PZI])
   mad_to_bmad!(i, coords, beta_0, tilde_m, 0)
 end
@@ -123,12 +131,17 @@ function omega_cavity(i, coords::Coords, a, tilde_m, omega, t_ref, E0_normalized
     beta = beta_gamma/gamma
     vel = beta*C_LIGHT
     t = t_ref - v[i,ZI]/vel
+    s, c = sincos(omega*t)
+    r2 = v[i,XI]*v[i,XI] + v[i,YI]*v[i,YI]
+    denom = omega*tilde_m*tilde_m/(C_LIGHT*C_LIGHT)
+    coeff = E0_normalized*denom/2*c
 
-    ez = E0_normalized*sin(omega*t)
+    ez = E0_normalized*(1 + omega*r2*denom/4)*s
     ex = zero(ez)
-    ey = ex
-    e_vec = (ex, ey, ez)
-    b_vec = (ex, ex, ex)
+    e_vec = (ex, ex, ez)
+    bx =  coeff*v[i,YI]
+    by = -coeff*v[i,XI]
+    b_vec = (bx, by, ex)
     if length(mm) > 0 && mm[1] == 0
       ax = -v[i,YI] * kn[1] / 2
       ay =  v[i,XI] * kn[1] / 2
@@ -156,12 +169,19 @@ Gives radiation damping kick in an RF cavity, possibly with multipoles.
   v = coords.v
 
   t = t_ref - v[i,ZI]/C_LIGHT # ultrarelativistic radiation
-  ez = E0_normalized*sin(omega*t)
+  tilde_m = mc2/E_ref
+  s, c = sincos(omega*t)
+  r2 = v[i,XI]*v[i,XI] + v[i,YI]*v[i,YI]
+  denom = omega*tilde_m*tilde_m/(C_LIGHT*C_LIGHT)
+  coeff = E0_normalized*denom/2*c
+
+  ez = E0_normalized*(1 + omega*r2*denom/4)*s
   ex = zero(ez)
-  ey = ex
-  e_vec = (ex, ey, ez)
+  e_vec = (ex, ex, ez)
   
   bx, by = normalized_field(mm, kn, ks, v[i,XI], v[i,YI], -1)
+  bx = bx + coeff*v[i,YI]
+  by = by - coeff*v[i,XI]
   if mm[1] == 0
     ax = -v[i,YI] * kn[1] / 2
     ay =  v[i,XI] * kn[1] / 2
@@ -184,12 +204,19 @@ Gives radiation diffusion kick in an RF cavity, possibly with multipoles.
   v = coords.v
 
   t = t_ref - v[i,ZI]/C_LIGHT # ultrarelativistic radiation
-  ez = E0_normalized*sin(omega*t)
+  tilde_m = mc2/E_ref
+  s, c = sincos(omega*t)
+  r2 = v[i,XI]*v[i,XI] + v[i,YI]*v[i,YI]
+  denom = omega*tilde_m*tilde_m/(C_LIGHT*C_LIGHT)
+  coeff = E0_normalized*denom/2*c
+
+  ez = E0_normalized*(1 + omega*r2*denom/4)*s
   ex = zero(ez)
-  ey = ex
-  e_vec = (ex, ey, ez)
+  e_vec = (ex, ex, ez)
   
   bx, by = normalized_field(mm, kn, ks, v[i,XI], v[i,YI], -1)
+  bx = bx + coeff*v[i,YI]
+  by = by - coeff*v[i,XI]
   if mm[1] == 0
     ax = -v[i,YI] * kn[1] / 2
     ay =  v[i,XI] * kn[1] / 2

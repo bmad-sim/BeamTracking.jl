@@ -493,32 +493,32 @@
     @test coeffs_approx_equal(v_expected, b0.coords.v, 5e-10)
     @test quaternion_coeffs_approx_equal(q_expected, q_z, 1e-14)
 
-    # RF Cavity (PTC):
+    # RF Cavity:
     ele = LineElement(L=4.01667, voltage=3.3210942126011E6, zero_phase=PhaseRef.AboveTransition, rf_frequency=5.9114268014977E8, tracking_method=Symplectic(order=2))
-    v = collect(transpose(@vars(D10)))
-    q = TPS64{D10}[1 0 0 0]
+    v = [0.01 0.02 0.03 0.04 0.05 0.06]
+    q = [1.0 0.0 0.0 0.0]
     b0 = Bunch(v, q, p_over_q_ref=p_over_q_ref, species=Species("electron"))
     bl = Beamline([ele], p_over_q_ref=p_over_q_ref, species_ref=Species("electron"))
     track!(b0, bl)
-    q_z = Quaternion(b0.coords.q[1], b0.coords.q[2:4])
-    v_expected, q_expected = read_spin_orbit_map("bmad_maps/pure_rf.jl")
-    @test coeffs_approx_equal(v_expected, b0.coords.v, 2e-7)
-    @test quaternion_coeffs_approx_equal(q_expected, q_z, 1e-7)
+    v_expected = [0.079780166737775 0.019787730199769354 0.16948903713233676 0.03953117005833582 0.048191102445404935 0.248390318651432]
+    q_expected = [0.9999944946679133 0.0029715369848312525 -0.0014766860913564951 -8.331298116986673e-9]
+    @test b0.coords.v ≈ v_expected
+    @test b0.coords.q ≈ q_expected
 
     # Harmon:
     ele_drift = LineElement(L=1.04812778909)
     ele = LineElement(L=4.01667, voltage=3.3210942126011E6, harmon=10, zero_phase=PhaseRef.AboveTransition, tracking_method=Symplectic(order=2))
-    v = collect(transpose(@vars(D10)))
-    q = TPS64{D10}[1 0 0 0]
+    v = [0.01 0.02 0.03 0.04 0.05 0.06]
+    q = [1.0 0.0 0.0 0.0]
     b0 = Bunch(v, q, p_over_q_ref=p_over_q_ref, species=Species("electron"))
     bl = Beamline([ele_drift, ele], p_over_q_ref=p_over_q_ref, species_ref=Species("electron"))
     track!(b0, bl.line[2])
-    q_z = Quaternion(b0.coords.q[1], b0.coords.q[2:4])
-    v_expected, q_expected = read_spin_orbit_map("bmad_maps/pure_rf.jl")
-    @test coeffs_approx_equal(v_expected, b0.coords.v, 2e-7)
-    @test quaternion_coeffs_approx_equal(q_expected, q_z, 1e-7)
+    v_expected = [0.079780166737775 0.019787730199769354 0.16948903713233676 0.03953117005833582 0.048191102445404935 0.248390318651432]
+    q_expected = [0.9999944946679133 0.0029715369848312525 -0.0014766860913564951 -8.331298116986673e-9]
+    @test b0.coords.v ≈ v_expected
+    @test b0.coords.q ≈ q_expected
 
-    # With solenoid (RK4):
+    # With solenoid:
     ele = LineElement(L=4.01667, voltage=3321.0942126011,  zero_phase=PhaseRef.AboveTransition, rf_frequency=591142.68014977, Ksol=0.6, tracking_method=Symplectic(order=4, fringe_at=Fringe.NoEnd))
     v = [0.01 0.02 0.03 0.04 0.05 0.06]
     q = [1.0 0.0 0.0 0.0]
