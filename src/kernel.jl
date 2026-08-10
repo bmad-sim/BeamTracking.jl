@@ -95,8 +95,9 @@ function __generic_kernel_noramp!(i, coords::Coords, chain, ref, transforms_out,
   body_callback = construct_main_callback(coords, transforms_out, transforms_in, ref.t_enter, ref.beta_gamma_enter, ref.ds_step, ref.g)
   body_coords = Coords(coords.state, coords.v, coords.q, coords.weight, body_callback)
   __generic_kernel_noramp_body!(i, body_coords, chain, ref.t_enter, ref.beta_gamma_enter)
-  # note: can pass 0's for t_ref_transform and beta_gamma_ref_transform because those are not used now 
-  exit_callback = construct_main_callback(coords, (), (), 0, 0, ref.ds_step, ref.g)
+  # note: t_ref only used by transforms, can pass 0 for t_ref_transform 
+  # beta_gamma is like ds_step and g, passed to callback, so that can't be 0
+  exit_callback = construct_main_callback(coords, (), (), 0, ref.beta_gamma_exit, ref.ds_step, ref.g)
   _execute_callbacks(i, coords, exit_callback, ref.L, ref.t_exit)
   return nothing
 end
@@ -118,14 +119,14 @@ function __generic_kernel_ramp!(i, coords::Coords, chain, ref, transforms_out, t
   # Have to store each particles initial time:
   t_initial = compute_time(coords.v[i,ZI], coords.v[i,PZI], ref.t_enter, ref.beta_gamma_enter)
   @inline __generic_kernel_noramp!(i, coords, Base.front(chain), ref, transforms_out, transforms_in)
-  # With initial particle's time we now know the dp_over_q_ref to evaluate for the last function
-  p_over_q_ref_in_ele = teval(last(chain).args[1], t_initial)
-  dp_over_q_ref_in_ele = teval(last(chain).args[2], t_initial)
-  reference_momentum_shift!(i, coords, p_over_q_ref_in_ele, dp_over_q_ref_in_ele, last(chain).args[3])
+  # With initial particle's time we now know the dbeta_gamma to evaluate for the last function
+  beta_gamma_in_ele = teval(last(chain).args[1], t_initial)
+  dbeta_gamma_in_ele = teval(last(chain).args[2], t_initial)
+  reference_momentum_shift!(i, coords, beta_gamma_in_ele, dbeta_gamma_in_ele, last(chain).args[3])
   # note: can pass 0 for t_ref_transform because that is not used now 
   # since transforms are empty tuples at the end (back in global frame)
   # However we do now give the user access to reference energy
-  exit_callback = construct_main_callback(coords, (), (), 0, 0, ref.ds_step, ref.g)
+  exit_callback = construct_main_callback(coords, (), (), 0, beta_gamma_in_ele+dbeta_gamma_in_ele, ref.ds_step, ref.g)
   _execute_callbacks(i, coords, exit_callback, ref.L, ref.t_exit)
   return nothing
 end
