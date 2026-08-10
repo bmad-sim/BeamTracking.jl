@@ -7,7 +7,7 @@
     # One before everything
     s_pos = zeros(1 + 10*n_thickeles + n_thineles)
     cur_idx = 1
-    function s_in_ele(i, coords, cur_s, cur_t_ref, ds_step, g, transforms_out!, transforms_in!)
+    function s_in_ele(i, coords, cur_s, cur_t_ref, cur_beta_gamma_ref, ds_step, g, transforms_out!, transforms_in!)
         cur_idx += 1
         s_pos[cur_idx] = s_pos[cur_idx-1] + ds_step
     end
@@ -31,14 +31,14 @@
     quatsx = zeros(n_steps, 4)
     sx = zeros(n_steps)
     tx = zeros(n_steps)
-    function savestuff!(i, coords, cur_s, cur_t_ref, ds_step, g, transforms_out!, transforms_in!)
+    function savestuff!(i, coords, cur_s, cur_t_ref, cur_beta_gamma_ref, ds_step, g, transforms_out!, transforms_in!)
         i_step = round(Int, cur_s/ds_step)
         orbits[i_step, :] = coords.v[1,:]
         quats[i_step, :] = coords.q[1,:]
         s[i_step] = cur_s
         t[i_step] = cur_t_ref
     end
-    function savestuffx!(i, coords, cur_s, cur_t_ref, ds_step, g, transforms_out!, transforms_in!)
+    function savestuffx!(i, coords, cur_s, cur_t_ref,  cur_beta_gamma_ref, ds_step, g, transforms_out!, transforms_in!)
         i_step = round(Int, cur_s/ds_step)
         transforms_out!(i, coords, cur_s, cur_t_ref)
         orbitsx[i_step, :] = coords.v[1,:]
