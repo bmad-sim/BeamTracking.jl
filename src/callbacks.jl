@@ -26,7 +26,7 @@ function construct_main_callback(coords, _transforms_out, _transforms_in, t_ref_
     return ((i, coords, cur_s, cur_dt_ref) -> begin
       transforms_out! = _merge_transforms(_evaluate_transforms_args(i, coords, _transforms_out, t_ref_transform, beta_gamma_ref_transform))
       transforms_in! = _merge_transforms(_evaluate_transforms_args(i, coords, _transforms_in, t_ref_transform, beta_gamma_ref_transform))
-      _execute_callbacks_with_transforms(i, callbacks, coords, cur_s, t_ref_transform+cur_dt_ref, beta_gamma_transform, ds_step, g, transforms_out!, transforms_in!)
+      _execute_callbacks_with_transforms(i, callbacks, coords, cur_s, t_ref_transform+cur_dt_ref, beta_gamma_ref_transform, ds_step, g, transforms_out!, transforms_in!)
       return nothing
     end,)
   end
