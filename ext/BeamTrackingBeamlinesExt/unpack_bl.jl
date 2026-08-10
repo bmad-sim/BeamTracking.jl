@@ -68,15 +68,16 @@ function universal!(
   # Compute information about reference coordinate system:
   t_enter = bunch.t_ref
   beta_gamma_enter_t = R_to_beta_gamma(bunch.species, p_over_q_ref)
+  beta_gamma_enter = p_over_q_ref isa TimeDependentParam ? beta_gamma_enter_t(t_enter) : beta_gamma_enter_t
   g = isnothing(bendparams) ? (0,0) : reverse((bendparams.g_ref .* sincos(bendparams.tilt_ref)))
   ds_step = (L == 0 || isactive(patchparams)) ? L : BeamTracking.find_steps(tm, L)[2]
   # Reference time evolution thru element assumes constant energy
   # using the energy at the start of the element:
   t_exit = bunch.t_ref + L / beta_gamma_to_v(beta_gamma_enter)
   beta_gamma_exit_t = R_to_beta_gamma(bunch.species, p_over_q_ref)
-
-  beta_gamma_enter = p_over_q_ref isa TimeDependentParam ? beta_gamma_enter_t(t_enter) : beta_gamma_enter_t
   beta_gamma_exit = p_over_q_ref isa TimeDependentParam ? beta_gamma_exit_t(t_exit)  : beta_gamma_exit_t
+
+
 
   # Current KernelChain length is 10 because we have up to
   # 2 aperture, 2 alignment, 1 body kernel, 1 IBS kernel,
