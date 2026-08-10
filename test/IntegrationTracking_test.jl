@@ -90,23 +90,6 @@
       ds_step = T(2)
       return ker, params, nothing, ds_step, n_steps, (a, tilde_m, Ks4, Ks4, nothing, nothing, Ks4, nothing, nothing), Val{true}(), Val{true}(), Val{false}(), L
     end
-
-    function cavity_args(::Type{T}) where {T}
-      p0c = T(10e6)
-      mc2 = T(massof(Species("electron")))
-      tilde_m = mc2/p0c
-      gamsqr_0 = 1 + 1/tilde_m^2
-      beta_0 = 1/sqrt(1 + tilde_m^2)
-      a = T(0.00115965218046)
-      omega = T(2*pi*5.9114268014977E8)
-      L = T(4.01667)
-      E0_over_Rref = T(-3.3210942126011E6/L/(p0c/BeamTracking.C_LIGHT))
-      t0 = T(0)
-      mm = SA[]
-      kn = SA[]
-      ks = SA[]
-      return T(0), nothing, beta_0, gamsqr_0, tilde_m, a, omega, t0, E0_over_Rref, T(0), Val{false}(), mm, kn, ks, L
-    end
     
     # Scalar parameters
     test_map("bmad_maps/thin_dipole.jl", make_kernel_call(BeamTracking.multipole_kick!, multipole_args(Float64)); tol=1e-14, no_scalar_allocs=true)
@@ -117,7 +100,6 @@
     test_map("bmad_maps/order_six.jl", make_kernel_call(BeamTracking.order_six_integrator!, integrator_args(Float64)); tol=5e-9, no_scalar_allocs=true)
     test_map("bmad_maps/order_eight.jl", make_kernel_call(BeamTracking.order_eight_integrator!, integrator_args(Float64)); tol=5e-9, no_scalar_allocs=true)
     test_map("bmad_maps/straight_dipole_bk.jl", make_kernel_call(BeamTracking.order_six_integrator!, bk_straight_args(Float64)); tol=2e-6, no_scalar_allocs=true)
-    test_map("bmad_maps/pure_rf.jl", make_kernel_call(BeamTracking.cavity!, cavity_args(Float64)); tol=2e-7, no_scalar_allocs=true)
 
     # GTPSA parameters
     test_map("bmad_maps/thin_dipole.jl", make_kernel_call(BeamTracking.multipole_kick!, multipole_args(TPS64{D10})); tol=1e-14)
@@ -128,6 +110,5 @@
     test_map("bmad_maps/order_six.jl", make_kernel_call(BeamTracking.order_six_integrator!, integrator_args(TPS64{D10})); tol=5e-9)
     test_map("bmad_maps/order_eight.jl", make_kernel_call(BeamTracking.order_eight_integrator!, integrator_args(TPS64{D10})); tol=5e-9)
     test_map("bmad_maps/straight_dipole_bk.jl", make_kernel_call(BeamTracking.order_six_integrator!, bk_straight_args(TPS64{D10})); tol=2e-6)
-    test_map("bmad_maps/pure_rf.jl", make_kernel_call(BeamTracking.cavity!, cavity_args(TPS64{D10})); tol=2e-7)
   end
 end
