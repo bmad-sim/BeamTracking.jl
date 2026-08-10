@@ -75,15 +75,26 @@ function universal!(
   # using the energy at the start of the element:
   t_exit = bunch.t_ref + L / beta_gamma_to_v(beta_gamma_enter)
   beta_gamma_exit_t = R_to_beta_gamma(bunch.species, p_over_q_ref)
-  beta_gamma_exit = p_over_q_ref isa TimeDependentParam ? beta_gamma_exit_t(t_exit)  : beta_gamma_exit_t
 
-
+  if p_over_q_ref isa TimeDependentParam
+    if ramp_update_each_particle
+      beta_gamma_exit = beta_gamma_exit_t(t_exit)
+      p_over_q_ref_exit = p_over_q_ref(t_exit)
+    else
+      beta_gamma_exit = beta_gamma_enter # Don't ramp at end of element if !ramp_update_each_particle
+      p_over_q_ref_exit = p_over_q_ref(t_enter)
+    end
+  else
+    beta_gamma_exit = beta_gamma_exit_t
+    p_over_q_ref_exit = p_over_q_ref
+  end
 
   # Current KernelChain length is 10 because we have up to
   # 2 aperture, 2 alignment, 1 body kernel, 1 IBS kernel,
   # 2 kernels to update the particles' reference energy,
   # and 2 for coordinate conversion with implicit
   kc = KernelChain(Val{10}(), RefState(; t_enter, beta_gamma_enter, t_exit, beta_gamma_exit, L, g, ds_step))
+  
   ramp_per_particle = p_over_q_ref isa TimeDependentParam && ramp_update_each_particle
   bunch_beta_gamma = R_to_beta_gamma(bunch.species, bunch.p_over_q_ref)
 
@@ -292,10 +303,7 @@ function universal!(
 
   # Update reference time
   bunch.t_ref = t_exit
-
-  if ramp_per_particle
-    bunch.p_over_q_ref = p_over_q_ref(t_exit)
-  end
+  bunch.p_over_q_ref = p_over_q_ref_exit
 
   return nothing
 end
