@@ -126,7 +126,7 @@ function __generic_kernel_ramp!(i, coords::Coords, chain, ref, transforms_out, t
   # note: can pass 0 for t_ref_transform because that is not used now 
   # since transforms are empty tuples at the end (back in global frame)
   # However we do now give the user access to reference energy
-  exit_callback = construct_main_callback(coords, (), (), 0, beta_gamma_in_ele+dbeta_gamma_in_ele, ref.ds_step, ref.g)
+  exit_callback = construct_main_callback(coords, (), (), 0, ref.beta_gamma_exit, ref.ds_step, ref.g)
   _execute_callbacks(i, coords, exit_callback, ref.L, ref.t_exit)
   return nothing
 end
