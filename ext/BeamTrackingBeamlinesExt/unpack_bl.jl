@@ -67,40 +67,34 @@ function universal!(
 ) 
   # Compute information about reference coordinate system:
   t_enter = bunch.t_ref
-  if p_over_q_ref isa TimeDependentParam
-    beta_gamma_enter = R_to_beta_gamma(bunch.species, p_over_q_ref(t_enter))
-  else
-    beta_gamma_enter = R_to_beta_gamma(bunch.species, p_over_q_ref)
-  end
+  beta_gamma_enter_t = R_to_beta_gamma(bunch.species, p_over_q_ref)
   g = isnothing(bendparams) ? (0,0) : reverse((bendparams.g_ref .* sincos(bendparams.tilt_ref)))
   ds_step = (L == 0 || isactive(patchparams)) ? L : BeamTracking.find_steps(tm, L)[2]
   # Reference time evolution thru element assumes constant energy
   # using the energy at the start of the element:
   t_exit = bunch.t_ref + L / beta_gamma_to_v(beta_gamma_enter)
-  if p_over_q_ref isa TimeDependentParam
-    beta_gamma_exit = R_to_beta_gamma(bunch.species, p_over_q_ref(t_exit))
-  else
-    beta_gamma_exit = R_to_beta_gamma(bunch.species, p_over_q_ref)
-  end
-  
+  beta_gamma_exit_t = R_to_beta_gamma(bunch.species, p_over_q_ref)
+
+  beta_gamma_enter = p_over_q_ref isa TimeDependentParam ? beta_gamma_enter_t(t_enter) : beta_gamma_enter_t
+  beta_gamma_exit = p_over_q_ref isa TimeDependentParam ? beta_gamma_exit_t(t_exit)  : beta_gamma_exit_t
+
   # Current KernelChain length is 10 because we have up to
   # 2 aperture, 2 alignment, 1 body kernel, 1 IBS kernel,
   # 2 kernels to update the particles' reference energy,
   # and 2 for coordinate conversion with implicit
   kc = KernelChain(Val{10}(), RefState(; t_enter, beta_gamma_enter, t_exit, beta_gamma_exit, L, g, ds_step))
-
-  p_over_q_ref_initial = bunch.p_over_q_ref
   ramp_per_particle = p_over_q_ref isa TimeDependentParam && ramp_update_each_particle
+  bunch_beta_gamma = R_to_beta_gamma(bunch.species, bunch.p_over_q_ref)
 
   if ramp_per_particle
-    kc = push(kc, make_kernel_call(BeamTracking.reference_momentum_shift!, (bunch.p_over_q_ref, p_over_q_ref-bunch.p_over_q_ref, Val{!ramp_particle_energy_without_rf}())))
+    kc = push(kc, make_kernel_call(BeamTracking.reference_momentum_shift!, (bunch_beta_gamma, beta_gamma_enter_t-bunch_beta_gamma, Val{!ramp_particle_energy_without_rf}())))
     kc = push_transforms_out(kc, make_kernel_call((i, coords, cur_s, cur_t_ref)->error("transforms_out! not supported yet with ramp_update_each_particle = true")))
     kc = push_transforms_in(kc, make_kernel_call((i, coords, cur_s, cur_t_ref)->error("transforms_in! not supported yet with ramp_update_each_particle = true")))
   else
     # Make sure to evaluate p_over_q_ref if not ramp_update_each_particle
-    p_over_q_ref = p_over_q_ref isa TimeDependentParam ? p_over_q_ref(bunch.t_ref) : p_over_q_ref
-    if !(p_over_q_ref ≈ p_over_q_ref_initial)
-        kc = push(kc, make_kernel_call(BeamTracking.reference_momentum_shift!, (p_over_q_ref_initial, p_over_q_ref - p_over_q_ref_initial, Val{!ramp_particle_energy_without_rf}())))
+    p_over_q_ref = p_over_q_ref isa TimeDependentParam ? p_over_q_ref(t_enter) : p_over_q_ref
+    if !(beta_gamma_enter ≈ bunch_beta_gamma)
+        kc = push(kc, make_kernel_call(BeamTracking.reference_momentum_shift!, (bunch_beta_gamma, beta_gamma_enter - bunch_beta_gamma, Val{!ramp_particle_energy_without_rf}())))
         bunch.p_over_q_ref = p_over_q_ref
     end
   end
@@ -285,18 +279,21 @@ function universal!(
     kc = @inline(aperture(tm, kc, p_over_q_ref, bunch, apertureparams, false))
   end
 
+  # If ramping, now need to uniformly ramp all particles to same reference energy
+  if ramp_per_particle
+    # If TimeDependentParam, at end ramp all 
+    # uniformly to p_over_q_ref(t_ref at end)
+    kc = push(kc, make_kernel_call(BeamTracking.reference_momentum_shift!, (beta_gamma_enter_t, beta_gamma_exit-beta_gamma_enter_t, Val{!ramp_particle_energy_without_rf}())))
+  end
+
   # noinline necessary here for small binaries and faster execution
   @noinline launch!(coords, kc; kwargs...)
 
   # Update reference time
   bunch.t_ref = t_exit
 
-  # If ramping, now need to uniformly ramp all particles to same reference energy
   if ramp_per_particle
-    # If TimeDependentParam, at end ramp all 
-    # uniformly to p_over_q_ref(t_ref at end)
-    bunch.p_over_q_ref = p_over_q_ref(bunch.t_ref)
-    kc = push(kc, make_kernel_call(BeamTracking.reference_momentum_shift!, (bunch.p_over_q_ref, bunch.p_over_q_ref-p_over_q_ref, Val{!ramp_particle_energy_without_rf}())))
+    bunch.p_over_q_ref = p_over_q_ref(t_exit)
   end
 
   return nothing
