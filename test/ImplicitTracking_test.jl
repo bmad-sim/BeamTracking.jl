@@ -65,7 +65,7 @@ end
   # Solenoid
   b0 = Bunch([0.01 0.02 0.03 0.04 0.05 0.06], [1.0 0.0 0.0 0.0])
   params = (radiation_params, beta_0, tilde_m, a, 0.0, w_id, w_id, sol, 0.3, p_over_q_ref, Val{true}(), Val{false}())
-  order_eight_integrator!(1, b0.coords, implicit_integrator!, params, nothing, 1.2/3, 3, nothing, Val{false}(), Val{false}(), 1.2)
+  order_eight_integrator!(1, b0.coords, implicit_integrator!, params, nothing, 1.2/3, 3, nothing, Val{false}(), Val{false}(), Val{false}(), 1.2)
   v_expected = [0.04457384910680009 0.02571695892367658 0.06811660659555369 0.034813336046770935 0.04888640130696242 0.05998151571786634]
   q_expected = [0.9342295999456364 0.2091256485383741 0.23055437398128034 -0.17414418838112483]
   @test b0.coords.v ≈ v_expected
@@ -74,7 +74,7 @@ end
   # Dipole
   b0 = Bunch([0.01 0.02 0.03 0.04 0.05 0.06], [1.0 0.0 0.0 0.0])
   params = (radiation_params, beta_0, tilde_m, a, -0.2, w_id, w_id, dipole, (-0.2, 0.1), p_over_q_ref, Val{true}(), Val{false}())
-  order_eight_integrator!(1, b0.coords, implicit_integrator!, params, nothing, 1.2/3, 3, nothing, Val{false}(), Val{false}(), 1.2)
+  order_eight_integrator!(1, b0.coords, implicit_integrator!, params, nothing, 1.2/3, 3, nothing, Val{false}(), Val{false}(), Val{false}(), 1.2)
   v_expected = [-0.18731064753292975 -0.350614104089283 0.07662549801271587 0.03995709101566334 0.014424302720948396 0.05886291189268685]
   q_expected = [-0.9040459577632979 -0.0034797733367084084 -0.4268728902595191 0.021641002538076357]
   @test b0.coords.v ≈ v_expected
@@ -83,7 +83,7 @@ end
   # Octupole
   b0 = Bunch([0.01 0.02 0.03 0.04 0.05 0.06], [1.0 0.0 0.0 0.0])
   params = (radiation_params, beta_0, tilde_m, a, 0.0, w_id, w_id, oct, 10.1, p_over_q_ref, Val{true}(), Val{false}())
-  order_eight_integrator!(1, b0.coords, implicit_integrator!, params, nothing, 1.2/3, 3, nothing, Val{false}(), Val{false}(), 1.2)
+  order_eight_integrator!(1, b0.coords, implicit_integrator!, params, nothing, 1.2/3, 3, nothing, Val{false}(), Val{false}(), Val{false}(), 1.2)
   v_expected = [0.032802114477371816 0.020410479075338005 0.07525971038509004 0.03983249578484203 0.048930310980042475 0.05999997774858176]
   q_expected = [0.9999570879314574 0.003495937725397606 0.008570532232252856 -0.00038300428514522394]
   @test b0.coords.v ≈ v_expected
@@ -92,7 +92,7 @@ end
   # Crazy
   b0 = Bunch([0.01 0.02 0.03 0.04 0.05 0.06], [1.0 0.0 0.0 0.0])
   params = (radiation_params, beta_0, tilde_m, a, 0.0, w_id, w_id, crazy, (1.0, 1.0), p_over_q_ref, Val{true}(), Val{false}())
-  order_eight_integrator!(1, b0.coords, implicit_integrator!, params, nothing, 1.2/60, 60, nothing, Val{false}(), Val{false}(), 1.2)
+  order_eight_integrator!(1, b0.coords, implicit_integrator!, params, nothing, 1.2/60, 60, nothing, Val{false}(), Val{false}(), Val{false}(), 1.2)
   v_expected = [-0.24794117122676387 -0.7621581346830383 0.12143614880778619 0.024481117969862107 -0.006481844718705498 -0.0003806157078307523]
   q_expected = [-0.8671095776608468 -0.16135398678020024 -0.405824923995721 0.23956627964481797]
   @test b0.coords.v ≈ v_expected
@@ -100,7 +100,7 @@ end
 
   # TPSA
   b0 = Bunch([0.01 0.02 0.03 0.04 0.05 0.06] .+ collect(transpose(@vars(D1))), TPS64{D1}[1 0 0 0])
-  args = (implicit_integrator!, params, nothing, 1.2/60, 60, nothing, Val{false}(), Val{false}(), 1.2)
+  args = (implicit_integrator!, params, nothing, 1.2/60, 60, nothing, Val{false}(), Val{false}(), Val{false}(), 1.2)
   order_eight_integrator!(1, b0.coords, args...)
   @test scalar.(b0.coords.v) ≈ v_expected
   @test scalar.(b0.coords.q) ≈ q_expected 
@@ -138,7 +138,7 @@ end
   a0 = 1.0 + (@params D1_1)[1]
   b0 = Bunch([0.01 0.02 0.03 0.04 0.05 0.06] .+ collect(transpose(@vars(D1_1))), TPS64{D1_1}[1 0 0 0])
   params = (radiation_params, beta_0, tilde_m, a, 0.0, w_id, w_id, crazy, (a0, 1.0), p_over_q_ref, Val{true}(), Val{false}())
-  order_eight_integrator!(1, b0.coords, implicit_integrator!, params, nothing, 1.2/60, 60, nothing, Val{false}(), Val{false}(), 1.2)
+  order_eight_integrator!(1, b0.coords, implicit_integrator!, params, nothing, 1.2/60, 60, nothing, Val{false}(), Val{false}(), Val{false}(), 1.2)
   @test scalar.(b0.coords.v) ≈ v_expected
   @test scalar.(b0.coords.q) ≈ q_expected 
   M = [0.6236345934584699    0.9495961035774574   0.017035902012431346 0.21871049235992143 -2.732978730272376e-10  0.21831631202219653  -0.26766551627369584; 
@@ -159,7 +159,7 @@ end
   c0 = 1.0 + (@params D1_2)[2]
   b0 = Bunch([0.01 0.02 0.03 0.04 0.05 0.06] .+ collect(transpose(@vars(D1_2))), TPS64{D1_2}[1 0 0 0])
   params = (radiation_params, beta_0, tilde_m, a, 0.0, w_id, w_id, crazy, (a0, c0), p_over_q_ref, Val{true}(), Val{false}())
-  order_eight_integrator!(1, b0.coords, implicit_integrator!, params, nothing, 1.2/60, 60, nothing, Val{false}(), Val{false}(), 1.2)
+  order_eight_integrator!(1, b0.coords, implicit_integrator!, params, nothing, 1.2/60, 60, nothing, Val{false}(), Val{false}(), Val{false}(), 1.2)
   @test scalar.(b0.coords.v) ≈ v_expected
   @test scalar.(b0.coords.q) ≈ q_expected 
   M = [0.6236345934584648    0.9495961035774615   0.017035902012432144 0.21871049235991938 -2.732978730271998e-10 0.21831631202219096   -0.2676655162736905   7.257029615247699e-11; 
@@ -178,7 +178,7 @@ end
   # Unnormalized potential
   b0 = Bunch([0.01 0.02 0.03 0.04 0.05 0.06], [1.0 0.0 0.0 0.0])
   params = (radiation_params, beta_0, tilde_m, a, 0.0, w_id, w_id, crazy_unnormalized, p_over_q_ref, p_over_q_ref, Val{false}(), Val{false}())
-  order_eight_integrator!(1, b0.coords, implicit_integrator!, params, nothing, 1.2/60, 60, nothing, Val{false}(), Val{false}(), 1.2)
+  order_eight_integrator!(1, b0.coords, implicit_integrator!, params, nothing, 1.2/60, 60, nothing, Val{false}(), Val{false}(), Val{false}(), 1.2)
   v_expected = [-0.24794117122676387 -0.7621581346830383 0.12143614880778619 0.024481117969862107 -0.006481844718705498 -0.0003806157078307523]
   q_expected = [-0.8671095776608468 -0.16135398678020024 -0.405824923995721 0.23956627964481797]
   @test b0.coords.v ≈ v_expected
@@ -187,7 +187,7 @@ end
   # Also try Newton's method
   b0 = Bunch([0.01 0.02 0.03 0.04 0.05 0.06], [1.0 0.0 0.0 0.0])
   params = (radiation_params, beta_0, tilde_m, a, 0.0, w_id, w_id, crazy_unnormalized, p_over_q_ref, p_over_q_ref, Val{false}(), Val{true}())
-  order_eight_integrator!(1, b0.coords, implicit_integrator!, params, nothing, 1.2/60, 60, nothing, Val{false}(), Val{false}(), 1.2)
+  order_eight_integrator!(1, b0.coords, implicit_integrator!, params, nothing, 1.2/60, 60, nothing, Val{false}(), Val{false}(), Val{false}(), 1.2)
   v_expected = [-0.24794117122676387 -0.7621581346830383 0.12143614880778619 0.024481117969862107 -0.006481844718705498 -0.0003806157078307523]
   q_expected = [-0.8671095776608468 -0.16135398678020024 -0.405824923995721 0.23956627964481797]
   @test b0.coords.v ≈ v_expected

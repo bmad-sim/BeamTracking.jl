@@ -206,15 +206,45 @@ function quaternion_coeffs_approx_equal(q_expected, q_calculated, ϵ)
   return all_ok
 end
 
-include("miscellaneous_test.jl")
-include("sagan_cavity_tracking_test.jl")
-include("BeamlinesExt_test.jl")
-include("batch_test.jl")
-include("time_test.jl")
-include("alignment_tracking_test.jl")
-include("aperture_tracking_test.jl")
-include("ExactTracking_test.jl")
-include("IntegrationTracking_test.jl")
-include("collective_test.jl")
-include("callback_test.jl")
-include("ImplicitTracking_test.jl")
+# The suite is sharded across CI jobs (see .github/workflows/CI.yml), which set
+# BEAMTRACKING_TEST_GROUP. With the variable unset -- `Pkg.test()`, or running
+# this file directly -- every group runs, exactly as before.
+const TEST_GROUPS = Dict(
+  "core" => ["miscellaneous_test.jl",
+             "sagan_cavity_tracking_test.jl",
+             "BeamlinesExt_test.jl",
+             "alignment_tracking_test.jl",
+             "aperture_tracking_test.jl",
+             "ExactTracking_test.jl",
+             "IntegrationTracking_test.jl",
+             "collective_test.jl",
+             "callback_test.jl",
+             "ImplicitTracking_test.jl"],
+  # By far the longest-running group; kept on its own so it does not set the
+  # wall-clock floor for everything else.
+  "symplectic" => ["BeamlinesExt_symplectic_test.jl"],
+  "batch_time" => ["batch_test.jl",
+                   "time_test.jl"],
+)
+
+const GROUP_ORDER = ["core", "symplectic", "batch_time"]
+
+# A test file that belongs to no group would silently stop running in CI.
+let assigned = reduce(vcat, (TEST_GROUPS[g] for g in GROUP_ORDER)),
+    on_disk = filter(f -> endswith(f, "_test.jl"), readdir(@__DIR__))
+  unassigned = setdiff(on_disk, assigned)
+  isempty(unassigned) ||
+    error("test file(s) not assigned to a group in runtests.jl: " * join(sort(unassigned), ", "))
+end
+
+const GROUP = get(ENV, "BEAMTRACKING_TEST_GROUP", "all")
+const TEST_FILES = if GROUP == "all"
+  reduce(vcat, (TEST_GROUPS[g] for g in GROUP_ORDER))
+else
+  haskey(TEST_GROUPS, GROUP) ||
+    error("unknown BEAMTRACKING_TEST_GROUP=$GROUP; expected \"all\" or one of " * join(GROUP_ORDER, ", "))
+  TEST_GROUPS[GROUP]
+end
+
+@info "Running test group \"$GROUP\"" TEST_FILES
+foreach(include, TEST_FILES)

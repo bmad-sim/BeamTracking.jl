@@ -1,13 +1,13 @@
 @testset "Callbacks" begin
     ring = include("lattices/esr.jl")
-    foreach(x->x.tracking_method=Yoshida(n_steps=10), ring.line)
+    foreach(x->x.tracking_method=Symplectic(n_steps=10), ring.line)
     n_thickeles = count(x->x.L != 0, ring.line)
     n_thineles = count(x->x.L == 0, ring.line)
 
     # One before everything
     s_pos = zeros(1 + 10*n_thickeles + n_thineles)
     cur_idx = 1
-    function s_in_ele(i, coords, cur_s, cur_t_ref, ds_step, g, transforms_out!, transforms_in!)
+    function s_in_ele(i, coords, cur_s, cur_t_ref, cur_beta_gamma_ref, ds_step, g, transforms_out!, transforms_in!)
         cur_idx += 1
         s_pos[cur_idx] = s_pos[cur_idx-1] + ds_step
     end
@@ -18,8 +18,8 @@
 
     # Straight misalignment
     n_steps = 100
-    d = Drift(L=1.2, tracking_method=Yoshida(n_steps=n_steps))
-    dx = Drift(L=1.2, tracking_method=Yoshida(n_steps=n_steps), x_offset=0.1, y_offset=0.2, z_offset=0.3, x_rot=0.4, y_rot=0.5, tilt=0.6,)
+    d = Drift(L=1.2, tracking_method=Symplectic(n_steps=n_steps))
+    dx = Drift(L=1.2, tracking_method=Symplectic(n_steps=n_steps), x_offset=0.1, y_offset=0.2, z_offset=0.3, x_rot=0.4, y_rot=0.5, tilt=0.6,)
     b  = Beamline([d], species_ref=Species("electron"), E_ref=18e9)
     bx = Beamline([dx], species_ref=Species("electron"), E_ref=18e9)
 
@@ -31,14 +31,14 @@
     quatsx = zeros(n_steps, 4)
     sx = zeros(n_steps)
     tx = zeros(n_steps)
-    function savestuff!(i, coords, cur_s, cur_t_ref, ds_step, g, transforms_out!, transforms_in!)
+    function savestuff!(i, coords, cur_s, cur_t_ref, cur_beta_gamma_ref, ds_step, g, transforms_out!, transforms_in!)
         i_step = round(Int, cur_s/ds_step)
         orbits[i_step, :] = coords.v[1,:]
         quats[i_step, :] = coords.q[1,:]
         s[i_step] = cur_s
         t[i_step] = cur_t_ref
     end
-    function savestuffx!(i, coords, cur_s, cur_t_ref, ds_step, g, transforms_out!, transforms_in!)
+    function savestuffx!(i, coords, cur_s, cur_t_ref,  cur_beta_gamma_ref, ds_step, g, transforms_out!, transforms_in!)
         i_step = round(Int, cur_s/ds_step)
         transforms_out!(i, coords, cur_s, cur_t_ref)
         orbitsx[i_step, :] = coords.v[1,:]
@@ -60,8 +60,8 @@
 
     # Bend misalignment
     n_steps = 100
-    d = SBend(L=1.2, g_ref=1e-3, tracking_method=Yoshida(n_steps=n_steps))
-    dx = SBend(L=1.2, g_ref=1e-3, tracking_method=Yoshida(n_steps=n_steps), x_offset=0.1, y_offset=0.2, z_offset=0.3, x_rot=0.4, y_rot=0.5, tilt=0.6,)
+    d = SBend(L=1.2, g_ref=1e-3, tracking_method=Symplectic(n_steps=n_steps))
+    dx = SBend(L=1.2, g_ref=1e-3, tracking_method=Symplectic(n_steps=n_steps), x_offset=0.1, y_offset=0.2, z_offset=0.3, x_rot=0.4, y_rot=0.5, tilt=0.6,)
     b  = Beamline([d], species_ref=Species("electron"), E_ref=18e9)
     bx = Beamline([dx], species_ref=Species("electron"), E_ref=18e9)
     b0 = Bunch(v=[0.01 0.02 0.03 0.04 0.05 0.06], q=[1.0 0.0 0.0 0.0], callbacks=(savestuff!,))
@@ -86,7 +86,7 @@
             0.0,    0.0,     0.0, 0.0)
         return potential, jac
     end
-    solele = Solenoid(four_potential=sol, four_potential_params=(0.3,), four_potential_normalized=true, L=1.2, tracking_method=Yoshida(n_steps=n_steps))
+    solele = Solenoid(four_potential=sol, four_potential_params=(0.3,), four_potential_normalized=true, L=1.2, tracking_method=Symplectic(n_steps=n_steps))
     bx  = Beamline([solele], species_ref=Species("electron"), E_ref=2*massof(Species("electron")))
     b0x = Bunch(v=[0. 0. 0. 0. 0.05 0.06], q=[1.0 0.0 0.0 0.0], callbacks=(savestuffx!,))
     track!(b0x, bx)
@@ -102,8 +102,8 @@
             0.0,    0.0,     0.0, 0.0)
         return potential, jac
     end
-    d = Drift(L=1.2, tracking_method=Yoshida(n_steps=n_steps), x_offset=0.1, y_offset=0.2, z_offset=0.3, x_rot=0.4, y_rot=0.5, tilt=0.6,)
-    dx = Drift(L=1.2, four_potential=idrift, tracking_method=Yoshida(n_steps=n_steps), x_offset=0.1, y_offset=0.2, z_offset=0.3, x_rot=0.4, y_rot=0.5, tilt=0.6,)
+    d = Drift(L=1.2, tracking_method=Symplectic(n_steps=n_steps), x_offset=0.1, y_offset=0.2, z_offset=0.3, x_rot=0.4, y_rot=0.5, tilt=0.6,)
+    dx = Drift(L=1.2, four_potential=idrift, tracking_method=Symplectic(n_steps=n_steps), x_offset=0.1, y_offset=0.2, z_offset=0.3, x_rot=0.4, y_rot=0.5, tilt=0.6,)
     b  = Beamline([d], species_ref=Species("electron"), E_ref=2*massof(Species("electron")))
     bx = Beamline([dx], species_ref=Species("electron"), E_ref=2*massof(Species("electron")))
     b0 = Bunch(v=[0.01 0.02 0.03 0.04 0.05 0.06], q=[1.0 0.0 0.0 0.0], callbacks=(savestuffx!,))
@@ -132,7 +132,7 @@
                 -a0*c0*cosh(s)*sin(t)*sin(x)*sinh(y), a0*c0*cos(x)*cosh(s)*cosh(y)*sin(t), a0*c0*cos(x)*sin(t)*sinh(s)*sinh(y), a0*c0*cos(t)*cos(x)*cosh(s)*sinh(y))
         return potential, jac
     end
-    crazyelex = Marker(four_potential=crazy, four_potential_params=(1.0, 1.0), four_potential_normalized=true, L=1.2, x_offset=0.1, y_offset=0.2, z_offset=0.3, x_rot=0.4, y_rot=0.5, tilt=0.6, tracking_method=Yoshida(n_steps=n_steps))
+    crazyelex = Marker(four_potential=crazy, four_potential_params=(1.0, 1.0), four_potential_normalized=true, L=1.2, x_offset=0.1, y_offset=0.2, z_offset=0.3, x_rot=0.4, y_rot=0.5, tilt=0.6, tracking_method=Symplectic(n_steps=n_steps))
     bx = Beamline([crazyelex], species_ref=Species("electron"), E_ref=1.1*massof(Species("electron")))
     b0x = Bunch(v=[0.01 0.02 0.03 0.04 0.05 0.06], q=[1.0 0.0 0.0 0.0], callbacks=(savestuffx!,))
     track!(b0x, bx)
@@ -155,7 +155,7 @@
         @cuprintln("hello! quat:", coords.q[i,1], " ", coords.q[i,2], " ", coords.q[i,3], " ", coords.q[i,4])
         transforms_in!(i, coords, cur_s, cur_t_ref)
     end
-    crazyelex = Marker(four_potential=crazy, four_potential_params=(1.0, 1.0), four_potential_normalized=true, L=1.2, x_offset=0.1, y_offset=0.2, z_offset=0.3, x_rot=0.4, y_rot=0.5, tilt=0.6, tracking_method=Yoshida(n_steps=n_steps))
+    crazyelex = Marker(four_potential=crazy, four_potential_params=(1.0, 1.0), four_potential_normalized=true, L=1.2, x_offset=0.1, y_offset=0.2, z_offset=0.3, x_rot=0.4, y_rot=0.5, tilt=0.6, tracking_method=Symplectic(n_steps=n_steps))
     bx = Beamline([crazyelex], species_ref=Species("electron"), E_ref=1.1*Beamlines.massof(Species("electron")))
     b0x = Bunch(v=CuArray([0.01 0.02 0.03 0.04 0.05 0.06]), q=CuArray([1.0 0.0 0.0 0.0]), callbacks=(cusayhi,))
     track!(b0x, bx)

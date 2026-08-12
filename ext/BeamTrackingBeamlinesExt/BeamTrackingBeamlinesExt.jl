@@ -4,7 +4,7 @@ using Beamlines: isactive, deval, unsafe_getparams, isnullspecies
 using BeamTracking: R_to_E, R_to_beta_gamma, R_to_gamma, R_to_pc, R_to_v, 
                     beta_gamma_to_v, E_to_R, E_to_v,
                     @makekernel, Coords, make_kernel_call, KernelCall, KernelChain, push, TimeDependentParam, RefState, 
-                    launch!, AbstractYoshida, rot_quaternion, inv_rot_quaternion, atan2, 
+                    launch!, AbstractSymplectic, rot_quaternion, inv_rot_quaternion, atan2, 
                     get_N_particle, mean_and_cov, ibs_integrals, remake, push_transforms_in, push_transforms_out
                     
 import BeamTracking: track!
@@ -54,7 +54,7 @@ include("utils_bl.jl")
 include("unpack_bl.jl")
 include("scibmadstandard_bl.jl")
 include("exact_bl.jl")
-include("yoshida_bl.jl")
+include("symplectic_bl.jl")
 include("sagan_cavity_bl.jl")
 include("general_bl.jl")
 

@@ -1,4 +1,4 @@
-function find_steps(tm::BeamTracking.AbstractYoshida, L) 
+function find_steps(tm::BeamTracking.AbstractSymplectic, L) 
   if L == 0
     return (1, L)
   end
@@ -13,7 +13,7 @@ function find_steps(tm::BeamTracking.AbstractYoshida, L)
 end
 find_steps(::Any, L) = (1, L)
 
-# Temporary disgusting solution for callbacks - Yoshida
+# Temporary disgusting solution for callbacks - Symplectic
 @generated function compute_dt_ref(s, ker::K, params) where {K}
   idx = find_m_tilde(ker)
   if idx == 0

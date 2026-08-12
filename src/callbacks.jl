@@ -1,7 +1,7 @@
 #=
 Example callback:
 
-function mycallback(i, coords, cur_s, cur_t_ref, last_ds_step, last_g, transforms_out!, transforms_in!)
+function mycallback(i, coords, cur_s, cur_t_ref, cur_beta_gamma_ref, last_ds_step, last_g, transforms_out!, transforms_in!)
   # Transform out of body frame:
   transforms_out!(i, coords, cur_s, cur_t_ref)
 
@@ -26,7 +26,7 @@ function construct_main_callback(coords, _transforms_out, _transforms_in, t_ref_
     return ((i, coords, cur_s, cur_dt_ref) -> begin
       transforms_out! = _merge_transforms(_evaluate_transforms_args(i, coords, _transforms_out, t_ref_transform, beta_gamma_ref_transform))
       transforms_in! = _merge_transforms(_evaluate_transforms_args(i, coords, _transforms_in, t_ref_transform, beta_gamma_ref_transform))
-      _execute_callbacks_with_transforms(i, callbacks, coords, cur_s, t_ref_transform+cur_dt_ref, ds_step, g, transforms_out!, transforms_in!)
+      _execute_callbacks_with_transforms(i, callbacks, coords, cur_s, t_ref_transform+cur_dt_ref, beta_gamma_ref_transform, ds_step, g, transforms_out!, transforms_in!)
       return nothing
     end,)
   end
@@ -56,9 +56,9 @@ end
   return nothing                                                                                                               
 end          
 
-@unroll function _execute_callbacks_with_transforms(i, callbacks, coords, cur_s, cur_t_ref, last_ds_step, last_g, transforms_out!, transforms_in!)
+@unroll function _execute_callbacks_with_transforms(i, callbacks, coords, cur_s, cur_t_ref, cur_beta_gamma_ref, last_ds_step, last_g, transforms_out!, transforms_in!)
   @unroll for callback in callbacks
-    callback(i, coords, cur_s, cur_t_ref, last_ds_step, last_g, transforms_out!, transforms_in!)
+    callback(i, coords, cur_s, cur_t_ref, cur_beta_gamma_ref, last_ds_step, last_g, transforms_out!, transforms_in!)
   end
   return nothing
 end
