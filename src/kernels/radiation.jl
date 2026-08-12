@@ -104,7 +104,7 @@ is in the horizontal plane.
   field = radiation_field(e_vec, b_vec, beta)
   field_2 = field[1]*field[1] + field[2]*field[2] + field[3]*field[3]
 
-  K = -pl * E_CHARGE/(4*pi*EPS_0) * 2/3 * (q*q)/(mc2*mc2*mc2*mc2) * (E_ref*E_ref*E_ref) * field_2 * L
+  K = -pl/(4*pi*EPS_0) * 2/3 * (q*q)/(mc2*mc2*mc2*mc2) * (E_ref*E_ref*E_ref) * field_2 * L
   new_pz = (v[i,PZI] + rel_p*K)/(1 - rel_p*K)
   v[i,PZI] = vifelse(alive, new_pz, v[i,PZI])
 
@@ -182,7 +182,7 @@ is in the horizontal plane.
   beta_cross_field_hat_y = vifelse(beta_cross_field_1 > 0, beta_cross_field_y/beta_cross_field_1, 0)
 
   dt_ds = h*rel_p/pl
-  coeff = 55/(24*sqrt(3))/(4*pi*EPS_0)*H_BAR*C_LIGHT*E_CHARGE # H_BAR in eV*s
+  coeff = 55/(24*sqrt(3))/(4*pi*EPS_0)*H_BAR*C_LIGHT # H_BAR in eV*s
 
   mc27 = mc2*mc2*mc2*mc2*mc2*mc2*mc2
   E_ref5 = E_ref*E_ref*E_ref*E_ref*E_ref

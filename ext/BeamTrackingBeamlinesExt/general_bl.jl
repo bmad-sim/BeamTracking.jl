@@ -108,10 +108,9 @@ end
     w_inv = nothing
   end
 
-  log_e_charge = log(E_CHARGE)
   log_c_light = log(C_LIGHT)
-  log_m = log(massof(bunch.species)) - 2*log_c_light + log_e_charge
-  log_q = log(abs(chargeof(bunch.species))) + log_e_charge
+  log_m = log(massof(bunch.species)) - 2*log_c_light
+  log_q = log(abs(chargeof(bunch.species)))
   log_k = log_m + 2*log_q - log(4*pi*EPS_0)
   if isnothing(bunch.coords.weight)
     log_N = log(size(bunch.coords.v, 1))
