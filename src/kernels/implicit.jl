@@ -1,3 +1,14 @@
+# A ForwardDiff.Dual carries however many partials the caller asked for: 6 when differentiating
+# with respect to the full 6D phase space, but e.g. 4 for a coasting-beam closed orbit search.
+# The Jacobian of the incoming coordinates must therefore be built generically in that number,
+# never assuming 6 partials are present.
+@inline _partials_row(x) = transpose(SVector(ForwardDiff.partials(x).values))
+
+@inline _partials_jacobian(x1, x2, x3, x4, x5, x6) =
+  vcat(_partials_row(x1), _partials_row(x2), _partials_row(x3),
+       _partials_row(x4), _partials_row(x5), _partials_row(x6))
+
+
 function implicit_integrator!(i, coords::Coords, s, radiation_params, beta_0, tilde_m, a, g, w, w_inv, potential_and_jac::U, potential_params, p_over_q_ref, normalized, implicit_use_newton, L) where {U}
   @inbounds begin @FastGTPSA begin
     s += L / 2
@@ -124,20 +135,9 @@ function implicit_step!(i, coords::Coords, s, beta_0, tilde_m, g, potential_and_
                Mpx[2,1] Mpp[2,1] Mpx[2,2] Mpp[2,2] Mpx[2,3] Mpp[2,3];
                Mxx[3,1] Mxp[3,1] Mxx[3,2] Mxp[3,2] Mxx[3,3] Mxp[3,3];
                Mpx[3,1] Mpp[3,1] Mpx[3,2] Mpp[3,2] Mpx[3,3] Mpp[3,3]]
-      r1 = ForwardDiff.partials(v[i,1]).values
-      r2 = ForwardDiff.partials(v[i,2]).values
-      r3 = ForwardDiff.partials(v[i,3]).values
-      r4 = ForwardDiff.partials(v[i,4]).values
-      r5 = ForwardDiff.partials(v[i,5]).values
-      r6 = ForwardDiff.partials(v[i,6]).values
-      jac_orig = SA[r1[1] r1[2] r1[3] r1[4] r1[5] r1[6];
-                    r2[1] r2[2] r2[3] r2[4] r2[5] r2[6];
-                    r3[1] r3[2] r3[3] r3[4] r3[5] r3[6];
-                    r4[1] r4[2] r4[3] r4[4] r4[5] r4[6];
-                    r5[1] r5[2] r5[3] r5[4] r5[5] r5[6];
-                    r6[1] r6[2] r6[3] r6[4] r6[5] r6[6]]
+      jac_orig = _partials_jacobian(v[i,1], v[i,2], v[i,3], v[i,4], v[i,5], v[i,6])
       jac_new = jac * jac_orig
-      V = eltype(v).parameters[1]
+      V = ForwardDiff.tagtype(eltype(v))
       new_x  = ForwardDiff.Dual{V}(v_new[XI],  Tuple(jac_new[XI,:]))
       new_y  = ForwardDiff.Dual{V}(v_new[YI],  Tuple(jac_new[YI,:]))
       new_z  = ForwardDiff.Dual{V}(v_new[ZI],  Tuple(jac_new[ZI,:]))
@@ -225,18 +225,7 @@ function implicit_step!(i, coords::Coords, s, beta_0, tilde_m, g, potential_and_
                Mpx[2,1] Mpp[2,1] Mpx[2,2] Mpp[2,2] Mpx[2,3] Mpp[2,3];
                Mxx[3,1] Mxp[3,1] Mxx[3,2] Mxp[3,2] Mxx[3,3] Mxp[3,3];
                Mpx[3,1] Mpp[3,1] Mpx[3,2] Mpp[3,2] Mpx[3,3] Mpp[3,3]]
-      r1 = ForwardDiff.partials(v_final[1]).values
-      r2 = ForwardDiff.partials(v_final[2]).values
-      r3 = ForwardDiff.partials(v_final[3]).values
-      r4 = ForwardDiff.partials(v_final[4]).values
-      r5 = ForwardDiff.partials(v_final[5]).values
-      r6 = ForwardDiff.partials(v_final[6]).values
-      jac_orig = SA[r1[1] r1[2] r1[3] r1[4] r1[5] r1[6];
-                    r2[1] r2[2] r2[3] r2[4] r2[5] r2[6];
-                    r3[1] r3[2] r3[3] r3[4] r3[5] r3[6];
-                    r4[1] r4[2] r4[3] r4[4] r4[5] r4[6];
-                    r5[1] r5[2] r5[3] r5[4] r5[5] r5[6];
-                    r6[1] r6[2] r6[3] r6[4] r6[5] r6[6]]
+      jac_orig = _partials_jacobian(v_final[1], v_final[2], v_final[3], v_final[4], v_final[5], v_final[6])
       jac_new = jac * jac_orig
       new_x  = ForwardDiff.Dual{V}(v_new[XI],  Tuple(jac_new[XI,:]))
       new_y  = ForwardDiff.Dual{V}(v_new[YI],  Tuple(jac_new[YI,:]))

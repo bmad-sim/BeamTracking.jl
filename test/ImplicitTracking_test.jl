@@ -125,6 +125,22 @@ end
   end
   @test ForwardDiff.jacobian(track_crazy, [0.01, 0.02, 0.03, 0.04, 0.05, 0.06]) ≈ M
 
+  # ForwardDiff with a number of partials other than 6, as done by e.g. a coasting-beam
+  # closed orbit search which differentiates with respect to x, px, y, py only
+  function track_crazy_coast(v_coast)
+    b0 = Bunch([v_coast[1] v_coast[2] v_coast[3] v_coast[4] 0.05 0.06])
+    order_eight_integrator!(1, b0.coords, args...)
+    return b0.coords.v'
+  end
+  @test ForwardDiff.jacobian(track_crazy_coast, [0.01, 0.02, 0.03, 0.04]) ≈ M[:,1:4]
+
+  function track_crazy_1(w)
+    b0 = Bunch([0.01 + w[1] 0.02 0.03 0.04 0.05 0.06])
+    order_eight_integrator!(1, b0.coords, args...)
+    return b0.coords.v'
+  end
+  @test ForwardDiff.jacobian(track_crazy_1, [0.0]) ≈ M[:,1:1]
+
   # Type stability and no scalar allocations
   M = [0.5642361394656592    0.9695143326521845   0.0008233255950771141 0.23459732508210268 -3.98096261096381e-10  0.26202087937470775; 
       -0.543530422071873     0.762355986589084    0.005384939535613539  0.5568726180598322  -1.5243574558899086e-9 0.036470556982992404; 
