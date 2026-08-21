@@ -14,6 +14,9 @@
              0.6685543985517410E-08 -0.3425164613573595E-08  0.2907237074330440E-14  0.1826161170763475E-15  0.4150093714505364E-01  0.9677530013155135E+00]
 
     @test GTPSA.jacobian(b0.coords.v) ≈ M_ESR
+    b0 = Bunch(collect(transpose(@vars(D1))), p_over_q_ref=ring.p_over_q_ref)
+    track!(b0, ring, rf_on=false)
+    @test GTPSA.jacobian(b0.coords.v)[6,:] == [0, 0, 0, 0, 0, 1]
 
     p0c = 10e6
     # E to p_over_q_ref

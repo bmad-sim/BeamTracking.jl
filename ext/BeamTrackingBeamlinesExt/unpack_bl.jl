@@ -8,7 +8,8 @@ function _track!(
   tm,
   scalar_params,
   ramp_particle_energy_without_rf,
-  ramp_update_each_particle;
+  ramp_update_each_particle,
+  rf_on;
   kwargs...
 )
   # Unpack the line element (type unstable)
@@ -22,7 +23,7 @@ function _track!(
   pp = deval(ele.PatchParams, context)
   dp = deval(ele.ApertureParams, context)
   mp = deval(ele.MapParams, context)
-  rp = deval(ele.RFParams, context)
+  rp = rf_on ? deval(ele.RFParams, context) : nothing
   lp = deval(ele.BeamlineParams, context)
   fpp = deval(ele.FourPotentialParams, context)
 
