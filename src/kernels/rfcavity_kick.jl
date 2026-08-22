@@ -51,8 +51,8 @@ nontrivial and this implementation still may not be optimal.
 """
 @makekernel fastgtpsa=true function bmad_to_mad!(i, coords::Coords, beta_0, tilde_m, phi)
   v = coords.v
-
   pz = v[i,PZI]
+  
   rel_p = 1 + pz
   y = beta_0*(2*pz + pz*pz)
   good = (beta_0*y > -1)
@@ -61,6 +61,7 @@ nontrivial and this implementation still may not be optimal.
   alive = (coords.state[i] == STATE_ALIVE)
   y_1 = one(y)
   x = 1 + beta_0*y
+
   ptau = y/(1 + sqrt(vifelse(good, x, y_1))) + phi
   beta = rel_p/sqrt(rel_p*rel_p + tilde_m*tilde_m)
   tau = v[i,ZI]/beta
@@ -77,8 +78,8 @@ nontrivial and this implementation still may not be optimal.
 """
 @makekernel fastgtpsa=true function mad_to_bmad!(i, coords::Coords, beta_0, tilde_m, phi)
   v = coords.v
-
   ptau = v[i,PZI]
+
   y = ptau*2/beta_0 + ptau*ptau - phi*2/beta_0 + phi*phi - 2*ptau*phi
   good = (y > -1)
   alive_at_start = (coords.state[i] == STATE_ALIVE)
@@ -86,6 +87,7 @@ nontrivial and this implementation still may not be optimal.
   alive = (coords.state[i] == STATE_ALIVE)
   y_1 = one(y)
   x = 1 + y
+
   pz = y/(1 + sqrt(vifelse(good, x, y_1)))
   rel_p = 1 + pz
   beta = rel_p/sqrt(rel_p*rel_p + tilde_m*tilde_m)
