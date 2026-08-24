@@ -28,7 +28,7 @@
   new_x   = x*cosh_arg + ptau_plus_inv_beta_0*cosh_arg_minus_1_over_kE + px*sinh_arg_over_kE
   new_px  = px*cosh_arg + (x*kE + ptau_plus_inv_beta_0)*sinh_arg
   new_y   = v[i,YI] + L*py/ps
-  new_tau = v[i,ZI] + L/beta_0 - (x*sinh_arg + ptau_plus_inv_beta_0*sinh_arg_over_kE + px*cosh_arg_minus_1_over_kE) # make stable
+  new_tau = v[i,ZI] + L/beta_0 - (x*sinh_arg + ptau_plus_inv_beta_0*sinh_arg_over_kE + px*cosh_arg_minus_1_over_kE) # probably not optimal
 
   v[i,XI]  = vifelse(alive, new_x,   v[i,XI])
   v[i,PXI] = vifelse(alive, new_px,  v[i,PXI])
@@ -40,14 +40,33 @@
 
     dpx = px*kE*cosh_arg_minus_1_over_kE + (x*kE + ptau_plus_inv_beta_0)*sinh_arg
     p_perp2 = py2 + ps2
-    p_perp = sqrt(p_perp2) # protect
-    factor = tilde_m2 + py2 + ps2
-    mgamma_i = sqrt(factor + px2) # protect
-    mgamma_f = sqrt(factor + v[i,PXI]*v[i,PXI]) # protect
+    factor = tilde_m2 + p_perp2
+
+    good_momenta = (p_perp2 > 0)
+    alive_at_start = (coords.state[i] == STATE_ALIVE)
+    coords.state[i] = vifelse(!good_momenta & alive_at_start, STATE_LOST, coords.state[i])
+    alive = (coords.state[i] == STATE_ALIVE)
+    p_perp = sqrt(vifelse(good_momenta, p_perp2, ps2_1))
+
+    mgamma_i2 = factor + px2
+    good_momenta = (mgamma_i2 > 0)
+    alive_at_start = (coords.state[i] == STATE_ALIVE)
+    coords.state[i] = vifelse(!good_momenta & alive_at_start, STATE_LOST, coords.state[i])
+    alive = (coords.state[i] == STATE_ALIVE)
+    mgamma_i = sqrt(vifelse(good_momenta, mgamma_i2, ps2_1))
+
+    mgamma_f2 = factor + v[i,PXI]*v[i,PXI]
+    good_momenta = (mgamma_f2 > 0)
+    alive_at_start = (coords.state[i] == STATE_ALIVE)
+    coords.state[i] = vifelse(!good_momenta & alive_at_start, STATE_LOST, coords.state[i])
+    alive = (coords.state[i] == STATE_ALIVE)
+    mgamma_f = sqrt(vifelse(good_momenta, mgamma_f2, ps2_1))
+
     mdgamma = (px + v[i,PXI])/(mgamma_i + mgamma_f)*dpx
 
-    I1 = log((v[i,PXI] + mgamma_f)/(px + mgamma_i))/tilde_m # protect
-    I2 = 2*atan(p_perp*(dpx + mdgamma)/(p_perp2 + (px + mgamma_i + tilde_m)*(v[i,PXI] + mgamma_f + tilde_m)))/p_perp # protect
+    arg1 = vifelse(alive, (v[i,PXI] + mgamma_f)/(px + mgamma_i), ps2_1)
+    I1 = log(arg1)/tilde_m
+    I2 = 2*atan(p_perp*(dpx + mdgamma)/(p_perp2 + (px + mgamma_i + tilde_m)*(v[i,PXI] + mgamma_f + tilde_m)))/p_perp
     coeff = a*I1 + I2
 
     o1 =  zero(coeff)
