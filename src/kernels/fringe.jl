@@ -41,10 +41,13 @@ end
   alive = (coords.state[i] == STATE_ALIVE)
   rel_p = 1 + v[i,PZI]
 
+  ax = 0
+  ay = 0
+
   if !isnothing(Ksol)
     if sign > 0
-      ax = 0
-      ay = 0
+      ax = zero(v[i,YI]*Ksol)
+      ay = zero(v[i,XI]*Ksol)
     else
       ax = -v[i,YI]*Ksol/2
       ay =  v[i,XI]*Ksol/2
@@ -168,8 +171,8 @@ end
       ax = -v[i,YI]*Ksol/2
       ay =  v[i,XI]*Ksol/2
     else
-      ax = 0
-      ay = 0
+      ax = zero(v[i,YI]*Ksol)
+      ay = zero(v[i,XI]*Ksol)
     end
   end
 
@@ -217,11 +220,11 @@ end
     e_vec = (0, 0, -sign*C_LIGHT*phi)
 
     if sign > 0
-      phi_in = 0
+      phi_in = zero(phi)
       phi_out = phi
     else
       phi_in = phi
-      phi_out = 0
+      phi_out = zero(phi)
     end
 
     mad_to_bmad!(i, coords, beta_0, tilde_m, phi_in)

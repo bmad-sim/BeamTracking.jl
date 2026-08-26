@@ -21,3 +21,4 @@
 @inline bend_pure_bmultipole(tm::SciBmadStandard, kc, p_over_q_ref, bunch, bendparams, bmk, L)            = bend_pure_bmultipole(Symplectic(), kc, p_over_q_ref, bunch, bendparams, bmk, L)           
 @inline bend_bmultipole(tm::SciBmadStandard, kc, p_over_q_ref, bunch, bendparams, bmultipoleparams, L)    = bend_bmultipole(Symplectic(), kc, p_over_q_ref, bunch, bendparams, bmultipoleparams, L)         
 @inline implicit(tm::SciBmadStandard, kc, p_over_q_ref, bunch, bendparams, bmultipoleparams, L)           = implicit(Symplectic(), kc, p_over_q_ref, bunch, bendparams, bmultipoleparams, L)
+@inline pure_edipole(tm::SciBmadStandard, kc, p_over_q_ref, bunch, em1, L)                                = pure_edipole(Symplectic(order=2), kc, p_over_q_ref, bunch, em1, L)

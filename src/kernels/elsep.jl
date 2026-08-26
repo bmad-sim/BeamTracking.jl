@@ -1,3 +1,25 @@
+@makekernel fastgtpsa=true function elsep_rad!(i, coords::Coords, s, radiation_params, kE, beta_0, tilde_m, w, w_inv, a, L)
+  if !isnothing(w)
+    rotation!(i, coords, w, 0)
+  end
+
+  if !isnothing(radiation_params)
+    q, mc2, E_ref = radiation_params
+    deterministic_radiation_elsep!(i, coords, beta_0, tilde_m, q, mc2, E_ref, kE, L / 2)
+  end
+
+  exact_elsep!(i, coords, kE, beta_0, tilde_m, a, L)
+
+  if !isnothing(radiation_params)
+    deterministic_radiation_elsep!(i, coords, beta_0, tilde_m, q, mc2, E_ref, kE, L / 2)
+  end
+
+  if !isnothing(w_inv)
+    rotation!(i, coords, w_inv, 0)
+  end
+end
+
+
 @makekernel fastgtpsa=true function exact_elsep!(i, coords::Coords, kE, beta_0, tilde_m, a, L)
   v = coords.v
   x = v[i,XI]
@@ -77,4 +99,37 @@
     q2 = quat_mul(q1, q[i,Q0], q[i,QX], q[i,QY], q[i,QZ])
     q[i,Q0], q[i,QX], q[i,QY], q[i,QZ] = q2
   end
+end
+
+
+@makekernel fastgtpsa=true function deterministic_radiation_elsep!(i, coords::Coords, beta_0, tilde_m, q, mc2, E_ref, kE, L)
+  e_vec = (C_LIGHT*kE, 0, 0)
+  phi = -kE*coords.v[i,XI]
+
+  mad_to_bmad!(i, coords, beta_0, tilde_m, phi)
+  deterministic_radiation_field!(i, coords, q, mc2, E_ref, 0, 0, 0, e_vec, (0, 0, 0), L)
+  bmad_to_mad!(i, coords, beta_0, tilde_m, phi)
+end
+
+
+@makekernel function stochastic_radiation!(i, coords::Coords, s, ::typeof(exact_elsep!), backend, q, mc2, E_ref, kE, L)
+  e_vec = (C_LIGHT*kE, 0, 0)
+  phi = -kE*coords.v[i,XI]
+  tilde_m = mc2/E_ref # ultrarelativistic approximation
+
+  mad_to_bmad!(i, coords, 1, tilde_m, phi)
+  stochastic_radiation_field!(i, coords, backend, q, mc2, E_ref, 0, 0, 0, e_vec, (0, 0, 0), L)
+  bmad_to_mad!(i, coords, 1, tilde_m, phi)
+end
+
+
+function callback_electric!(i, coords, cur_s, cur_t_ref, beta_0, tilde_m, kE, ::Val{in}) where {in}
+  @inbounds begin @FastGTPSA begin
+    phi = -kE*coords.v[i,XI]
+    if in
+      bmad_to_mad!(i, coords, beta_0, tilde_m, phi)
+    else
+      mad_to_bmad!(i, coords, beta_0, tilde_m, phi)
+    end
+  end end
 end

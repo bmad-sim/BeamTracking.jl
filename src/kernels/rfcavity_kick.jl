@@ -202,7 +202,7 @@ end
 """
 Gives radiation diffusion kick in an RF cavity, possibly with multipoles.
 """
-@makekernel fastgtpsa=true function stochastic_radiation!(i, coords::Coords, s, ::typeof(cavity!), backend, q, mc2, E_ref, omega, t_ref, E0_normalized, mm, kn, ks, L) 
+@makekernel function stochastic_radiation!(i, coords::Coords, s, ::typeof(cavity!), backend, q, mc2, E_ref, omega, t_ref, E0_normalized, mm, kn, ks, L) 
   v = coords.v
 
   t = t_ref - v[i,ZI]/C_LIGHT # ultrarelativistic radiation
