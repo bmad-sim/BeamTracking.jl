@@ -1,4 +1,4 @@
-# Curved
+# Curved magnetic
 @makekernel fastgtpsa=true function fringe!(i, coords::Coords, a, tilde_m, Kn0, w, w_inv, e1, e2, sign)
   v = coords.v
   alive = (coords.state[i] == STATE_ALIVE)
@@ -35,11 +35,24 @@
 end
 
 
-# Straight
+# Straight magnetic
 @makekernel fastgtpsa=true function fringe!(i, coords::Coords, a, tilde_m, Ksol, Kn0, w0, w0_inv, Kn1, w1, w1_inv, sign)
   v = coords.v
   alive = (coords.state[i] == STATE_ALIVE)
   rel_p = 1 + v[i,PZI]
+
+  ax = 0
+  ay = 0
+
+  if !isnothing(Ksol)
+    if sign > 0
+      ax = zero(v[i,YI]*Ksol)
+      ay = zero(v[i,XI]*Ksol)
+    else
+      ax = -v[i,YI]*Ksol/2
+      ay =  v[i,XI]*Ksol/2
+    end
+  end
 
   # Quadrupole
   if !isnothing(Kn1) && !isnothing(coords.q)
@@ -47,7 +60,7 @@ end
       rotation!(i, coords, w1, 0)
     end
     b_vec = (0, 0, sign*v[i,XI]*v[i,YI]*Kn1)
-    rotate_spin_field!(i, coords, a, 0, tilde_m, 0, 0, (0, 0, 0), b_vec, 1/2)
+    rotate_spin_field!(i, coords, a, 0, tilde_m, ax, ay, (0, 0, 0), b_vec, 1/2)
     if !isnothing(w1_inv)
       rotation!(i, coords, w1_inv, 0)
     end
@@ -59,7 +72,7 @@ end
       rotation!(i, coords, w0, 0)
     end
     b_vec = (0, 0, sign*v[i,YI]*Kn0)
-    rotate_spin_field!(i, coords, a, 0, tilde_m, 0, 0, (0, 0, 0), b_vec, 1/2)
+    rotate_spin_field!(i, coords, a, 0, tilde_m, ax, ay, (0, 0, 0), b_vec, 1/2)
     if !isnothing(w0_inv)
       rotation!(i, coords, w0_inv, 0)
     end
@@ -68,7 +81,7 @@ end
   # Solenoid
   if !isnothing(Ksol) && !isnothing(coords.q)
     b_vec = (-sign*v[i,XI]*Ksol/2, -sign*v[i,YI]*Ksol/2, 0)
-    rotate_spin_field!(i, coords, a, 0, tilde_m, 0, 0, (0, 0, 0), b_vec, 1/2)
+    rotate_spin_field!(i, coords, a, 0, tilde_m, ax, ay, (0, 0, 0), b_vec, 1/2)
   end
 
   # Quadrupole
@@ -115,8 +128,8 @@ end
       rotation!(i, coords, w0, 0)
     end
 
-    px = v[i,PXI]
-    py = v[i,PYI]
+    px = v[i,PXI] - ax
+    py = v[i,PYI] - ay
     ps2 = rel_p*rel_p - px*px - py*py
     good_momenta = (ps2 > 0)
     coords.state[i] = vifelse(!good_momenta & alive, STATE_LOST, coords.state[i])
@@ -154,11 +167,13 @@ end
 
   # Solenoid
   if !isnothing(Ksol)
-    ax = -v[i,YI]*Ksol/2
-    ay =  v[i,XI]*Ksol/2
-  else
-    ax = 0
-    ay = 0
+    if sign > 0
+      ax = -v[i,YI]*Ksol/2
+      ay =  v[i,XI]*Ksol/2
+    else
+      ax = zero(v[i,YI]*Ksol)
+      ay = zero(v[i,XI]*Ksol)
+    end
   end
 
   # Quadrupole
@@ -189,5 +204,38 @@ end
   if !isnothing(Ksol) && !isnothing(coords.q)
     b_vec = (-sign*v[i,XI]*Ksol/2, -sign*v[i,YI]*Ksol/2, 0)
     rotate_spin_field!(i, coords, a, 0, tilde_m, ax, ay, (0, 0, 0), b_vec, 1/2)
+  end
+end
+
+
+# Straight electric
+@makekernel fastgtpsa=true function fringe!(i, coords::Coords, a, tilde_m, kE, w, w_inv, sign)
+  if !isnothing(coords.q)
+    if !isnothing(w)
+      rotation!(i, coords, w, 0)
+    end
+
+    beta_0 = 1/sqrt(1 + tilde_m*tilde_m)
+    phi = -kE*coords.v[i,XI]
+    e_vec = (0, 0, -sign*C_LIGHT*phi)
+
+    if sign > 0
+      phi_in = zero(phi)
+      phi_out = phi
+    else
+      phi_in = phi
+      phi_out = zero(phi)
+    end
+
+    mad_to_bmad!(i, coords, beta_0, tilde_m, phi_in)
+    rotate_spin_field!(i, coords, a, 0, tilde_m, 0, 0, e_vec, (0, 0, 0), 1/2)
+    bmad_to_mad!(i, coords, beta_0, tilde_m, phi_in)
+    mad_to_bmad!(i, coords, beta_0, tilde_m, phi_out)
+    rotate_spin_field!(i, coords, a, 0, tilde_m, 0, 0, e_vec, (0, 0, 0), 1/2)
+    bmad_to_mad!(i, coords, beta_0, tilde_m, phi_out)
+
+    if !isnothing(w_inv)
+      rotation!(i, coords, w_inv, 0)
+    end
   end
 end

@@ -65,6 +65,7 @@ include("kernels/ibs_kick.jl")
 include("kernels/implicit.jl")
 include("kernels/thin.jl")
 include("kernels/fringe.jl")
+include("kernels/elsep.jl")
 
 include("utils/find_stuff.jl")
 

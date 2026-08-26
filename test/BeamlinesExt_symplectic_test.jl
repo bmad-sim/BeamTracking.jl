@@ -705,6 +705,40 @@
     @test b0.coords.v ≈ v_expected
     @test b0.coords.q ≈ q_expected 
 
+    # Straight electric dipole
+    ele = LineElement(En0=-1e6, L=1.0, tracking_method=Symplectic(order=2, fringe_at=Fringe.NoEnd))
+    v = [0.01 0.02 0.03 0.04 0.05 0.06] .+ collect(transpose(@vars(D1)))
+    q = TPS64{D1}[1 0 0 0]
+    b0 = Bunch(v, q, p_over_q_ref=p_over_q_ref, species=Species("electron"))
+    bl = Beamline([ele], p_over_q_ref=p_over_q_ref, species_ref=Species("electron"))
+    track!(b0, bl)
+    v_expected = [0.993712645056925      0.9467663447815783    0.0  0.004044374169307264  0.0               -0.06280061877602208; 
+                 -8.373910804052087e-5   1.0062473528989726    0.0  0.003589117936705035  0.0               -0.000836419742214363; 
+                 -0.003566890550589937   0.0006715847320741898 1.0  0.9446875696265458    0.0               -0.035627531086043905; 
+                  0.0                    0.0                   0.0  1.0                   0.0                0.0; 
+                  0.0008364197422143503 -0.06240106234174937   0.0 -0.035849547118928585  0.9999999999999997 0.008347673672787569; 
+                  0.0                    6.808013032636579e-16 0.0  9.769151354229783e-19 0.0                1.0000000000000195]
+    q_expected = [0.00018453728243264297  8.708806445241755e-5   0.0 -7.494842501441377e-5  0.0  0.0018432322699993313; 
+                 -1.2004045049369538e-20 -1.7205356741102976e-21 0.0 -2.659683454378503e-19 0.0 -2.9010878443459787e-19; 
+                 -0.004001888276675372   -0.0018926730649262676  0.0 -6.9887102137878425e-6 0.0 -0.03997246255749152; 
+                  0.00031482468268282965  4.057350103005212e-5   0.0 -0.04338686433713468   0.0  0.0031445949938333044]
+    @test scalar.(b0.coords.v) ≈ [0.07619383989404249 0.12044270740986635 0.06773377600649585 0.04 0.04688129612062814 0.060000000000000046]
+    @test scalar.(b0.coords.q) ≈ [0.9989432728618399 -3.790472438962994e-20 0.04592748909008321 -0.001733017585865986]
+    @test GTPSA.jacobian(b0.coords.v) ≈ v_expected
+    @test GTPSA.jacobian(b0.coords.q) ≈ q_expected
+
+    # Straight electric dipole with hard-edge fringe
+    ele = LineElement(En0=-1e6, L=1.0, tracking_method=Symplectic(order=2, fringe_at=Fringe.BothEnds))
+    v = [0.01 0.02 0.03 0.04 0.05 0.06]
+    q = [1.0 0.0 0.0 0.0]
+    b0 = Bunch(v, q, p_over_q_ref=p_over_q_ref, species=Species("electron"))
+    bl = Beamline([ele], p_over_q_ref=p_over_q_ref, species_ref=Species("electron"))
+    track!(b0, bl)
+    v_expected = [0.07619383989404246 0.12044270740986612 0.06773377600649595 0.040000000000000015 0.04688129612062788 0.05999999999999996]
+    q_expected = [0.9989252599742241 -0.00011573820290076998 0.04631721392545931 -0.0017399092734694008]
+    @test b0.coords.v ≈ v_expected
+    @test b0.coords.q ≈ q_expected 
+
     # Particle lost in dipole (momentum is too small):
     b0 = Bunch([0.4 0.4 0.4 0.4 0.4 -0.5], [1.0 0.0 0.0 0.0], p_over_q_ref=p_over_q_ref, species=Species("electron"))
     v_init = copy(b0.coords.v)
