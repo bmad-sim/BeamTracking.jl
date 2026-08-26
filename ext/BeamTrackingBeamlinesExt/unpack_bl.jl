@@ -485,7 +485,7 @@ end
 # When "pure" is not present, it means that at least one higher order 
 # multipole exists.
 
-# SciBmad will probably not ever support thin bends or electric elements but I leave them here for now
+# SciBmad will probably not support thin bends ever but I leave them here for now
 @inline thin_bend_no_field(tm, kc, p_over_q_ref, bunch, bendparams)                      = error("Undefined for tracking method $tm")
 @inline thin_bend_pure_bsolenoid(tm, kc, p_over_q_ref, bunch, bendparams, bm0)           = error("Undefined for tracking method $tm")
 @inline thin_bend_bsolenoid(tm, kc, p_over_q_ref, bunch, bendparams, bmultipoleparams)   = error("Undefined for tracking method $tm")
