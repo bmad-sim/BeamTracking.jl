@@ -937,15 +937,26 @@ zf_mn4  = [ 0., 3.140908277834687e-8, -3.1503450227072763e-8, 3.140908186274627e
     end
 
     # Scalar parameters
-    test_map("bmad_maps/patch.jl",       make_kernel_call(BeamTracking.patch!, patch_args(Float64));                           tol=5e-10)
-    test_map("bmad_maps/patch_norot.jl", make_kernel_call(BeamTracking.patch!, patch_norot_args(Float64));                     tol=1e-9 )
+    test_map("bmad_maps/patch.jl",       make_kernel_call(BeamTracking.patch!, patch_args(Float64));                          tol=5e-10)
+    test_map("bmad_maps/patch_norot.jl", make_kernel_call(BeamTracking.patch!, patch_norot_args(Float64));                    tol=1e-9 )
     test_map("bmad_maps/drift.jl",       make_kernel_call(BeamTracking.BeamTracking.exact_drift!, drift_args(Float64));       tol=5e-10)
     test_map("bmad_maps/solenoid.jl",    make_kernel_call(BeamTracking.BeamTracking.exact_solenoid!, solenoid_args(Float64)); tol=5e-10)
 
     # GTPSA parameters
-    test_map("bmad_maps/patch.jl",       make_kernel_call(BeamTracking.patch!, patch_args(TPS64{D10}));                           tol=6e-10)
-    test_map("bmad_maps/patch_norot.jl", make_kernel_call(BeamTracking.patch!, patch_norot_args(TPS64{D10}));                     tol=1e-9 )
+    test_map("bmad_maps/patch.jl",       make_kernel_call(BeamTracking.patch!, patch_args(TPS64{D10}));                          tol=6e-10)
+    test_map("bmad_maps/patch_norot.jl", make_kernel_call(BeamTracking.patch!, patch_norot_args(TPS64{D10}));                    tol=1e-9 )
     test_map("bmad_maps/drift.jl",       make_kernel_call(BeamTracking.BeamTracking.exact_drift!, drift_args(TPS64{D10}));       tol=5e-10)
     test_map("bmad_maps/solenoid.jl",    make_kernel_call(BeamTracking.BeamTracking.exact_solenoid!, solenoid_args(TPS64{D10})); tol=5e-10)
+
+    # Straight electric dipole
+    elsep_rad = 
+      [0.9949874848235151      1.0016685278880917   0.0 0.0                0.0               -0.05012515174462919
+      -3.747234483930972e-5    1.004183742255805    0.0 0.0                0.0               -0.00037472344824218814
+       0.0                     0.0                  1.0 0.9999999999999931 0.0                0.0 
+       0.0                     0.0                  0.0 0.9991795699329763 0.0                0.0 
+       0.0003337698470576964  -0.050055406693613864 0.0 0.0                0.9999999999999967 0.0033376984678840033 
+      -0.00016401848193140455 -4.105571624037182e-5 0.0 0.0                0.0                0.9983598151820057]
+    params = ((-1.0, 510998.95069, 1.8e10), 0.1, 0.9999999995970377, 2.8388812250434518e-5, nothing, nothing, 0.0011596521804599913)
+    test_matrix(elsep_rad, make_kernel_call(BeamTracking.order_four_integrator!, (BeamTracking.elsep_rad!, params, nothing, 1.0, 1, nothing, Val{false}(), Val{false}(), Val{true}(), 1.0)))
   end
 end

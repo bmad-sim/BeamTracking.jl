@@ -623,3 +623,39 @@ end
   )
   return kc
 end
+
+
+# =========== ELECTRIC ============= #
+@inline function thick_pure_edipole(tm::Symplectic, kc, p_over_q_ref, bunch, em1, L)
+  p_over_q_ref = p_over_q_ref
+  tilde_m, _, beta_0 = BeamTracking.drift_params(bunch.species, p_over_q_ref)
+  mm = em1.order
+  kn, ks = get_e_strengths(em1, L)
+  kE = sqrt(kn^2 + ks^2)/(p_over_q_ref * C_LIGHT)
+  tilt = atan2(ks, kn)
+  if tilt ≈ 0
+    w = nothing
+    w_inv = nothing
+  else
+    w = rot_quaternion(0, 0, tilt)
+    w_inv = inv_rot_quaternion(0, 0, tilt)
+  end
+  q = chargeof(bunch.species)
+  mc2 = massof(bunch.species)
+  E_ref = mc2/tilde_m/beta_0
+  a = gyromagnetic_anomaly(bunch.species)
+  edge_params = (a, tilde_m, kE, w, w_inv)
+  radiation_params = ifelse(tm.radiation_damping_on, (q, mc2, E_ref), nothing)
+  params = (radiation_params, kE, beta_0, tilde_m, w, w_inv, a)
+  if isprimitivetype(eltype(bunch.coords.v)) && tm.radiation_fluctuations_on
+    photon_params = (BeamTracking.exact_elsep!, get_backend(bunch.coords.v), q, mc2, E_ref, kE)
+  else
+    photon_params = nothing
+  end
+  kc = push(kc, KernelCall(BeamTracking.bmad_to_mad!, (beta_0, tilde_m, 0)))
+  kc = push(kc, integration_launcher(BeamTracking.elsep_rad!, params, photon_params, tm, edge_params, L))
+  kc = push(kc, KernelCall(BeamTracking.mad_to_bmad!, (beta_0, tilde_m, 0)))
+  kc = push_transforms_out(kc, make_kernel_call(BeamTracking.callback_electric!, (beta_0, tilde_m, kE, Val{false}())))
+  kc = push_transforms_in(kc, make_kernel_call(BeamTracking.callback_electric!, (beta_0, tilde_m, kE, Val{true}())))
+  return kc
+end
