@@ -508,6 +508,30 @@
     @test b0.coords.v ≈ v_expected
     @test b0.coords.q ≈ q_expected
 
+    # Relative time tracking is independent of bunch.t_ref
+    v = [0.01 0.02 0.03 0.04 0.05 0.06]
+    q = [1.0 0.0 0.0 0.0]
+    b_relative = Bunch(v, q, p_over_q_ref=p_over_q_ref, species=Species("electron"), t_ref=phase_time)
+    track!(b_relative, bl)
+    @test b_relative.coords.v ≈ b0.coords.v
+    @test b_relative.coords.q ≈ b0.coords.q
+
+    # Absolute-time RF phase is equivalent to shifting phi0 by omega * bunch.t_ref.
+    rf_frequency = 5.9114268014977E8
+    phase_time = 1 / (8 * rf_frequency)
+    ele_absolute = LineElement(L=4.01667, voltage=3.3210942126011E6, rf_frequency=rf_frequency, phi0=0.0, tracking_method=Symplectic(order=2))
+    ele_shifted = LineElement(L=4.01667, voltage=3.3210942126011E6, rf_frequency=rf_frequency, phi0=2*pi*rf_frequency*phase_time, tracking_method=Symplectic(order=2))
+    bl_absolute = Beamline([ele_absolute], p_over_q_ref=p_over_q_ref, species_ref=Species("electron"))
+    bl_shifted = Beamline([ele_shifted], p_over_q_ref=p_over_q_ref, species_ref=Species("electron"))
+    v = [0.01 0.02 0.03 0.04 0.05 0.06]
+    q = [1.0 0.0 0.0 0.0]
+    b_absolute = Bunch(copy(v), copy(q), p_over_q_ref=p_over_q_ref, species=Species("electron"), t_ref=phase_time)
+    b_shifted = Bunch(copy(v), copy(q), p_over_q_ref=p_over_q_ref, species=Species("electron"))
+    track!(b_absolute, bl_absolute; absolute_time_tracking=true)
+    track!(b_shifted, bl_shifted)
+    @test b_absolute.coords.v ≈ b_shifted.coords.v
+    @test b_absolute.coords.q ≈ b_shifted.coords.q
+
     # Harmon:
     ele_drift = LineElement(L=1.04812778909)
     ele = LineElement(L=4.01667, voltage=3.3210942126011E6, harmon=10, zero_phase=PhaseRef.AboveTransition, tracking_method=Symplectic(order=2))

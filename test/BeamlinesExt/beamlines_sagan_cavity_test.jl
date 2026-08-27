@@ -98,6 +98,34 @@ R0 = BT.E_to_R(species, E0)
   @test b1.coords.v ≈ out7
   @test b1.coords.q ≈ qout7
   @test b1.t_ref ≈ 6.6712819118982366e-9
+
+  ele1 = sc8
+  ele2 = sc9
+  b1 = Bunch(copy(v1), deepcopy(quat1), species=species, p_over_q_ref=BT.E_to_R(species, ele1.E_ref-ele1.dE_ref), t_ref=1 / (8 * ele1.rf_frequency))
+  b2  = Bunch(copy(v1), deepcopy(quat1), species=species, p_over_q_ref=BT.E_to_R(species, ele2.E_ref-ele2.dE_ref))
+  track!(b1, ele1; absolute_time_tracking = true)
+  track!(b2, ele2)
+  if printit; println(b1.coords.v); end
+  if printit; println(b2.coords.v); end
+  if printit; println(b1.coords.q); end
+  if printit; println(b2.coords.q); end
+  @test b1.coords.v ≈ b2.coords.v
+  @test b1.t_ref ≈ 6.7962819118767384e-9
+  @test b2.t_ref ≈ 6.671281911876738e-9
+  
+
+  ele = sc8
+  b1 = Bunch(copy(v1), species=species, p_over_q_ref = BT.E_to_R(species, ele.E_ref-ele.dE_ref), t_ref = 1 / (8 * ele1.rf_frequency))
+  b2 = Bunch(copy(v1), species=species, p_over_q_ref = BT.E_to_R(species, ele.E_ref-ele.dE_ref))
+  track!(b1, ele)
+  track!(b2, ele)
+  if printit; println(b1.coords.v); end
+  if printit; println(b2.coords.v); end
+  if printit; println(b1.coords.q); end
+  if printit; println(b2.coords.q); end
+  @test b1.coords.v ≈ b2.coords.v
+  @test b1.t_ref ≈ 6.7962819118767384e-9
+  @test b2.t_ref ≈ 6.671281911876738e-9
 end
 
 # dE_ref
