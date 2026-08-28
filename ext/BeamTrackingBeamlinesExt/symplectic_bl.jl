@@ -503,10 +503,13 @@ end
 
 
 # =========== RF ============= #
-@inline function thick_pure_rf(tm::Union{Symplectic,DriftKick}, kc, p_over_q_ref, bunch, rfparams, beamlineparams, L)
+@inline function thick_pure_rf(tm::Union{Symplectic,DriftKick}, kc, p_over_q_ref, bunch, rfparams, beamlineparams, absolute_time_tracking, L)
   p_over_q_ref = p_over_q_ref
   omega = rf_omega_calc(rfparams, beamlineparams)
   t_ref = (rf_phi0_calc(rfparams, beamlineparams.beamline.species_ref) - pi/2)/omega
+  if absolute_time_tracking
+    t_ref += bunch.t_ref
+  end
   tilde_m, gamsqr_0, beta_0 = BeamTracking.drift_params(bunch.species, p_over_q_ref)
   E0_normalized = rfparams.voltage/L/p_over_q_ref
   q = chargeof(bunch.species)
@@ -523,10 +526,13 @@ end
   return push(kc, integration_launcher(BeamTracking.cavity!, params, photon_params, tm, nothing, L))
 end
 
-@inline function thick_bmultipole_rf(tm::Union{Symplectic,DriftKick,SolenoidKick}, kc, p_over_q_ref, bunch, bm, rfparams, beamlineparams, L)
+@inline function thick_bmultipole_rf(tm::Union{Symplectic,DriftKick,SolenoidKick}, kc, p_over_q_ref, bunch, bm, rfparams, beamlineparams, absolute_time_tracking, L)
   p_over_q_ref = p_over_q_ref
   omega = rf_omega_calc(rfparams, beamlineparams)
   t_ref = (rf_phi0_calc(rfparams, beamlineparams.beamline.species_ref) - pi/2) / omega
+  if absolute_time_tracking
+    t_ref += bunch.t_ref
+  end
   tilde_m, gamsqr_0, beta_0 = BeamTracking.drift_params(bunch.species, p_over_q_ref)
   E0_normalized = rfparams.voltage/L/p_over_q_ref
   mm = bm.order

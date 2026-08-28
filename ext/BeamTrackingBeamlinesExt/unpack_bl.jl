@@ -9,7 +9,8 @@ function _track!(
   scalar_params,
   ramp_particle_energy_without_rf,
   ramp_update_each_particle,
-  rf_on;
+  rf_on,
+  absolute_time_tracking;
   kwargs...
 )
   # Unpack the line element (type unstable)
@@ -44,7 +45,7 @@ function _track!(
   end
 
   # Function barrier
-  universal!(coords, tm, ele, ramp_particle_energy_without_rf, ramp_update_each_particle, bunch, L, p_over_q_ref, ap, bp, bm, pp, dp, rp, lp, mp, fpp, em; kwargs...)
+  universal!(coords, tm, ele, ramp_particle_energy_without_rf, ramp_update_each_particle, absolute_time_tracking, bunch, L, p_over_q_ref, ap, bp, bm, pp, dp, rp, lp, mp, fpp, em; kwargs...)
 end
 
 # Step 2: Push particles through -----------------------------------------
@@ -54,6 +55,7 @@ function universal!(
   ele,
   ramp_particle_energy_without_rf, 
   ramp_update_each_particle,
+  absolute_time_tracking,
   bunch,
   L, 
   p_over_q_ref,
@@ -184,7 +186,7 @@ function universal!(
     end
     !rfparams.is_crabcavity || error("Crab cavities not yet supported for tracking")
 
-    kc = @inline(rfcavity(tm, kc, p_over_q_ref, bunch, bmultipoleparams, rfparams, beamlineparams, L))
+    kc = @inline(rfcavity(tm, kc, p_over_q_ref, bunch, bmultipoleparams, rfparams, beamlineparams, absolute_time_tracking, L))
     
   elseif isactive(bendparams)
     if bendparams.edge1_int != 0 || bendparams.edge2_int != 0; error("edge1_int and edge2_int not yet handled for tracking"); end
@@ -328,9 +330,9 @@ end
 #---------------------------------------------------------------------------------------------------
 # universal! for SaganCavity tracking.
 
-function universal!(coords, tm::SaganCavity, ele, ramp_particle_energy_without_rf, ramp_update_each_particle, bunch, L,
+function universal!(coords, tm::SaganCavity, ele, ramp_particle_energy_without_rf, ramp_update_each_particle, absolute_time_tracking, bunch, L,
   p_over_q_ref, alignmentparams, bendparams, bmultipoleparams, patchparams, apertureparams,
-  rfparams, beamlineparams, mapparams, fourpotentialparams, emultipoleparams; kwargs...) 
+  rfparams, beamlineparams, mapparams, fourpotentialparams, emultipoleparams; kwargs...)
 
   !isactive(mapparams) || error("SaganCavity Tracking through element $ele_name with MapParams is undefined")
   !isactive(patchparams) || error("SaganCavity Tracking through element $ele_name with PatchParams is undefined")
@@ -371,9 +373,9 @@ function universal!(coords, tm::SaganCavity, ele, ramp_particle_energy_without_r
         dt_ref += L_active / (n_cells * E_to_v(species, E_now_ref))
       end
     end
-    t_exit = dt_ref
+    t_exit = t_enter + dt_ref
   else
-    t_exit = 0
+    t_exit = t_enter
   end
   if p_over_q_ref isa TimeDependentParam
     beta_gamma_exit = R_to_beta_gamma(bunch.species, p_over_q_ref(t_exit))
@@ -414,7 +416,7 @@ function universal!(coords, tm::SaganCavity, ele, ramp_particle_energy_without_r
   end
 
   # Cavity tracking
-  kc = @inline(sagan_cavity(tm, kc, p_over_q_ref, bunch, ele.name, bmultipoleparams, rfparams, beamlineparams, L))
+  kc = @inline(sagan_cavity(tm, kc, p_over_q_ref, bunch, ele.name, bmultipoleparams, rfparams, beamlineparams, absolute_time_tracking, L))
 
   # Exit aperture and alignment
   if isactive(alignmentparams)
@@ -453,7 +455,7 @@ end
 # "Pure" means only ONE SINGLE multipole.
 # When "pure" is not present, it means that at least one HIGHER ORDER
 # multipole exists.
-@inline thin_pure_rf(tm, kc, p_over_q_ref, bunch, rfparams)                          = error("Undefined for tracking method $tm")
+@inline thin_pure_rf(tm, kc, p_over_q_ref, bunch, rfparams, att)                     = error("Undefined for tracking method $tm")
 @inline thin_pure_bsolenoid(tm, kc, p_over_q_ref, bunch, bm0)                        = error("Undefined for tracking method $tm")
 @inline thin_bsolenoid(tm, kc, p_over_q_ref, bunch, bmultipoleparams)                = error("Undefined for tracking method $tm")
 @inline thin_pure_bdipole(tm, kc, p_over_q_ref, bunch, bm1)                          = error("Undefined for tracking method $tm")
@@ -462,10 +464,10 @@ end
 @inline thin_bquadrupole(tm, kc, p_over_q_ref, bunch, bmultipoleparams)              = error("Undefined for tracking method $tm")
 @inline thin_pure_bmultipole(tm, kc, p_over_q_ref, bunch, bmk)                       = error("Undefined for tracking method $tm")
 @inline thin_bmultipole(tm, kc, p_over_q_ref, bunch, bmultipoleparams)               = error("Undefined for tracking method $tm")
-@inline thin_bmultipole_rf(tm, kc, p_over_q_ref, bunch, bmultipoleparams, rfparams)  = error("Undefined for tracking method $tm")
+@inline thin_bmultipole_rf(tm, kc, p_over_q_ref, bunch, bmultipoleparams, rfparams, att) = error("Undefined for tracking method $tm")
 @inline thin_pure_edipole(tm, kc, p_over_q_ref, bunch, em1)                          = error("Undefined for tracking method $tm")
 
-@inline thick_pure_rf(tm, kc, p_over_q_ref, bunch, rfparams, beamlineparams, L)                         = error("Undefined for tracking method $tm")
+@inline thick_pure_rf(tm, kc, p_over_q_ref, bunch, rfparams, beamlineparams, att, L)                    = error("Undefined for tracking method $tm")
 @inline thick_pure_bsolenoid(tm, kc, p_over_q_ref, bunch, bm0, L)                                       = error("Undefined for tracking method $tm")
 @inline thick_bsolenoid(tm, kc, p_over_q_ref, bunch, bmultipoleparams, L)                               = error("Undefined for tracking method $tm")
 @inline thick_pure_bdipole(tm, kc, p_over_q_ref, bunch, bm1, L)                                         = error("Undefined for tracking method $tm")
@@ -474,7 +476,7 @@ end
 @inline thick_bquadrupole(tm, kc, p_over_q_ref, bunch, bmultipoleparams, L)                             = error("Undefined for tracking method $tm")
 @inline thick_pure_bmultipole(tm, kc, p_over_q_ref, bunch, bmk, L)                                      = error("Undefined for tracking method $tm")
 @inline thick_bmultipole(tm, kc, p_over_q_ref, bunch, bmultipoleparams, L)                              = error("Undefined for tracking method $tm")
-@inline thick_bmultipole_rf(tm, kc, p_over_q_ref, bunch, bmultipoleparams, rfparams, beamlineparams, L) = error("Undefined for tracking method $tm")
+@inline thick_bmultipole_rf(tm, kc, p_over_q_ref, bunch, bmultipoleparams, rfparams, beamlineparams, att, L) = error("Undefined for tracking method $tm")
 @inline thick_pure_edipole(tm, kc, p_over_q_ref, bunch, em1, L)                                         = error("Undefined for tracking method $tm")
 
 # === Elements with curving coordinate system "bend" === #
@@ -508,7 +510,7 @@ end
 
 
 # === Elements thin vs thick check === #
-@inline pure_rf(tm, kc, p_over_q_ref, bunch, rfparams, beamlineparams, L)                          = L == 0 ? thin_pure_rf(tm, kc, p_over_q_ref, bunch, rfparams, beamlineparams)                         : thick_pure_rf(tm, kc, p_over_q_ref, bunch, rfparams, beamlineparams, L)
+@inline pure_rf(tm, kc, p_over_q_ref, bunch, rfparams, beamlineparams, att, L)                = L == 0 ? thin_pure_rf(tm, kc, p_over_q_ref, bunch, rfparams, beamlineparams, att)               : thick_pure_rf(tm, kc, p_over_q_ref, bunch, rfparams, beamlineparams, att, L)
 @inline pure_bsolenoid(tm, kc, p_over_q_ref, bunch, bm0, L)                                   = L == 0 ? thin_pure_bsolenoid(tm, kc, p_over_q_ref, bunch, bm0)                                  : thick_pure_bsolenoid(tm, kc, p_over_q_ref, bunch, bm0, L)      
 @inline bsolenoid(tm, kc, p_over_q_ref, bunch, bmultipoleparams, L)                           = L == 0 ? thin_bsolenoid(tm, kc, p_over_q_ref, bunch, bmultipoleparams)                          : thick_bsolenoid(tm, kc, p_over_q_ref, bunch, bmultipoleparams, L)       
 @inline pure_bdipole(tm, kc, p_over_q_ref, bunch, bm1, L)                                     = L == 0 ? thin_pure_bdipole(tm, kc, p_over_q_ref, bunch, bm1)                                    : thick_pure_bdipole(tm, kc, p_over_q_ref, bunch, bm1, L)          
@@ -517,7 +519,7 @@ end
 @inline bquadrupole(tm, kc, p_over_q_ref, bunch, bmultipoleparams, L)                         = L == 0 ? thin_bquadrupole(tm, kc, p_over_q_ref, bunch, bmultipoleparams)                        : thick_bquadrupole(tm, kc, p_over_q_ref, bunch, bmultipoleparams, L)           
 @inline pure_bmultipole(tm, kc, p_over_q_ref, bunch, bmk, L)                                  = L == 0 ? thin_pure_bmultipole(tm, kc, p_over_q_ref, bunch, bmk)                                 : thick_pure_bmultipole(tm, kc, p_over_q_ref, bunch, bmk, L)                   
 @inline bmultipole(tm, kc, p_over_q_ref, bunch, bmultipoleparams, L)                          = L == 0 ? thin_bmultipole(tm, kc, p_over_q_ref, bunch, bmultipoleparams)                         : thick_bmultipole(tm, kc, p_over_q_ref, bunch, bmultipoleparams, L)
-@inline bmultipole_rf(tm, kc, p_over_q_ref, bunch, bmultipoleparams, rfparams, beamlineparams, L)  = L == 0 ? thin_bmultipole_rf(tm, kc, p_over_q_ref, bunch, bmultipoleparams, rfparams, beamlineparams) : thick_bmultipole_rf(tm, kc, p_over_q_ref, bunch, bmultipoleparams, rfparams, beamlineparams, L)        
+@inline bmultipole_rf(tm, kc, p_over_q_ref, bunch, bmultipoleparams, rfparams, beamlineparams, att, L) = L == 0 ? thin_bmultipole_rf(tm, kc, p_over_q_ref, bunch, bmultipoleparams, rfparams, att) : thick_bmultipole_rf(tm, kc, p_over_q_ref, bunch, bmultipoleparams, rfparams, beamlineparams, att, L)
 @inline bend_no_field(tm, kc, p_over_q_ref, bunch, bendparams, L)                             = L == 0 ? thin_bend_no_field(tm, kc, p_over_q_ref, bunch, bendparams)                            : thick_bend_no_field(tm, kc, p_over_q_ref, bunch, bendparams, L)
 @inline bend_pure_bsolenoid(tm, kc, p_over_q_ref, bunch, bendparams, bm0, L)                  = L == 0 ? thin_bend_pure_bsolenoid(tm, kc, p_over_q_ref, bunch, bendparams, bm0)                 : thick_bend_pure_bsolenoid(tm, kc, p_over_q_ref, bunch, bendparams, bm0, L)      
 @inline bend_bsolenoid(tm, kc, p_over_q_ref, bunch, bendparams, bmultipoleparams, L)          = L == 0 ? thin_bend_bsolenoid(tm, kc, p_over_q_ref, bunch, bendparams, bmultipoleparams)         : thick_bend_bsolenoid(tm, kc, p_over_q_ref, bunch, bendparams, bmultipoleparams, L)         
@@ -527,4 +529,4 @@ end
 @inline bend_bquadrupole(tm, kc, p_over_q_ref, bunch, bendparams, bmultipoleparams, L)        = L == 0 ? thin_bend_bquadrupole(tm, kc, p_over_q_ref, bunch, bendparams, bmultipoleparams)       : thick_bend_bquadrupole(tm, kc, p_over_q_ref, bunch, bendparams, bmultipoleparams, L)           
 @inline bend_pure_bmultipole(tm, kc, p_over_q_ref, bunch, bendparams, bmk, L)                 = L == 0 ? thin_bend_pure_bmultipole(tm, kc, p_over_q_ref, bunch, bendparams, bmk)                : thick_bend_pure_bmultipole(tm, kc, p_over_q_ref, bunch, bendparams, bmk, L)                   
 @inline bend_bmultipole(tm, kc, p_over_q_ref, bunch, bendparams, bmultipoleparams, L)         = L == 0 ? thin_bend_bmultipole(tm, kc, p_over_q_ref, bunch, bendparams, bmultipoleparams)        : thick_bend_bmultipole(tm, kc, p_over_q_ref, bunch, bendparams, bmultipoleparams, L)      
-@inline pure_edipole(tm, kc, p_over_q_ref, bunch, em1, L)                                     = L == 0 ? thin_pure_edipole(tm, kc, p_over_q_ref, bunch, em1)                                    : thick_pure_edipole(tm, kc, p_over_q_ref, bunch, em1, L)                          
+@inline pure_edipole(tm, kc, p_over_q_ref, bunch, em1, L)                                     = L == 0 ? thin_pure_edipole(tm, kc, p_over_q_ref, bunch, em1)                                    : thick_pure_edipole(tm, kc, p_over_q_ref, bunch, em1, L)

@@ -30,9 +30,23 @@ end
   m3 = Marker(E_ref = E0, species_ref = species)
 end
 
+@elements begin
+  sc8 = RFCavity(L = 2.0, voltage = 0.2*E0, rf_frequency =1e9, dE_ref = 0.1*E0, 
+                  tracking_method = SaganCavity(n_cells = 2), traveling_wave = false, phi0 = 0.1)
+  m4 = Marker(E_ref = E0, species_ref = species)
+end
+
+  @elements begin
+  sc9 = RFCavity(L = 2.0, voltage = 0.2*E0, rf_frequency =1e9, dE_ref = 0.1*E0, 
+                  tracking_method = SaganCavity(n_cells = 2), traveling_wave = false, phi0 = 0.1 + 2*pi/8)
+  m5 = Marker(E_ref = E0, species_ref = species)
+end
+
 lat = Branch([m, sc1, sc2, sc3])
 lat2 = Branch([m2, sc4, sc5, sc6])
 lat3 = Branch([m3, sc7])
+lat4 = Branch([m4, sc8])
+lat5 = Branch([m5, sc9])
 
 # Beamlines v0.9.0 shallow copy:
 sc1 = lat.beamlines[2].line[1]
@@ -44,5 +58,7 @@ sc5 = lat2.beamlines[3].line[1]
 sc6 = lat2.beamlines[4].line[1]
 
 sc7 = lat3.beamlines[2].line[1]
+sc8 = lat4.beamlines[2].line[1]
+sc9 = lat5.beamlines[2].line[1]
 
 ;

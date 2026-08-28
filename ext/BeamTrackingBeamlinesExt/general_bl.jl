@@ -75,11 +75,11 @@ end
 
 #---------------------------------------------------------------------------------------------------
 
-@inline function rfcavity(tm, kc, p_over_q_ref, bunch, bmultipoleparams, rfparams, beamlineparams, L)
+@inline function rfcavity(tm, kc, p_over_q_ref, bunch, bmultipoleparams, rfparams, beamlineparams, absolute_time_tracking, L)
   if !isactive(bmultipoleparams)
-    return pure_rf(tm, kc, p_over_q_ref, bunch, rfparams, beamlineparams, L)
+    return pure_rf(tm, kc, p_over_q_ref, bunch, rfparams, beamlineparams, absolute_time_tracking, L)
   else
-    return bmultipole_rf(tm, kc, p_over_q_ref, bunch, bmultipoleparams, rfparams, beamlineparams, L)
+    return bmultipole_rf(tm, kc, p_over_q_ref, bunch, bmultipoleparams, rfparams, beamlineparams, absolute_time_tracking, L)
   end
 end
 
