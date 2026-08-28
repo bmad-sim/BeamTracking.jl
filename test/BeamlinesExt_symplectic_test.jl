@@ -511,7 +511,7 @@
     # Relative time tracking is independent of bunch.t_ref
     v = [0.01 0.02 0.03 0.04 0.05 0.06]
     q = [1.0 0.0 0.0 0.0]
-    b_relative = Bunch(v, q, p_over_q_ref=p_over_q_ref, species=Species("electron"), t_ref=phase_time)
+    b_relative = Bunch(v, q, p_over_q_ref=p_over_q_ref, species=Species("electron"), t_ref=0.1234)
     track!(b_relative, bl)
     @test b_relative.coords.v ≈ b0.coords.v
     @test b_relative.coords.q ≈ b0.coords.q
