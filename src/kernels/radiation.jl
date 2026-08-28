@@ -59,23 +59,31 @@ end
 Returns the perpendicular component of e_vec divided by the speed of light plus
 the cross product of beta and b_vec.
 """
-@inline function radiation_field(e_vec, b_vec, beta)
-  @inbounds begin @FastGTPSA begin
-    e_dot_beta = e_vec[1]*beta[1] + e_vec[2]*beta[2] + e_vec[3]*beta[3]
-    e_perp_x = e_vec[1] - e_dot_beta*beta[1]
-    e_perp_y = e_vec[2] - e_dot_beta*beta[2]
-    e_perp_z = e_vec[3] - e_dot_beta*beta[3]
+@generated @inline function radiation_field(e_vec::V, b_vec, beta) where {V}
+  T = V.parameters[1]
+  if T == Float16 || T == Float32
+    coeff = T(1/C_LIGHT)
+  else
+    coeff = 1/C_LIGHT
+  end
+  return quote
+    @inbounds begin @FastGTPSA begin
+      e_dot_beta = e_vec[1]*beta[1] + e_vec[2]*beta[2] + e_vec[3]*beta[3]
+      e_perp_x = e_vec[1] - e_dot_beta*beta[1]
+      e_perp_y = e_vec[2] - e_dot_beta*beta[2]
+      e_perp_z = e_vec[3] - e_dot_beta*beta[3]
 
-    beta_cross_b_x = beta[2]*b_vec[3] - beta[3]*b_vec[2]
-    beta_cross_b_y = beta[3]*b_vec[1] - beta[1]*b_vec[3]
-    beta_cross_b_z = beta[1]*b_vec[2] - beta[2]*b_vec[1]
+      beta_cross_b_x = beta[2]*b_vec[3] - beta[3]*b_vec[2]
+      beta_cross_b_y = beta[3]*b_vec[1] - beta[1]*b_vec[3]
+      beta_cross_b_z = beta[1]*b_vec[2] - beta[2]*b_vec[1]
 
-    field_x = e_perp_x/C_LIGHT + beta_cross_b_x
-    field_y = e_perp_y/C_LIGHT + beta_cross_b_y
-    field_z = e_perp_z/C_LIGHT + beta_cross_b_z
+      field_x = e_perp_x * $coeff + beta_cross_b_x
+      field_y = e_perp_y * $coeff + beta_cross_b_y
+      field_z = e_perp_z * $coeff + beta_cross_b_z
 
-    return (field_x, field_y, field_z)
-  end end
+      return (field_x, field_y, field_z)
+    end end
+  end
 end
 
 
@@ -84,31 +92,41 @@ Gives radiation damping kick in an electromagnetic field. It is assumed that
 the coordinate system has already been rotated such that the curvature
 is in the horizontal plane.
 """
-@makekernel fastgtpsa=true function deterministic_radiation_field!(i, coords::Coords, q, mc2, E_ref, g, ax, ay, e_vec, b_vec, L)
-  v = coords.v
-  canonical_to_prime!(i, coords, g, ax, ay)
+@makekernel fastgtpsa=true function deterministic_radiation_field!(i, coords::Coords{<:Any,V}, q, mc2, E_ref, g, ax, ay, e_vec, b_vec, L) where {V}
+  T = eltype(V)
+  coeff = 1/(4*pi*EPS_0) * 2/3
+  if T == Float16 || T == Float32
+    coeff = T(coeff)
+  end
+  return quote
+    @inbounds begin @FastGTPSA begin
+      v = coords.v
+      canonical_to_prime!(i, coords, g, ax, ay)
 
-  h = 1 + g*v[i,XI]
-  rel_p = 1 + v[i,PZI]
+      h = 1 + g*v[i,XI]
+      rel_p = 1 + v[i,PZI]
 
-  pl2 = h*h + v[i,PXI]*v[i,PXI] + v[i,PYI]*v[i,PYI]
-  pl2_0 = zero(pl2)
-  good_momenta = (pl2 > pl2_0)
-  alive_at_start = (coords.state[i] == STATE_ALIVE)
-  coords.state[i] = vifelse(!good_momenta & alive_at_start, STATE_LOST, coords.state[i])
-  alive = (coords.state[i] == STATE_ALIVE)
-  pl2_1 = one(pl2)
-  pl = sqrt(vifelse(good_momenta, pl2, pl2_1)) 
+      pl2 = h*h + v[i,PXI]*v[i,PXI] + v[i,PYI]*v[i,PYI]
+      pl2_0 = zero(pl2)
+      good_momenta = (pl2 > pl2_0)
+      alive_at_start = (coords.state[i] == STATE_ALIVE)
+      coords.state[i] = vifelse(!good_momenta & alive_at_start, STATE_LOST, coords.state[i])
+      alive = (coords.state[i] == STATE_ALIVE)
+      pl2_1 = one(pl2)
+      pl = sqrt(vifelse(good_momenta, pl2, pl2_1)) 
 
-  beta = (v[i,PXI]/pl, v[i,PYI]/pl, h/pl)
-  field = radiation_field(e_vec, b_vec, beta)
-  field_2 = field[1]*field[1] + field[2]*field[2] + field[3]*field[3]
+      beta = (v[i,PXI]/pl, v[i,PYI]/pl, h/pl)
+      field = radiation_field(e_vec, b_vec, beta)
+      field_2 = field[1]*field[1] + field[2]*field[2] + field[3]*field[3]
 
-  K = -pl/(4*pi*EPS_0) * 2/3 * (q*q)/(mc2*mc2*mc2*mc2) * (E_ref*E_ref*E_ref) * field_2 * L
-  new_pz = (v[i,PZI] + rel_p*K)/(1 - rel_p*K)
-  v[i,PZI] = vifelse(alive, new_pz, v[i,PZI])
+      K = -pl * coef * (q*q)/(mc2*mc2*mc2*mc2) * (E_ref*E_ref*E_ref) * field_2 * L
+      new_pz = (v[i,PZI] + rel_p*K)/(1 - rel_p*K)
+      v[i,PZI] = vifelse(alive, new_pz, v[i,PZI])
 
-  prime_to_canonical!(i, coords, g, ax, ay)
+      prime_to_canonical!(i, coords, g, ax, ay)
+      return
+    end end
+  end
 end
 
 
@@ -148,61 +166,72 @@ Gives radiation diffusion kick in an electromagnetic field. It is assumed that
 the coordinate system has already been rotated such that the curvature
 is in the horizontal plane.
 """
-@makekernel function stochastic_radiation_field!(i, coords::Coords, backend, q, mc2, E_ref, g, ax, ay, e_vec, b_vec, L)
-  v = coords.v
+@generated @inline function stochastic_radiation_field!(i, coords::Coords{<:Any,V}, backend, q, mc2, E_ref, g, ax, ay, e_vec, b_vec, L) where {V}
+  T = eltype(V)
+  coeff = 55/(24*sqrt(3))/(4*pi*EPS_0)*H_BAR*C_LIGHT
+  coeff2 = sqrt(13/55)
+  if T == Float16 || T == Float32
+    coeff = T(coeff)
+    coeff2 = T(coeff2)
+  end
+  return quote
+    @inbounds begin
+      v = coords.v
 
-  h = 1 + g*v[i,XI]
-  rel_p = 1 + v[i,PZI]
-  gamma = rel_p*E_ref/mc2
-  px = v[i,PXI] - ax
-  py = v[i,PYI] - ay
+      h = 1 + g*v[i,XI]
+      rel_p = 1 + v[i,PZI]
+      gamma = rel_p*E_ref/mc2
+      px = v[i,PXI] - ax
+      py = v[i,PYI] - ay
 
-  pl2 = rel_p*rel_p - px*px - py*py
-  pl2_0 = zero(pl2)
-  good_momenta = (pl2 > pl2_0)
-  alive_at_start = (coords.state[i] == STATE_ALIVE)
-  coords.state[i] = vifelse(!good_momenta & alive_at_start, STATE_LOST, coords.state[i])
-  alive = (coords.state[i] == STATE_ALIVE)
-  pl2_1 = one(pl2)
-  pl = sqrt(vifelse(good_momenta, pl2, pl2_1)) 
+      pl2 = rel_p*rel_p - px*px - py*py
+      pl2_0 = zero(pl2)
+      good_momenta = (pl2 > pl2_0)
+      alive_at_start = (coords.state[i] == STATE_ALIVE)
+      coords.state[i] = vifelse(!good_momenta & alive_at_start, STATE_LOST, coords.state[i])
+      alive = (coords.state[i] == STATE_ALIVE)
+      pl2_1 = one(pl2)
+      pl = sqrt(vifelse(good_momenta, pl2, pl2_1)) 
 
-  beta = (px/rel_p, py/rel_p, pl/rel_p)
-  field = radiation_field(e_vec, b_vec, beta)
-  field_2 = field[1]*field[1] + field[2]*field[2] + field[3]*field[3]
-  field_1 = sqrt(field_2)
-  field_3 = field_2*field_1
+      beta = (px/rel_p, py/rel_p, pl/rel_p)
+      field = radiation_field(e_vec, b_vec, beta)
+      field_2 = field[1]*field[1] + field[2]*field[2] + field[3]*field[3]
+      field_1 = sqrt(field_2)
+      field_3 = field_2*field_1
 
-  beta_cross_field_x = beta[2]*field[3] - beta[3]*field[2]
-  beta_cross_field_y = beta[3]*field[1] - beta[1]*field[3]
-  beta_cross_field_z = beta[1]*field[2] - beta[2]*field[1]
-  beta_cross_field_2 = beta_cross_field_x*beta_cross_field_x + beta_cross_field_y*beta_cross_field_y + beta_cross_field_z*beta_cross_field_z
-  beta_cross_field_1 = sqrt(beta_cross_field_2)
+      beta_cross_field_x = beta[2]*field[3] - beta[3]*field[2]
+      beta_cross_field_y = beta[3]*field[1] - beta[1]*field[3]
+      beta_cross_field_z = beta[1]*field[2] - beta[2]*field[1]
+      beta_cross_field_2 = beta_cross_field_x*beta_cross_field_x + beta_cross_field_y*beta_cross_field_y + beta_cross_field_z*beta_cross_field_z
+      beta_cross_field_1 = sqrt(beta_cross_field_2)
 
-  beta_cross_field_hat_x = vifelse(beta_cross_field_1 > 0, beta_cross_field_x/beta_cross_field_1, 0)
-  beta_cross_field_hat_y = vifelse(beta_cross_field_1 > 0, beta_cross_field_y/beta_cross_field_1, 0)
+      beta_cross_field_hat_x = vifelse(beta_cross_field_1 > 0, beta_cross_field_x/beta_cross_field_1, 0)
+      beta_cross_field_hat_y = vifelse(beta_cross_field_1 > 0, beta_cross_field_y/beta_cross_field_1, 0)
 
-  dt_ds = h*rel_p/pl
-  coeff = 55/(24*sqrt(3))/(4*pi*EPS_0)*H_BAR*C_LIGHT # H_BAR in eV*s
+      dt_ds = h*rel_p/pl
 
-  mc27 = mc2*mc2*mc2*mc2*mc2*mc2*mc2
-  E_ref5 = E_ref*E_ref*E_ref*E_ref*E_ref
-  rel_p4 = rel_p*rel_p*rel_p*rel_p
-  q2 = q*q
+      mc27 = mc2*mc2*mc2*mc2*mc2*mc2*mc2
+      E_ref5 = E_ref*E_ref*E_ref*E_ref*E_ref
+      rel_p4 = rel_p*rel_p*rel_p*rel_p
+      q2 = q*q
 
-  sigma2 = dt_ds * coeff * q2/mc27 * E_ref5 * rel_p4 * field_3 * L
-  sigma2_1 = one(sigma2)
-  sigma = sqrt(vifelse(alive, sigma2, sigma2_1)) 
+      sigma2 = dt_ds * $coeff * q2/mc27 * E_ref5 * rel_p4 * field_3 * L
+      sigma2_1 = one(sigma2)
+      sigma = sqrt(vifelse(alive, sigma2, sigma2_1)) 
 
-  dpz, theta = gaussian_random(backend, sigma, sqrt(13/55)/gamma)
-  s, c = sincos(theta)
+      dpz, theta = gaussian_random(backend, sigma, $coeff2/gamma)
+      s, c = sincos(theta)
 
-  new_px = v[i,PXI] + dpz * (c*beta[1] + s*beta_cross_field_hat_x)
-  new_py = v[i,PYI] + dpz * (c*beta[2] + s*beta_cross_field_hat_y)
-  new_pz = v[i,PZI] + dpz
+      new_px = v[i,PXI] + dpz * (c*beta[1] + s*beta_cross_field_hat_x)
+      new_py = v[i,PYI] + dpz * (c*beta[2] + s*beta_cross_field_hat_y)
+      new_pz = v[i,PZI] + dpz
 
-  v[i,PXI] = vifelse(alive, new_px, v[i,PXI])
-  v[i,PYI] = vifelse(alive, new_py, v[i,PYI])
-  v[i,PZI] = vifelse(alive, new_pz, v[i,PZI])
+      v[i,PXI] = vifelse(alive, new_px, v[i,PXI])
+      v[i,PYI] = vifelse(alive, new_py, v[i,PYI])
+      v[i,PZI] = vifelse(alive, new_pz, v[i,PZI])
+      return
+    end
+  end
 end
 
 

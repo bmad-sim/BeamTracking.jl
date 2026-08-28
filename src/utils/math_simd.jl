@@ -27,13 +27,13 @@ isinf_imag(x::Number) = isfinite(real(x)) && isinf(imag(x))
 Compute the unnormalized sinc function ``\\operatorname{sincu}(x) = \\sin(x) / (x)`` 
 with accuracy near the origin.
 """
-function sincu(x)
-  #if isinf_real(x)
-  #  return zero(x)
-  #end
-
-  threshold = 0.0004 # (120*eps(Float64))^(1/4)
-  return vifelse(abs(x) > threshold, sin(x)/x, 1-x^2/6)
+@generated function sincu(x::T) where {T}
+  if T == Float16 || T == Float32
+    threshold = (120*eps(T))^(1//4)
+  else
+    threshold = 0.004
+  end
+  return :(vifelse(abs(x) > $threshold, sin(x)/x, 1-x^2/6))
 end
 
 
@@ -43,13 +43,13 @@ end
 Compute the unnormalized sinhc function ``\\operatorname{sinhcu}(x) = \\sinh(x) / (x)`` 
 with accuracy near the origin.
 """
-function sinhcu(x)
-  #if isinf_imag(x)
-  #  return zero(x)
-  #end
-
-  threshold = 0.0004 # (120*eps(Float64))^(1/4)
-  return vifelse(abs(x) > threshold, sinh(x)/x, 1+x^2/6)
+@generated function sinhcu(x::T) where {T}
+  if T == Float16 || T == Float32
+    threshold = (120*eps(T))^(1//4)
+  else
+    threshold = 0.004
+  end
+  return :(vifelse(abs(x) > $threshold, sinh(x)/x, 1+x^2/6))
 end
 
 
@@ -58,26 +58,31 @@ function atan2(y, x)
 end
 
 
-function atan2(y::SIMD.Vec{N, T}, x::SIMD.Vec{N, T}) where {N, T}
-  arctan = atan(y/x)
-  return vifelse(x > 0, arctan,
-         vifelse((x < 0)  & (y >= 0),  arctan + SIMD.Vec{N, T}(T(pi)),
-         vifelse((x < 0)  & (y < 0),   arctan - SIMD.Vec{N, T}(T(pi)),
-         vifelse((x == 0) & (y > 0),   SIMD.Vec{N, T}(pi/2),
-         vifelse((x == 0) & (y < 0),   SIMD.Vec{N, T}(-pi/2),
-         vifelse((x == 0) & (y == 0),  SIMD.Vec{N, T}(0), 
-         SIMD.Vec{N, T}(NaN)))))))
+@generated function atan2(y::SIMD.Vec{N, T}, x::SIMD.Vec{N, T}) where {N, T}
+  p = T(pi)
+  hp = T(pi/2)
+  n = T(NaN)
+  return quote
+    arctan = atan(y/x)
+    return vifelse(x > 0, arctan,
+           vifelse((x < 0)  & (y >= 0),  arctan + SIMD.Vec{N, T}($p),
+           vifelse((x < 0)  & (y < 0),   arctan - SIMD.Vec{N, T}($p),
+           vifelse((x == 0) & (y > 0),   SIMD.Vec{N, T}($hp),
+           vifelse((x == 0) & (y < 0),   SIMD.Vec{N, T}(-$hp),
+           vifelse((x == 0) & (y == 0),  SIMD.Vec{N, T}(0), 
+           SIMD.Vec{N, T}($n)))))))
+  end
 end
 
 
 # Copy-pasted from sincc in bmad-ecosystem
 function sincuc(x) 
-  c0 = 1/6
-  c1 = -1/120
-  c2 = 1/5040
-  c3 = -1/362880
+  c0 = 1//6
+  c1 = -1//120
+  c2 = 1//5040
+  c3 = -1//362880
   x2 = x^2
-  return vifelse(abs(x) >= 0.1, (x-sin(x))/x^3, c0+x2*(c1+x2*(c2+x2*c3)))
+  return vifelse(abs(x) >= 1/10, (x-sin(x))/x^3, c0+x2*(c1+x2*(c2+x2*c3)))
 end
 
 """

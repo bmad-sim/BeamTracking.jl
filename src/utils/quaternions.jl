@@ -2,16 +2,22 @@
 This function computes sin(sqrt(x))/sqrt(x) and cos(sqrt(x)), which are both 
 necessary for exponentiating a rotation vector into a quaternion.
 """
-function sincos_quaternion(x)
-  threshold = 7.3e-8 # sqrt(24*eps(Float64))
-  abs_x = abs(x)
-  sq = sqrt(abs_x)
-  s = vifelse(x > 0, sin(sq), sinh(sq))
-  c = vifelse(x > 0, cos(sq), cosh(sq))
-  s = s/sq
-  s_out = vifelse(abs_x > threshold, s, 1 - x/6)
-  c_out = vifelse(abs_x > threshold, c, 1 - x/2)
-  return s_out, c_out
+@generated function sincos_quaternion(x::T) where {T}
+  if T == Float16 || T == Float32
+    threshold = sqrt(24*eps(T))
+  else
+    threshold = 7.3e-8 
+  end
+  return quote
+    abs_x = abs(x)
+    sq = sqrt(abs_x)
+    s = vifelse(x > 0, sin(sq), sinh(sq))
+    c = vifelse(x > 0, cos(sq), cosh(sq))
+    s = s/sq
+    s_out = vifelse(abs_x > $threshold, s, 1 - x/6)
+    c_out = vifelse(abs_x > $threshold, c, 1 - x/2)
+    return s_out, c_out
+  end
 end
 
 # New GTPSA-native sincosq:
@@ -146,8 +152,8 @@ It is assumed that the axis is properly normalized.
 - `q`    quaternion 4-vector.
 """
 function rot_quat(axis, angle)
-  s = sin(0.5*angle)
-  return (cos(0.5*angle), s*axis[1], s*axis[2], s*axis[3])
+  s = sin(angle/2)
+  return (cos(angle/2), s*axis[1], s*axis[2], s*axis[3])
 end
 
 
