@@ -17,7 +17,7 @@ end
 
 
 num_lower(::Type{T}, t::Float64) where {T} = T(t)
-num_lower(::Type{T}, t::SArray{S,Float64}) where {S} = T.(t)
+num_lower(::Type{T}, t::SArray{S,Float64}) where {T,S} = T.(t)
 num_lower(::Type{Float64}, t::SArray{S,Float64}) where {S} = t
 num_lower(::Type{T}, t::T) where {T<:Tuple} = map(ti->num_lower(T, ti), t)
 
