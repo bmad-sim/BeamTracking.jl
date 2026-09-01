@@ -59,7 +59,7 @@ end
 Returns the perpendicular component of e_vec divided by the speed of light plus
 the cross product of beta and b_vec.
 """
-@generated @inline function radiation_field(e_vec::V, b_vec, beta) where {V}
+@inline @generated function radiation_field(e_vec::V, b_vec, beta) where {V}
   T = V.parameters[1]
   if T == Float16 || T == Float32
     coeff = T(1/C_LIGHT)
@@ -92,7 +92,7 @@ Gives radiation damping kick in an electromagnetic field. It is assumed that
 the coordinate system has already been rotated such that the curvature
 is in the horizontal plane.
 """
-@makekernel fastgtpsa=true function deterministic_radiation_field!(i, coords::Coords{<:Any,V}, q, mc2, E_ref, g, ax, ay, e_vec, b_vec, L) where {V}
+@generated function deterministic_radiation_field!(i, coords::Coords{<:Any,V}, q, mc2, E_ref, g, ax, ay, e_vec, b_vec, L) where {V}
   T = eltype(V)
   coeff = 1/(4*pi*EPS_0) * 2/3
   if T == Float16 || T == Float32
@@ -166,7 +166,7 @@ Gives radiation diffusion kick in an electromagnetic field. It is assumed that
 the coordinate system has already been rotated such that the curvature
 is in the horizontal plane.
 """
-@generated @inline function stochastic_radiation_field!(i, coords::Coords{<:Any,V}, backend, q, mc2, E_ref, g, ax, ay, e_vec, b_vec, L) where {V}
+@inline @generated function stochastic_radiation_field!(i, coords::Coords{<:Any,V}, backend, q, mc2, E_ref, g, ax, ay, e_vec, b_vec, L) where {V}
   T = eltype(V)
   coeff = 55/(24*sqrt(3))/(4*pi*EPS_0)*H_BAR*C_LIGHT
   coeff2 = sqrt(13/55)
