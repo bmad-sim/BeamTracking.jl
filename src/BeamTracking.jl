@@ -24,7 +24,7 @@ import GTPSA: sincu, sinhcu
 
 export Species
 export Bunch, State, ParticleView, Time, TimeDependentParam, BatchParam
-export Symplectic, MatrixKick, BendKick, SolenoidKick, DriftKick, Exact
+export Symplectic, MatrixKick, BendKick, SolenoidKick, DriftKick, Exact, RungeKutta
 export Fringe, SaganCavity, track!
 
 
@@ -68,6 +68,7 @@ include("kernels/fringe.jl")
 include("kernels/elsep.jl")
 
 include("utils/find_stuff.jl")
+include("modules/RungeKuttaTracking.jl")
 
 # Empty tracking method to be imported+implemented by package extensions
 function track! end

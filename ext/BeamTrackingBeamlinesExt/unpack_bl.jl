@@ -138,7 +138,12 @@ function universal!(
     kc = @inline(ibs_kick(tm, kc, p_over_q_ref, bunch, bp, L))
   end
 
-  if isactive(mapparams)    
+  if tm isa RungeKutta
+    kc = @inline(runge_kutta_body(tm, kc, p_over_q_ref, bunch, bendparams, bmultipoleparams,
+                                  patchparams, rfparams, mapparams, fourpotentialparams,
+                                  emultipoleparams, L))
+
+  elseif isactive(mapparams)    
     if isactive(bendparams)
       error("Tracking through a LineElement containing both MapParams and BendParams not currently defined")
     elseif isactive(bmultipoleparams)

@@ -219,7 +219,8 @@ const TEST_GROUPS = Dict(
              "IntegrationTracking_test.jl",
              "collective_test.jl",
              "callback_test.jl",
-             "ImplicitTracking_test.jl"],
+             "ImplicitTracking_test.jl",
+             "RungeKuttaTracking_test.jl"],
   # By far the longest-running group; kept on its own so it does not set the
   # wall-clock floor for everything else.
   "symplectic" => ["BeamlinesExt_symplectic_test.jl"],
