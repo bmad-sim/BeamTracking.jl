@@ -12,11 +12,11 @@
 # beta = (pz + 1)*beta_0*gamma_0/sqrt(1+[(pz + 1)*beta_0*gamma_0]^2)
 # 
 # Therefore, we should pass to the kernel beta_0*gamma_0 and t_ref to get beta
-function compute_time(z, pz, ref)
+function compute_time(z, pz, t_ref, beta_gamma_ref)
   @FastGTPSA begin 
-    K = (pz + 1)*ref.beta_gamma
+    K = (pz + 1)*beta_gamma_ref
     v = K/sqrt(1 + K*K)*C_LIGHT
-    t = -z/v + ref.t
+    t = -z/v + t_ref
   end
   return t
 end

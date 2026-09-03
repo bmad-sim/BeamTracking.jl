@@ -8,31 +8,50 @@ blank_kernel!(args...) = nothing
 @kwdef struct KernelCall{K,A}
   kernel::K = blank_kernel!
   args::A   = ()
-  function KernelCall(kernel, args)
-    _args = map(t->time_lower(t), args)
-    new{typeof(kernel),typeof(_args)}(kernel, _args)
-  end 
 end
 
+function make_kernel_call(kernel=blank_kernel!, args=())
+  _args = map(t->time_lower(batch_lower(t)), args)
+  return KernelCall(kernel, _args)
+end
+
+# In case KernelCall contains batch GPU array
+Adapt.@adapt_structure KernelCall
+
 # Store the state of the reference coordinate system
-# Needed for time-dependent parameters
-struct RefState{T,U}
-  t::T          # Reference time
-  beta_gamma::U # Reference energy
+@kwdef struct RefState{S,T,U,V,W,X,Y}
+  t_enter::S          # Reference time at entrance
+  beta_gamma_enter::T # Reference energy at entrance
+  t_exit::U           = t_enter # Reference time at exit
+  beta_gamma_exit::V  = beta_gamma_enter # Reference energy at exit
+  L::W                = 0
+  g::X                = (0, 0)
+  ds_step::Y          = 0
 end
 
 # Alias
-struct KernelChain{C<:Tuple{Vararg{<:KernelCall}}, S<:Union{Nothing,RefState}}
+struct KernelChain{C<:Tuple{Vararg{<:KernelCall}}, S<:RefState, TOUT<:Tuple{Vararg{<:KernelCall}}, TIN<:Tuple{Vararg{<:KernelCall}}}
   chain::C  # The tuple of KernelCalls
-  ref::S    # An optional RefState for the initial time-dependent parameters
-  KernelChain(chain, ref=nothing) = new{typeof(chain), typeof(ref)}(chain, ref)
+  ref::S    # A RefState
+  transforms_out::TOUT
+  transforms_in::TIN
+  function KernelChain(chain, ref, transforms_out=ntuple(t->KernelCall(), Val{3}()), transforms_in=ntuple(t->KernelCall(), Val{3}()))
+    new{typeof(chain), typeof(ref), typeof(transforms_out), typeof(transforms_in)}(chain, ref, transforms_out, transforms_in)
+  end
 end
 
-KernelChain(::Val{N}, ref=nothing) where {N} = KernelChain(ntuple(t->KernelCall(), Val{N}()), ref)
+# In case KernelChain contains batch GPU array
+Adapt.@adapt_structure KernelChain
+
+KernelChain(::Val{N}, ref, transforms_out=ntuple(t->KernelCall(), Val{3}()), transforms_in=ntuple(t->KernelCall(), Val{3}())) where {N} = KernelChain(ntuple(t->KernelCall(), Val{N}()), ref, transforms_out, transforms_in)
 
 push(kc::KernelChain, kcall::Nothing) = kc
+push_transforms_out(kc::KernelChain, tout::Nothing) = kc
+push_transforms_in(kc::KernelChain, tin::Nothing) = kc
 
 push(kc::KernelChain, kcall) = @reset kc.chain = _push(kc.chain, kcall)
+push_transforms_out(kc::KernelChain, tout) = @reset kc.transforms_out = _push(kc.transforms_out, tout)
+push_transforms_in(kc::KernelChain, tin) = @reset kc.transforms_in = _push(kc.transforms_in, tin)
 
 @unroll function _push(chain, kcall)
   i = 0
@@ -51,21 +70,79 @@ end
   @inline _generic_kernel!(i, coords, kc)
 end
 
-_generic_kernel!(i, coords, kc) = __generic_kernel!(i, coords, kc.chain, kc.ref)
+_generic_kernel!(i, coords, kc) = __generic_kernel!(i, coords, kc.chain, kc.ref, kc.transforms_out, kc.transforms_in)
 
-@unroll function __generic_kernel!(i, coords::Coords, chain, ref)
-  @unroll for kcall in chain
-    args = process_args(i, coords, kcall.args, ref)
-    (kcall.kernel)(i, coords, args...)
+@generated function __generic_kernel!(i, coords, chain::T, ref, transforms_out, transforms_in) where {T}
+  N = length(T.parameters)
+  if N > 0 && first(T.parameters) <: KernelCall{typeof(reference_momentum_shift!),Tuple{<:Any,TimeFunction}}
+    # Static check that everything is ok
+    if last(T.parameters) <: KernelCall{typeof(reference_momentum_shift!),Tuple{TimeFunction,TimeFunction}}
+      return :(__generic_kernel_ramp!(i, coords, chain, ref, transforms_out, transforms_in))
+    else
+      error("
+        Kernels with time-dependent reference energies must start and end with `reference_momentum_shift!`,
+        where the entering one transforms all particles to have individual reference momenta, and the exiting 
+        transforms all particles to a uniform reference momentum at the end of the element equal to 
+        p_over_q_ref(bunch.t_ref at end).
+      ")
+    end
+  else
+    return :(__generic_kernel_noramp!(i, coords, chain, ref, transforms_out, transforms_in))
   end
+end
+
+function __generic_kernel_noramp!(i, coords::Coords, chain, ref, transforms_out, transforms_in)
+  body_callback = construct_main_callback(coords, transforms_out, transforms_in, ref.t_enter, ref.beta_gamma_enter, ref.ds_step, ref.g)
+  body_coords = Coords(coords.state, coords.v, coords.q, coords.weight, body_callback)
+  __generic_kernel_noramp_body!(i, body_coords, chain, ref.t_enter, ref.beta_gamma_enter)
+  # note: t_ref only used by transforms, can pass 0 for t_ref_transform 
+  # beta_gamma is like ds_step and g, passed to callback, so that can't be 0
+  exit_callback = construct_main_callback(coords, (), (), 0, ref.beta_gamma_exit, ref.ds_step, ref.g)
+  _execute_callbacks(i, coords, exit_callback, ref.L, ref.t_exit)
   return nothing
 end
 
-function process_args(i, coords, args, ref)
-  if !isnothing(ref) && static_timecheck(args) 
-    let t = compute_time(coords.v[i,ZI], coords.v[i,PZI], ref)
-      new_args = map(arg->teval(arg, t), args)
-      return map(arg->teval(arg, t), args)
+
+@unroll function __generic_kernel_noramp_body!(i, body_coords, chain, t_ref_enter, beta_gamma_ref_enter)
+  @unroll for kcall in chain
+    bargs = process_batch_args(i, kcall.args)
+    args = process_time_args(i, body_coords, bargs, t_ref_enter, beta_gamma_ref_enter)
+    (kcall.kernel)(i, body_coords, args...)
+  end
+end
+
+# For ramping we need to do something special:
+function __generic_kernel_ramp!(i, coords::Coords, chain, ref, transforms_out, transforms_in)
+  @assert last(chain).kernel == reference_momentum_shift! 
+  @assert last(chain).args[1] isa TimeFunction
+  @assert last(chain).args[2] isa TimeFunction
+  # Have to store each particles initial time:
+  t_initial = compute_time(coords.v[i,ZI], coords.v[i,PZI], ref.t_enter, ref.beta_gamma_enter)
+  @inline __generic_kernel_noramp!(i, coords, Base.front(chain), ref, transforms_out, transforms_in)
+  # With initial particle's time we now know the dbeta_gamma to evaluate for the last function
+  beta_gamma_in_ele = teval(last(chain).args[1], t_initial)
+  dbeta_gamma_in_ele = teval(last(chain).args[2], t_initial)
+  reference_momentum_shift!(i, coords, beta_gamma_in_ele, dbeta_gamma_in_ele, last(chain).args[3])
+  # note: can pass 0 for t_ref_transform because that is not used now 
+  # since transforms are empty tuples at the end (back in global frame)
+  # However we do now give the user access to reference energy
+  exit_callback = construct_main_callback(coords, (), (), 0, ref.beta_gamma_exit, ref.ds_step, ref.g)
+  _execute_callbacks(i, coords, exit_callback, ref.L, ref.t_exit)
+  return nothing
+end
+
+function process_batch_args(i, args)
+  if static_batchcheck(args) 
+    return beval(args, i)
+  else
+    return args
+  end
+end
+
+function process_time_args(i, coords, args, t_ref, beta_gamma_ref)
+  if static_timecheck(args) 
+    let t = compute_time(coords.v[i,ZI], coords.v[i,PZI], t_ref, beta_gamma_ref)
+      return teval(args, t)
     end
   else
     return args
@@ -74,14 +151,13 @@ end
 
 # Generic function to launch a kernel on the bunch coordinates matrix
 # Matrix v should ALWAYS be in SoA whether for real or as a view via tranpose(v)
-
 @inline function launch!(
   coords::Coords{<:Any,V},
   kc::KernelChain;
   groupsize::Union{Nothing,Integer}=nothing, #backend isa CPU ? floor(Int,REGISTER_SIZE/sizeof(eltype(v))) : 256 
-  multithread_threshold::Integer=Threads.nthreads() > 1 ? 1750*Threads.nthreads() : typemax(Int),
+  use_cpu_multithreading::Bool=false,
   use_KA::Bool=!(get_backend(coords.v) isa CPU && isnothing(groupsize)),
-  use_explicit_SIMD::Bool=!use_KA # Default to use explicit SIMD on CPU
+  use_explicit_SIMD::Bool=!use_KA #&& (@static VERSION < v"1.11" || Sys.ARCH != :aarch64) # Default to use explicit SIMD on CPU, excepts for Macs above LTS bc SIMD.jl bug
 ) where {V}
   v = coords.v
   N_particle = size(v, 1)
@@ -100,7 +176,7 @@ end
       lane = SIMD.VecRange{Int(simd_lane_width)}(0)
       rmn = rem(N_particle, simd_lane_width)
       N_SIMD = N_particle - rmn
-      if N_particle >= multithread_threshold
+      if use_cpu_multithreading
         Threads.@threads for i in 1:simd_lane_width:N_SIMD
           @assert last(i) <= N_particle "Out of bounds!"  # Use last because SIMD.VecRange SIMD
           _generic_kernel!(lane+i, coords, kc)
@@ -117,7 +193,7 @@ end
         _generic_kernel!(i, coords, kc)
       end
     else
-      if N_particle >= multithread_threshold
+      if use_cpu_multithreading
         Threads.@threads for i in 1:N_particle
           @assert last(i) <= N_particle "Out of bounds!"
           _generic_kernel!(i, coords, kc)
@@ -160,7 +236,7 @@ function check_kwargs(mac, kwargs...)
 end
 
 # Also allow launch! on single KernelCalls
-@inline launch!(coords::Coords, kcall::KernelCall; kwargs...) = launch!(coords, KernelChain((kcall,)); kwargs...)
+@inline launch!(coords::Coords, kcall::KernelCall; kwargs...) = launch!(coords, KernelChain((kcall,), RefState(0,0,0,0,0,0,0)); kwargs...)
 
 macro makekernel(args...)
   kwargs = args[1:length(args)-1]
@@ -223,18 +299,3 @@ macro makekernel(args...)
   end
 
 end
-#=
-
-for particle in particles
-  for ele in ring
-
-  end
-end
-
-for ele in ring
-  # do a bunch pre pro
-  for particle in particle
-
-  end
-end
- =#

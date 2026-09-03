@@ -1,0 +1,78 @@
+@testset "IBS utilities" begin
+  # Carlson RF and RD tests
+  @test BeamTracking.Carlson_RF(1, 2, 0) ≈ 1.3110287771461
+  @test BeamTracking.Carlson_RF(2, 3, 4) ≈ 0.58408284167715
+  @test BeamTracking.Carlson_RF(0, 1/4, 1/4) ≈ pi 
+  @test BeamTracking.Carlson_RF(9/4, 2, 2) ≈ log(2)
+
+  x = 0.1
+  y = 2.3
+  mu = 1.5
+  lambda = x*y/mu 
+  RF_1 = BeamTracking.Carlson_RF(x+ lambda, y + lambda, lambda)
+  RF_2 = BeamTracking.Carlson_RF(x + mu, y + mu, mu)
+  RF_3 = BeamTracking.Carlson_RF(x, y, 0)
+  @test RF_1 + RF_2 ≈ RF_3
+
+  @test BeamTracking.Carlson_RD(0, 2, 1) ≈ 1.7972103521034
+  @test BeamTracking.Carlson_RD(2, 3, 4) ≈ 0.16510527294261
+
+  x = 3.4
+  y = 4.5
+  z = 5.6
+  RD_1 = BeamTracking.Carlson_RD(x, y, z)
+  RD_2 = BeamTracking.Carlson_RD(y, z, x)
+  RD_3 = BeamTracking.Carlson_RD(z, x, y)
+  @test RD_1 + RD_2 + RD_3 ≈ 3/sqrt(x*y*z)
+
+  # IBS integral tests
+  x = 0.1
+  y = 0.2
+  z = 0.3
+  I1, I2, I3 = BeamTracking.ibs_integrals(x, y, z)
+  @test I1 ≈ 27.9890533889342
+  @test I2 ≈ 21.6049985446294
+  @test I3 ≈ 18.1548852217996
+
+  x = 2.2
+  z = 0.9
+  I1, I2, I3 = BeamTracking.ibs_integrals(x, x, z)
+  @test I1 ≈ I2 ≈ 2.21694025641334
+  @test I3 ≈ 3.12425942904495
+
+  x = 0.7
+  z = 3.1
+  I1, I2, I3 = BeamTracking.ibs_integrals(x, x, z)
+  @test I1 ≈ I2 ≈ 4.11692921384287
+  @test I3 ≈ 2.19440958547715
+
+  x = 1.3
+  I1, I2, I3 = BeamTracking.ibs_integrals(x, x, x)
+  @test I1 ≈ I2 ≈ I3 ≈ 4*pi/(3*x)
+
+  # Beam statistics tests
+  v = [0.1  0.2  0.3  0.4  0.5  0.6;
+      -0.2 -0.3 -0.4 -0.5 -0.6 -0.7]
+  w = [1.0, 2.0]
+  mu = [-0.10000000000000002, -0.13333333333333333, -0.16666666666666666, -0.19999999999999998, -0.2333333333333333, -0.26666666666666666]
+  sigma = [0.019999999999999997 0.03333333333333333 0.04666666666666667 0.06                0.07333333333333332 0.08666666666666667; 
+           0.03333333333333333  0.05555555555555555 0.07777777777777778 0.09999999999999999 0.12222222222222223 0.14444444444444443; 
+           0.04666666666666667  0.07777777777777778 0.1088888888888889  0.13999999999999999 0.1711111111111111  0.20222222222222222; 
+           0.06                 0.09999999999999999 0.13999999999999999 0.18                0.21999999999999997 0.26               ; 
+           0.07333333333333332  0.12222222222222223 0.1711111111111111  0.21999999999999997 0.26888888888888884 0.3177777777777777 ; 
+           0.08666666666666667  0.14444444444444443 0.20222222222222222 0.26                0.3177777777777777  0.37555555555555553]
+  mean, cov = BeamTracking.mean_and_cov(v, w, CPU())
+  @test mean ≈ mu
+  @test cov ≈ sigma
+  
+  v = [0.1  0.2  0.3  0.4  0.5  0.6;
+      -0.2 -0.3 -0.4 -0.5 -0.6 -0.7;
+      -0.2 -0.3 -0.4 -0.5 -0.6 -0.7]
+  mean, cov = BeamTracking.mean_and_cov(v, nothing, CPU())
+  @test mean ≈ mu
+  @test cov ≈ sigma
+
+  mean, cov = BeamTracking.mean_and_cov(v, 1e5, CPU())
+  @test mean ≈ mu
+  @test cov ≈ sigma
+end

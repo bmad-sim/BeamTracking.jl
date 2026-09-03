@@ -6,6 +6,8 @@
 @inline vifelse(v::SIMD.Vec{N, Bool}, v1::SIMD.Vec{N, T}, v2::SIMD.Vec{N, T}) where {N, T} = SIMD.vifelse(v, v1, v2)
 @inline vifelse(v::SIMD.Vec{N, Bool}, v1::T2, v2::SIMD.Vec{N, T}) where {N, T, T2 <:SIMD.ScalarTypes} = SIMD.vifelse(v, v1, v2)
 @inline vifelse(v::SIMD.Vec{N, Bool}, v1::SIMD.Vec{N, T}, v2::T2) where {N, T, T2 <:SIMD.ScalarTypes} = SIMD.vifelse(v, v1, v2)
+# One that probably should be in SIMD but isn't (?)
+@inline vifelse(v::SIMD.Vec{N, Bool}, v1::T, v2::T) where {N,T<:SIMD.ScalarTypes} = vifelse(v, SIMD.Vec{N,T}(v1), SIMD.Vec{N,T}(v2))
 # Fallback for type unstable:
 @inline vifelse(v::Union{Bool,SIMD.Vec{N, Bool}}, v1, v2) where {N} = ifelse(v, v1, v2)
 
@@ -82,9 +84,10 @@ end
     one_cos_norm(x)
 
 Function to calculate `(1 - cos(x)) / x^2` to machine precision.
-This is usful if angle can be near zero where the direct evaluation of `(1 - cos(x))x^2` is inaccurate.
+This is useful if angle can be near zero where the direct evaluation of 
+`(1 - cos(x)) / x^2` is inaccurate.
 """
-one_cos_norm(x) = 0.5 * sincu(0.5*x)^2
+one_cos_norm(x) = sincu(x/2)^2/2
 
 #=
 """
@@ -154,18 +157,3 @@ function bessel01_RF(x::TPS{T}) where {T}
   return result0, result1
 end
 =#
-
-"""
-This function computes a Gaussian random number with mean zero and standard deviation sigma.
-"""
-function gaussian_random(sigma)
-  return randn() * sigma 
-end
-
-
-"""
-See gaussian_random, but for SIMD vectors.
-"""
-function gaussian_random(sigma::SIMD.Vec{N,T}) where {N,T}
-  return SIMDMathFunctions.vmap(gaussian_random, sigma)
-end

@@ -7,19 +7,27 @@ using Test,
       GTPSA,
       StaticArrays,
       ReferenceFrameRotations,
-      SIMD
+      SIMD,
+      KernelAbstractions,
+      ForwardDiff
 
-using BeamTracking: Coords, KernelCall, Q0, QX, QY, QZ, STATE_ALIVE, STATE_LOST, C_LIGHT,
+using BeamTracking: Coords, KernelCall, make_kernel_call, Q0, QX, QY, QZ, STATE_ALIVE, STATE_LOST, C_LIGHT,
       STATE_LOST_NEG_X, STATE_LOST_POS_X, STATE_LOST_NEG_Y, STATE_LOST_POS_Y, STATE_LOST_PZ, STATE_LOST_Z,
       rot_quaternion, inv_rot_quaternion, atan2, sincu, sinhcu, sincuc, expq, atan2,
       quat_mul, quat_rotate, gaussian_random
 using Beamlines: isactive
 
+@show BeamTracking.REGISTER_SIZE
+@show Sys.ARCH
+@show Threads.nthreads()
+
 BenchmarkTools.DEFAULT_PARAMETERS.gctrial = false
 BenchmarkTools.DEFAULT_PARAMETERS.evals = 2
 
-const D1 = Descriptor(6, 1)   # 6 variables 1st order
-const D10 = Descriptor(6, 10) # 6 variables 10th order
+const D1 = Descriptor(6, 1)   # 6 variables, 1st order
+const D1_1 = Descriptor(6, 1, 1, 1) # 6 variables and 1 parameter, 1st order
+const D1_2 = Descriptor(6, 1, 2, 1) # 6 variables and 2 parameters, 1st order
+const D10 = Descriptor(6, 10) # 6 variables, 10th order
 
 function test_matrix(
   M_expected,    # Expected matrix
@@ -27,13 +35,14 @@ function test_matrix(
   type_stable=VERSION >= v"1.11", 
   no_scalar_allocs=!(any(t->eltype(t) <: TPS, kernel_call.args)), # only for non-parametric 
   rtol=nothing, 
-  atol=nothing
+  atol=nothing,
+  printit = false
 )
   # Initialize bunch without spin
   v = transpose(@vars(D1))
   state = similar(v, UInt8, 1)
   state .= STATE_ALIVE
-  coords = Coords(state, v, nothing)
+  coords = Coords(state, v, nothing, nothing, ())
 
   # Set up kernel chain and launch!
   BeamTracking.launch!(coords, kernel_call)
@@ -48,19 +57,21 @@ function test_matrix(
   end
 
   # 1) Correctness
-  # println(GTPSA.jacobian(coords.v)[1:6,1:6])
+  if printit; println(GTPSA.jacobian(coords.v)[1:6,1:6]); end
   @test isapprox(GTPSA.jacobian(coords.v)[1:6,1:6], scalar.(M_expected); kwargs...)
+
   # 2) Type stability
   if type_stable
     @test_opt kernel_call.kernel(1, coords, kernel_call.args...)
   end
+
   # 3) No scalar allocations
   if no_scalar_allocs
-    v = repeat([0.1 0.2 0.3 0.4 0.5 0.6], 2)
+    v = repeat([0.01 0.02 0.03 0.04 0.05 0.06], 2)
     q = repeat([1.0 0.0 0.0 0.0], 2)
     state = [STATE_ALIVE STATE_ALIVE]
     @test @ballocated(BeamTracking.launch!(coords, $kernel_call; use_KA=false), 
-    setup=(coords = Coords(copy($state), copy($v), copy($q)))) == 0
+    setup=(coords = Coords(copy($state), copy($v), copy($q), nothing, ()))) == 0
   end
 end
 
@@ -104,7 +115,7 @@ function test_map(
   q = TPS64{D10}[1 0 0 0]
   state = similar(v, UInt8, 1)
   state .= STATE_ALIVE
-  coords = Coords(state, v, q)
+  coords = Coords(state, v, q, nothing, ())
 
   # Set up kernel chain and launch!
   BeamTracking.launch!(coords, kernel_call)
@@ -117,11 +128,11 @@ function test_map(
   end
   # 3) No scalar allocations
   if no_scalar_allocs
-    v = repeat([0.1 0.2 0.3 0.4 0.5 0.6], 2)
+    v = repeat([0.01 0.02 0.03 0.04 0.05 0.06], 2)
     q = repeat([1.0 0.0 0.0 0.0], 2)
     state = [STATE_ALIVE STATE_ALIVE]
     @test @ballocated(BeamTracking.launch!(coords, $kernel_call; use_KA=false), 
-    setup=(coords = Coords(copy($state), copy($v), copy($q)))) == 0
+    setup=(coords = Coords(copy($state), copy($v), copy($q), nothing, ()))) == 0
   end
 
 
@@ -195,10 +206,46 @@ function quaternion_coeffs_approx_equal(q_expected, q_calculated, ϵ)
   return all_ok
 end
 
-include("BeamlinesExt_test.jl")
-include("alignment_tracking_test.jl")
-include("aperture_tracking_test.jl")
-include("ExactTracking_test.jl")
-include("IntegrationTracking_test.jl")
-include("time_test.jl")
-include("RungeKuttaTracking_test.jl")
+# The suite is sharded across CI jobs (see .github/workflows/CI.yml), which set
+# BEAMTRACKING_TEST_GROUP. With the variable unset -- `Pkg.test()`, or running
+# this file directly -- every group runs, exactly as before.
+const TEST_GROUPS = Dict(
+  "core" => ["miscellaneous_test.jl",
+             "sagan_cavity_tracking_test.jl",
+             "BeamlinesExt_test.jl",
+             "alignment_tracking_test.jl",
+             "aperture_tracking_test.jl",
+             "ExactTracking_test.jl",
+             "IntegrationTracking_test.jl",
+             "collective_test.jl",
+             "callback_test.jl",
+             "ImplicitTracking_test.jl",
+             "RungeKuttaTracking_test.jl"],
+  # By far the longest-running group; kept on its own so it does not set the
+  # wall-clock floor for everything else.
+  "symplectic" => ["BeamlinesExt_symplectic_test.jl"],
+  "batch_time" => ["batch_test.jl",
+                   "time_test.jl"],
+)
+
+const GROUP_ORDER = ["core", "symplectic", "batch_time"]
+
+# A test file that belongs to no group would silently stop running in CI.
+let assigned = reduce(vcat, (TEST_GROUPS[g] for g in GROUP_ORDER)),
+    on_disk = filter(f -> endswith(f, "_test.jl"), readdir(@__DIR__))
+  unassigned = setdiff(on_disk, assigned)
+  isempty(unassigned) ||
+    error("test file(s) not assigned to a group in runtests.jl: " * join(sort(unassigned), ", "))
+end
+
+const GROUP = get(ENV, "BEAMTRACKING_TEST_GROUP", "all")
+const TEST_FILES = if GROUP == "all"
+  reduce(vcat, (TEST_GROUPS[g] for g in GROUP_ORDER))
+else
+  haskey(TEST_GROUPS, GROUP) ||
+    error("unknown BEAMTRACKING_TEST_GROUP=$GROUP; expected \"all\" or one of " * join(GROUP_ORDER, ", "))
+  TEST_GROUPS[GROUP]
+end
+
+@info "Running test group \"$GROUP\"" TEST_FILES
+foreach(include, TEST_FILES)

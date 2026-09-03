@@ -1,7 +1,7 @@
 using BeamTracking
 using Beamlines
 
-@eles begin
+@elements begin
   d_error = LineElement(L=1, x1_limit=1, dx=5)
 
   d1_rect = Drift(L=1, x1_limit = 1, x2_limit = 2, y1_limit = 3, y2_limit = 5, aperture_shape = ApertureShape.Rectangular, aperture_active = false)

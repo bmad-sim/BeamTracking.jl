@@ -1,164 +1,66 @@
-# =========== BYPASS UNPACKING FOR RUNGEKUTTA ============= #
+# RungeKutta uses the common unpacking, reference-ramp, alignment, aperture, and
+# callback path. Only the body field integration is specific to RungeKutta.
 
-"""
-Specialized _track! for RungeKutta that bypasses the unpacking system.
-Gets field function directly from Beamlines.field_calc and passes the full element.
-"""
-function _track!(
-  coords::Coords,
-  bunch::Bunch,
-  ele::LineElement,
-  tm::RungeKutta,
-  scalar_params::Bool,
-  ramp_without_rf;
-  kwargs...
-)
-  # Get basic element properties (type-unstable unpacking)
-  L = float(ele.L)
-  ap = deval(ele.AlignmentParams)
-  bp = deval(ele.BendParams)
-  dp = deval(ele.ApertureParams)
-  patch = deval(ele.PatchParams)
-  bm = deval(ele.BMultipoleParams)
-  p_over_q_ref = bunch.p_over_q_ref
-
-  if scalar_params
-    L = scalarize(L)
-    ap = scalarize(ap)
-    bp = scalarize(bp)
-    bm = scalarize(bm)
-    pp = scalarize(pp)
-    dp = scalarize(dp)
-    mp = scalarize(mp)
-    rp = scalarize(rp)
-    lp = scalarize(lp)
-    p_over_q_ref = scalarize(p_over_q_ref)
+@inline function runge_kutta_multipoles(bmultipoleparams, L, p_over_q_ref)
+  if !isactive(bmultipoleparams)
+    return SVector{0,Int}(), SVector{0,typeof(L)}(), SVector{0,typeof(L)}()
   end
-  
-  # Function barrier
-  runge_kutta_universal!(coords, tm, ramp_without_rf, bunch, L, p_over_q_ref, ap, bp, dp, patch, bm; kwargs...)
+
+  mm = getfield(bmultipoleparams, :order)
+  kn, ks = get_strengths(bmultipoleparams, L, p_over_q_ref)
+  if mm isa Integer
+    return SA[mm], SA[kn], SA[ks]
+  end
+  return mm, kn, ks
 end
 
-# Step 2: Type-stable computation -----------------------------------------
-function runge_kutta_universal!(
-  coords,
-  tm,
-  ramp_without_rf,
-  bunch,
-  L,
+@inline function runge_kutta_body(
+  tm::RungeKutta,
+  kc,
   p_over_q_ref,
-  alignmentparams,
+  bunch,
   bendparams,
-  apertureparams,
+  bmultipoleparams,
   patchparams,
-  bmultipoleparams;
-  kwargs...
+  rfparams,
+  mapparams,
+  fourpotentialparams,
+  emultipoleparams,
+  L,
 )
+  L > 0 || error("RungeKutta tracking requires a positive element length")
+  !isactive(patchparams) || error("RungeKutta tracking does not support patch elements")
+  !isactive(rfparams) || error("RungeKutta tracking does not support RF fields")
+  !isactive(mapparams) || error("RungeKutta tracking does not support map elements")
+  !isactive(fourpotentialparams) || error("RungeKutta tracking does not support FourPotentialParams")
+  !isactive(emultipoleparams) || error("RungeKutta tracking does not support electric multipoles")
+
+  if isactive(bendparams)
+    (bendparams.edge1_int == 0 && bendparams.edge2_int == 0) ||
+      error("edge1_int and edge2_int not yet handled for tracking")
+    (bendparams.e1 == 0 && bendparams.e2 == 0) ||
+      error("RungeKutta tracking does not support nonzero bend edge angles e1 or e2 because fringe tracking is not implemented")
+    g_ref = bendparams.g_ref
+    tilt_ref = bendparams.tilt_ref
+    gx = g_ref * cos(tilt_ref)
+    gy = g_ref * sin(tilt_ref)
+  else
+    gx = zero(L)
+    gy = zero(L)
+  end
+
   species = bunch.species
-  # Setup reference state
-  beta_gamma_ref = R_to_beta_gamma(species, p_over_q_ref)
-  kc = KernelChain(Val{6}(), RefState(bunch.t_ref, beta_gamma_ref))
-
-  # Evolve time through whole element
-  bunch.t_ref += L/beta_gamma_to_v(beta_gamma_ref)
-
-  # Handle reference momentum ramping
-  if p_over_q_ref isa TimeDependentParam
-    p_over_q_ref_initial = p_over_q_ref
-    p_over_q_ref_final = p_over_q_ref(bunch.t_ref)
-    if !(p_over_q_ref_initial ≈ p_over_q_ref_final)
-      kc = push(kc, KernelCall(BeamTracking.update_P0!, (p_over_q_ref_initial, p_over_q_ref_final, ramp_without_rf)))
-      setfield!(bunch, :p_over_q_ref, p_over_q_ref_final)
-    end
-  end
-
-  # Error conditions
-  if L <= 0.0
-    error("RungeKutta tracking does not support zero-length elements") 
-  end
-  if isactive(patchparams)
-    error("RungeKutta tracking does not support patch elements")
-  end
-
-  # Entrance aperture and alignment
-  if isactive(alignmentparams)
-    if isactive(apertureparams)
-      if apertureparams.aperture_shifts_with_body
-        kc = push(kc, @inline(alignment(tm, bunch, alignmentparams, bendparams, L, true)))
-        kc = push(kc, @inline(aperture(tm, bunch, apertureparams, true)))
-      else
-        kc = push(kc, @inline(aperture(tm, bunch, apertureparams, true)))
-        kc = push(kc, @inline(alignment(tm, bunch, alignmentparams, bendparams, L, true)))
-      end
-    else
-      kc = push(kc, @inline(alignment(tm, bunch, alignmentparams, bendparams, L, true)))
-    end
-  elseif isactive(apertureparams)
-    kc = push(kc, @inline(aperture(tm, bunch, apertureparams, true)))
-  end
-
-  # Setup physics parameters
-  p_over_q_ref = bunch.p_over_q_ref
   tilde_m, _, beta_0 = BeamTracking.drift_params(species, p_over_q_ref)
   charge = chargeof(species)
   p0c = BeamTracking.R_to_pc(species, p_over_q_ref)
   mc2 = massof(species)
+  n_steps, ds_step = BeamTracking.find_steps(tm, L)
+  mm, kn, ks = runge_kutta_multipoles(bmultipoleparams, L, p_over_q_ref)
 
-  # Determine step size to use
-  if tm.ds_step > 0
-    ds_step = tm.ds_step
-  elseif tm.n_steps > 0
-    ds_step = L / tm.n_steps
-  else
-    ds_step = BeamTracking.DEFAULT_RK4_DS_STEP
-  end
-
-  s_span = (0.0, L)
-
-  # Get curvature from BendParams if present
-  g_bend = isactive(bendparams) ? bendparams.g_ref : 0.0
-
-  # Extract multipole parameters
-  if isactive(bmultipoleparams)
-    mm = bmultipoleparams.order
-    kn, ks = get_strengths(bmultipoleparams, L, p_over_q_ref)
-  else
-    # Default to drift
-    mm = SVector{0, Int}()
-    kn = SVector{0, typeof(L)}()
-    ks = SVector{0, typeof(L)}()
-  end
-
-  # Build RK4 kernel call
-  params = (beta_0, tilde_m, charge, p0c, mc2, s_span, ds_step, g_bend, mm, kn, ks, p_over_q_ref)
-  kc = push(kc, KernelCall(BeamTracking.RungeKuttaTracking.rk4_kernel!, params))
-
-  # Exit aperture and alignment
-  if isactive(alignmentparams)
-    if isactive(apertureparams)
-      if apertureparams.aperture_shifts_with_body
-        kc = push(kc, @inline(aperture(tm, bunch, apertureparams, false)))
-        kc = push(kc, @inline(alignment(tm, bunch, alignmentparams, bendparams, L, false)))
-      else
-        kc = push(kc, @inline(alignment(tm, bunch, alignmentparams, bendparams, L, false)))
-        kc = push(kc, @inline(aperture(tm, bunch, apertureparams, false)))
-      end
-    else
-      kc = push(kc, @inline(alignment(tm, bunch, alignmentparams, bendparams, L, false)))
-    end
-  elseif isactive(apertureparams)
-    kc = push(kc, @inline(aperture(tm, bunch, apertureparams, false)))
-  end
-
-  # Launch kernels
-  @noinline launch!(coords, kc; kwargs...)
-  return nothing
+  # Time-dependent values in params are evaluated once, at the particle's
+  # element-entrance time, by the common kernel path. They stay fixed during
+  # all RK substeps.
+  params = (beta_0, tilde_m, charge, p0c, mc2, L, ds_step, n_steps,
+            gx, gy, mm, kn, ks, p_over_q_ref)
+  return push(kc, make_kernel_call(BeamTracking.RungeKuttaTracking.rk4_kernel!, params))
 end
-
-# =========== ALIGNMENT AND APERTURE ============= #
-
-@inline alignment(tm::RungeKutta, bunch, alignmentparams, bendparams, L, entering) =
-  alignment(Exact(), bunch, alignmentparams, bendparams, L, entering)
-
-@inline aperture(tm::RungeKutta, bunch, apertureparams, entering) =
-  aperture(Exact(), bunch, apertureparams, entering)

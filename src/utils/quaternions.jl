@@ -4,15 +4,20 @@ necessary for exponentiating a rotation vector into a quaternion.
 """
 function sincos_quaternion(x)
   threshold = 7.3e-8 # sqrt(24*eps(Float64))
-  sq = sqrt(x)
-  s, c = sincos(sq)
+  abs_x = abs(x)
+  sq = sqrt(abs_x)
+  s = vifelse(x > 0, sin(sq), sinh(sq))
+  c = vifelse(x > 0, cos(sq), cosh(sq))
   s = s/sq
-  s_out = vifelse(x > threshold, s, 1-x/6)
-  c_out = vifelse(x > threshold, c, 1-x/2)
+  s_out = vifelse(abs_x > threshold, s, 1 - x/6)
+  c_out = vifelse(abs_x > threshold, c, 1 - x/2)
   return s_out, c_out
 end
 
+# New GTPSA-native sincosq:
+sincos_quaternion(x::TPS) = sincosq(x)
 
+#= OLD FUNCTION:
 """
 This function computes sin(sqrt(x))/sqrt(x) and cos(sqrt(x)), which are both 
 necessary for exponentiating a rotation vector into a quaternion.
@@ -21,8 +26,7 @@ function sincos_quaternion(x::TPS{T}) where {T}
   ε = eps(T)
   N_max = 100
   N = 1
-  conv_sin = false
-  conv_cos = false
+  conv = false
   y = one(x)
   prev_sin = one(x)
   prev_cos = one(x)
@@ -31,33 +35,29 @@ function sincos_quaternion(x::TPS{T}) where {T}
   #sq = one(x)
   # Using FastGTPSA! for the following makes other kernels run out of temps
   @FastGTPSA begin
-    if x < 0.1
-      while !(conv_sin && conv_cos) && N < N_max
+    if x < ε
+      while !conv && N < N_max
         y = -y*x/((2*N)*(2*N - 1))
         result_sin = prev_sin + y/(2*N + 1)
         result_cos = prev_cos + y
         N += 1
-        if normTPS(result_sin - prev_sin) < ε
-          conv_sin = true
-        end
-        if normTPS(result_cos - prev_cos) < ε
-          conv_cos = true
-        end
+        conv = (normTPS(result_sin - prev_sin) < ε && normTPS(result_cos - prev_cos) < ε)
         prev_sin = result_sin
         prev_cos = result_cos
       end
     else
+      conv = true
       sq = sqrt(x)
       result_sin, result_cos = sincos(sq)
       result_sin = result_sin/sq
     end
   end
-  if N == N_max
+  if !conv
     @warn "sincos_quaternion convergence not reached in $N_max iterations"
   end
   return result_sin, result_cos
 end
-
+=#
 
 """
 This function computes exp(-i/2 v⋅σ) as a quaternion, where σ is the 
@@ -168,20 +168,20 @@ Arguments:
 
 """
 function rot_quaternion(x_rot, y_rot, z_rot)
-  qz = SA[cos(z_rot/2), 0, 0, sin(z_rot/2)]
-  qx = SA[cos(x_rot/2), sin(x_rot/2), 0, 0]
-  qy = SA[cos(y_rot/2), 0, sin(y_rot/2), 0]
+  qz = (cos(z_rot/2), 0, 0, sin(z_rot/2))
+  qx = (cos(x_rot/2), sin(x_rot/2), 0, 0)
+  qy = (cos(y_rot/2), 0, sin(y_rot/2), 0)
   q = quat_mul(qx, qz[Q0], qz[QX], qz[QY], qz[QZ])
   q = quat_mul(qy, q[Q0], q[QX], q[QY], q[QZ])
-  return SA[q[Q0], q[QX], q[QY], q[QZ]]
+  return (q[Q0], q[QX], q[QY], q[QZ])
 end
 
 # Inverse rotation quaternion
 function inv_rot_quaternion(x_rot, y_rot, z_rot)
-  qz = SA[cos(z_rot/2), 0, 0, -sin(z_rot/2)]
-  qx = SA[cos(x_rot/2), -sin(x_rot/2), 0, 0]
-  qy = SA[cos(y_rot/2), 0, -sin(y_rot/2), 0]
+  qz = (cos(z_rot/2), 0, 0, -sin(z_rot/2))
+  qx = (cos(x_rot/2), -sin(x_rot/2), 0, 0)
+  qy = (cos(y_rot/2), 0, -sin(y_rot/2), 0)
   q = quat_mul(qx, qy[Q0], qy[QX], qy[QY], qy[QZ])
   q = quat_mul(qz, q[Q0], q[QX], q[QY], q[QZ])
-  return SA[q[Q0], q[QX], q[QY], q[QZ]]
+  return (q[Q0], q[QX], q[QY], q[QZ])
 end

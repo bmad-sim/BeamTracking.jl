@@ -1,7 +1,8 @@
 """
   RungeKuttaTracking
 
-Module implementing particle tracking through arbitrary electromagnetic fields using a 4th order Runge-Kutta method.
+Module implementing particle tracking through static magnetic multipole fields
+using a fourth-order Runge-Kutta method.
 """
 module RungeKuttaTracking
 using ..BeamTracking, ..StaticArrays
@@ -39,7 +40,7 @@ end
 
 """
   kick_vector(x, px, y, py, z, pz, s, Ex, Ey, Ez, Bx, By, Bz,
-        charge, tilde_m, beta_0, g_bend, p0c, mc2)
+        charge, tilde_m, beta_0, gx, gy, p0c, mc2)
 
 Calculate the derivative vector du/ds for relativistic particle tracking.
 Returns an SVector{6} containing [dx/ds, dpx/ds, dy/ds, dpy/ds, dz/ds, dpz/ds].
@@ -55,12 +56,12 @@ returns zero derivatives (caller should mark particle as lost).
 - `charge`: Particle charge in units of e
 - `tilde_m`: Normalized mass mc²/(p₀c)
 - `beta_0`: Reference velocity β₀ = v₀/c
-- `g_bend`: Curvature (0 for drift, 1/ρ for bends)
+- `gx`, `gy`: Horizontal and vertical reference curvature components
 - `p0c`: Reference momentum × c (eV)
 - `mc2`: Rest mass energy (eV)
 """
 @inline function kick_vector(x, px, y, py, z, pz, s, Ex, Ey, Ez, Bx, By, Bz,
-                charge, tilde_m, beta_0, g_bend, p0c, mc2)
+                charge, tilde_m, beta_0, gx, gy, p0c, mc2)
   # Relative momentum
   rel_p = 1 + pz
 
@@ -97,7 +98,7 @@ returns zero derivatives (caller should mark particle as lost).
   B_force_z = charge * (vx*By - vy*Bx)
 
   # Time derivative w.r.t. arc length
-  dh_bend = x * g_bend  # Longitudinal distance deviation
+  dh_bend = x * gx + y * gy  # Longitudinal distance deviation
   abs_vz = abs(vz)
   abs_vz_safe = vifelse(good_momenta, abs_vz, one(abs_vz))  # Avoid division by zero
   dt_ds = rel_dir * (1 + dh_bend) / abs_vz_safe
@@ -119,8 +120,8 @@ returns zero derivatives (caller should mark particle as lost).
 
   # Momentum derivatives: dp_i/ds = F_i * dt/ds / p0c + corrections
   p0 = p0c / C_LIGHT
-  dpx_ds = (E_force_x + B_force_x) * dt_ds / p0 + g_bend * pz_p0
-  dpy_ds = (E_force_y + B_force_y) * dt_ds / p0
+  dpx_ds = (E_force_x + B_force_x) * dt_ds / p0 + gx * pz_p0
+  dpy_ds = (E_force_y + B_force_y) * dt_ds / p0 + gy * pz_p0
 
   # Longitudinal coordinate z derivative
   sqrt_1mvt2 = sqrt(1 - vt2_safe)
@@ -142,7 +143,8 @@ returns zero derivatives (caller should mark particle as lost).
 end
 
 """
-  rk4_step!(coords, i, s, h, mm, kn, ks, tracking_params)
+  rk4_step!(coords, i, s, h, mm, kn, ks, charge, tilde_m, beta_0,
+            gx, gy, p0c, mc2, p_over_q_ref)
 
 Perform a single RK4 step for particle i, updating coordinates in-place.
 Only updates state if particle is alive.
@@ -158,12 +160,12 @@ Only updates state if particle is alive.
 - `charge`: Particle charge in units of e
 - `tilde_m`: Normalized mass mc²/(p₀c)
 - `beta_0`: Reference velocity β₀ = v₀/c
-- `g_bend`: Curvature (0 for drift, 1/ρ for bends)
+- `gx`, `gy`: Horizontal and vertical reference curvature components
 - `p0c`: Reference momentum × c (eV)
 - `mc2`: Rest mass energy (eV)
 - `p_over_q_ref`: Reference magnetic rigidity Bρ = p₀c/(c·charge)
 """
-@inline function rk4_step!(coords, i, s, h, mm, kn, ks, charge, tilde_m, beta_0, g_bend, p0c, mc2, p_over_q_ref)
+@inline function rk4_step!(coords, i, s, h, mm, kn, ks, charge, tilde_m, beta_0, gx, gy, p0c, mc2, p_over_q_ref)
   # Check if particle is alive
   alive = (coords.state[i] == STATE_ALIVE)
   
@@ -179,7 +181,7 @@ Only updates state if particle is alive.
   # k1 = f(u, s)
   Ex, Ey, Ez, Bx, By, Bz = multipole_em_field(x, y, z, s, mm, kn, ks, p_over_q_ref)
   k1 = kick_vector(x, px, y, py, z, pz, s, Ex, Ey, Ez, Bx, By, Bz,
-                charge, tilde_m, beta_0, g_bend, p0c, mc2)
+                charge, tilde_m, beta_0, gx, gy, p0c, mc2)
 
   # k2 = f(u + h/2 * k1, s + h/2)
   h2 = h / 2
@@ -191,7 +193,7 @@ Only updates state if particle is alive.
   pz2 = pz + h2 * k1[6]
   Ex, Ey, Ez, Bx, By, Bz = multipole_em_field(x2, y2, z2, s + h2, mm, kn, ks, p_over_q_ref)
   k2 = kick_vector(x2, px2, y2, py2, z2, pz2, s + h2, Ex, Ey, Ez, Bx, By, Bz,
-                charge, tilde_m, beta_0, g_bend, p0c, mc2)
+                charge, tilde_m, beta_0, gx, gy, p0c, mc2)
 
   # k3 = f(u + h/2 * k2, s + h/2)
   x3 = x + h2 * k2[1]
@@ -202,7 +204,7 @@ Only updates state if particle is alive.
   pz3 = pz + h2 * k2[6]
   Ex, Ey, Ez, Bx, By, Bz = multipole_em_field(x3, y3, z3, s + h2, mm, kn, ks, p_over_q_ref)
   k3 = kick_vector(x3, px3, y3, py3, z3, pz3, s + h2, Ex, Ey, Ez, Bx, By, Bz,
-                charge, tilde_m, beta_0, g_bend, p0c, mc2)
+                charge, tilde_m, beta_0, gx, gy, p0c, mc2)
 
   # k4 = f(u + h * k3, s + h)
   x4 = x + h * k3[1]
@@ -213,7 +215,7 @@ Only updates state if particle is alive.
   pz4 = pz + h * k3[6]
   Ex, Ey, Ez, Bx, By, Bz = multipole_em_field(x4, y4, z4, s + h, mm, kn, ks, p_over_q_ref)
   k4 = kick_vector(x4, px4, y4, py4, z4, pz4, s + h, Ex, Ey, Ez, Bx, By, Bz,
-                charge, tilde_m, beta_0, g_bend, p0c, mc2)
+                charge, tilde_m, beta_0, gx, gy, p0c, mc2)
 
   # Update state: u += h/6 * (k1 + 2*k2 + 2*k3 + k4)
   # Only update if particle is alive
@@ -228,7 +230,7 @@ end
 
 """
   rk4_kernel!(i, coords, beta_0, tilde_m, charge, p0c, mc2,
-              s_span, ds_step, g_bend, mm, kn, ks, p_over_q_ref)
+              L, ds_step, n_steps, gx, gy, mm, kn, ks, p_over_q_ref)
 
 Kernelized RK4 tracking through multipole fields.
 Compatible with @makekernel and the package's kernel architecture.
@@ -237,22 +239,14 @@ The electromagnetic field is computed from multipole moments (mm, kn, ks) using
 the multipole_em_field function.
 """
 @makekernel function rk4_kernel!(i, coords::Coords, beta_0, tilde_m,
-                                charge, p0c, mc2, s_span, ds_step, g_bend, mm, kn, ks, p_over_q_ref)
-  s_start = s_span[1]
-  s_end = s_span[2]
-  s = s_start
+                                charge, p0c, mc2, L, ds_step, n_steps,
+                                gx, gy, mm, kn, ks, p_over_q_ref)
+  s = zero(L)
 
   v = coords.v
   
-  # Calculate number of steps for deterministic iteration
-  total_distance = s_end - s_start
-  n_steps = ceil(Int, total_distance / ds_step)
-  
   for step in 1:n_steps
-    remaining = s_end - s
-    h = min(ds_step, remaining)
-
-    # Chck if particle is lost
+    # Check if particle is lost
     rel_p = 1 + v[i, PZI]
     inv_rel_p = 1 / rel_p
     vt2 = (v[i, PXI] * inv_rel_p)^2 + (v[i, PYI] * inv_rel_p)^2
@@ -261,8 +255,13 @@ the multipole_em_field function.
     coords.state[i] = vifelse((vt2 >= 1) & alive, STATE_LOST_PZ, coords.state[i])
 
     # Perform RK4 step (check for alive status is now inside rk4_step!)
-    rk4_step!(coords, i, s, h, mm, kn, ks, charge, tilde_m, beta_0, g_bend, p0c, mc2, p_over_q_ref)
-    s += h
+    rk4_step!(coords, i, s, ds_step, mm, kn, ks, charge, tilde_m, beta_0, gx, gy, p0c, mc2, p_over_q_ref)
+    s += ds_step
+
+    # The common path performs the final callback after exit processing.
+    if step != n_steps
+      BeamTracking.execute_callbacks(i, coords, s, s / (beta_0 * C_LIGHT))
+    end
   end
 end
 
