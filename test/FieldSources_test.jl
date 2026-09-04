@@ -15,6 +15,12 @@ function test_parameter_free_field(x, y, z, s)
   return EMField(carrier, carrier, carrier, carrier, carrier, carrier + 1)
 end
 
+struct FieldSourceTestAdaptor end
+
+function BeamTracking.Adapt.adapt_storage(::FieldSourceTestAdaptor, values::Vector)
+  return SVector{length(values)}(values)
+end
+
 @testset "Field sources" begin
   @testset "EMField" begin
     field = EMField(SA[1.0, 2.0, 3.0], SA[4.0, 5.0, 6.0])
@@ -47,6 +53,17 @@ end
           EMField(SA[0.0, 0.0, 0.0], SA[3.0, 2.0, 0.0])
     @test @inferred(quadrupole(0.2, 0.3, 0.0, 0.0)) ==
           EMField(SA[0.0, 0.0, 0.0], SA[2.2, -0.7, 0.0])
+
+    simd_x = SIMD.Vec{2,Float64}((0.2, 0.4))
+    simd_y = SIMD.Vec{2,Float64}((0.3, 0.1))
+    simd_field = @inferred quadrupole(simd_x, simd_y, zero(simd_x), zero(simd_x))
+    @test all(isapprox.(Tuple(simd_field.B[1]), (2.2, 2.4)))
+    @test all(isapprox.(Tuple(simd_field.B[2]), (-0.7, 1.1)))
+
+    descriptor = Descriptor(2, 1)
+    tpsa_x, tpsa_y = @vars(descriptor)
+    tpsa_field = @inferred quadrupole(tpsa_x, tpsa_y, zero(tpsa_x), zero(tpsa_x))
+    @test GTPSA.jacobian(collect(tpsa_field.B[1:2])) ≈ [5.0 4.0; 4.0 -5.0]
   end
 
   @testset "FunctionalField" begin
@@ -136,6 +153,20 @@ end
         (Ex=0.0, Ey=0.0, Ez=0.0, Bx=1.0, By=0.0, Bz=3.0),
       ),
     )
+    @test_opt source(0.2, 0.3, 0.0, 0.0)
     @test @ballocated($source(0.2, 0.3, 0.0, 0.0)) == 0
+  end
+
+  @testset "Adaptation" begin
+    source = SumField(
+      MultipoleField(SA[1], SA[0.01], SA[0.0]),
+      FunctionalField(test_uniform_field, (field_map=[1.0, 2.0, 3.0],)),
+    )
+    adapted = BeamTracking.Adapt.adapt(FieldSourceTestAdaptor(), source)
+
+    @test adapted isa SumField
+    @test adapted.sources[1] isa MultipoleField
+    @test adapted.sources[2] isa FunctionalField
+    @test adapted.sources[2].parameters.field_map == SA[1.0, 2.0, 3.0]
   end
 end

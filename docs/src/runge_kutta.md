@@ -34,6 +34,17 @@ source(x, y, z, s) -> EMField
 RK tracking provides `ZeroField`, `MultipoleField`, `FunctionalField`, and
 `SumField` source types.
 
+- `ZeroField()` returns zero electric and magnetic fields.
+- `MultipoleField(orders, normal, skew)` stores static multipole orders and
+  non-integrated physical magnetic coefficients. Its field values are in
+  tesla.
+- `FunctionalField(evaluator, parameters)` stores the evaluator type and the
+  parameter type in the source type. The evaluator receives
+  `(x, y, z, s, parameters)` and returns an `EMField`.
+- `FunctionalField(evaluator)` calls the evaluator with `(x, y, z, s)`.
+- `SumField(sources...)` stores a tuple of concrete sources and evaluates the
+  sum with static dispatch.
+
 `field` sets the complete body field:
 
 ```julia
@@ -58,6 +69,31 @@ ele.tracking_method = RungeKutta(additional_field=source, n_steps=20)
 
 The configured sources and their parameter types remain concrete in the RK
 kernel.
+
+### Parameter unpacking
+
+Tuples and named tuples provide the standard parameter containers for a
+`FunctionalField`. Static vectors provide the coefficient containers for a
+`MultipoleField`. Beamlines prepares these values before the tracking function
+barrier:
+
+1. `DefExpr` leaves are evaluated with the beamline `Context`.
+2. `scalar_params=true` applies Beamlines scalarization to each parameter
+   leaf.
+3. `BatchParam` values are lowered and selected for each particle.
+4. `TimeDependentParam` values are evaluated at each particle's element-entry
+   time.
+
+The field evaluator receives the resulting concrete parameter value. Ordinary
+arrays can hold field-map data inside a functional source. Field source types
+participate in `Adapt`, so backend array adaptation reaches nested source
+parameters. A GPU evaluator uses GPU-compatible Julia operations and
+device-compatible parameter storage.
+
+For explicit SIMD, `x`, `y`, `z`, and `s` can be `SIMD.Vec` values. Field
+evaluators can use `zero(x)` as a numeric carrier when combining coordinates
+with scalar parameters, as in `uniform_field` above. The same evaluator also
+works with floating-point, dual, and TPSA coordinates.
 
 ## Beamlines usage
 
@@ -86,15 +122,14 @@ edge angles.
 
 `ramp_update_each_particle=true` uses the upstream per-particle reference-ramp
 path. Time-dependent values are evaluated once for each particle, using that
-particle's time at the element entrance. These evaluated values stay fixed
-during every RK substep and during the `k1` through `k4` stages. They are not
-reevaluated at intermediate RK positions.
+particle's time at the element entrance. Each evaluated value stays fixed
+during every RK substep and during the `k1` through `k4` stages.
 
 ## Callbacks
 
-RK calls internal callbacks after each completed non-final substep. It does not
-call them between the `k1`, `k2`, `k3`, and `k4` stages. The common tracking path
-performs the final callback after element-exit processing.
+RK calls internal callbacks after each completed non-final substep. Each RK
+step completes its `k1`, `k2`, `k3`, and `k4` stages before the callback. The
+common tracking path performs the final callback after element-exit processing.
 
 ## Reference curvature
 
@@ -119,7 +154,7 @@ dh = g_x x + g_y y,
 
 ## Low-level kernel
 
-The current low-level entry point is:
+The low-level entry point is:
 
 ```julia
 rk4_kernel!(i, coords, beta_0, tilde_m, charge, p0c, mc2,

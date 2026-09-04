@@ -405,6 +405,165 @@ end
     @test context_bunch.coords.v ≈ fixed_bunch.coords.v
   end
 
+  @testset "Batch field-source tracking" begin
+    using Beamlines
+
+    species, p_over_q_ref, _, _, _, _, _, _ = setup_particle()
+    batch_fields = [0.002, 0.004]
+    initial_particle = [0.001 0.01 -0.002 0.003 0.0 0.0]
+    initial = repeat(initial_particle, 8, 1)
+    source = FunctionalField(
+      rk_test_uniform_field,
+      (Ex=0.0, Ey=0.0, Ez=0.0, Bx=0.0, By=BatchParam(batch_fields), Bz=0.0),
+    )
+    element = Drift(
+      L=0.5,
+      tracking_method=RungeKutta(field=source, n_steps=5),
+    )
+    line = Beamline([element], p_over_q_ref=p_over_q_ref, species_ref=species)
+    simd_bunch = Bunch(copy(initial), p_over_q_ref=p_over_q_ref, species=species)
+    ka_bunch = Bunch(copy(initial), p_over_q_ref=p_over_q_ref, species=species)
+
+    track!(simd_bunch, line; use_KA=false, use_explicit_SIMD=true)
+    track!(ka_bunch, line; use_KA=true, use_explicit_SIMD=false)
+
+    expected = similar(initial)
+    for i in axes(initial, 1)
+      fixed_source = FunctionalField(
+        rk_test_uniform_field,
+        (
+          Ex=0.0,
+          Ey=0.0,
+          Ez=0.0,
+          Bx=0.0,
+          By=batch_fields[mod1(i, length(batch_fields))],
+          Bz=0.0,
+        ),
+      )
+      fixed_element = Drift(
+        L=0.5,
+        tracking_method=RungeKutta(field=fixed_source, n_steps=5),
+      )
+      fixed_line = Beamline(
+        [fixed_element],
+        p_over_q_ref=p_over_q_ref,
+        species_ref=species,
+      )
+      fixed_bunch = Bunch(
+        copy(initial[i:i, :]),
+        p_over_q_ref=p_over_q_ref,
+        species=species,
+      )
+      track!(fixed_bunch, fixed_line; use_KA=false, use_explicit_SIMD=false)
+      expected[i, :] .= fixed_bunch.coords.v[1, :]
+    end
+
+    @test simd_bunch.coords.v ≈ expected
+    @test ka_bunch.coords.v ≈ expected
+  end
+
+  @testset "Scalarized field-source tracking" begin
+    using Beamlines
+
+    species, p_over_q_ref, _, _, _, _, _, _ = setup_particle()
+    initial = [0.001 0.01 -0.002 0.003 0.0 0.0]
+    dual_field = ForwardDiff.Dual(0.004, 1.0)
+    source = FunctionalField(
+      rk_test_uniform_field,
+      (Ex=0.0, Ey=0.0, Ez=0.0, Bx=0.0, By=dual_field, Bz=0.0),
+    )
+    fixed_source = FunctionalField(
+      rk_test_uniform_field,
+      (Ex=0.0, Ey=0.0, Ez=0.0, Bx=0.0, By=ForwardDiff.value(dual_field), Bz=0.0),
+    )
+    element = Drift(
+      L=0.5,
+      tracking_method=RungeKutta(field=source, n_steps=5),
+    )
+    fixed_element = Drift(
+      L=0.5,
+      tracking_method=RungeKutta(field=fixed_source, n_steps=5),
+    )
+    line = Beamline([element], p_over_q_ref=p_over_q_ref, species_ref=species)
+    fixed_line = Beamline(
+      [fixed_element],
+      p_over_q_ref=p_over_q_ref,
+      species_ref=species,
+    )
+    bunch = Bunch(copy(initial), p_over_q_ref=p_over_q_ref, species=species)
+    fixed_bunch = Bunch(copy(initial), p_over_q_ref=p_over_q_ref, species=species)
+
+    track!(bunch, line; scalar_params=true)
+    track!(fixed_bunch, fixed_line)
+
+    @test bunch.coords.v ≈ fixed_bunch.coords.v
+  end
+
+  @testset "Time-dependent field-source tracking" begin
+    using Beamlines
+
+    species, p_over_q_ref, _, _, _, _, _, _ = setup_particle()
+    beta_gamma_ref = R_to_beta_gamma(species, p_over_q_ref)
+    initial = [
+      0.001 0.01 -0.002 0.003  0.00  0.0
+      0.001 0.01 -0.002 0.003 -0.05  0.0
+      0.001 0.01 -0.002 0.003 -0.10  0.0
+      0.001 0.01 -0.002 0.003 -0.15  0.0
+    ]
+    field_at_time = 0.002 + 1.0e6 * Time()
+    source = FunctionalField(
+      rk_test_uniform_field,
+      (Ex=0.0, Ey=0.0, Ez=0.0, Bx=0.0, By=field_at_time, Bz=0.0),
+    )
+    element = Drift(
+      L=0.5,
+      tracking_method=RungeKutta(field=source, n_steps=5),
+    )
+    line = Beamline([element], p_over_q_ref=p_over_q_ref, species_ref=species)
+    dynamic_bunch = Bunch(copy(initial), p_over_q_ref=p_over_q_ref, species=species)
+
+    track!(dynamic_bunch, line; use_KA=false, use_explicit_SIMD=true)
+
+    expected = similar(initial)
+    for i in axes(initial, 1)
+      particle_time = BeamTracking.compute_time(
+        initial[i, BeamTracking.ZI],
+        initial[i, BeamTracking.PZI],
+        0.0,
+        beta_gamma_ref,
+      )
+      fixed_source = FunctionalField(
+        rk_test_uniform_field,
+        (
+          Ex=0.0,
+          Ey=0.0,
+          Ez=0.0,
+          Bx=0.0,
+          By=field_at_time(particle_time),
+          Bz=0.0,
+        ),
+      )
+      fixed_element = Drift(
+        L=0.5,
+        tracking_method=RungeKutta(field=fixed_source, n_steps=5),
+      )
+      fixed_line = Beamline(
+        [fixed_element],
+        p_over_q_ref=p_over_q_ref,
+        species_ref=species,
+      )
+      fixed_bunch = Bunch(
+        copy(initial[i:i, :]),
+        p_over_q_ref=p_over_q_ref,
+        species=species,
+      )
+      track!(fixed_bunch, fixed_line; use_KA=false, use_explicit_SIMD=false)
+      expected[i, :] .= fixed_bunch.coords.v[1, :]
+    end
+
+    @test dynamic_bunch.coords.v ≈ expected
+  end
+
   @testset "RungeKutta with different step configurations" begin
     using Beamlines
 
