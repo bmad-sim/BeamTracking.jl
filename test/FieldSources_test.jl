@@ -58,6 +58,27 @@ end
     parameter_free = FunctionalField(test_parameter_free_field)
     @test @inferred(parameter_free(0.0, 0.0, 0.0, 0.0)) ==
           EMField(SA[0.0, 0.0, 0.0], SA[0.0, 0.0, 1.0])
+
+    time_source = FunctionalField(
+      test_uniform_field,
+      (Ex=0.0, Ey=0.0, Ez=0.0, Bx=0.0, By=2.0 * Time(), Bz=0.0),
+    )
+    lowered_time_source = BeamTracking.time_lower(time_source)
+    @test BeamTracking.static_timecheck(lowered_time_source)
+    evaluated_time_source = @inferred BeamTracking.teval(lowered_time_source, 0.25)
+    @test @inferred(evaluated_time_source(0.0, 0.0, 0.0, 0.0)) ==
+          EMField(SA[0.0, 0.0, 0.0], SA[0.0, 0.5, 0.0])
+
+    batch_source = FunctionalField(
+      test_uniform_field,
+      (Ex=0.0, Ey=0.0, Ez=0.0, Bx=0.0, By=BatchParam([1.0, 2.0]), Bz=0.0),
+    )
+    lowered_batch_source = BeamTracking.batch_lower(batch_source)
+    @test BeamTracking.static_batchcheck(lowered_batch_source)
+    first_batch_source = @inferred BeamTracking.beval(lowered_batch_source, 1)
+    second_batch_source = @inferred BeamTracking.beval(lowered_batch_source, 2)
+    @test @inferred(first_batch_source(0.0, 0.0, 0.0, 0.0)).B == SA[0.0, 1.0, 0.0]
+    @test @inferred(second_batch_source(0.0, 0.0, 0.0, 0.0)).B == SA[0.0, 2.0, 0.0]
   end
 
   @testset "SumField" begin
@@ -76,6 +97,35 @@ end
     nested = SumField(ZeroField(), SumField(dipole, external), ZeroField())
     @test nested isa SumField
     @test nested.sources == (dipole, external)
+
+    dynamic = SumField(
+      dipole,
+      FunctionalField(
+        test_uniform_field,
+        (Ex=0.0, Ey=0.0, Ez=0.0, Bx=0.0, By=3.0 * Time(), Bz=0.0),
+      ),
+    )
+    evaluated_dynamic = @inferred BeamTracking.teval(BeamTracking.time_lower(dynamic), 0.5)
+    @test @inferred(evaluated_dynamic(0.0, 0.0, 0.0, 0.0)).B == SA[0.0, 3.5, 0.0]
+  end
+
+  @testset "MultipoleField parameters" begin
+    batch_source = MultipoleField(
+      SA[1],
+      SA[BatchParam([2.0, 3.0])],
+      SA[BatchParam(0.0)],
+    )
+    lowered_batch_source = BeamTracking.batch_lower(batch_source)
+    @test BeamTracking.static_batchcheck(lowered_batch_source)
+    first_batch_source = @inferred BeamTracking.beval(lowered_batch_source, 1)
+    second_batch_source = @inferred BeamTracking.beval(lowered_batch_source, 2)
+    @test @inferred(first_batch_source(0.0, 0.0, 0.0, 0.0)).B == SA[0.0, 2.0, 0.0]
+    @test @inferred(second_batch_source(0.0, 0.0, 0.0, 0.0)).B == SA[0.0, 3.0, 0.0]
+
+    time_source = MultipoleField(SA[1], SA[4.0 * Time()], SA[TimeDependentParam(0.0)])
+    evaluated_time_source =
+      @inferred BeamTracking.teval(BeamTracking.time_lower(time_source), 0.5)
+    @test @inferred(evaluated_time_source(0.0, 0.0, 0.0, 0.0)).B == SA[0.0, 2.0, 0.0]
   end
 
   @testset "No scalar allocations" begin

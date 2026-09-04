@@ -129,6 +129,23 @@ end
   return source.evaluator(x, y, z, s, source.parameters)
 end
 
+@inline function _rebuild_functional_field(source::FunctionalField, parameters)
+  return FunctionalField(source.evaluator, parameters)
+end
+
+@inline batch_lower(source::FunctionalField) =
+  _rebuild_functional_field(source, batch_lower(source.parameters))
+@inline time_lower(source::FunctionalField) =
+  _rebuild_functional_field(source, time_lower(source.parameters))
+@inline static_batchcheck(source::FunctionalField) =
+  static_batchcheck(source.parameters)
+@inline static_timecheck(source::FunctionalField) =
+  static_timecheck(source.parameters)
+@inline beval(source::FunctionalField, i) =
+  _rebuild_functional_field(source, beval(source.parameters, i))
+@inline teval(source::FunctionalField, t) =
+  _rebuild_functional_field(source, teval(source.parameters, t))
+
 """
     SumField(sources...)
     SumField(sources::Tuple)
@@ -173,6 +190,23 @@ end
 @inline function (source::SumField)(x, y, z, s)
   return _evaluate_field_sum(source.sources, x, y, z, s)
 end
+
+@inline function _rebuild_sum_field(source::SumField, sources)
+  return SumField{typeof(sources)}(sources)
+end
+
+@inline batch_lower(source::SumField) =
+  _rebuild_sum_field(source, batch_lower(source.sources))
+@inline time_lower(source::SumField) =
+  _rebuild_sum_field(source, time_lower(source.sources))
+@inline static_batchcheck(source::SumField) =
+  static_batchcheck(source.sources)
+@inline static_timecheck(source::SumField) =
+  static_timecheck(source.sources)
+@inline beval(source::SumField, i) =
+  _rebuild_sum_field(source, beval(source.sources, i))
+@inline teval(source::SumField, t) =
+  _rebuild_sum_field(source, teval(source.sources, t))
 
 Adapt.@adapt_structure EMField
 Adapt.@adapt_structure MultipoleField
