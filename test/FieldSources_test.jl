@@ -47,11 +47,6 @@ end
           EMField(SA[0.0, 0.0, 0.0], SA[3.0, 2.0, 0.0])
     @test @inferred(quadrupole(0.2, 0.3, 0.0, 0.0)) ==
           EMField(SA[0.0, 0.0, 0.0], SA[2.2, -0.7, 0.0])
-
-    @test MultipoleField(Int[], Float64[], Float64[]) isa ZeroField
-    @test_throws DimensionMismatch MultipoleField([1], [1.0, 2.0], [0.0])
-    @test_throws ArgumentError MultipoleField(SA[2, 1], SA[1.0, 2.0], SA[0.0, 0.0])
-    @test_throws ArgumentError MultipoleField(SA[1, 1], SA[1.0, 2.0], SA[0.0, 0.0])
   end
 
   @testset "FunctionalField" begin

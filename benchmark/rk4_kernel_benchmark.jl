@@ -33,13 +33,10 @@ function setup_solenoid_benchmark()
 
     # Solenoid field
     Bz_physical = 0.01  # Tesla
-    Bz_normalized = Bz_physical / p_over_q_ref
-    mm = SVector(0)
-    kn = SVector(Bz_normalized)
-    ks = SVector(0.0)
+    source = MultipoleField(SA[0], SA[Bz_physical], SA[0.0])
 
     return bunch, beta_0, tilde_m, charge, p0c, mc2, L, ds_step, n_steps,
-           gx, gy, mm, kn, ks, p_over_q_ref
+           gx, gy, source
 end
 
 function reset_bunch!(bunch)
@@ -50,7 +47,7 @@ end
 
 # Setup
 bunch, beta_0, tilde_m, charge, p0c, mc2, L, ds_step, n_steps,
-    gx, gy, mm, kn, ks, p_over_q_ref = setup_solenoid_benchmark()
+    gx, gy, source = setup_solenoid_benchmark()
 
 println("rk4_kernel! benchmark (1 particle)")
 println("=========================================")
@@ -61,14 +58,14 @@ println()
 reset_bunch!(bunch)
 RungeKuttaTracking.rk4_kernel!(1, bunch.coords, beta_0, tilde_m,
                                charge, p0c, mc2, L, ds_step, n_steps,
-                               gx, gy, mm, kn, ks, p_over_q_ref)
+                               gx, gy, source)
 
 # Benchmark
 reset_bunch!(bunch)
 b = @benchmark begin
     RungeKuttaTracking.rk4_kernel!(1, $bunch.coords, $beta_0, $tilde_m,
                                    $charge, $p0c, $mc2, $L, $ds_step, $n_steps,
-                                   $gx, $gy, $mm, $kn, $ks, $p_over_q_ref)
+                                   $gx, $gy, $source)
 end setup=(reset_bunch!($bunch)) evals=1 seconds=10
 
 display(b)
@@ -96,23 +93,20 @@ function setup_multi_particle(n_particles)
     gy = 0.0
 
     Bz_physical = 0.01
-    Bz_normalized = Bz_physical / p_over_q_ref
-    mm = SVector(0)
-    kn = SVector(Bz_normalized)
-    ks = SVector(0.0)
+    source = MultipoleField(SA[0], SA[Bz_physical], SA[0.0])
 
     return bunch, beta_0, tilde_m, charge, p0c, mc2, L, ds_step, n_steps,
-           gx, gy, mm, kn, ks, p_over_q_ref
+           gx, gy, source
 end
 
 function track_all_particles!(bunch, beta_0, tilde_m, charge, p0c, mc2,
                               L, ds_step, n_steps, gx, gy,
-                              mm, kn, ks, p_over_q_ref)
+                              source)
     n = size(bunch.coords.v, 1)
     for i in 1:n
         RungeKuttaTracking.rk4_kernel!(i, bunch.coords, beta_0, tilde_m,
                                        charge, p0c, mc2, L, ds_step, n_steps,
-                                       gx, gy, mm, kn, ks, p_over_q_ref)
+                                       gx, gy, source)
     end
     return nothing
 end
@@ -120,7 +114,7 @@ end
 n_particles = 1000
 bunch_mp, beta_0_mp, tilde_m_mp, charge_mp, p0c_mp, mc2_mp,
     L_mp, ds_step_mp, n_steps_mp, gx_mp, gy_mp,
-    mm_mp, kn_mp, ks_mp, p_over_q_ref_mp = setup_multi_particle(n_particles)
+    source_mp = setup_multi_particle(n_particles)
 
 # Store initial state for reset
 v_init = copy(bunch_mp.coords.v)
@@ -134,14 +128,14 @@ end
 # Warmup
 track_all_particles!(bunch_mp, beta_0_mp, tilde_m_mp, charge_mp, p0c_mp, mc2_mp,
                      L_mp, ds_step_mp, n_steps_mp, gx_mp, gy_mp,
-                     mm_mp, kn_mp, ks_mp, p_over_q_ref_mp)
+                     source_mp)
 
 # Benchmark
 b_mp = @benchmark begin
     track_all_particles!($bunch_mp, $beta_0_mp, $tilde_m_mp, $charge_mp,
                          $p0c_mp, $mc2_mp, $L_mp, $ds_step_mp, $n_steps_mp,
                          $gx_mp, $gy_mp,
-                         $mm_mp, $kn_mp, $ks_mp, $p_over_q_ref_mp)
+                         $source_mp)
 end setup=(reset_multi!($bunch_mp, $v_init, $state_init)) evals=1 seconds=10
 
 display(b_mp)

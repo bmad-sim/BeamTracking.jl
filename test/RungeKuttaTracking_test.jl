@@ -61,14 +61,11 @@
     gx = 0.0
     gy = 0.0
     
-    # Empty multipole vectors for drift
-    mm = SVector{0, Int}()
-    kn = SVector{0, Float64}()
-    ks = SVector{0, Float64}()
+    source = ZeroField()
 
     RungeKuttaTracking.rk4_kernel!(1, bunch.coords, beta_0, tilde_m,
                                    charge, p0c, mc2, L, ds_step, n_steps, gx, gy,
-                                   mm, kn, ks, p_over_q_ref)
+                                   source)
 
     # Regression test
     solution = [0.0100005  0.01  0.0  0.0  -5.00038e-5  0.0]
@@ -90,14 +87,11 @@
     
     # Solenoid field
     Bz_physical = 0.01  # Tesla
-    Bz_normalized = Bz_physical / p_over_q_ref
-    mm = SVector(0)  # Solenoid (m=0)
-    kn = SVector(Bz_normalized)
-    ks = SVector(0.0)
+    source = MultipoleField(SA[0], SA[Bz_physical], SA[0.0])
 
     RungeKuttaTracking.rk4_kernel!(1, bunch.coords, beta_0, tilde_m,
                                    charge, p0c, mc2, L, ds_step, n_steps, gx, gy,
-                                   mm, kn, ks, p_over_q_ref)
+                                   source)
 
     # In uniform B-field, particle should follow circular path
     # Total transverse momentum should be conserved
@@ -123,14 +117,11 @@
     
     # Dipole field
     By_physical = 0.01  # Tesla
-    By_normalized = By_physical / p_over_q_ref
-    mm = SVector(1)  # Dipole (m=1)
-    kn = SVector(By_normalized)
-    ks = SVector(0.0)
+    source = MultipoleField(SA[1], SA[By_physical], SA[0.0])
 
     RungeKuttaTracking.rk4_kernel!(1, bunch.coords, beta_0, tilde_m,
                                    charge, p0c, mc2, L, ds_step, n_steps, gx, gy,
-                                   mm, kn, ks, p_over_q_ref)
+                                   source)
 
     # Regression test
     solution = [0.011499735519796054 0.012997924579999955 0.0 0.0 -6.649432859025015e-5 0.0]
@@ -150,14 +141,11 @@
     gx = 0.0
     gy = 0.0
     
-    # Empty multipole vectors for drift
-    mm = SVector{0, Int}()
-    kn = SVector{0, Float64}()
-    ks = SVector{0, Float64}()
+    source = ZeroField()
 
     RungeKuttaTracking.rk4_kernel!(1, bunch.coords, beta_0, tilde_m,
                                    charge, p0c, mc2, L, ds_step, n_steps, gx, gy,
-                                   mm, kn, ks, p_over_q_ref)
+                                   source)
 
     # Particle should not track
     solution = [0.0  1.5  0.0  0.0  0.0  0.0]
@@ -177,18 +165,15 @@
     gx = 0.0
     gy = 0.0
     
-    # Empty multipole vectors for drift
-    mm = SVector{0, Int}()
-    kn = SVector{0, Float64}()
-    ks = SVector{0, Float64}()
+    source = ZeroField()
 
     # Track with different step sizes
     RungeKuttaTracking.rk4_kernel!(1, bunch1.coords, beta_0, tilde_m,
                                    charge, p0c, mc2, L, 0.1, 10, gx, gy,
-                                   mm, kn, ks, p_over_q_ref)
+                                   source)
     RungeKuttaTracking.rk4_kernel!(1, bunch2.coords, beta_0, tilde_m,
                                    charge, p0c, mc2, L, 0.05, 20, gx, gy,
-                                   mm, kn, ks, p_over_q_ref)
+                                   source)
 
     # Results should be identical
     @test isapprox(bunch1.coords.v, bunch2.coords.v, rtol=1e-2)
@@ -228,6 +213,43 @@
     # Regression test
     solution = [0.010000150630002367 0.009995978032305387 0.0 0.0 -0.00016899908120890584 0.0]
     @test isapprox(bunch.coords.v, solution, rtol=1e-6)
+  end
+
+  @testset "Beamlines physical and normalized multipoles" begin
+    using Beamlines
+
+    species, p_over_q_ref, _, _, _, _, _, _ = setup_particle()
+    initial = [0.001 0.01 -0.002 0.003 0.0 0.0]
+    normalized_strength = 0.2
+    physical_strength = normalized_strength * p_over_q_ref
+
+    normalized_element = Quadrupole(
+      L=0.5,
+      Kn1=normalized_strength,
+      tracking_method=RungeKutta(n_steps=5),
+    )
+    physical_element = Quadrupole(
+      L=0.5,
+      Bn1=physical_strength,
+      tracking_method=RungeKutta(n_steps=5),
+    )
+    normalized_line = Beamline(
+      [normalized_element],
+      p_over_q_ref=p_over_q_ref,
+      species_ref=species,
+    )
+    physical_line = Beamline(
+      [physical_element],
+      p_over_q_ref=p_over_q_ref,
+      species_ref=species,
+    )
+    normalized_bunch = Bunch(copy(initial), p_over_q_ref=p_over_q_ref, species=species)
+    physical_bunch = Bunch(copy(initial), p_over_q_ref=p_over_q_ref, species=species)
+
+    track!(normalized_bunch, normalized_line)
+    track!(physical_bunch, physical_line)
+
+    @test normalized_bunch.coords.v ≈ physical_bunch.coords.v
   end
 
   @testset "RungeKutta with different step configurations" begin

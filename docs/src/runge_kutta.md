@@ -88,9 +88,8 @@ The current low-level entry point is:
 
 ```julia
 rk4_kernel!(i, coords, beta_0, tilde_m, charge, p0c, mc2,
-            L, ds_step, n_steps, gx, gy, mm, kn, ks, p_over_q_ref)
+            L, ds_step, n_steps, gx, gy, source)
 ```
 
-`mm` contains the magnetic multipole orders. `kn` and `ks` contain the normal
-and skew strengths. The kernel marks a particle as `STATE_LOST_PZ` when its
-transverse velocity is unphysical.
+`source` is a concrete callable field source. The kernel marks a particle as
+`STATE_LOST_PZ` when its transverse velocity is unphysical.

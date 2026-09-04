@@ -1,17 +1,17 @@
 # RungeKutta uses the common unpacking, reference-ramp, alignment, aperture, and
 # callback path. Only the body field integration is specific to RungeKutta.
 
-@inline function runge_kutta_multipoles(bmultipoleparams, L, p_over_q_ref)
+@inline function runge_kutta_field(bmultipoleparams, L, p_over_q_ref)
   if !isactive(bmultipoleparams)
-    return SVector{0,Int}(), SVector{0,typeof(L)}(), SVector{0,typeof(L)}()
+    return ZeroField()
   end
 
   mm = getfield(bmultipoleparams, :order)
-  kn, ks = get_strengths(bmultipoleparams, L, p_over_q_ref)
+  bn, bs = get_physical_strengths(bmultipoleparams, L, p_over_q_ref)
   if mm isa Integer
-    return SA[mm], SA[kn], SA[ks]
+    return MultipoleField(SA[mm], SA[bn], SA[bs])
   end
-  return mm, kn, ks
+  return MultipoleField(mm, bn, bs)
 end
 
 @inline function runge_kutta_body(
@@ -55,12 +55,12 @@ end
   p0c = BeamTracking.R_to_pc(species, p_over_q_ref)
   mc2 = massof(species)
   n_steps, ds_step = BeamTracking.find_steps(tm, L)
-  mm, kn, ks = runge_kutta_multipoles(bmultipoleparams, L, p_over_q_ref)
+  source = runge_kutta_field(bmultipoleparams, L, p_over_q_ref)
 
   # Time-dependent values in params are evaluated once, at the particle's
   # element-entrance time, by the common kernel path. They stay fixed during
   # all RK substeps.
   params = (beta_0, tilde_m, charge, p0c, mc2, L, ds_step, n_steps,
-            gx, gy, mm, kn, ks, p_over_q_ref)
+            gx, gy, source)
   return push(kc, make_kernel_call(BeamTracking.RungeKuttaTracking.rk4_kernel!, params))
 end

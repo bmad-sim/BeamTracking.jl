@@ -56,21 +56,10 @@ function MultipoleField(
   normal::KN,
   skew::KS,
 ) where {N,M<:StaticVector{N,<:Integer},KN<:StaticVector{N},KS<:StaticVector{N}}
-  N == 0 && return ZeroField()
+  N > 0 || throw(ArgumentError("use ZeroField for an empty field source"))
   issorted(orders) || throw(ArgumentError("multipole orders must be ascending"))
   allunique(orders) || throw(ArgumentError("multipole orders must be unique"))
   return MultipoleField{M,KN,KS}(orders, normal, skew)
-end
-
-function MultipoleField(orders::AbstractVector, normal::AbstractVector, skew::AbstractVector)
-  N = length(orders)
-  length(normal) == N || throw(DimensionMismatch("normal coefficients must match orders"))
-  length(skew) == N || throw(DimensionMismatch("skew coefficients must match orders"))
-  return MultipoleField(SVector{N,Int}(orders), SVector{N}(normal), SVector{N}(skew))
-end
-
-function MultipoleField(orders::Tuple, normal::Tuple, skew::Tuple)
-  return MultipoleField(SVector(orders), SVector(normal), SVector(skew))
 end
 
 @inline function (source::MultipoleField)(x, y, z, s)
@@ -79,6 +68,43 @@ end
   bz = vifelse(source.orders[1] == 0, source.normal[1], zero_field)
   E = SVector(zero_field, zero_field, zero_field)
   return EMField(E, SVector(bx, by, bz))
+end
+
+@inline function _rebuild_multipole_field(source::MultipoleField, normal, skew)
+  return MultipoleField{typeof(source.orders),typeof(normal),typeof(skew)}(
+    source.orders,
+    normal,
+    skew,
+  )
+end
+
+@inline function batch_lower(source::MultipoleField)
+  return _rebuild_multipole_field(
+    source,
+    batch_lower(source.normal),
+    batch_lower(source.skew),
+  )
+end
+
+@inline function time_lower(source::MultipoleField)
+  return _rebuild_multipole_field(
+    source,
+    time_lower(source.normal),
+    time_lower(source.skew),
+  )
+end
+
+@inline static_batchcheck(source::MultipoleField) =
+  static_batchcheck(source.normal) || static_batchcheck(source.skew)
+@inline static_timecheck(source::MultipoleField) =
+  static_timecheck(source.normal) || static_timecheck(source.skew)
+
+@inline function beval(source::MultipoleField, i)
+  return _rebuild_multipole_field(source, beval(source.normal, i), beval(source.skew, i))
+end
+
+@inline function teval(source::MultipoleField, t)
+  return _rebuild_multipole_field(source, teval(source.normal, t), teval(source.skew, t))
 end
 
 """
