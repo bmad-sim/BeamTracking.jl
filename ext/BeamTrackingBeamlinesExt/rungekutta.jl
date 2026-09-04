@@ -14,6 +14,15 @@
   return MultipoleField(mm, bn, bs)
 end
 
+@inline function configured_runge_kutta_field(tm::RungeKutta, element_source)
+  if !isnothing(tm.field)
+    return tm.field
+  elseif !isnothing(tm.additional_field)
+    return SumField(element_source, tm.additional_field)
+  end
+  return element_source
+end
+
 @inline function runge_kutta_body(
   tm::RungeKutta,
   kc,
@@ -55,7 +64,8 @@ end
   p0c = BeamTracking.R_to_pc(species, p_over_q_ref)
   mc2 = massof(species)
   n_steps, ds_step = BeamTracking.find_steps(tm, L)
-  source = runge_kutta_field(bmultipoleparams, L, p_over_q_ref)
+  element_source = runge_kutta_field(bmultipoleparams, L, p_over_q_ref)
+  source = configured_runge_kutta_field(tm, element_source)
 
   # Time-dependent values in params are evaluated once, at the particle's
   # element-entrance time, by the common kernel path. They stay fixed during

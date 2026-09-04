@@ -1,6 +1,6 @@
 # Runge-Kutta Tracking
 
-`RungeKutta` tracks particles through static magnetic multipole fields with a
+`RungeKutta` tracks particles through electromagnetic field sources with a
 classical fourth-order Runge-Kutta (RK4) integrator. It uses the common tracking
 path for reference-momentum updates, alignment, aperture checks, and callbacks.
 
@@ -22,6 +22,43 @@ ele.tracking_method = RungeKutta(ds_step=0.1)
 ele.tracking_method = RungeKutta(n_steps=50)
 ```
 
+## Field sources
+
+A field source is a concrete callable object with the interface:
+
+```julia
+source(x, y, z, s) -> EMField
+```
+
+`EMField.E` is an `SVector` in V/m and `EMField.B` is an `SVector` in tesla.
+RK tracking provides `ZeroField`, `MultipoleField`, `FunctionalField`, and
+`SumField` source types.
+
+`field` sets the complete body field:
+
+```julia
+function uniform_field(x, y, z, s, parameters)
+  v = zero(x)
+  return EMField(
+    v, v, v,
+    v + parameters.Bx, v + parameters.By, v + parameters.Bz,
+  )
+end
+
+source = FunctionalField(uniform_field, (Bx=0.0, By=0.1, Bz=0.0))
+ele.tracking_method = RungeKutta(field=source, n_steps=20)
+```
+
+`additional_field` adds a source to the magnetic multipoles stored on the
+element:
+
+```julia
+ele.tracking_method = RungeKutta(additional_field=source, n_steps=20)
+```
+
+The configured sources and their parameter types remain concrete in the RK
+kernel.
+
 ## Beamlines usage
 
 The element must get its reference data from a `Beamline`, in the same way as
@@ -40,12 +77,10 @@ bunch = Bunch(zeros(100, 6), p_over_q_ref=line.p_over_q_ref,
 track!(bunch, line)
 ```
 
-The RK body kernel supports drifts and static magnetic multipoles, including
-solenoid, normal, and skew terms. It does not add support for RF or electric
-fields, maps, patches, four-potentials, radiation, or spin tracking.
-
-Fringe tracking is not implemented for RK. A bend with nonzero `e1` or `e2`
-therefore produces an error instead of silently omitting the edge effect.
+The RK body kernel tracks static electric and magnetic fields. Beamlines
+magnetic multipoles are represented by `MultipoleField`, including solenoid,
+normal, and skew terms. Bend body tracking uses reference curvature with zero
+edge angles.
 
 ## Time-dependent values and reference ramping
 

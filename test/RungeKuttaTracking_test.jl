@@ -1,3 +1,20 @@
+function rk_test_uniform_field(x, y, z, s, parameters)
+  carrier = zero(x)
+  return EMField(
+    carrier + parameters.Ex,
+    carrier + parameters.Ey,
+    carrier + parameters.Ez,
+    carrier + parameters.Bx,
+    carrier + parameters.By,
+    carrier + parameters.Bz,
+  )
+end
+
+function rk_test_parameter_free_field(x, y, z, s)
+  carrier = zero(x)
+  return EMField(carrier, carrier, carrier, carrier, carrier, carrier + 1)
+end
+
 @testset "RungeKuttaTracking" begin
   using BeamTracking
   using BeamTracking: Species, massof, chargeof, R_to_beta_gamma, R_to_pc, pc_to_R,
@@ -46,6 +63,16 @@
     rk_nothing = RungeKutta(ds_step=nothing, n_steps=nothing)
     @test rk_nothing.ds_step == 0.2
     @test rk_nothing.n_steps == -1
+
+    replacement = MultipoleField(SA[1], SA[0.01], SA[0.0])
+    rk_replacement = RungeKutta(field=replacement)
+    @test rk_replacement.field === replacement
+    @test isnothing(rk_replacement.additional_field)
+
+    additional = FunctionalField(rk_test_parameter_free_field)
+    rk_additional = RungeKutta(additional_field=additional)
+    @test rk_additional.additional_field === additional
+    @test isnothing(rk_additional.field)
   end
 
   @testset "Pure drift" begin
@@ -250,6 +277,73 @@
     track!(physical_bunch, physical_line)
 
     @test normalized_bunch.coords.v ≈ physical_bunch.coords.v
+  end
+
+  @testset "Beamlines configured field sources" begin
+    using Beamlines
+
+    species, p_over_q_ref, _, _, _, _, _, _ = setup_particle()
+    initial = [0.001 0.01 -0.002 0.003 0.0 0.0]
+    element_strength = 0.2
+    external = FunctionalField(
+      rk_test_uniform_field,
+      (Ex=0.0, Ey=0.0, Ez=0.0, Bx=0.0, By=0.004, Bz=0.0),
+    )
+
+    element = Quadrupole(
+      L=0.5,
+      Kn1=element_strength,
+      tracking_method=RungeKutta(additional_field=external, n_steps=5),
+    )
+    composed = SumField(
+      MultipoleField(SA[2], SA[element_strength * p_over_q_ref], SA[0.0]),
+      external,
+    )
+    reference = Drift(
+      L=0.5,
+      tracking_method=RungeKutta(field=composed, n_steps=5),
+    )
+
+    element_line = Beamline([element], p_over_q_ref=p_over_q_ref, species_ref=species)
+    reference_line = Beamline([reference], p_over_q_ref=p_over_q_ref, species_ref=species)
+    element_bunch = Bunch(copy(initial), p_over_q_ref=p_over_q_ref, species=species)
+    reference_bunch = Bunch(copy(initial), p_over_q_ref=p_over_q_ref, species=species)
+
+    track!(element_bunch, element_line)
+    track!(reference_bunch, reference_line)
+
+    @test element_bunch.coords.v ≈ reference_bunch.coords.v
+
+    replacement_element = Quadrupole(
+      L=0.5,
+      Kn1=5 * element_strength,
+      tracking_method=RungeKutta(field=external, n_steps=5),
+    )
+    replacement_reference = Drift(
+      L=0.5,
+      tracking_method=RungeKutta(field=external, n_steps=5),
+    )
+    replacement_line = Beamline(
+      [replacement_element],
+      p_over_q_ref=p_over_q_ref,
+      species_ref=species,
+    )
+    replacement_reference_line = Beamline(
+      [replacement_reference],
+      p_over_q_ref=p_over_q_ref,
+      species_ref=species,
+    )
+    replacement_bunch = Bunch(copy(initial), p_over_q_ref=p_over_q_ref, species=species)
+    replacement_reference_bunch = Bunch(
+      copy(initial),
+      p_over_q_ref=p_over_q_ref,
+      species=species,
+    )
+
+    track!(replacement_bunch, replacement_line)
+    track!(replacement_reference_bunch, replacement_reference_line)
+
+    @test replacement_bunch.coords.v ≈ replacement_reference_bunch.coords.v
   end
 
   @testset "RungeKutta with different step configurations" begin
