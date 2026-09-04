@@ -15,6 +15,19 @@ function rk_test_parameter_free_field(x, y, z, s)
   return EMField(carrier, carrier, carrier, carrier, carrier, carrier + 1)
 end
 
+struct RKCustomFieldParameters{T}
+  strength::T
+end
+
+struct RKCustomField{P}
+  parameters::P
+end
+
+function (source::RKCustomField)(x, y, z, s)
+  v = zero(x)
+  return EMField(v, v, v, v, v + source.parameters.strength, v)
+end
+
 @testset "RungeKuttaTracking" begin
   using BeamTracking
   using BeamTracking: Species, massof, chargeof, R_to_beta_gamma, R_to_pc, pc_to_R,
@@ -403,6 +416,59 @@ end
     track!(fixed_bunch, fixed_line)
 
     @test context_bunch.coords.v ≈ fixed_bunch.coords.v
+  end
+
+  @testset "Custom field-source tracking" begin
+    species, p_over_q_ref, beta_0, _, tilde_m, charge, p0c, mc2 = setup_particle()
+    context = Context(strength=0.004)
+    initial = repeat([0.001 0.01 -0.002 0.003 0.0 0.0], 8, 1)
+    initial[:, 5] .= range(0.0, -0.2, length=8)
+    beta_gamma_ref = R_to_beta_gamma(species, p_over_q_ref)
+    times = [BeamTracking.compute_time(initial[i, 5], initial[i, 6], 0.0, beta_gamma_ref)
+             for i in axes(initial, 1)]
+    cases = (
+      (DefExpr{Float64}(c -> c.strength), fill(context.strength, 8), false),
+      (DefExpr{BatchParam}(c -> BatchParam([c.strength, 2*c.strength])),
+       repeat([context.strength, 2*context.strength], 4), false),
+      (DefExpr{TimeDependentParam}(c -> c.strength + 1e6*Time()),
+       context.strength .+ 1e6 .* times, false),
+      (ForwardDiff.Dual(context.strength, 1.0), fill(context.strength, 8), true),
+    )
+    for (strength, expected_strengths, scalar_params) in cases
+      custom = RKCustomField(RKCustomFieldParameters(strength))
+      # Exercise direct sources, FunctionalField parameters, and nested sums.
+      sources = (custom, FunctionalField(
+        (x, y, z, s, p) -> RKCustomField(p)(x, y, z, s), custom.parameters,
+      ), SumField(custom, RKCustomField(RKCustomFieldParameters(0.0))))
+      expected = similar(initial)
+      for i in axes(initial, 1)
+        fixed = MultipoleField(SA[1], SA[expected_strengths[i]], SA[0.0])
+        line = Beamline([Drift(L=0.5, tracking_method=RungeKutta(field=fixed, n_steps=5))],
+                        p_over_q_ref=p_over_q_ref, species_ref=species)
+        bunch = Bunch(copy(initial[i:i, :]), p_over_q_ref=p_over_q_ref, species=species)
+        track!(bunch, line; use_KA=false, use_explicit_SIMD=false)
+        expected[i, :] .= bunch.coords.v[1, :]
+      end
+      for source in sources, (use_KA, use_explicit_SIMD) in ((false, false), (false, true), (true, false))
+        line = Beamline([Drift(L=0.5, tracking_method=RungeKutta(field=source, n_steps=5))],
+                        context=context, p_over_q_ref=p_over_q_ref, species_ref=species)
+        bunch = Bunch(copy(initial), p_over_q_ref=p_over_q_ref, species=species)
+        track!(bunch, line; scalar_params, use_KA, use_explicit_SIMD)
+        @test bunch.coords.v ≈ expected
+      end
+    end
+
+    source = BeamTracking._PreparedField(RKCustomField(RKCustomFieldParameters(
+      BatchParam([0.002, 0.004]),
+    )))
+    call = BeamTracking.make_kernel_call(RungeKuttaTracking.rk4_kernel!, (
+      beta_0, tilde_m, charge, p0c, mc2, 0.5, 0.1, 5, 0.0, 0.0, source,
+    ))
+    bunch = Bunch(copy(initial), p_over_q_ref=p_over_q_ref, species=species)
+    for simd in (false, true)
+      @test @ballocated(BeamTracking.launch!($bunch.coords, $call;
+                       use_KA=false, use_explicit_SIMD=$simd)) == 0
+    end
   end
 
   @testset "Batch field-source tracking" begin

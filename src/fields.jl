@@ -40,7 +40,8 @@ end
 
 A callable static magnetic multipole field. `normal` and `skew` contain
 non-integrated physical magnetic-field coefficients. Calling the source
-returns magnetic fields in tesla. Orders must be unique and ascending.
+returns magnetic fields in tesla. All three arguments must be `SVector`s.
+Orders must be unique and ascending.
 """
 struct MultipoleField{M,KN,KS}
   orders::M
@@ -55,7 +56,7 @@ function MultipoleField(
   orders::M,
   normal::KN,
   skew::KS,
-) where {N,M<:StaticVector{N,<:Integer},KN<:StaticVector{N},KS<:StaticVector{N}}
+) where {N,M<:SVector{N,<:Integer},KN<:SVector{N},KS<:SVector{N}}
   N > 0 || throw(ArgumentError("use ZeroField for an empty field source"))
   issorted(orders) || throw(ArgumentError("multipole orders must be ascending"))
   allunique(orders) || throw(ArgumentError("multipole orders must be unique"))
@@ -68,43 +69,6 @@ end
   bz = vifelse(source.orders[1] == 0, source.normal[1], zero_field)
   E = SVector(zero_field, zero_field, zero_field)
   return EMField(E, SVector(bx, by, bz))
-end
-
-@inline function _rebuild_multipole_field(source::MultipoleField, normal, skew)
-  return MultipoleField{typeof(source.orders),typeof(normal),typeof(skew)}(
-    source.orders,
-    normal,
-    skew,
-  )
-end
-
-@inline function batch_lower(source::MultipoleField)
-  return _rebuild_multipole_field(
-    source,
-    batch_lower(source.normal),
-    batch_lower(source.skew),
-  )
-end
-
-@inline function time_lower(source::MultipoleField)
-  return _rebuild_multipole_field(
-    source,
-    time_lower(source.normal),
-    time_lower(source.skew),
-  )
-end
-
-@inline static_batchcheck(source::MultipoleField) =
-  static_batchcheck(source.normal) || static_batchcheck(source.skew)
-@inline static_timecheck(source::MultipoleField) =
-  static_timecheck(source.normal) || static_timecheck(source.skew)
-
-@inline function beval(source::MultipoleField, i)
-  return _rebuild_multipole_field(source, beval(source.normal, i), beval(source.skew, i))
-end
-
-@inline function teval(source::MultipoleField, t)
-  return _rebuild_multipole_field(source, teval(source.normal, t), teval(source.skew, t))
 end
 
 """
@@ -128,23 +92,6 @@ end
 @inline function (source::FunctionalField)(x, y, z, s)
   return source.evaluator(x, y, z, s, source.parameters)
 end
-
-@inline function _rebuild_functional_field(source::FunctionalField, parameters)
-  return FunctionalField(source.evaluator, parameters)
-end
-
-@inline batch_lower(source::FunctionalField) =
-  _rebuild_functional_field(source, batch_lower(source.parameters))
-@inline time_lower(source::FunctionalField) =
-  _rebuild_functional_field(source, time_lower(source.parameters))
-@inline static_batchcheck(source::FunctionalField) =
-  static_batchcheck(source.parameters)
-@inline static_timecheck(source::FunctionalField) =
-  static_timecheck(source.parameters)
-@inline beval(source::FunctionalField, i) =
-  _rebuild_functional_field(source, beval(source.parameters, i))
-@inline teval(source::FunctionalField, t) =
-  _rebuild_functional_field(source, teval(source.parameters, t))
 
 """
     SumField(sources...)
@@ -191,22 +138,7 @@ end
   return _evaluate_field_sum(source.sources, x, y, z, s)
 end
 
-@inline function _rebuild_sum_field(source::SumField, sources)
-  return SumField{typeof(sources)}(sources)
-end
-
-@inline batch_lower(source::SumField) =
-  _rebuild_sum_field(source, batch_lower(source.sources))
-@inline time_lower(source::SumField) =
-  _rebuild_sum_field(source, time_lower(source.sources))
-@inline static_batchcheck(source::SumField) =
-  static_batchcheck(source.sources)
-@inline static_timecheck(source::SumField) =
-  static_timecheck(source.sources)
-@inline beval(source::SumField, i) =
-  _rebuild_sum_field(source, beval(source.sources, i))
-@inline teval(source::SumField, t) =
-  _rebuild_sum_field(source, teval(source.sources, t))
+include("field_parameters.jl")
 
 Adapt.@adapt_structure EMField
 Adapt.@adapt_structure MultipoleField
