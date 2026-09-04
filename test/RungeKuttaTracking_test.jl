@@ -346,6 +346,65 @@ end
     @test replacement_bunch.coords.v ≈ replacement_reference_bunch.coords.v
   end
 
+  @testset "Beamlines field-source context" begin
+    using Beamlines
+
+    species, p_over_q_ref, _, _, _, _, _, _ = setup_particle()
+    initial = [0.001 0.01 -0.002 0.003 0.0 0.0]
+    context = Context(dipole=0.003, external=0.004)
+    context_source = SumField(
+      MultipoleField(
+        SA[1],
+        SA[DefExpr{Float64}(c -> c.dipole)],
+        SA[DefExpr{Float64}(c -> 0.0)],
+      ),
+      FunctionalField(
+        rk_test_uniform_field,
+        (
+          Ex=0.0,
+          Ey=0.0,
+          Ez=0.0,
+          Bx=0.0,
+          By=DefExpr{Float64}(c -> c.external),
+          Bz=0.0,
+        ),
+      ),
+    )
+    fixed_source = SumField(
+      MultipoleField(SA[1], SA[context.dipole], SA[0.0]),
+      FunctionalField(
+        rk_test_uniform_field,
+        (Ex=0.0, Ey=0.0, Ez=0.0, Bx=0.0, By=context.external, Bz=0.0),
+      ),
+    )
+    context_element = Drift(
+      L=0.5,
+      tracking_method=RungeKutta(field=context_source, n_steps=5),
+    )
+    fixed_element = Drift(
+      L=0.5,
+      tracking_method=RungeKutta(field=fixed_source, n_steps=5),
+    )
+    context_line = Beamline(
+      [context_element],
+      context=context,
+      p_over_q_ref=p_over_q_ref,
+      species_ref=species,
+    )
+    fixed_line = Beamline(
+      [fixed_element],
+      p_over_q_ref=p_over_q_ref,
+      species_ref=species,
+    )
+    context_bunch = Bunch(copy(initial), p_over_q_ref=p_over_q_ref, species=species)
+    fixed_bunch = Bunch(copy(initial), p_over_q_ref=p_over_q_ref, species=species)
+
+    track!(context_bunch, context_line)
+    track!(fixed_bunch, fixed_line)
+
+    @test context_bunch.coords.v ≈ fixed_bunch.coords.v
+  end
+
   @testset "RungeKutta with different step configurations" begin
     using Beamlines
 

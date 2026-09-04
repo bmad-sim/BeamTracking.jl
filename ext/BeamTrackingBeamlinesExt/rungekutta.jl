@@ -1,6 +1,70 @@
 # RungeKutta uses the common unpacking, reference-ramp, alignment, aperture, and
 # callback path. Only the body field integration is specific to RungeKutta.
 
+@inline _unpack_field_parameter(value::NamedTuple{names}, context) where {names} =
+  NamedTuple{names}(_unpack_field_parameter(Tuple(value), context))
+@inline _unpack_field_parameter(value::Tuple, context) =
+  map(item -> _unpack_field_parameter(item, context), value)
+@inline _unpack_field_parameter(value::StaticArray, context) =
+  map(item -> _unpack_field_parameter(item, context), value)
+@inline _unpack_field_parameter(value, context) = deval(value, context)
+
+@inline _scalarize_field_parameter(value::NamedTuple{names}) where {names} =
+  NamedTuple{names}(_scalarize_field_parameter(Tuple(value)))
+@inline _scalarize_field_parameter(value::Tuple) =
+  map(_scalarize_field_parameter, value)
+@inline _scalarize_field_parameter(value::StaticArray) =
+  map(_scalarize_field_parameter, value)
+@inline _scalarize_field_parameter(value) = scalarize(value)
+
+@inline unpack_field_source(source::Nothing, context) = nothing
+@inline unpack_field_source(source::ZeroField, context) = source
+
+@inline function unpack_field_source(source::MultipoleField, context)
+  normal = _unpack_field_parameter(source.normal, context)
+  skew = _unpack_field_parameter(source.skew, context)
+  return BeamTracking._rebuild_multipole_field(source, normal, skew)
+end
+
+@inline function unpack_field_source(source::FunctionalField, context)
+  parameters = _unpack_field_parameter(source.parameters, context)
+  return BeamTracking._rebuild_functional_field(source, parameters)
+end
+
+@inline function unpack_field_source(source::SumField, context)
+  sources = map(item -> unpack_field_source(item, context), source.sources)
+  return BeamTracking._rebuild_sum_field(source, sources)
+end
+
+@inline scalarize_field_source(source::Nothing) = nothing
+@inline scalarize_field_source(source::ZeroField) = source
+
+@inline function scalarize_field_source(source::MultipoleField)
+  normal = _scalarize_field_parameter(source.normal)
+  skew = _scalarize_field_parameter(source.skew)
+  return BeamTracking._rebuild_multipole_field(source, normal, skew)
+end
+
+@inline function scalarize_field_source(source::FunctionalField)
+  parameters = _scalarize_field_parameter(source.parameters)
+  return BeamTracking._rebuild_functional_field(source, parameters)
+end
+
+@inline function scalarize_field_source(source::SumField)
+  sources = map(scalarize_field_source, source.sources)
+  return BeamTracking._rebuild_sum_field(source, sources)
+end
+
+function unpack_runge_kutta(tm::RungeKutta, context, scalar_params)
+  field = unpack_field_source(tm.field, context)
+  additional_field = unpack_field_source(tm.additional_field, context)
+  if scalar_params
+    field = scalarize_field_source(field)
+    additional_field = scalarize_field_source(additional_field)
+  end
+  return RungeKutta(tm.ds_step, tm.n_steps, field, additional_field)
+end
+
 @inline function runge_kutta_field(bmultipoleparams, L, p_over_q_ref)
   if !isactive(bmultipoleparams)
     return ZeroField()
