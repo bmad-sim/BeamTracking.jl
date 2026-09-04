@@ -3,6 +3,7 @@ using BeamTracking: Species, massof, chargeof, R_to_beta_gamma, R_to_pc, pc_to_R
                     RungeKuttaTracking, Bunch, STATE_ALIVE
 using StaticArrays
 using BenchmarkTools
+using Random
 
 function setup_particle(pc=1e9)
     species = Species("electron")
@@ -11,23 +12,24 @@ function setup_particle(pc=1e9)
 
     beta_gamma_0 = R_to_beta_gamma(species, p_over_q_ref)
     tilde_m = 1 / beta_gamma_0
-    gamsqr_0 = 1 + beta_gamma_0^2
-    beta_0 = beta_gamma_0 / sqrt(gamsqr_0)
+    beta_0 = beta_gamma_0 / sqrt(1 + beta_gamma_0^2)
     charge = chargeof(species)
     p0c = R_to_pc(species, p_over_q_ref)
 
-    return species, p_over_q_ref, beta_0, gamsqr_0, tilde_m, charge, p0c, mc2
+    return species, p_over_q_ref, beta_0, tilde_m, charge, p0c, mc2
 end
 
 function setup_solenoid_benchmark()
-    species, p_over_q_ref, beta_0, gamsqr_0, tilde_m, charge, p0c, mc2 = setup_particle(1e9)
+    species, p_over_q_ref, beta_0, tilde_m, charge, p0c, mc2 = setup_particle(1e9)
 
     bunch = Bunch(zeros(1, 6), p_over_q_ref=p_over_q_ref, species=species)
     bunch.coords.v[1, BeamTracking.PXI] = 0.01
 
-    s_span = (0.0, 1.0)
+    L = 1.0
     ds_step = 0.01
-    g_bend = 0.0
+    n_steps = 100
+    gx = 0.0
+    gy = 0.0
 
     # Solenoid field
     Bz_physical = 0.01  # Tesla
@@ -36,7 +38,8 @@ function setup_solenoid_benchmark()
     kn = SVector(Bz_normalized)
     ks = SVector(0.0)
 
-    return bunch, beta_0, tilde_m, charge, p0c, mc2, s_span, ds_step, g_bend, mm, kn, ks, p_over_q_ref
+    return bunch, beta_0, tilde_m, charge, p0c, mc2, L, ds_step, n_steps,
+           gx, gy, mm, kn, ks, p_over_q_ref
 end
 
 function reset_bunch!(bunch)
@@ -46,29 +49,33 @@ function reset_bunch!(bunch)
 end
 
 # Setup
-bunch, beta_0, tilde_m, charge, p0c, mc2, s_span, ds_step, g_bend, mm, kn, ks, p_over_q_ref = setup_solenoid_benchmark()
+bunch, beta_0, tilde_m, charge, p0c, mc2, L, ds_step, n_steps,
+    gx, gy, mm, kn, ks, p_over_q_ref = setup_solenoid_benchmark()
 
 println("rk4_kernel! benchmark (1 particle)")
 println("=========================================")
-println("s_span: $s_span, ds_step: $ds_step")
-println("n_steps: $(Int(ceil((s_span[2] - s_span[1]) / ds_step)))")
+println("L: $L, ds_step: $ds_step, n_steps: $n_steps")
 println()
 
 # Warmup
 reset_bunch!(bunch)
 RungeKuttaTracking.rk4_kernel!(1, bunch.coords, beta_0, tilde_m,
-                               charge, p0c, mc2, s_span, ds_step, g_bend,
-                               mm, kn, ks, p_over_q_ref)
+                               charge, p0c, mc2, L, ds_step, n_steps,
+                               gx, gy, mm, kn, ks, p_over_q_ref)
 
 # Benchmark
 reset_bunch!(bunch)
 b = @benchmark begin
     RungeKuttaTracking.rk4_kernel!(1, $bunch.coords, $beta_0, $tilde_m,
-                                   $charge, $p0c, $mc2, $s_span, $ds_step, $g_bend,
-                                   $mm, $kn, $ks, $p_over_q_ref)
-end setup=(reset_bunch!($bunch))
+                                   $charge, $p0c, $mc2, $L, $ds_step, $n_steps,
+                                   $gx, $gy, $mm, $kn, $ks, $p_over_q_ref)
+end setup=(reset_bunch!($bunch)) evals=1 seconds=10
 
 display(b)
+single_median = median(b)
+println("Median time: $(single_median.time) ns")
+println("Memory: $(single_median.memory) bytes")
+println("Allocations: $(single_median.allocs)")
 println()
 
 # Multi-particle benchmark
@@ -76,13 +83,17 @@ println("rk4_kernel! benchmark (1000 particles)")
 println("=========================================")
 
 function setup_multi_particle(n_particles)
-    species, p_over_q_ref, beta_0, gamsqr_0, tilde_m, charge, p0c, mc2 = setup_particle(1e9)
+    species, p_over_q_ref, beta_0, tilde_m, charge, p0c, mc2 = setup_particle(1e9)
 
-    bunch = Bunch(randn(n_particles, 6) * 0.001, p_over_q_ref=p_over_q_ref, species=species)
+    rng = MersenneTwister(1234)
+    bunch = Bunch(randn(rng, n_particles, 6) * 0.001,
+                  p_over_q_ref=p_over_q_ref, species=species)
 
-    s_span = (0.0, 1.0)
+    L = 1.0
     ds_step = 0.01
-    g_bend = 0.0
+    n_steps = 100
+    gx = 0.0
+    gy = 0.0
 
     Bz_physical = 0.01
     Bz_normalized = Bz_physical / p_over_q_ref
@@ -90,22 +101,26 @@ function setup_multi_particle(n_particles)
     kn = SVector(Bz_normalized)
     ks = SVector(0.0)
 
-    return bunch, beta_0, tilde_m, charge, p0c, mc2, s_span, ds_step, g_bend, mm, kn, ks, p_over_q_ref
+    return bunch, beta_0, tilde_m, charge, p0c, mc2, L, ds_step, n_steps,
+           gx, gy, mm, kn, ks, p_over_q_ref
 end
 
 function track_all_particles!(bunch, beta_0, tilde_m, charge, p0c, mc2,
-                              s_span, ds_step, g_bend, mm, kn, ks, p_over_q_ref)
+                              L, ds_step, n_steps, gx, gy,
+                              mm, kn, ks, p_over_q_ref)
     n = size(bunch.coords.v, 1)
     for i in 1:n
         RungeKuttaTracking.rk4_kernel!(i, bunch.coords, beta_0, tilde_m,
-                                       charge, p0c, mc2, s_span, ds_step, g_bend,
-                                       mm, kn, ks, p_over_q_ref)
+                                       charge, p0c, mc2, L, ds_step, n_steps,
+                                       gx, gy, mm, kn, ks, p_over_q_ref)
     end
+    return nothing
 end
 
 n_particles = 1000
 bunch_mp, beta_0_mp, tilde_m_mp, charge_mp, p0c_mp, mc2_mp,
-    s_span_mp, ds_step_mp, g_bend_mp, mm_mp, kn_mp, ks_mp, p_over_q_ref_mp = setup_multi_particle(n_particles)
+    L_mp, ds_step_mp, n_steps_mp, gx_mp, gy_mp,
+    mm_mp, kn_mp, ks_mp, p_over_q_ref_mp = setup_multi_particle(n_particles)
 
 # Store initial state for reset
 v_init = copy(bunch_mp.coords.v)
@@ -118,25 +133,24 @@ end
 
 # Warmup
 track_all_particles!(bunch_mp, beta_0_mp, tilde_m_mp, charge_mp, p0c_mp, mc2_mp,
-                     s_span_mp, ds_step_mp, g_bend_mp, mm_mp, kn_mp, ks_mp, p_over_q_ref_mp)
+                     L_mp, ds_step_mp, n_steps_mp, gx_mp, gy_mp,
+                     mm_mp, kn_mp, ks_mp, p_over_q_ref_mp)
 
 # Benchmark
 b_mp = @benchmark begin
     track_all_particles!($bunch_mp, $beta_0_mp, $tilde_m_mp, $charge_mp,
-                         $p0c_mp, $mc2_mp, $s_span_mp, $ds_step_mp, $g_bend_mp,
+                         $p0c_mp, $mc2_mp, $L_mp, $ds_step_mp, $n_steps_mp,
+                         $gx_mp, $gy_mp,
                          $mm_mp, $kn_mp, $ks_mp, $p_over_q_ref_mp)
-end setup=(reset_multi!($bunch_mp, $v_init, $state_init))
+end setup=(reset_multi!($bunch_mp, $v_init, $state_init)) evals=1 seconds=10
 
 display(b_mp)
 println()
 
-# Per-particle timing
-median_time_ns = median(b_mp).time
-println("\nPer-particle median time: $(median_time_ns / n_particles) ns")
-
-reset_multi!(bunch_mp, v_init, state_init)
-num_allocs_mp = @allocated track_all_particles!(bunch_mp, beta_0_mp, gamsqr_0_mp, tilde_m_mp, charge_mp,
-                                                 p0c_mp, mc2_mp, s_span_mp, ds_step_mp, g_bend_mp,
-                                                 mm_mp, kn_mp, ks_mp, p_over_q_ref_mp)
-println("Total allocations for $n_particles particles: $num_allocs_mp bytes")
-println("Per-particle allocations: $(num_allocs_mp / n_particles) bytes")
+multi_median = median(b_mp)
+println("Median time: $(multi_median.time) ns")
+println("Memory: $(multi_median.memory) bytes")
+println("Allocations: $(multi_median.allocs)")
+println("Per-particle median time: $(multi_median.time / n_particles) ns")
+println("Per-step median time: $(multi_median.time / (n_particles * n_steps_mp)) ns")
+println("Per-particle memory: $(multi_median.memory / n_particles) bytes")
