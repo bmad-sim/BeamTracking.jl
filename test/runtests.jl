@@ -211,6 +211,7 @@ end
 # this file directly -- every group runs, exactly as before.
 const TEST_GROUPS = Dict(
   "core" => ["miscellaneous_test.jl",
+             "FieldSources_test.jl",
              "sagan_cavity_tracking_test.jl",
              "BeamlinesExt_test.jl",
              "alignment_tracking_test.jl",
