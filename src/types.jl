@@ -107,15 +107,15 @@ function Bunch(;
   q= spin ? (qs = similar(v, (size(v, 1), 4)); qs .= 0; qs[:,1] .= 1; qs) : nothing,
   weight=nothing,
   callbacks=(),
-  p_over_q_ref=NaN, 
-  t_ref=0., 
+  p_over_q_ref=typeof(scalar(first(v)))(NaN), 
+  t_ref=zero(scalar(first(v))), 
   species=Species(),
 )
   size(v, 2) == 6 || error("The number of columns of the particle coordinates vector `v` must be equal to 6")
   return Bunch(species, p_over_q_ref, t_ref, Coords(state, v, q, weight, callbacks))
 end
 
-function Bunch(v::AbstractMatrix, q=nothing, weight=nothing; p_over_q_ref=NaN, t_ref=0., species=Species(), callbacks=())
+function Bunch(v::AbstractMatrix, q=nothing, weight=nothing; p_over_q_ref=typeof(scalar(first(v)))(NaN), t_ref=zero(scalar(first(v))), species=Species(), callbacks=())
   size(v, 2) == 6 || error("The number of columns must be equal to 6")
   N_particle = size(v, 1)
   state = similar(v, UInt8, N_particle)
@@ -123,7 +123,7 @@ function Bunch(v::AbstractMatrix, q=nothing, weight=nothing; p_over_q_ref=NaN, t
   return Bunch(species, p_over_q_ref, t_ref, Coords(state, v, q, weight, callbacks))
 end
 
-function Bunch(v::AbstractVector, q=nothing, weight=nothing; p_over_q_ref=NaN, t_ref=0., species=Species(), callbacks=())
+function Bunch(v::AbstractVector, q=nothing, weight=nothing; p_over_q_ref=typeof(scalar(first(v)))(NaN), t_ref=zero(scalar(first(v))), species=Species(), callbacks=())
   length(v) == 6 || error("Bunch accepts a N x 6 matrix of N particle coordinates,
                             or alternatively a single particle as a vector. Received 
                             a vector of length $(length(v))")

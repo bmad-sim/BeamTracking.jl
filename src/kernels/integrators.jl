@@ -46,7 +46,7 @@ end
     )
   end
 
-  T == eltype(V)
+  T = eltype(V)
   if T == Float16 || T == Float32
     c = T.(c)
   end
@@ -128,7 +128,7 @@ end
     )
   end
 
-  T == eltype(V)
+  T = eltype(V)
   if T == Float16 || T == Float32
     c = T.(c)
   end
@@ -262,7 +262,7 @@ end
     )
   end
   
-  T == eltype(V)
+  T = eltype(V)
   if T == Float16 || T == Float32
     c = T.(c)
   end
@@ -429,7 +429,7 @@ end
     0.31309610341510852776481247192647  ,
     0.078795722521686419263907679337684 ,
   )
-  T == eltype(V)
+  T = eltype(V)
   if T == Float16 || T == Float32
     c = T.(c)
   end

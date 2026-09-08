@@ -610,9 +610,9 @@ end
   else
     photon_params = nothing
   end
-  kc = push(kc, KernelCall(BeamTracking.bmad_to_mad!, (beta_0, tilde_m, 0)))
+  kc = push(kc, make_kernel_call(BeamTracking.bmad_to_mad!, (beta_0, tilde_m, 0)))
   kc = push(kc, integration_launcher(BeamTracking.implicit_integrator!, params, photon_params, tm, nothing, L))
-  kc = push(kc, KernelCall(BeamTracking.mad_to_bmad!, (beta_0, tilde_m, 0)))
+  kc = push(kc, make_kernel_call(BeamTracking.mad_to_bmad!, (beta_0, tilde_m, 0)))
   kc = push_transforms_out(kc, make_kernel_call(
       BeamTracking.callback_implicit!, (beta_0, tilde_m, potential_and_jac, potential_params, p_over_q_ref, normalized, Val{false}())
     )
@@ -652,9 +652,9 @@ end
   else
     photon_params = nothing
   end
-  kc = push(kc, KernelCall(BeamTracking.bmad_to_mad!, (beta_0, tilde_m, 0)))
+  kc = push(kc, make_kernel_call(BeamTracking.bmad_to_mad!, (beta_0, tilde_m, 0)))
   kc = push(kc, integration_launcher(BeamTracking.elsep_rad!, params, photon_params, tm, edge_params, L))
-  kc = push(kc, KernelCall(BeamTracking.mad_to_bmad!, (beta_0, tilde_m, 0)))
+  kc = push(kc, make_kernel_call(BeamTracking.mad_to_bmad!, (beta_0, tilde_m, 0)))
   kc = push_transforms_out(kc, make_kernel_call(BeamTracking.callback_electric!, (beta_0, tilde_m, kE, Val{false}())))
   kc = push_transforms_in(kc, make_kernel_call(BeamTracking.callback_electric!, (beta_0, tilde_m, kE, Val{true}())))
   return kc

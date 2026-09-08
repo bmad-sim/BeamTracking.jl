@@ -358,3 +358,7 @@ end
 # === END CLAUDE ===
 
 @inline beval(b, i) = b
+
+@inline function beval(ref::RefState, i)
+  return RefState(beval(ref.t_enter, i), beval(ref.beta_gamma_enter, i), beval(ref.t_exit, i), beval(ref.beta_gamma_exit, i), beval(ref.L, i), beval(ref.g, i), beval(ref.ds_step, i))
+end
