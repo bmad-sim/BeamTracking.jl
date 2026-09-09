@@ -119,7 +119,7 @@ is in the horizontal plane.
       field = radiation_field(e_vec, b_vec, beta)
       field_2 = field[1]*field[1] + field[2]*field[2] + field[3]*field[3]
 
-      K = -pl * coef * (q*q)/(mc2*mc2*mc2*mc2) * (E_ref*E_ref*E_ref) * field_2 * L
+      K = -pl * $coeff * (q*q)/(mc2*mc2*mc2*mc2) * (E_ref*E_ref*E_ref) * field_2 * L
       new_pz = (v[i,PZI] + rel_p*K)/(1 - rel_p*K)
       v[i,PZI] = vifelse(alive, new_pz, v[i,PZI])
 
