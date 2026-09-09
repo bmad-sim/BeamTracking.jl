@@ -15,11 +15,21 @@ function make_kernel_call(kernel=blank_kernel!, args=())
   return KernelCall(kernel, _args)
 end
 
-num_lower(::Type{T}, t::Any) where {T} = t
-num_lower(::Type{T}, t::Float64) where {T} = T(t)
-num_lower(::Type{T}, t::SArray{S,Float64}) where {T,S} = T.(t)
-num_lower(::Type{Float64}, t::SArray{S,Float64}) where {S} = t
-num_lower(::Type{T}, t::S) where {T,S<:Tuple} = map(ti->num_lower(T, ti), t)
+num_lower(::Type, t) = t
+num_lower(::Type{T}, t::Float64) where {T<:Union{Float32,Float16}} = T(t)
+num_lower(::Type{T}, t::SArray{S,Float64}) where {T<:Union{Float32,Float16},S} = T.(t)
+num_lower(::Type{T}, t::S) where {T<:Union{Float32,Float16},S<:Tuple} = map(ti->num_lower(T, ti), t)
+function num_lower(::Type{T}, tf::TimeFunction) where {T<:Union{Float32,Float16}}
+  S = typeof(tf(0))
+  if S != T
+    error("
+      Failure to lower TimeFunction with output type $S to $T: if you are ramping
+      the reference energy, for $T support you will need to specify a ramping 
+      TimeFunction of `p_over_q_ref` that outputs $T.
+    ")
+  end
+  return tf
+end
 
 # In case KernelCall contains batch GPU array
 Adapt.@adapt_structure KernelCall
@@ -68,9 +78,9 @@ push_transforms_out(kc::KernelChain, tout) = @reset kc.transforms_out = _push(kc
 push_transforms_in(kc::KernelChain, tin) = @reset kc.transforms_in = _push(kc, tin)
 
 function _push(kc, kcall)
-  #T = typeof(kc.ref.beta_gamma_enter)
-  #return __push(kc.chain, KernelCall(kcall.kernel, num_lower(T, kcall.args)))
-  return __push(kc.chain, kcall)
+  T = eltype(kc.L)
+  return __push(kc.chain, KernelCall(kcall.kernel, num_lower(T, kcall.args)))
+  #return __push(kc.chain, kcall)
 end
 
 @unroll function __push(chain, kcall)
