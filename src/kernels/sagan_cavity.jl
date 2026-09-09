@@ -9,7 +9,7 @@ function sagan_cavity_zero_L!(i, coords::Coords,
 @inbounds begin
   # Multipole kick
   if has_mult
-    f = q * C_LIGHT / (2 * P0c)    # q_over_p_ref / 2
+    f = q * c_light(eltype(coords.v)) / (2 * P0c)    # q_over_p_ref / 2
     multipole_and_spin_kick!(i, coords, m_order, BnL .* f, BsL .* f, a, mass/P0c)
   end
 
@@ -23,7 +23,7 @@ function sagan_cavity_zero_L!(i, coords::Coords,
 
   # Multipole kick
   if has_mult
-    f = q * C_LIGHT / (2 * P0c)    # q_over_p_ref / 2
+    f = q * c_light(eltype(coords.v)) / (2 * P0c)    # q_over_p_ref / 2
     multipole_and_spin_kick!(i, coords, m_order, BnL .* f, BsL .* f, a, mass/P0c)
   end
 end
@@ -38,7 +38,7 @@ end
                         val_has_mult, val_has_sol, m_order, Bn, Bs, a, q_voltage, rf_omega, t_phi0, L)
 
   # Outside Drift
-  f = q * C_LIGHT / P0c    # q_over_p_ref
+  f = q * c_light(eltype(coords.v)) / P0c    # q_over_p_ref
   sagan_cavity_outside_drift!(i, coords, val_rad_damping_on, val_rad_fluctuations_on,
                     val_has_mult, val_has_sol, m_order, Bn .* f, Bs .* f, q, a, mass, P0c, L/2)
 
@@ -51,7 +51,7 @@ end
   P0c += dP0c
 
   # Outside Drift
-  f = q * C_LIGHT / P0c    # q_over_p_ref
+  f = q * c_light(eltype(coords.v)) / P0c    # q_over_p_ref
   sagan_cavity_outside_drift!(i, coords, val_rad_damping_on, val_rad_fluctuations_on,
                     val_has_mult, val_has_sol, m_order, Bn .* f, Bs .* f, q, a, mass, P0c, L/2)
 end
@@ -66,7 +66,7 @@ end
               a, q_gradient, rf_omega, t_phi0, L_active, L)
 
   # Outside Drift
-  q_over_p_ref = q * C_LIGHT / P0c
+  q_over_p_ref = q * c_light(eltype(coords.v)) / P0c
   sagan_cavity_outside_drift!(i, coords, val_rad_damping_on, val_rad_fluctuations_on,
           val_has_mult, val_has_sol, m_order, Bn .* q_over_p_ref, Bs .* q_over_p_ref, 
           q, a, mass, P0c, (L-L_active)/2)
@@ -85,7 +85,7 @@ end
     dP0c = dpc_given_dE(P0c, dE_ref, mass)
     reference_momentum_shift!(i, coords, P0c, dP0c, Val{true}())
     P0c += dP0c
-    q_over_p_ref = q * C_LIGHT / P0c
+    q_over_p_ref = q * c_light(eltype(coords.v)) / P0c
 
     sagan_cavity_inside_drift!(i, coords, val_rad_damping_on, val_rad_fluctuations_on, val_traveling_wave,
                 val_has_mult, val_has_sol, m_order, Bn .* q_over_p_ref, Bs .* q_over_p_ref, 
@@ -102,7 +102,7 @@ end
       dP0c = dpc_given_dE(P0c, dE_ref/(n_cells*kick_factor), mass)
       reference_momentum_shift!(i, coords, P0c, dP0c, Val{true}())
       P0c += dP0c
-      q_over_p_ref = q * C_LIGHT / P0c
+      q_over_p_ref = q * c_light(eltype(coords.v)) / P0c
 
       # Drift
       if i_step == n_cells; break; end
@@ -185,13 +185,13 @@ end
   Pc = (1 + pz) * P0c
   m_over_pc = mass / ((1 + v[i,PZI]) * P0c)
   beta = 1 / sqrt(1 + m_over_pc * m_over_pc)
-  t = t_phi0 + t_ref - v[i,ZI] / (beta * C_LIGHT)
+  t = t_phi0 + t_ref - v[i,ZI] / (beta * c_light(eltype(coords.v)))
   dE = q_voltage * cos(rf_omega * t)
 
   # 
 
   if !isnothing(coords.q)
-    e_field = (0, 0, dE * C_LIGHT / P0c)
+    e_field = (0, 0, dE * c_light(eltype(coords.v)) / P0c)
     b_field = (0, 0, 0)
     a_potential = 0
     g_bend = 0
@@ -249,11 +249,11 @@ edge = +1 => entering, edge = -1 => exiting
 
   m_over_pc = mass / ((1 + v[i,PZI]) * P0c)
   beta = 1 / sqrt(1 + m_over_pc * m_over_pc)
-  t = t_phi0 + t_ref - v[i,ZI] / (beta * C_LIGHT)
+  t = t_phi0 + t_ref - v[i,ZI] / (beta * c_light(eltype(coords.v)))
   phase = rf_omega * t
   sin_phase, cos_phase = sincos(phase)
   ez_field = q_gradient * cos_phase
-  dez_dz_field = q_gradient * sin_phase * rf_omega / C_LIGHT
+  dez_dz_field = q_gradient * sin_phase * rf_omega / c_light(eltype(coords.v))
   dE = -edge * dez_dz_field * (v[i,XI]*v[i,XI] + v[i,YI]*v[i,YI]) / 4
   rad = dE*dE + 2*sqrt(Pc*Pc + mass^2) * dE + Pc*Pc
   coords.state[i] = vifelse(rad < 0, STATE_LOST_PZ, coords.state[i])
@@ -263,7 +263,7 @@ edge = +1 => entering, edge = -1 => exiting
   # Spin
 
   if !isnothing(coords.q)
-    f = -edge * ez_field * C_LIGHT / (4 * P0c)
+    f = -edge * ez_field * c_light(eltype(coords.v)) / (4 * P0c)
     e_field = (f*v[i,XI], f*v[i,YI], 0)
     b_field = (0, 0, 0)
     a_potential = 0

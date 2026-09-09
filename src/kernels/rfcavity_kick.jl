@@ -103,15 +103,15 @@ end
   alive = (coords.state[i] == STATE_ALIVE)
   bmad_to_mad!(i, coords, beta_0, tilde_m, 0)
 
-  t = t_ref - v[i,ZI]/C_LIGHT
+  t = t_ref - v[i,ZI]/c_light(eltype(coords.v))
   s, c = sincos(omega*t)
   r2 = v[i,XI]*v[i,XI] + v[i,YI]*v[i,YI]
-  denom = omega*tilde_m*tilde_m/(C_LIGHT*C_LIGHT)
+  denom = omega*tilde_m*tilde_m/(c_light(eltype(coords.v))*c_light(eltype(coords.v)))
   coeff = L*E0_normalized*denom/2*c
 
   new_px = v[i,PXI] + coeff*v[i,XI]
   new_py = v[i,PYI] + coeff*v[i,YI]
-  new_pz = v[i,PZI] + L*E0_normalized/C_LIGHT*(1 + omega*r2*denom/4)*s
+  new_pz = v[i,PZI] + L*E0_normalized/c_light(eltype(coords.v))*(1 + omega*r2*denom/4)*s
 
   v[i,PXI] = vifelse(alive, new_px, v[i,PXI])
   v[i,PYI] = vifelse(alive, new_py, v[i,PYI])
@@ -131,11 +131,11 @@ function omega_cavity(i, coords::Coords, a, tilde_m, omega, t_ref, E0_normalized
     beta_gamma = (1 + v[i,PZI])/tilde_m
     gamma = sqrt(1 + beta_gamma*beta_gamma)
     beta = beta_gamma/gamma
-    vel = beta*C_LIGHT
+    vel = beta*c_light(eltype(coords.v))
     t = t_ref - v[i,ZI]/vel
     s, c = sincos(omega*t)
     r2 = v[i,XI]*v[i,XI] + v[i,YI]*v[i,YI]
-    denom = omega*tilde_m*tilde_m/(C_LIGHT*C_LIGHT)
+    denom = omega*tilde_m*tilde_m/(c_light(eltype(coords.v))*c_light(eltype(coords.v)))
     coeff = E0_normalized*denom/2*c
 
     ez = E0_normalized*(1 + omega*r2*denom/4)*s
@@ -170,11 +170,11 @@ Gives radiation damping kick in an RF cavity, possibly with multipoles.
 @makekernel fastgtpsa=true function deterministic_radiation_cavity!(i, coords::Coords, q, mc2, E_ref, omega, t_ref, E0_normalized, mm, kn, ks, L) 
   v = coords.v
 
-  t = t_ref - v[i,ZI]/C_LIGHT # ultrarelativistic radiation
+  t = t_ref - v[i,ZI]/c_light(eltype(coords.v)) # ultrarelativistic radiation
   tilde_m = mc2/E_ref
   s, c = sincos(omega*t)
   r2 = v[i,XI]*v[i,XI] + v[i,YI]*v[i,YI]
-  denom = omega*tilde_m*tilde_m/(C_LIGHT*C_LIGHT)
+  denom = omega*tilde_m*tilde_m/(c_light(eltype(coords.v))*c_light(eltype(coords.v)))
   coeff = E0_normalized*denom/2*c
 
   ez = E0_normalized*(1 + omega*r2*denom/4)*s
@@ -205,11 +205,11 @@ Gives radiation diffusion kick in an RF cavity, possibly with multipoles.
 @makekernel function stochastic_radiation!(i, coords::Coords, s, ::typeof(cavity!), backend, q, mc2, E_ref, omega, t_ref, E0_normalized, mm, kn, ks, L) 
   v = coords.v
 
-  t = t_ref - v[i,ZI]/C_LIGHT # ultrarelativistic radiation
+  t = t_ref - v[i,ZI]/c_light(eltype(coords.v)) # ultrarelativistic radiation
   tilde_m = mc2/E_ref
   s, c = sincos(omega*t)
   r2 = v[i,XI]*v[i,XI] + v[i,YI]*v[i,YI]
-  denom = omega*tilde_m*tilde_m/(C_LIGHT*C_LIGHT)
+  denom = omega*tilde_m*tilde_m/(c_light(eltype(coords.v))*c_light(eltype(coords.v)))
   coeff = E0_normalized*denom/2*c
 
   ez = E0_normalized*(1 + omega*r2*denom/4)*s

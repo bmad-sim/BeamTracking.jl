@@ -367,29 +367,29 @@ Returns the position derivatives of the Hamiltonian.
 function dH_dx(v, s, beta_0, tilde_m, g, potential_and_jac::U, potential_params, p_over_q_ref, ::Val{normalized}, ::Val{scalarize}) where {U, normalized, scalarize}
   @inbounds begin
     h = 1 + g*v[XI]
-    t = (s/beta_0 - v[ZI])/C_LIGHT
+    t = (s/beta_0 - v[ZI])/c_light(typeof(v[XI]))
 
     potential, derivatives = potential_and_jac(v[XI], v[YI], s, t, potential_params)
     phi, ax, ay, az = potential
     if !normalized
-      phi = phi/p_over_q_ref/C_LIGHT
+      phi = phi/p_over_q_ref/c_light(typeof(v[XI]))
       ax =  ax/p_over_q_ref
       ay =  ay/p_over_q_ref
       az =  az/p_over_q_ref
 
-      dphi_dx, dax_dx, day_dx, daz_dx = derivatives[1]/p_over_q_ref/C_LIGHT, derivatives[5]/p_over_q_ref, derivatives[9]/p_over_q_ref,  derivatives[13]/p_over_q_ref
-      dphi_dy, dax_dy, day_dy, daz_dy = derivatives[2]/p_over_q_ref/C_LIGHT, derivatives[6]/p_over_q_ref, derivatives[10]/p_over_q_ref, derivatives[14]/p_over_q_ref
-      dphi_dt, dax_dt, day_dt, daz_dt = derivatives[4]/p_over_q_ref/C_LIGHT, derivatives[8]/p_over_q_ref, derivatives[12]/p_over_q_ref, derivatives[16]/p_over_q_ref
+      dphi_dx, dax_dx, day_dx, daz_dx = derivatives[1]/p_over_q_ref/c_light(typeof(v[XI])), derivatives[5]/p_over_q_ref, derivatives[9]/p_over_q_ref,  derivatives[13]/p_over_q_ref
+      dphi_dy, dax_dy, day_dy, daz_dy = derivatives[2]/p_over_q_ref/c_light(typeof(v[XI])), derivatives[6]/p_over_q_ref, derivatives[10]/p_over_q_ref, derivatives[14]/p_over_q_ref
+      dphi_dt, dax_dt, day_dt, daz_dt = derivatives[4]/p_over_q_ref/c_light(typeof(v[XI])), derivatives[8]/p_over_q_ref, derivatives[12]/p_over_q_ref, derivatives[16]/p_over_q_ref
     else
-      phi = phi/C_LIGHT
-      dphi_dx, dax_dx, day_dx, daz_dx = derivatives[1]/C_LIGHT, derivatives[5], derivatives[9],  derivatives[13]
-      dphi_dy, dax_dy, day_dy, daz_dy = derivatives[2]/C_LIGHT, derivatives[6], derivatives[10], derivatives[14]
-      dphi_dt, dax_dt, day_dt, daz_dt = derivatives[4]/C_LIGHT, derivatives[8], derivatives[12], derivatives[16]
+      phi = phi/c_light(typeof(v[XI]))
+      dphi_dx, dax_dx, day_dx, daz_dx = derivatives[1]/c_light(typeof(v[XI])), derivatives[5], derivatives[9],  derivatives[13]
+      dphi_dy, dax_dy, day_dy, daz_dy = derivatives[2]/c_light(typeof(v[XI])), derivatives[6], derivatives[10], derivatives[14]
+      dphi_dt, dax_dt, day_dt, daz_dt = derivatives[4]/c_light(typeof(v[XI])), derivatives[8], derivatives[12], derivatives[16]
     end
-    dphi_dz = -dphi_dt/C_LIGHT
-    dax_dz  = -dax_dt/C_LIGHT
-    day_dz  = -day_dt/C_LIGHT
-    daz_dz  = -daz_dt/C_LIGHT
+    dphi_dz = -dphi_dt/c_light(typeof(v[XI]))
+    dax_dz  = -dax_dt/c_light(typeof(v[XI]))
+    day_dz  = -day_dt/c_light(typeof(v[XI]))
+    daz_dz  = -daz_dt/c_light(typeof(v[XI]))
 
     px = v[PXI] - ax
     py = v[PYI] - ay
@@ -419,17 +419,17 @@ Returns the momentum derivatives of the Hamiltonian.
 function dH_dp(v, s, beta_0, tilde_m, g, potential_and_jac::U, potential_params, p_over_q_ref, ::Val{normalized}, ::Val{scalarize}) where {U, normalized, scalarize}
   @inbounds begin
     h = 1 + g*v[XI]
-    t = (s/beta_0 - v[ZI])/C_LIGHT
+    t = (s/beta_0 - v[ZI])/c_light(typeof(v[XI]))
 
     potential, _ = potential_and_jac(v[XI], v[YI], s, t, potential_params)
     phi, ax, ay, az = potential
     if !normalized
-      phi = phi/p_over_q_ref/C_LIGHT
+      phi = phi/p_over_q_ref/c_light(typeof(v[XI]))
       ax =  ax/p_over_q_ref
       ay =  ay/p_over_q_ref
       az =  az/p_over_q_ref
     else
-      phi = phi/C_LIGHT
+      phi = phi/c_light(typeof(v[XI]))
     end
     px = v[PXI] - ax
     py = v[PYI] - ay
@@ -458,29 +458,29 @@ Returns the mixed position-momentum second derivatives of the Hamiltonian.
 function mixed_hessian_H(v, s, beta_0, tilde_m, g, potential_and_jac::U, potential_params, p_over_q_ref, ::Val{normalized}, ::Val{scalarize}) where {U, normalized, scalarize}
   @inbounds begin
     h = 1 + g*v[XI]
-    t = (s/beta_0 - v[ZI])/C_LIGHT
+    t = (s/beta_0 - v[ZI])/c_light(typeof(v[XI]))
 
     potential, derivatives = potential_and_jac(v[XI], v[YI], s, t, potential_params)
     phi, ax, ay, az = potential
     if !normalized
-      phi = phi/p_over_q_ref/C_LIGHT
+      phi = phi/p_over_q_ref/c_light(typeof(v[XI]))
       ax =  ax/p_over_q_ref
       ay =  ay/p_over_q_ref
       az =  az/p_over_q_ref
 
-      dphi_dx, dax_dx, day_dx, daz_dx = derivatives[1]/p_over_q_ref/C_LIGHT, derivatives[5]/p_over_q_ref, derivatives[9]/p_over_q_ref, derivatives[13]/p_over_q_ref
-      dphi_dy, dax_dy, day_dy, daz_dy = derivatives[2]/p_over_q_ref/C_LIGHT, derivatives[6]/p_over_q_ref, derivatives[10]/p_over_q_ref, derivatives[14]/p_over_q_ref
-      dphi_dt, dax_dt, day_dt, daz_dt = derivatives[4]/p_over_q_ref/C_LIGHT, derivatives[8]/p_over_q_ref, derivatives[12]/p_over_q_ref, derivatives[16]/p_over_q_ref
+      dphi_dx, dax_dx, day_dx, daz_dx = derivatives[1]/p_over_q_ref/c_light(typeof(v[XI])), derivatives[5]/p_over_q_ref, derivatives[9]/p_over_q_ref, derivatives[13]/p_over_q_ref
+      dphi_dy, dax_dy, day_dy, daz_dy = derivatives[2]/p_over_q_ref/c_light(typeof(v[XI])), derivatives[6]/p_over_q_ref, derivatives[10]/p_over_q_ref, derivatives[14]/p_over_q_ref
+      dphi_dt, dax_dt, day_dt, daz_dt = derivatives[4]/p_over_q_ref/c_light(typeof(v[XI])), derivatives[8]/p_over_q_ref, derivatives[12]/p_over_q_ref, derivatives[16]/p_over_q_ref
     else
-      phi = phi/C_LIGHT
-      dphi_dx, dax_dx, day_dx, daz_dx = derivatives[1]/C_LIGHT, derivatives[5], derivatives[9], derivatives[13]
-      dphi_dy, dax_dy, day_dy, daz_dy = derivatives[2]/C_LIGHT, derivatives[6], derivatives[10], derivatives[14]
-      dphi_dt, dax_dt, day_dt, daz_dt = derivatives[4]/C_LIGHT, derivatives[8], derivatives[12], derivatives[16]
+      phi = phi/c_light(typeof(v[XI]))
+      dphi_dx, dax_dx, day_dx, daz_dx = derivatives[1]/c_light(typeof(v[XI])), derivatives[5], derivatives[9], derivatives[13]
+      dphi_dy, dax_dy, day_dy, daz_dy = derivatives[2]/c_light(typeof(v[XI])), derivatives[6], derivatives[10], derivatives[14]
+      dphi_dt, dax_dt, day_dt, daz_dt = derivatives[4]/c_light(typeof(v[XI])), derivatives[8], derivatives[12], derivatives[16]
     end
-    dphi_dz = -dphi_dt/C_LIGHT
-    dax_dz =  -dax_dt/C_LIGHT
-    day_dz =  -day_dt/C_LIGHT
-    daz_dz =  -daz_dt/C_LIGHT
+    dphi_dz = -dphi_dt/c_light(typeof(v[XI]))
+    dax_dz =  -dax_dt/c_light(typeof(v[XI]))
+    day_dz =  -day_dt/c_light(typeof(v[XI]))
+    daz_dz =  -daz_dt/c_light(typeof(v[XI]))
 
     px = v[PXI] - ax
     py = v[PYI] - ay
@@ -524,29 +524,29 @@ end
 function mixed_hessian_and_dH_dx(v, s, beta_0, tilde_m, g, potential_and_jac::U, potential_params, p_over_q_ref, ::Val{normalized}, ::Val{scalarize}) where {U, normalized, scalarize}
   @inbounds begin
     h = 1 + g*v[XI]
-    t = (s/beta_0 - v[ZI])/C_LIGHT
+    t = (s/beta_0 - v[ZI])/c_light(typeof(v[XI]))
 
     potential, derivatives = potential_and_jac(v[XI], v[YI], s, t, potential_params)
     phi, ax, ay, az = potential
     if !normalized
-      phi = phi/p_over_q_ref/C_LIGHT
+      phi = phi/p_over_q_ref/c_light(typeof(v[XI]))
       ax =  ax/p_over_q_ref
       ay =  ay/p_over_q_ref
       az =  az/p_over_q_ref
 
-      dphi_dx, dax_dx, day_dx, daz_dx = derivatives[1]/p_over_q_ref/C_LIGHT, derivatives[5]/p_over_q_ref, derivatives[9]/p_over_q_ref, derivatives[13]/p_over_q_ref
-      dphi_dy, dax_dy, day_dy, daz_dy = derivatives[2]/p_over_q_ref/C_LIGHT, derivatives[6]/p_over_q_ref, derivatives[10]/p_over_q_ref, derivatives[14]/p_over_q_ref
-      dphi_dt, dax_dt, day_dt, daz_dt = derivatives[4]/p_over_q_ref/C_LIGHT, derivatives[8]/p_over_q_ref, derivatives[12]/p_over_q_ref, derivatives[16]/p_over_q_ref
+      dphi_dx, dax_dx, day_dx, daz_dx = derivatives[1]/p_over_q_ref/c_light(typeof(v[XI])), derivatives[5]/p_over_q_ref, derivatives[9]/p_over_q_ref, derivatives[13]/p_over_q_ref
+      dphi_dy, dax_dy, day_dy, daz_dy = derivatives[2]/p_over_q_ref/c_light(typeof(v[XI])), derivatives[6]/p_over_q_ref, derivatives[10]/p_over_q_ref, derivatives[14]/p_over_q_ref
+      dphi_dt, dax_dt, day_dt, daz_dt = derivatives[4]/p_over_q_ref/c_light(typeof(v[XI])), derivatives[8]/p_over_q_ref, derivatives[12]/p_over_q_ref, derivatives[16]/p_over_q_ref
     else
-      phi = phi/C_LIGHT
-      dphi_dx, dax_dx, day_dx, daz_dx = derivatives[1]/C_LIGHT, derivatives[5], derivatives[9], derivatives[13]
-      dphi_dy, dax_dy, day_dy, daz_dy = derivatives[2]/C_LIGHT, derivatives[6], derivatives[10], derivatives[14]
-      dphi_dt, dax_dt, day_dt, daz_dt = derivatives[4]/C_LIGHT, derivatives[8], derivatives[12], derivatives[16]
+      phi = phi/c_light(typeof(v[XI]))
+      dphi_dx, dax_dx, day_dx, daz_dx = derivatives[1]/c_light(typeof(v[XI])), derivatives[5], derivatives[9], derivatives[13]
+      dphi_dy, dax_dy, day_dy, daz_dy = derivatives[2]/c_light(typeof(v[XI])), derivatives[6], derivatives[10], derivatives[14]
+      dphi_dt, dax_dt, day_dt, daz_dt = derivatives[4]/c_light(typeof(v[XI])), derivatives[8], derivatives[12], derivatives[16]
     end
-    dphi_dz = -dphi_dt/C_LIGHT
-    dax_dz =  -dax_dt/C_LIGHT
-    day_dz =  -day_dt/C_LIGHT
-    daz_dz =  -daz_dt/C_LIGHT
+    dphi_dz = -dphi_dt/c_light(typeof(v[XI]))
+    dax_dz =  -dax_dt/c_light(typeof(v[XI]))
+    day_dz =  -day_dt/c_light(typeof(v[XI]))
+    daz_dz =  -daz_dt/c_light(typeof(v[XI]))
 
     px = v[PXI] - ax
     py = v[PYI] - ay
@@ -596,29 +596,29 @@ end
 function mixed_hessian_and_dH_dp(v, s, beta_0, tilde_m, g, potential_and_jac::U, potential_params, p_over_q_ref, ::Val{normalized}, ::Val{scalarize}) where {U, normalized, scalarize}
   @inbounds begin
     h = 1 + g*v[XI]
-    t = (s/beta_0 - v[ZI])/C_LIGHT
+    t = (s/beta_0 - v[ZI])/c_light(typeof(v[XI]))
 
     potential, derivatives = potential_and_jac(v[XI], v[YI], s, t, potential_params)
     phi, ax, ay, az = potential
     if !normalized
-      phi = phi/p_over_q_ref/C_LIGHT
+      phi = phi/p_over_q_ref/c_light(typeof(v[XI]))
       ax =  ax/p_over_q_ref
       ay =  ay/p_over_q_ref
       az =  az/p_over_q_ref
 
-      dphi_dx, dax_dx, day_dx, daz_dx = derivatives[1]/p_over_q_ref/C_LIGHT, derivatives[5]/p_over_q_ref, derivatives[9]/p_over_q_ref, derivatives[13]/p_over_q_ref
-      dphi_dy, dax_dy, day_dy, daz_dy = derivatives[2]/p_over_q_ref/C_LIGHT, derivatives[6]/p_over_q_ref, derivatives[10]/p_over_q_ref, derivatives[14]/p_over_q_ref
-      dphi_dt, dax_dt, day_dt, daz_dt = derivatives[4]/p_over_q_ref/C_LIGHT, derivatives[8]/p_over_q_ref, derivatives[12]/p_over_q_ref, derivatives[16]/p_over_q_ref
+      dphi_dx, dax_dx, day_dx, daz_dx = derivatives[1]/p_over_q_ref/c_light(typeof(v[XI])), derivatives[5]/p_over_q_ref, derivatives[9]/p_over_q_ref, derivatives[13]/p_over_q_ref
+      dphi_dy, dax_dy, day_dy, daz_dy = derivatives[2]/p_over_q_ref/c_light(typeof(v[XI])), derivatives[6]/p_over_q_ref, derivatives[10]/p_over_q_ref, derivatives[14]/p_over_q_ref
+      dphi_dt, dax_dt, day_dt, daz_dt = derivatives[4]/p_over_q_ref/c_light(typeof(v[XI])), derivatives[8]/p_over_q_ref, derivatives[12]/p_over_q_ref, derivatives[16]/p_over_q_ref
     else
-      phi = phi/C_LIGHT
-      dphi_dx, dax_dx, day_dx, daz_dx = derivatives[1]/C_LIGHT, derivatives[5], derivatives[9], derivatives[13]
-      dphi_dy, dax_dy, day_dy, daz_dy = derivatives[2]/C_LIGHT, derivatives[6], derivatives[10], derivatives[14]
-      dphi_dt, dax_dt, day_dt, daz_dt = derivatives[4]/C_LIGHT, derivatives[8], derivatives[12], derivatives[16]
+      phi = phi/c_light(typeof(v[XI]))
+      dphi_dx, dax_dx, day_dx, daz_dx = derivatives[1]/c_light(typeof(v[XI])), derivatives[5], derivatives[9], derivatives[13]
+      dphi_dy, dax_dy, day_dy, daz_dy = derivatives[2]/c_light(typeof(v[XI])), derivatives[6], derivatives[10], derivatives[14]
+      dphi_dt, dax_dt, day_dt, daz_dt = derivatives[4]/c_light(typeof(v[XI])), derivatives[8], derivatives[12], derivatives[16]
     end
-    dphi_dz = -dphi_dt/C_LIGHT
-    dax_dz =  -dax_dt/C_LIGHT
-    day_dz =  -day_dt/C_LIGHT
-    daz_dz =  -daz_dt/C_LIGHT
+    dphi_dz = -dphi_dt/c_light(typeof(v[XI]))
+    dax_dz =  -dax_dt/c_light(typeof(v[XI]))
+    day_dz =  -day_dt/c_light(typeof(v[XI]))
+    daz_dz =  -daz_dt/c_light(typeof(v[XI]))
 
     px = v[PXI] - ax
     py = v[PYI] - ay
@@ -691,7 +691,7 @@ function implicit_fields(x, y, s, t, g, potential_and_jac::U, potential_params, 
     potential, derivatives = potential_and_jac(x, y, s, t, potential_params)
     phi, ax, ay, _ = potential
     if !normalized
-      phi = phi/p_over_q_ref/C_LIGHT
+      phi = phi/p_over_q_ref/c_light(typeof(p_over_q_ref))
       ax = ax/p_over_q_ref
       ay = ay/p_over_q_ref
 
@@ -700,7 +700,7 @@ function implicit_fields(x, y, s, t, g, potential_and_jac::U, potential_params, 
       dphi_ds, dax_ds, day_ds, daz_ds = derivatives[3]/p_over_q_ref, derivatives[7]/p_over_q_ref, derivatives[11]/p_over_q_ref, derivatives[15]/p_over_q_ref
       dphi_dt, dax_dt, day_dt, daz_dt = derivatives[4]/p_over_q_ref, derivatives[8]/p_over_q_ref, derivatives[12]/p_over_q_ref, derivatives[16]/p_over_q_ref
     else
-      phi = phi/C_LIGHT 
+      phi = phi/c_light(typeof(p_over_q_ref)) 
       dphi_dx, dax_dx, day_dx, daz_dx = derivatives[1], derivatives[5], derivatives[9],  derivatives[13]
       dphi_dy, dax_dy, day_dy, daz_dy = derivatives[2], derivatives[6], derivatives[10], derivatives[14]
       dphi_ds, dax_ds, day_ds, daz_ds = derivatives[3], derivatives[7], derivatives[11], derivatives[15]
@@ -727,7 +727,7 @@ Rotates spins and applies radiation damping kicks for implicit integrators.
 function deterministic_radiation_and_spin_implicit!(i, coords, s, radiation_params, a, g, beta_0, tilde_m, potential_and_jac::U, potential_params, p_over_q_ref, normalized, ::Val{rad_first}, L) where {U, rad_first}
   @inbounds begin @FastGTPSA begin
     v = coords.v
-    t = (s/beta_0 - v[i,ZI])/C_LIGHT
+    t = (s/beta_0 - v[i,ZI])/c_light(eltype(coords.v))
 
     phi, ax, ay, ex, ey, ez, bx, by, bz = implicit_fields(v[i,XI], v[i,YI], s, t, g, potential_and_jac, potential_params, p_over_q_ref, normalized)
     e_vec = (ex, ey, ez)
@@ -763,7 +763,7 @@ Applies radiation diffusion kick for implicit integrators.
 function stochastic_radiation!(i, coords::Coords, s, ::typeof(implicit_integrator!), backend, q, mc2, E_ref, g, potential_and_jac::U, potential_params, p_over_q_ref, normalized, L) where {U}
   @inbounds begin
     v = coords.v
-    t = (s - v[i,ZI])/C_LIGHT # radiation is only accurate when beta_0 is approximately 1
+    t = (s - v[i,ZI])/c_light(eltype(coords.v)) # radiation is only accurate when beta_0 is approximately 1
     tilde_m = mc2/E_ref
 
     phi, ax, ay, ex, ey, ez, bx, by, bz = implicit_fields(v[i,XI], v[i,YI], s, t, g, potential_and_jac, potential_params, p_over_q_ref, normalized)
@@ -781,14 +781,14 @@ end
 function callback_implicit!(i, coords, cur_s, cur_t_ref, beta_0, tilde_m, potential_and_jac, potential_params, p_over_q_ref, ::Val{normalized}, ::Val{in}) where {normalized,in}
   @inbounds begin @FastGTPSA begin
     v = coords.v
-    t = (cur_s/beta_0 - v[i,ZI])/C_LIGHT
+    t = (cur_s/beta_0 - v[i,ZI])/c_light(eltype(coords.v))
 
     phi = potential_and_jac(v[i,XI], v[i,YI], cur_s, t, potential_params)[1][1]
     
     if !normalized
-      phi = phi/p_over_q_ref/C_LIGHT
+      phi = phi/p_over_q_ref/c_light(eltype(coords.v))
     else
-      phi = phi/C_LIGHT
+      phi = phi/c_light(eltype(coords.v))
     end
 
     if in

@@ -28,7 +28,7 @@
       pl2_1 = one(pl2)
       pl = sqrt(vifelse(good_momenta, pl2, pl2_1)) 
 
-      dt_ds = h*rel_p/(beta*C_LIGHT*pl)
+      dt_ds = h*rel_p/(beta*c_light(eltype(coords.v))*pl)
       moving_forward = (dt_ds > zero(dt_ds))
       coords.state[i] = vifelse(!moving_forward & alive, STATE_LOST, coords.state[i])
       dt_ds = vifelse(moving_forward, dt_ds, one(dt_ds))

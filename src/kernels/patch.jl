@@ -4,7 +4,7 @@
   rel_p = 1 + v[i,PZI]
   new_x = v[i,XI] - dx
   new_y = v[i,YI] - dy
-  new_z = v[i,ZI] + rel_p/sqrt(rel_p*rel_p+tilde_m*tilde_m)*C_LIGHT*dt
+  new_z = v[i,ZI] + rel_p/sqrt(rel_p*rel_p+tilde_m*tilde_m)*c_light(eltype(coords.v))*dt
   v[i,XI] = vifelse(alive, new_x, v[i,XI])
   v[i,YI] = vifelse(alive, new_y, v[i,YI])
   v[i,ZI] = vifelse(alive, new_z, v[i,ZI])

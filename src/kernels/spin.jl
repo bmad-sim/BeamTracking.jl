@@ -95,7 +95,7 @@ function omega_field(i, coords::Coords, a, g, tilde_m, ax, ay, e_vec, b_vec, ::V
     coeff = -(1 + g*v[i,XI])/pl
     coeff1 = coeff * (1 + a*gamma)
     coeff2 = coeff * (1 + a)
-    coeff3 = -coeff * beta * gamma * (a + 1/(1+gamma))/C_LIGHT
+    coeff3 = -coeff * beta * gamma * (a + 1/(1+gamma))/c_light(eltype(coords.v))
 
     betax = px / rel_p
     betay = py / rel_p

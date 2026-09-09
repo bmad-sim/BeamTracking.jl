@@ -103,7 +103,7 @@ end
 
 
 @makekernel fastgtpsa=true function deterministic_radiation_elsep!(i, coords::Coords, beta_0, tilde_m, q, mc2, E_ref, kE, L)
-  e_vec = (C_LIGHT*kE, 0, 0)
+  e_vec = (c_light(eltype(coords.v))*kE, 0, 0)
   phi = -kE*coords.v[i,XI]
 
   mad_to_bmad!(i, coords, beta_0, tilde_m, phi)
@@ -113,7 +113,7 @@ end
 
 
 @makekernel function stochastic_radiation!(i, coords::Coords, s, ::typeof(exact_elsep!), backend, q, mc2, E_ref, kE, L)
-  e_vec = (C_LIGHT*kE, 0, 0)
+  e_vec = (c_light(eltype(coords.v))*kE, 0, 0)
   phi = -kE*coords.v[i,XI]
   tilde_m = mc2/E_ref # ultrarelativistic approximation
 
