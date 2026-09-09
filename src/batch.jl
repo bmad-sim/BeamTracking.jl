@@ -247,11 +247,15 @@ Base.:+(b::BatchParam) = b # identity
 
 for t = (:-, :sqrt, :exp, :log, :sin, :cos, :tan, :cot, :sinh, :cosh, :tanh, :inv,
   :coth, :asin, :acos, :atan, :acot, :asinh, :acosh, :atanh, :acoth, :sinc, :csc, :float,
-  :csch, :acsc, :acsch, :sec, :sech, :asec, :asech, :conj, :log10, :isnan, :sign, :abs)
+  :csch, :acsc, :acsch, :sec, :sech, :asec, :asech, :conj, :log10, :sign, :abs)
   @eval begin
     Base.$t(b::BatchParam) = BatchParam(map(x->($t)(x), b.batch))
   end
 end
+
+Base.isinf(b::BatchParam) = all(x->isinf(x), b.batch)
+Base.isnan(b::BatchParam) = all(x->isnan(x), b.batch)
+
 
 for t = (:unit, :sincu, :sinhc, :sinhcu, :asinc, :asincu, :asinhc, :asinhcu, :erf, 
          :erfc, :erfcx, :erfi, :wf, :rect)
@@ -266,6 +270,7 @@ Base.promote_rule(::Type{BatchParam}, ::Type{TimeDependentParam}) = error("Unabl
 Base.promote_rule(::Type{TimeDependentParam}, ::Type{BatchParam}) = error("Unable to combine BatchParams with TimeDependentParams")
 Base.broadcastable(o::BatchParam) = Ref(o)
 
+Base.isapprox(b1::BatchParam, b2::BatchParam; kwargs...) = all(isapprox.(b1.batch, b2.batch, kwargs...))
 Base.isapprox(b::BatchParam, n::Number; kwargs...) = all(x->isapprox(x, n, kwargs...), b.batch)
 Base.isapprox(n::Number, b::BatchParam; kwargs...) = all(x->isapprox(n, x, kwargs...), b.batch)
 for t = (:(<), :(<=), :isless, :(==))
@@ -285,7 +290,6 @@ end
 
 end
 end
-Base.isinf(b::BatchParam) = all(x->isinf(x), b.batch)
 
 batch_lower(bp) = bp
 
@@ -358,7 +362,3 @@ end
 # === END CLAUDE ===
 
 @inline beval(b, i) = b
-
-@inline function beval(ref::RefState, i)
-  return RefState(beval(ref.t_enter, i), beval(ref.beta_gamma_enter, i), beval(ref.t_exit, i), beval(ref.beta_gamma_exit, i), beval(ref.L, i), beval(ref.g, i), beval(ref.ds_step, i))
-end

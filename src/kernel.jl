@@ -39,6 +39,10 @@ function RefState(; t_enter, beta_gamma_enter, t_exit=t_enter, beta_gamma_exit=b
   return RefState(batch_lower(t_enter), batch_lower(beta_gamma_enter), batch_lower(t_exit), batch_lower(beta_gamma_exit), batch_lower(L), batch_lower(g), batch_lower(ds_step))
 end
 
+@inline function beval(ref::RefState, i)
+  return RefState(beval(ref.t_enter, i), beval(ref.beta_gamma_enter, i), beval(ref.t_exit, i), beval(ref.beta_gamma_exit, i), beval(ref.L, i), beval(ref.g, i), beval(ref.ds_step, i))
+end
+
 # Alias
 struct KernelChain{C<:Tuple{Vararg{<:KernelCall}}, S<:RefState, TOUT<:Tuple{Vararg{<:KernelCall}}, TIN<:Tuple{Vararg{<:KernelCall}}}
   chain::C  # The tuple of KernelCalls
@@ -64,8 +68,9 @@ push_transforms_out(kc::KernelChain, tout) = @reset kc.transforms_out = _push(kc
 push_transforms_in(kc::KernelChain, tin) = @reset kc.transforms_in = _push(kc, tin)
 
 function _push(kc, kcall)
-  T = typeof(kc.ref.beta_gamma_enter)
-  return __push(kc.chain, KernelCall(kcall.kernel, num_lower(T, kcall.args)))
+  #T = typeof(kc.ref.beta_gamma_enter)
+  #return __push(kc.chain, KernelCall(kcall.kernel, num_lower(T, kcall.args)))
+  return __push(kc.chain, kcall)
 end
 
 @unroll function __push(chain, kcall)
