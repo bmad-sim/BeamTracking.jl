@@ -31,6 +31,15 @@ function num_lower(::Type{T}, tf::TimeFunction) where {T<:Union{Float32,Float16}
   return tf
 end
 
+function num_lower(::Type{T}, b::BatchParam) where {T<:Union{Float32,Float16}}
+  S = eltype(b)
+  if S != T
+    return BatchParam(T.(b.batch))
+  else
+    return b
+  end
+end
+
 # In case KernelCall contains batch GPU array
 Adapt.@adapt_structure KernelCall
 
@@ -78,7 +87,7 @@ push_transforms_out(kc::KernelChain, tout) = @reset kc.transforms_out = _push(kc
 push_transforms_in(kc::KernelChain, tin) = @reset kc.transforms_in = _push(kc, tin)
 
 function _push(kc, kcall)
-  T = eltype(kc.L)
+  T = eltype(kc.ref.L)
   return __push(kc.chain, KernelCall(kcall.kernel, num_lower(T, kcall.args)))
   #return __push(kc.chain, kcall)
 end

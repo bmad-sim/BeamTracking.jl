@@ -93,6 +93,16 @@ function universal!(
     p_over_q_ref_exit = p_over_q_ref
   end
 
+  T = eltype(coords.v)
+
+  t_enter = BeamTracking.num_lower(T, t_enter)
+  beta_gamma_enter = BeamTracking.num_lower(T, beta_gamma_enter)
+  t_exit  = BeamTracking.num_lower(T, t_exit)
+  beta_gamma_exit  = BeamTracking.num_lower(T, beta_gamma_exit)
+  L = BeamTracking.num_lower(T, L)
+  g = BeamTracking.num_lower(T, g)
+  ds_step = BeamTracking.num_lower(T, ds_step)
+
   # Current KernelChain length is 10 because we have up to
   # 2 aperture, 2 alignment, 1 body kernel, 1 IBS kernel,
   # 2 kernels to update the particles' reference energy,
@@ -109,7 +119,7 @@ function universal!(
   else
     # Make sure to evaluate p_over_q_ref if not ramp_update_each_particle
     p_over_q_ref = p_over_q_ref isa TimeDependentParam ? p_over_q_ref(t_enter) : p_over_q_ref
-    if !(beta_gamma_enter ≈ bunch_beta_gamma)
+    if !(BeamTracking.num_lower(typeof(bunch.p_over_q_ref), beta_gamma_enter) ≈ BeamTracking.num_lower(typeof(bunch.p_over_q_ref), bunch_beta_gamma))
         kc = push(kc, make_kernel_call(BeamTracking.reference_momentum_shift!, (bunch_beta_gamma, beta_gamma_enter - bunch_beta_gamma, Val{!ramp_particle_energy_without_rf}())))
         bunch.p_over_q_ref = p_over_q_ref
     end
@@ -314,7 +324,7 @@ function universal!(
     # uniformly to p_over_q_ref(t_ref at end)
     kc = push(kc, make_kernel_call(BeamTracking.reference_momentum_shift!, (beta_gamma_enter_t, beta_gamma_exit-beta_gamma_enter_t, Val{!ramp_particle_energy_without_rf}())))
   end
-
+  
   # noinline necessary here for small binaries and faster execution
   @noinline launch!(coords, kc; kwargs...)
 
