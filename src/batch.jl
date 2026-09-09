@@ -78,6 +78,8 @@ Base.convert(::Type{BatchParam}, a::Number) = BatchParam(a) # Scalar BatchParam
 Base.convert(::Type{BatchParam}, a::BatchParam) = a
 Base.eltype(b::BatchParam) = eltype(b.batch)
 
+(::Type{T})(b::BatchParam) where {T<:Number} = BatchParam(T.(b.batch))
+
 Base.zero(b::BatchParam) = BatchParam(zero(first(b.batch)))
 Base.one(b::BatchParam)  = BatchParam(one(first(b.batch))) 
 
