@@ -82,7 +82,7 @@ function sincuc(x)
   c2 = 1//5040
   c3 = -1//362880
   x2 = x^2
-  return vifelse(abs(x) >= 1/10, (x-sin(x))/x^3, c0+x2*(c1+x2*(c2+x2*c3)))
+  return vifelse(abs(x) >= 1//10, (x-sin(x))/x^3, c0+x2*(c1+x2*(c2+x2*c3)))
 end
 
 """

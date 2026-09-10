@@ -87,14 +87,12 @@ push(kc::KernelChain, kcall::Nothing) = kc
 push_transforms_out(kc::KernelChain, tout::Nothing) = kc
 push_transforms_in(kc::KernelChain, tin::Nothing) = kc
 
-push(kc::KernelChain, kcall) = @reset kc.chain = _push(kc, kcall)
-push_transforms_out(kc::KernelChain, tout) = @reset kc.transforms_out = _push(kc, tout)
-push_transforms_in(kc::KernelChain, tin) = @reset kc.transforms_in = _push(kc, tin)
+push(kc::KernelChain, kcall) = @reset kc.chain = _push(kc.chain, kcall, coordstype(kc.ref))
+push_transforms_out(kc::KernelChain, tout) = @reset kc.transforms_out = _push(kc.transforms_out, tout, coordstype(kc.ref))
+push_transforms_in(kc::KernelChain, tin) = @reset kc.transforms_in = _push(kc.transforms_in, tin, coordstype(kc.ref))
 
-function _push(kc, kcall)
-  T = coordstype(kc.ref)
-  return __push(kc.chain, KernelCall(kcall.kernel, num_lower(T, kcall.args)))
-  #return __push(kc.chain, kcall)
+function _push(chain, kcall, T)
+  return __push(chain, KernelCall(kcall.kernel, num_lower(T, kcall.args)))
 end
 
 @unroll function __push(chain, kcall)
