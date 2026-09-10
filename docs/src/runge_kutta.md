@@ -90,13 +90,11 @@ participate in `Adapt`, so backend array adaptation reaches nested source
 parameters. A GPU evaluator uses GPU-compatible Julia operations and
 device-compatible parameter storage.
 
-### Custom source and parameter structs
+### Custom sources
 
-Ordinary structs are prepared recursively through their fields. This works for
-custom callable sources passed directly to `field` or `additional_field`, as
-well as structs nested inside `FunctionalField.parameters` and `SumField`.
-No subtype or source-specific batch/time methods are required for Beamlines
-tracking:
+Custom callable objects can be passed directly to `field` or
+`additional_field` when their fields are already concrete and do not require
+parameter preparation:
 
 ```julia
 struct UniformMagneticField{T}
@@ -108,39 +106,34 @@ function (source::UniformMagneticField)(x, y, z, s)
   return EMField(v, v, v, v, v + source.By, v)
 end
 
-source = UniformMagneticField(DefExpr{Float64}(c -> c.strength))
+ele.tracking_method = RungeKutta(field=UniformMagneticField(0.1))
+```
+
+Use `FunctionalField` when a custom source needs `DefExpr`, `BatchParam`,
+`TimeDependentParam`, or scalarization. Keep these values in its tuple or named
+tuple parameter container, following the same evaluator-and-parameters pattern
+as Beamlines `MapParams`:
+
+```julia
+function uniform_magnetic_field(x, y, z, s, parameters)
+  v = zero(x)
+  return EMField(v, v, v, v, v + parameters.By, v)
+end
+
+source = FunctionalField(
+  uniform_magnetic_field,
+  (By=DefExpr{Float64}(c -> c.strength),),
+)
 ele.tracking_method = RungeKutta(field=source)
 # The beamline Context must define strength.
 ```
 
-Generated traversal reconstructs each struct with its unparameterized
-constructor, allowing an expression field to become a numeric field. The
-constructor must accept the processed fields in declaration order and infer
-the resulting type parameters. Preparation creates new objects; it does not
-mutate the original source. Cyclic object graphs are not supported.
-
-For constructors that need special handling, define
-`BeamTracking.rebuild_field_source(original::YourType, children::Tuple)`.
-For example, a keyword-only constructor can be rebuilt with:
-
-```julia
-BeamTracking.rebuild_field_source(source::YourType, children::Tuple) =
-  YourType(; strength=children[1], grid=children[2])
-```
-
-Optionally define `BeamTracking.field_parameter_leaf(::Type{<:YourType}) = true`
-to keep a custom object opaque. The reconstruction method receives the
-transformed fields in declaration order.
-These hooks are shared by context evaluation, scalarization, and batch/time
-processing. Custom types containing device storage also need their own `Adapt`
-support.
-
-Numbers, functions, and ordinary arrays are leaves. Each preparation operation
-handles them directly; array storage and closure captures are not traversed.
-`SVector`s are traversed, and those containing batch/time parameters lower to
-tuples before particle evaluation. `FunctionalField` always preserves its
-evaluator and processes only its parameters, even if the evaluator is a callable
-struct. Keep deferred values in its parameter container.
+Field preparation is explicit for `MultipoleField`, `FunctionalField`, and
+`SumField`. It does not inspect arbitrary structs, array storage, or closure
+captures. `FunctionalField` always preserves its evaluator and processes only
+its parameters. Custom parameter structs are opaque; use tuples or named tuples
+for values that require preparation. Custom types containing device storage
+also need their own `Adapt` support.
 
 For explicit SIMD, `x`, `y`, `z`, and `s` can be `SIMD.Vec` values. Field
 evaluators can use `zero(x)` as a numeric carrier when combining coordinates

@@ -21,48 +21,9 @@ function BeamTracking.Adapt.adapt_storage(::FieldSourceTestAdaptor, values::Vect
   return SVector{length(values)}(values)
 end
 
-struct FieldTestStrength{T}
-  value::T
-end
-
-struct FieldTestParameters{S,G}
-  strength::S
-  grid::G
-end
-
-struct FieldTestCustomSource{P}
-  parameters::P
-end
-
-BeamTracking.Adapt.@adapt_structure FieldTestStrength
-BeamTracking.Adapt.@adapt_structure FieldTestParameters
-BeamTracking.Adapt.@adapt_structure FieldTestCustomSource
-
-struct FieldTestOpaque{T}
-  value::T
-end
-BeamTracking.field_parameter_leaf(::Type{<:FieldTestOpaque}) = true
-
-function (source::FieldTestCustomSource)(x, y, z, s)
-  v = zero(x)
-  return EMField(v, v, v, v, v + source.parameters.strength.value, v)
-end
-
-# The dimension is not inferable from fields, and construction is keyword-only.
-struct FieldTestSpecialSource{T,N}
+struct FieldTestParameters{T}
   strength::T
-  function FieldTestSpecialSource(; strength::T, dimension) where {T}
-    return new{T,dimension}(strength)
-  end
 end
-
-function (source::FieldTestSpecialSource)(x, y, z, s)
-  v = zero(x)
-  return EMField(v, v, v, v, v + source.strength, v)
-end
-
-BeamTracking.rebuild_field_source(::FieldTestSpecialSource{T,N}, children::Tuple) where {T,N} =
-  FieldTestSpecialSource(strength=only(children), dimension=N)
 
 @testset "Field sources" begin
   @testset "EMField" begin
@@ -204,91 +165,66 @@ BeamTracking.rebuild_field_source(::FieldTestSpecialSource{T,N}, children::Tuple
     @test @ballocated($source(0.2, 0.3, 0.0, 0.0)) == 0
   end
 
-  @testset "Recursive source preparation" begin
+  @testset "Field-source preparation" begin
     ext = Base.get_extension(BeamTracking, :BeamTrackingBeamlinesExt)
     context = Beamlines.Context(strength=0.25)
-    grid = [1.0, 2.0, 3.0]
-    parameters = FieldTestParameters(
-      FieldTestStrength(Beamlines.DefExpr{Float64}(c -> 2 * c.strength)), grid,
+    parameters = (
+      strength=Beamlines.DefExpr{Float64}(c -> 2 * c.strength),
+      constants=(label="map", count=2),
     )
-    source = FieldTestCustomSource(parameters)
+    source = FunctionalField((x, y, z, s, p) -> begin
+      v = zero(x)
+      return EMField(v, v, v, v, v + p.strength, v)
+    end, parameters)
     prepared = @inferred ext.unpack_field_source(source, context)
-    @test prepared.parameters.strength isa FieldTestStrength{Float64}
-    @test prepared.parameters.strength.value == 0.5
-    @test prepared.parameters.grid === grid
-    @test source.parameters.strength.value isa Beamlines.DefExpr
+    @test prepared.evaluator === source.evaluator
+    @test prepared.parameters.strength == 0.5
+    @test prepared.parameters.constants === parameters.constants
+    @test source.parameters.strength isa Beamlines.DefExpr
 
-    opaque = FieldTestOpaque(parameters.strength.value)
-    @test @inferred(ext.unpack_field_source(opaque, context)) === opaque
+    opaque_parameters = FieldTestParameters(parameters.strength)
+    opaque_source = FunctionalField(source.evaluator, opaque_parameters)
+    @test ext.unpack_field_source(opaque_source, context).parameters === opaque_parameters
+    @test BeamTracking.batch_lower(
+      FunctionalField(source.evaluator, FieldTestParameters(BatchParam([0.5, 1.5]))),
+    ).parameters isa FieldTestParameters{BatchParam}
 
     context.strength = 0.75
-    @test ext.unpack_field_source(source, context).parameters.strength.value == 1.5
+    @test ext.unpack_field_source(source, context).parameters.strength == 1.5
 
-    special = FieldTestSpecialSource(strength=parameters.strength.value, dimension=3)
-    prepared_special = @inferred ext.unpack_field_source(special, context)
-    @test prepared_special isa FieldTestSpecialSource{Float64,3}
-    @test prepared_special.strength == 1.5
-
-    dual_source = FieldTestCustomSource(FieldTestParameters(
-      FieldTestStrength(ForwardDiff.Dual(0.5, 1.0)), grid,
+    dual_source = FunctionalField(source.evaluator, (
+      strength=ForwardDiff.Dual(0.5, 1.0),
+      constants=parameters.constants,
     ))
     scalar_source = @inferred ext.scalarize_field_source(dual_source)
-    @test scalar_source.parameters.strength.value === 0.5
+    @test scalar_source.evaluator === source.evaluator
+    @test scalar_source.parameters.strength === 0.5
 
-    # FunctionalField preserves even stateful evaluator objects unchanged.
-    functional = FunctionalField(special, parameters)
-    prepared_functional = @inferred ext.unpack_field_source(functional, context)
-    @test prepared_functional.evaluator === special
-    @test prepared_functional.parameters.strength.value == 1.5
-
-    closure = let deferred = parameters.strength.value
-      () -> deferred
-    end
-    @test ext.unpack_field_source(closure, context) === closure
-    @test isequal(ext.unpack_field_source((label="map", count=2, missing=missing), context),
-                  (label="map", count=2, missing=missing))
-
-    # Use the same generated traversal for nested batch and time parameters.
-    dynamic = FieldTestCustomSource(FieldTestParameters(
-      FieldTestStrength(BatchParam([0.5, 1.5])), grid,
+    dynamic = FunctionalField(source.evaluator, (
+      strength=BatchParam([0.5, 1.5]),
+      constants=parameters.constants,
     ))
-    wrapped = BeamTracking._PreparedField(dynamic)
-    lowered = BeamTracking.batch_lower(wrapped)
+    lowered = BeamTracking.batch_lower(dynamic)
     @test @inferred(BeamTracking.static_batchcheck(lowered))
     selected = @inferred BeamTracking.beval(lowered, 2)
     @test selected(0.0, 0.0, 0.0, 0.0).B[2] == 1.5
-    @test selected.source.parameters.grid === grid
     @test_opt BeamTracking.beval(lowered, 2)
     @test @ballocated(BeamTracking.beval($lowered, 2)) == 0
 
-    timed = BeamTracking._PreparedField(FieldTestCustomSource(FieldTestParameters(
-      FieldTestStrength(2 * Time()), grid,
-    )))
+    timed = FunctionalField(source.evaluator, (
+      strength=2 * Time(),
+      constants=parameters.constants,
+    ))
     lowered_time = BeamTracking.time_lower(timed)
     @test @inferred(BeamTracking.static_timecheck(lowered_time))
     evaluated = @inferred BeamTracking.teval(lowered_time, 0.25)
     @test evaluated(0.0, 0.0, 0.0, 0.0).B[2] == 0.5
     @test @ballocated(BeamTracking.teval($lowered_time, 0.25)) == 0
 
-    # Nested SVector parameters must lower to tuples before SIMD evaluation.
-    vector_source = FunctionalField(test_uniform_field, (
-      coefficients=SA[FieldTestStrength(BatchParam([0.5, 1.5]))],
-      constants=SA[1.0, 2.0],
-    ))
-    vector_lowered = BeamTracking.batch_lower(vector_source)
-    @test vector_lowered.parameters.coefficients isa Tuple
-    @test vector_lowered.parameters.constants === SA[1.0, 2.0]
-    vector_selected = @inferred BeamTracking.beval(vector_lowered, SIMD.VecRange{2}(1))
-    @test Tuple(vector_selected.parameters.coefficients[1].value) == (0.5, 1.5)
-
-    time_vector = FunctionalField(test_uniform_field, (coefficients=SA[Time(), 2 * Time()],))
-    time_vector_lowered = BeamTracking.time_lower(time_vector)
-    @test time_vector_lowered.parameters.coefficients isa Tuple
-    @test @inferred(BeamTracking.teval(time_vector_lowered, 0.25)).parameters.coefficients ==
-          (0.25, 0.5)
-
-    adapted = BeamTracking.Adapt.adapt(FieldSourceTestAdaptor(), BeamTracking._PreparedField(prepared))
-    @test adapted.source.parameters.grid == SA[1.0, 2.0, 3.0]
+    opaque = let value = parameters.strength
+      () -> value
+    end
+    @test ext.unpack_field_source(opaque, context) === opaque
   end
 
   @testset "Adaptation" begin

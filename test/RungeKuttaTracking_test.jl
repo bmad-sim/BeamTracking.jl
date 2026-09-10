@@ -15,17 +15,13 @@ function rk_test_parameter_free_field(x, y, z, s)
   return EMField(carrier, carrier, carrier, carrier, carrier, carrier + 1)
 end
 
-struct RKCustomFieldParameters{T}
+struct RKCustomField{T}
   strength::T
-end
-
-struct RKCustomField{P}
-  parameters::P
 end
 
 function (source::RKCustomField)(x, y, z, s)
   v = zero(x)
-  return EMField(v, v, v, v, v + source.parameters.strength, v)
+  return EMField(v, v, v, v, v + source.strength, v)
 end
 
 @testset "RungeKuttaTracking" begin
@@ -418,7 +414,7 @@ end
     @test context_bunch.coords.v ≈ fixed_bunch.coords.v
   end
 
-  @testset "Custom field-source tracking" begin
+  @testset "Functional field-source tracking" begin
     species, p_over_q_ref, beta_0, _, tilde_m, charge, p0c, mc2 = setup_particle()
     context = Context(strength=0.004)
     initial = repeat([0.001 0.01 -0.002 0.003 0.0 0.0], 8, 1)
@@ -435,11 +431,14 @@ end
       (ForwardDiff.Dual(context.strength, 1.0), fill(context.strength, 8), true),
     )
     for (strength, expected_strengths, scalar_params) in cases
-      custom = RKCustomField(RKCustomFieldParameters(strength))
-      # Exercise direct sources, FunctionalField parameters, and nested sums.
-      sources = (custom, FunctionalField(
-        (x, y, z, s, p) -> RKCustomField(p)(x, y, z, s), custom.parameters,
-      ), SumField(custom, RKCustomField(RKCustomFieldParameters(0.0))))
+      functional = FunctionalField(
+        (x, y, z, s, p) -> RKCustomField(p.strength)(x, y, z, s),
+        (strength=strength,),
+      )
+      sources = (
+        functional,
+        SumField(functional, RKCustomField(0.0)),
+      )
       expected = similar(initial)
       for i in axes(initial, 1)
         fixed = MultipoleField(SA[1], SA[expected_strengths[i]], SA[0.0])
@@ -458,9 +457,10 @@ end
       end
     end
 
-    source = BeamTracking._PreparedField(RKCustomField(RKCustomFieldParameters(
-      BatchParam([0.002, 0.004]),
-    )))
+    source = FunctionalField(
+      (x, y, z, s, p) -> RKCustomField(p.strength)(x, y, z, s),
+      (strength=BatchParam([0.002, 0.004]),),
+    )
     call = BeamTracking.make_kernel_call(RungeKuttaTracking.rk4_kernel!, (
       beta_0, tilde_m, charge, p0c, mc2, 0.5, 0.1, 5, 0.0, 0.0, source,
     ))
