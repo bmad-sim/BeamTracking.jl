@@ -107,7 +107,7 @@ function universal!(
   # 2 aperture, 2 alignment, 1 body kernel, 1 IBS kernel,
   # 2 kernels to update the particles' reference energy,
   # and 2 for coordinate conversion with implicit
-  kc = KernelChain(Val{10}(), RefState(; t_enter, beta_gamma_enter, t_exit, beta_gamma_exit, L, g, ds_step))
+  kc = KernelChain(Val{10}(), RefState{T}(; t_enter, beta_gamma_enter, t_exit, beta_gamma_exit, L, g, ds_step))
   
   ramp_per_particle = p_over_q_ref isa TimeDependentParam && ramp_update_each_particle
   bunch_beta_gamma = R_to_beta_gamma(bunch.species, bunch.p_over_q_ref)
@@ -390,7 +390,7 @@ function universal!(coords, tm::SaganCavity, ele, ramp_particle_energy_without_r
   else
     beta_gamma_exit = R_to_beta_gamma(bunch.species, p_over_q_ref)
   end
-  kc = KernelChain(Val{10}(), RefState(; t_enter, beta_gamma_enter, t_exit, beta_gamma_exit, L, g, ds_step))
+  kc = KernelChain(Val{10}(), RefState{eltype(coords.v)}(; t_enter, beta_gamma_enter, t_exit, beta_gamma_exit, L, g, ds_step))
 
   # Ramping
   if p_over_q_ref isa TimeDependentParam
