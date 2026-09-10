@@ -44,22 +44,27 @@ end
 Adapt.@adapt_structure KernelCall
 
 # Store the state of the reference coordinate system
-struct RefState{S,T,U,V,W,X,Y}
+struct RefState{R,S,T,U,V,W,X,Y}
   t_enter::S          # Reference time at entrance
   beta_gamma_enter::T # Reference energy at entrance
   t_exit::U           # Reference time at exit
   beta_gamma_exit::V  # Reference energy at exit
   L::W                
   g::X                
-  ds_step::Y          
+  ds_step::Y    
+  function RefState{R}(t_enter::S, beta_gamma_enter::T, t_exit::U, beta_gamma_exit::V, L::W, g::X, ds_step::Y) where {R,S,T,U,V,W,X,Y}
+    return new{R,S,T,U,V,W,X,Y}(t_enter, beta_gamma_enter, t_exit, beta_gamma_exit, L, g, ds_step)
+  end
 end
 
-function RefState(; t_enter, beta_gamma_enter, t_exit=t_enter, beta_gamma_exit=beta_gamma_enter, L=0, g=(0,0), ds_step=0)
-  return RefState(batch_lower(t_enter), batch_lower(beta_gamma_enter), batch_lower(t_exit), batch_lower(beta_gamma_exit), batch_lower(L), batch_lower(g), batch_lower(ds_step))
+function RefState{T}(; t_enter, beta_gamma_enter, t_exit=t_enter, beta_gamma_exit=beta_gamma_enter, L=0, g=(0,0), ds_step=0) where {T}
+  return RefState{T}(batch_lower(t_enter), batch_lower(beta_gamma_enter), batch_lower(t_exit), batch_lower(beta_gamma_exit), batch_lower(L), batch_lower(g), batch_lower(ds_step))
 end
 
-@inline function beval(ref::RefState, i)
-  return RefState(beval(ref.t_enter, i), beval(ref.beta_gamma_enter, i), beval(ref.t_exit, i), beval(ref.beta_gamma_exit, i), beval(ref.L, i), beval(ref.g, i), beval(ref.ds_step, i))
+coordstype(::RefState{T}) where {T} = T
+
+@inline function beval(ref::RefState{T}, i) where {T}
+  return RefState{T}(beval(ref.t_enter, i), beval(ref.beta_gamma_enter, i), beval(ref.t_exit, i), beval(ref.beta_gamma_exit, i), beval(ref.L, i), beval(ref.g, i), beval(ref.ds_step, i))
 end
 
 # Alias
@@ -87,7 +92,7 @@ push_transforms_out(kc::KernelChain, tout) = @reset kc.transforms_out = _push(kc
 push_transforms_in(kc::KernelChain, tin) = @reset kc.transforms_in = _push(kc, tin)
 
 function _push(kc, kcall)
-  T = eltype(kc.ref.L)
+  T = coordstype(kc.ref)
   return __push(kc.chain, KernelCall(kcall.kernel, num_lower(T, kcall.args)))
   #return __push(kc.chain, kcall)
 end
@@ -275,7 +280,7 @@ function check_kwargs(mac, kwargs...)
 end
 
 # Also allow launch! on single KernelCalls
-@inline launch!(coords::Coords, kcall::KernelCall; kwargs...) = launch!(coords, KernelChain((kcall,), RefState(0,0,0,0,0,0,0)); kwargs...)
+@inline launch!(coords::Coords, kcall::KernelCall; kwargs...) = launch!(coords, KernelChain((kcall,), RefState{eltype(coords.v)}(0,0,0,0,0,0,0)); kwargs...)
 
 macro makekernel(args...)
   kwargs = args[1:length(args)-1]
