@@ -76,6 +76,9 @@ BatchParam(a::BatchParam) = a
 # Make these apply via convert
 Base.convert(::Type{BatchParam}, a::Number) = BatchParam(a) # Scalar BatchParam
 Base.convert(::Type{BatchParam}, a::BatchParam) = a
+Base.eltype(b::BatchParam) = eltype(b.batch)
+
+(::Type{T})(b::BatchParam) where {T<:Number} = BatchParam(T.(b.batch))
 
 Base.zero(b::BatchParam) = BatchParam(zero(first(b.batch)))
 Base.one(b::BatchParam)  = BatchParam(one(first(b.batch))) 
@@ -247,11 +250,15 @@ Base.:+(b::BatchParam) = b # identity
 
 for t = (:-, :sqrt, :exp, :log, :sin, :cos, :tan, :cot, :sinh, :cosh, :tanh, :inv,
   :coth, :asin, :acos, :atan, :acot, :asinh, :acosh, :atanh, :acoth, :sinc, :csc, :float,
-  :csch, :acsc, :acsch, :sec, :sech, :asec, :asech, :conj, :log10, :isnan, :sign, :abs)
+  :csch, :acsc, :acsch, :sec, :sech, :asec, :asech, :conj, :log10, :sign, :abs)
   @eval begin
     Base.$t(b::BatchParam) = BatchParam(map(x->($t)(x), b.batch))
   end
 end
+
+Base.isinf(b::BatchParam) = all(x->isinf(x), b.batch)
+Base.isnan(b::BatchParam) = all(x->isnan(x), b.batch)
+
 
 for t = (:unit, :sincu, :sinhc, :sinhcu, :asinc, :asincu, :asinhc, :asinhcu, :erf, 
          :erfc, :erfcx, :erfi, :wf, :rect)
@@ -266,6 +273,7 @@ Base.promote_rule(::Type{BatchParam}, ::Type{TimeDependentParam}) = error("Unabl
 Base.promote_rule(::Type{TimeDependentParam}, ::Type{BatchParam}) = error("Unable to combine BatchParams with TimeDependentParams")
 Base.broadcastable(o::BatchParam) = Ref(o)
 
+Base.isapprox(b1::BatchParam, b2::BatchParam; kwargs...) = all(isapprox.(b1.batch, b2.batch, kwargs...))
 Base.isapprox(b::BatchParam, n::Number; kwargs...) = all(x->isapprox(x, n, kwargs...), b.batch)
 Base.isapprox(n::Number, b::BatchParam; kwargs...) = all(x->isapprox(n, x, kwargs...), b.batch)
 for t = (:(<), :(<=), :isless, :(==))
@@ -285,7 +293,6 @@ end
 
 end
 end
-Base.isinf(b::BatchParam) = all(x->isinf(x), b.batch)
 
 batch_lower(bp) = bp
 

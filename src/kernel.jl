@@ -15,18 +15,56 @@ function make_kernel_call(kernel=blank_kernel!, args=())
   return KernelCall(kernel, _args)
 end
 
+num_lower(::Type, t) = t
+num_lower(::Type{T}, t::Float64) where {T<:Union{Float32,Float16}} = T(t)
+num_lower(::Type{T}, t::SArray{S,Float64}) where {T<:Union{Float32,Float16},S} = T.(t)
+num_lower(::Type{T}, t::S) where {T<:Union{Float32,Float16},S<:Tuple} = map(ti->num_lower(T, ti), t)
+function num_lower(::Type{T}, tf::TimeFunction) where {T<:Union{Float32,Float16}}
+  S = typeof(tf(0))
+  if S != T
+    error("
+      Failure to lower TimeFunction with output type $S to $T: if you are ramping
+      the reference energy, for $T support you will need to specify a ramping 
+      TimeFunction of `p_over_q_ref` that outputs $T.
+    ")
+  end
+  return tf
+end
+
+function num_lower(::Type{T}, b::BatchParam) where {T<:Union{Float32,Float16}}
+  S = eltype(b)
+  if S != T
+    return BatchParam(T.(b.batch))
+  else
+    return b
+  end
+end
+
 # In case KernelCall contains batch GPU array
 Adapt.@adapt_structure KernelCall
 
 # Store the state of the reference coordinate system
-@kwdef struct RefState{S,T,U,V,W,X,Y}
+struct RefState{R,S,T,U,V,W,X,Y}
   t_enter::S          # Reference time at entrance
   beta_gamma_enter::T # Reference energy at entrance
-  t_exit::U           = t_enter # Reference time at exit
-  beta_gamma_exit::V  = beta_gamma_enter # Reference energy at exit
-  L::W                = 0
-  g::X                = (0, 0)
-  ds_step::Y          = 0
+  t_exit::U           # Reference time at exit
+  beta_gamma_exit::V  # Reference energy at exit
+  L::W                
+  g::X                
+  ds_step::Y    
+  function RefState{R}(t_enter::S, beta_gamma_enter::T, t_exit::U, beta_gamma_exit::V, L::W, g::X, ds_step::Y) where {R,S,T,U,V,W,X,Y}
+    return new{R,S,T,U,V,W,X,Y}(t_enter, beta_gamma_enter, t_exit, beta_gamma_exit, L, g, ds_step)
+  end
+end
+
+function RefState{T}(; t_enter, beta_gamma_enter, t_exit=t_enter, beta_gamma_exit=beta_gamma_enter, L=0, g=(0,0), ds_step=0) where {T}
+  return RefState{T}(batch_lower(t_enter), batch_lower(beta_gamma_enter), batch_lower(t_exit), batch_lower(beta_gamma_exit), batch_lower(L), batch_lower(g), batch_lower(ds_step))
+end
+
+coordstype(::RefState{T}) where {T} = T
+
+@inline function beval(ref::RefState{T}, i) where {T}
+  return RefState{T}(beval(ref.t_enter, i), beval(ref.beta_gamma_enter, i), beval(ref.t_exit, i), beval(ref.beta_gamma_exit, i), beval(ref.L, i), beval(ref.g, i), beval(ref.ds_step, i))
 end
 
 # Alias
@@ -49,11 +87,15 @@ push(kc::KernelChain, kcall::Nothing) = kc
 push_transforms_out(kc::KernelChain, tout::Nothing) = kc
 push_transforms_in(kc::KernelChain, tin::Nothing) = kc
 
-push(kc::KernelChain, kcall) = @reset kc.chain = _push(kc.chain, kcall)
-push_transforms_out(kc::KernelChain, tout) = @reset kc.transforms_out = _push(kc.transforms_out, tout)
-push_transforms_in(kc::KernelChain, tin) = @reset kc.transforms_in = _push(kc.transforms_in, tin)
+push(kc::KernelChain, kcall) = @reset kc.chain = _push(kc.chain, kcall, coordstype(kc.ref))
+push_transforms_out(kc::KernelChain, tout) = @reset kc.transforms_out = _push(kc.transforms_out, tout, coordstype(kc.ref))
+push_transforms_in(kc::KernelChain, tin) = @reset kc.transforms_in = _push(kc.transforms_in, tin, coordstype(kc.ref))
 
-@unroll function _push(chain, kcall)
+function _push(chain, kcall, T)
+  return __push(chain, KernelCall(kcall.kernel, num_lower(T, kcall.args)))
+end
+
+@unroll function __push(chain, kcall)
   i = 0
   @unroll for kcalli in chain
     i += 1
@@ -70,7 +112,7 @@ end
   @inline _generic_kernel!(i, coords, kc)
 end
 
-_generic_kernel!(i, coords, kc) = __generic_kernel!(i, coords, kc.chain, kc.ref, kc.transforms_out, kc.transforms_in)
+_generic_kernel!(i, coords, kc) = __generic_kernel!(i, coords, kc.chain, beval(kc.ref, i), kc.transforms_out, kc.transforms_in)
 
 @generated function __generic_kernel!(i, coords, chain::T, ref, transforms_out, transforms_in) where {T}
   N = length(T.parameters)
@@ -236,7 +278,7 @@ function check_kwargs(mac, kwargs...)
 end
 
 # Also allow launch! on single KernelCalls
-@inline launch!(coords::Coords, kcall::KernelCall; kwargs...) = launch!(coords, KernelChain((kcall,), RefState(0,0,0,0,0,0,0)); kwargs...)
+@inline launch!(coords::Coords, kcall::KernelCall; kwargs...) = launch!(coords, KernelChain((kcall,), RefState{eltype(coords.v)}(0,0,0,0,0,0,0)); kwargs...)
 
 macro makekernel(args...)
   kwargs = args[1:length(args)-1]

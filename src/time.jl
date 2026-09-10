@@ -48,7 +48,7 @@ end
 
 for t = (:+, :-, :sqrt, :exp, :log, :sin, :cos, :tan, :cot, :sinh, :cosh, :tanh, :inv,
   :coth, :asin, :acos, :atan, :acot, :asinh, :acosh, :atanh, :acoth, :sinc, :csc, :float,
-  :csch, :acsc, :acsch, :sec, :sech, :asec, :asech, :conj, :log10, :isnan, :sign, :abs)
+  :csch, :acsc, :acsch, :sec, :sech, :asec, :asech, :conj, :log10, :sign, :abs)
   @eval begin
     Base.$t(d::TimeDependentParam) = (let f = d.f, _isconst = d._isconst; return TimeDependentParam((t)-> ($t)(f(t)), _isconst); end)
   end
@@ -100,6 +100,7 @@ end
 end
 
 Base.isinf(d::TimeDependentParam) = d._isconst ? isinf(d(0)) : false
+Base.isnan(d::TimeDependentParam) = d._isconst ? isnan(d(0)) : false
 
 @inline teval(f::TimeFunction, t) = f(t)
 @inline teval(f, t) = f

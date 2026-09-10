@@ -217,7 +217,7 @@ end
 
     beta_0 = 1/sqrt(1 + tilde_m*tilde_m)
     phi = -kE*coords.v[i,XI]
-    e_vec = (0, 0, -sign*C_LIGHT*phi)
+    e_vec = (0, 0, -sign*c_light(eltype(coords.v))*phi)
 
     if sign > 0
       phi_in = zero(phi)
