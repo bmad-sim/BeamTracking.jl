@@ -28,6 +28,10 @@ function _track!(
   fpp = deval(ele.FourPotentialParams, context)
   em = deval(ele.EMultipoleParams, context)
 
+  if tm isa RungeKutta
+    tm = unpack_runge_kutta(tm, context, scalar_params)
+  end
+
   if scalar_params
     L = scalarize(L)
     ap = scalarize(ap)
@@ -148,7 +152,12 @@ function universal!(
     kc = @inline(ibs_kick(tm, kc, p_over_q_ref, bunch, bp, L))
   end
 
-  if isactive(mapparams)    
+  if tm isa RungeKutta
+    kc = @inline(runge_kutta_body(tm, kc, p_over_q_ref, bunch, bendparams, bmultipoleparams,
+                                  patchparams, rfparams, mapparams, fourpotentialparams,
+                                  emultipoleparams, L))
+
+  elseif isactive(mapparams)    
     if isactive(bendparams)
       error("Tracking through a LineElement containing both MapParams and BendParams not currently defined")
     elseif isactive(bmultipoleparams)
@@ -537,4 +546,4 @@ end
 @inline bend_bquadrupole(tm, kc, p_over_q_ref, bunch, bendparams, bmultipoleparams, L)        = L == 0 ? thin_bend_bquadrupole(tm, kc, p_over_q_ref, bunch, bendparams, bmultipoleparams)       : thick_bend_bquadrupole(tm, kc, p_over_q_ref, bunch, bendparams, bmultipoleparams, L)           
 @inline bend_pure_bmultipole(tm, kc, p_over_q_ref, bunch, bendparams, bmk, L)                 = L == 0 ? thin_bend_pure_bmultipole(tm, kc, p_over_q_ref, bunch, bendparams, bmk)                : thick_bend_pure_bmultipole(tm, kc, p_over_q_ref, bunch, bendparams, bmk, L)                   
 @inline bend_bmultipole(tm, kc, p_over_q_ref, bunch, bendparams, bmultipoleparams, L)         = L == 0 ? thin_bend_bmultipole(tm, kc, p_over_q_ref, bunch, bendparams, bmultipoleparams)        : thick_bend_bmultipole(tm, kc, p_over_q_ref, bunch, bendparams, bmultipoleparams, L)      
-@inline pure_edipole(tm, kc, p_over_q_ref, bunch, em1, L)                                     = L == 0 ? thin_pure_edipole(tm, kc, p_over_q_ref, bunch, em1)                                    : thick_pure_edipole(tm, kc, p_over_q_ref, bunch, em1, L)                          
+@inline pure_edipole(tm, kc, p_over_q_ref, bunch, em1, L) = L == 0 ? thin_pure_edipole(tm, kc, p_over_q_ref, bunch, em1) : thick_pure_edipole(tm, kc, p_over_q_ref, bunch, em1, L)
