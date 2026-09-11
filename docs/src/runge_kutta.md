@@ -70,26 +70,6 @@ ele.tracking_method = RungeKutta(additional_field=source, n_steps=20)
 The configured sources and their parameter types remain concrete in the RK
 kernel.
 
-### Parameter unpacking
-
-Tuples and named tuples provide the standard parameter containers for a
-`FunctionalField`. `SVector`s provide the coefficient containers for a
-`MultipoleField`. Beamlines prepares these values before the tracking function
-barrier:
-
-1. `DefExpr` leaves are evaluated with the beamline `Context`.
-2. `scalar_params=true` applies Beamlines scalarization to each parameter
-   leaf.
-3. `BatchParam` values are lowered and selected for each particle.
-4. `TimeDependentParam` values are evaluated at each particle's element-entry
-   time.
-
-The field evaluator receives the resulting concrete parameter value. Ordinary
-arrays can hold field-map data inside a functional source. Field source types
-participate in `Adapt`, so backend array adaptation reaches nested source
-parameters. A GPU evaluator uses GPU-compatible Julia operations and
-device-compatible parameter storage.
-
 ### Custom sources
 
 Custom callable objects can be passed directly to `field` or
@@ -108,37 +88,6 @@ end
 
 ele.tracking_method = RungeKutta(field=UniformMagneticField(0.1))
 ```
-
-Use `FunctionalField` when a custom source needs `DefExpr`, `BatchParam`,
-`TimeDependentParam`, or scalarization. Keep these values in its tuple or named
-tuple parameter container, following the same evaluator-and-parameters pattern
-as Beamlines `MapParams`:
-
-```julia
-function uniform_magnetic_field(x, y, z, s, parameters)
-  v = zero(x)
-  return EMField(v, v, v, v, v + parameters.By, v)
-end
-
-source = FunctionalField(
-  uniform_magnetic_field,
-  (By=DefExpr{Float64}(c -> c.strength),),
-)
-ele.tracking_method = RungeKutta(field=source)
-# The beamline Context must define strength.
-```
-
-Field preparation is explicit for `MultipoleField`, `FunctionalField`, and
-`SumField`. It does not inspect arbitrary structs, array storage, or closure
-captures. `FunctionalField` always preserves its evaluator and processes only
-its parameters. Custom parameter structs are opaque; use tuples or named tuples
-for values that require preparation. Custom types containing device storage
-also need their own `Adapt` support.
-
-For explicit SIMD, `x`, `y`, `z`, and `s` can be `SIMD.Vec` values. Field
-evaluators can use `zero(x)` as a numeric carrier when combining coordinates
-with scalar parameters, as in `uniform_field` above. The same evaluator also
-works with floating-point, dual, and TPSA coordinates.
 
 ## Beamlines usage
 
@@ -175,27 +124,6 @@ during every RK substep and during the `k1` through `k4` stages.
 RK calls internal callbacks after each completed non-final substep. Each RK
 step completes its `k1`, `k2`, `k3`, and `k4` stages before the callback. The
 common tracking path performs the final callback after element-exit processing.
-
-## Reference curvature
-
-For a bend, reference curvature is split using `tilt_ref`:
-
-```math
-g_x = g_{ref}\cos(tilt_{ref}), \qquad
-g_y = g_{ref}\sin(tilt_{ref}).
-```
-
-The path-length correction and geometric momentum terms are
-
-```math
-dh = g_x x + g_y y,
-```
-
-```math
-\frac{dp_x}{ds} = \frac{F_x}{p_0}\frac{dt}{ds} + g_x\frac{p_s}{p_0},
-\qquad
-\frac{dp_y}{ds} = \frac{F_y}{p_0}\frac{dt}{ds} + g_y\frac{p_s}{p_0}.
-```
 
 ## Low-level kernel
 

@@ -66,7 +66,7 @@ b = @benchmark begin
     RungeKuttaTracking.rk4_kernel!(1, $bunch.coords, $beta_0, $tilde_m,
                                    $charge, $p0c, $mc2, $L, $ds_step, $n_steps,
                                    $gx, $gy, $source)
-end setup=(reset_bunch!($bunch)) evals=1 seconds=10
+end setup=(reset_bunch!($bunch))
 
 display(b)
 single_median = median(b)
@@ -136,7 +136,7 @@ b_mp = @benchmark begin
                          $p0c_mp, $mc2_mp, $L_mp, $ds_step_mp, $n_steps_mp,
                          $gx_mp, $gy_mp,
                          $source_mp)
-end setup=(reset_multi!($bunch_mp, $v_init, $state_init)) evals=1 seconds=10
+end setup=(reset_multi!($bunch_mp, $v_init, $state_init))
 
 display(b_mp)
 println()
