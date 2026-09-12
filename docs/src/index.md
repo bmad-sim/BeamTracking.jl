@@ -23,3 +23,16 @@ same as the ending position with body coordinates. Thus the drifting transformat
 of phase space `z` is different than the standard `z` transformation for an element that is a drift. 
 A similar situation happens when the particle exits the element and there is a transformation
 from body coordinate to branch coordinates along with a "drift" to the nominal downstream edge.
+
+
+## RF phase and absolute time
+
+By default, RF cavities use relative-time tracking: `phi0` is the phase seen by the
+reference particle at each cavity, independent of the bunch reference time. Pass
+`absolute_time_tracking=true` to `track!` to phase-lock every cavity to the global
+reference time carried by `bunch.t_ref`. In this mode the phase seen by a particle is
+shifted by `2*pi*rf_frequency*bunch.t_ref`, enabling effects caused by changes in the
+physical RF frequency, such as radial steering.
+
+The default remains relative-time tracking for compatibility with lattices whose cavity
+phases are specified locally.
