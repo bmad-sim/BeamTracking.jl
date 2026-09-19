@@ -102,3 +102,47 @@ end
 
 # dE_ref
 
+
+@testset "SaganCavityUniversal" begin
+  # The reference time is accumulated through a SaganCavity (not reset)
+  t0 = 1e-6
+  ele = sc1
+  b1 = Bunch(deepcopy(v1), deepcopy(quat1), species=species, p_over_q_ref = BT.E_to_R(species, ele.E_ref-ele.dE_ref))
+  b1.t_ref = t0
+  track!(b1, ele)
+  @test b1.coords.v ≈ out1
+  @test b1.t_ref ≈ t0 + 6.671281911876738e-9
+
+  ele = sc3 # L = 0
+  b1 = Bunch(deepcopy(v1), deepcopy(quat1), species=species, p_over_q_ref = BT.E_to_R(species, ele.E_ref-ele.dE_ref))
+  b1.t_ref = t0
+  track!(b1, ele)
+  @test b1.coords.v ≈ out3
+  @test b1.t_ref ≈ t0
+
+  # Errors for parameter groups not supported by SaganCavity name the element
+  sc_bend = RFCavity(name = "sc_bend", L = 2.0, voltage = 0.2*E0, rf_frequency = 1e9, g_ref = 0.01,
+                     tracking_method = SaganCavity(n_cells = 2))
+  sc_patch = RFCavity(name = "sc_patch", L = 2.0, voltage = 0.2*E0, rf_frequency = 1e9, dx = 1e-3,
+                      tracking_method = SaganCavity(n_cells = 2))
+  for (ele, pg) in ((sc_bend, "BendParams"), (sc_patch, "PatchParams"))
+    bl = Beamline([ele], species_ref = species, E_ref = E0)
+    b1 = Bunch(deepcopy(v1), deepcopy(quat1), species = species)
+    @test_throws "SaganCavity Tracking through element $(ele.name) with $pg is undefined" track!(b1, bl)
+  end
+
+  # With the BendParams in do_not_use, the cavity is tracked as if it has no BendParams
+  sc_bend = RFCavity(L = 2.0, voltage = 0.2*E0, rf_frequency = 1e9, dE_ref = 0.1*E0, g_ref = 0.01,
+                     tracking_method = SaganCavity(n_cells = 2), do_not_use = [:BendParams])
+  sc_nobend = RFCavity(L = 2.0, voltage = 0.2*E0, rf_frequency = 1e9, dE_ref = 0.1*E0,
+                       tracking_method = SaganCavity(n_cells = 2))
+  bs = map((sc_bend, sc_nobend)) do sc
+    ele = Branch([Marker(E_ref = E0, species_ref = species), sc]).beamlines[2].line[1]
+    b = Bunch(deepcopy(v1), deepcopy(quat1), species=species, p_over_q_ref = BT.E_to_R(species, ele.E_ref-ele.dE_ref))
+    track!(b, ele)
+    return b
+  end
+  @test bs[1].coords.v ≈ bs[2].coords.v
+  @test bs[1].coords.q ≈ bs[2].coords.q
+  @test bs[1].t_ref ≈ bs[2].t_ref
+end

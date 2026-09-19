@@ -29,6 +29,13 @@ function _track!(
   fpp = deval(ele.FourPotentialParams, context)
   em = deval(ele.EMultipoleParams, context)
 
+  # Parameter groups in do_not_use are not used in tracking. The list is checked here
+  # because invalid symbols may have been added directly, e.g. with push!. It is passed
+  # to universal! as a Val so that isactive(params, do_not_use) is evaluated at compile
+  # time: universal! stays type stable, and parameter groups not used are compiled out.
+  do_not_use = check_do_not_use(ele.do_not_use)
+  do_not_use = isempty(do_not_use) ? Val(()) : Val(Tuple(sort(do_not_use)))
+
   if scalar_params
     L = scalarize(L)
     ap = scalarize(ap)
@@ -45,7 +52,7 @@ function _track!(
   end
 
   # Function barrier
-  universal!(coords, tm, ele, ramp_particle_energy_without_rf, ramp_update_each_particle, batch_start, bunch, L, p_over_q_ref, ap, bp, bm, pp, dp, rp, lp, mp, fpp, em; kwargs...)
+  universal!(coords, tm, ele, ramp_particle_energy_without_rf, ramp_update_each_particle, batch_start, bunch, L, p_over_q_ref, ap, bp, bm, pp, dp, rp, lp, mp, fpp, em, do_not_use; kwargs...)
 end
 
 # Step 2: Push particles through -----------------------------------------
@@ -68,15 +75,22 @@ function universal!(
   beamlineparams,
   mapparams,
   fourpotentialparams,
-  emultipoleparams;
+  emultipoleparams,
+  do_not_use;
   kwargs...
 ) 
+  # bendparams and bmultipoleparams are also passed as secondary arguments to tracking
+  # routines (e.g. alignment) which do not check do_not_use, so replace them with nothing
+  # if they are not to be used. Since do_not_use is a Val this is resolved at compile time.
+  bendparams = isactive(bendparams, do_not_use) ? bendparams : nothing
+  bmultipoleparams = isactive(bmultipoleparams, do_not_use) ? bmultipoleparams : nothing
+
   # Compute information about reference coordinate system:
   t_enter = bunch.t_ref
   beta_gamma_enter_t = R_to_beta_gamma(bunch.species, p_over_q_ref)
   beta_gamma_enter = p_over_q_ref isa TimeDependentParam ? beta_gamma_enter_t(t_enter) : beta_gamma_enter_t
   g = isnothing(bendparams) ? (0,0) : reverse((bendparams.g_ref .* sincos(bendparams.tilt_ref)))
-  ds_step = (L == 0 || isactive(patchparams)) ? L : BeamTracking.find_steps(tm, L)[2]
+  ds_step = (L == 0 || isactive(patchparams, do_not_use)) ? L : BeamTracking.find_steps(tm, L)[2]
   # Reference time evolution thru element assumes constant energy
   # using the energy at the start of the element:
   t_exit = bunch.t_ref + L / beta_gamma_to_v(beta_gamma_enter)
@@ -128,8 +142,8 @@ function universal!(
   end
 
   # Entrance aperture and alignment
-  if isactive(alignmentparams)
-    if isactive(apertureparams)
+  if isactive(alignmentparams, do_not_use)
+    if isactive(apertureparams, do_not_use)
       if apertureparams.aperture_shifts_with_body
         kc = @inline(alignment(tm, kc, p_over_q_ref, bunch, alignmentparams, bendparams, L, true))
         kc = @inline(aperture(tm, kc, p_over_q_ref, bunch, apertureparams, true))
@@ -140,69 +154,69 @@ function universal!(
     else
       kc = @inline(alignment(tm, kc, p_over_q_ref, bunch, alignmentparams, bendparams, L, true))
     end
-  elseif isactive(apertureparams)
+  elseif isactive(apertureparams, do_not_use)
     kc = @inline(aperture(tm, kc, p_over_q_ref, bunch, apertureparams, true))
   end
 
   if ((hasfield(typeof(tm), :ibs_damping_on) && hasfield(typeof(tm), :ibs_fluctuations_on)) 
     && (tm.ibs_damping_on || tm.ibs_fluctuations_on) && L > 0)
-    bp = ifelse(isactive(bendparams), bendparams, nothing)
+    bp = ifelse(isactive(bendparams, do_not_use), bendparams, nothing)
     kc = @inline(ibs_kick(tm, kc, p_over_q_ref, bunch, bp, L))
   end
 
-  if isactive(mapparams)    
-    if isactive(bendparams)
+  if isactive(mapparams, do_not_use)    
+    if isactive(bendparams, do_not_use)
       error("Tracking through a LineElement containing both MapParams and BendParams not currently defined")
-    elseif isactive(bmultipoleparams)
+    elseif isactive(bmultipoleparams, do_not_use)
       error("Tracking through a LineElement containing both MapParams and BMultipoleParams not currently defined")
-    elseif isactive(rfparams)
+    elseif isactive(rfparams, do_not_use)
       error("Tracking through a LineElement containing both MapParams and RFParams not currently defined")
-    elseif isactive(patchparams)
+    elseif isactive(patchparams, do_not_use)
       error("Tracking through a LineElement containing both MapParams and PatchParams not currently defined")
-    elseif isactive(fourpotentialparams)
+    elseif isactive(fourpotentialparams, do_not_use)
       error("Tracking through a LineElement containing both MapParams and FourPotentialParams not currently defined")
     else
       kc = @inline(pure_map(tm, kc, p_over_q_ref, bunch, mapparams, L))
     end
 
-  elseif isactive(fourpotentialparams)    
-    if isactive(bmultipoleparams)
+  elseif isactive(fourpotentialparams, do_not_use)    
+    if isactive(bmultipoleparams, do_not_use)
       error("Tracking through a LineElement containing both FourPotentialParams and BMultipoleParams not currently defined")
-    elseif isactive(rfparams)
+    elseif isactive(rfparams, do_not_use)
       error("Tracking through a LineElement containing both FourPotentialParams and RFParams not currently defined")
-    elseif isactive(patchparams)
+    elseif isactive(patchparams, do_not_use)
       error("Tracking through a LineElement containing both MapParams and PatchParams not currently defined")
     else
       kc = @inline(implicit(tm, kc, p_over_q_ref, bunch, fourpotentialparams, bendparams, L))
     end
 
-  elseif isactive(patchparams)    
-    if isactive(alignmentparams)
+  elseif isactive(patchparams, do_not_use)    
+    if isactive(alignmentparams, do_not_use)
       error("Tracking through a LineElement containing both PatchParams and AlignmentParams is undefined")
-    elseif isactive(bendparams)
+    elseif isactive(bendparams, do_not_use)
       error("Tracking through a LineElement containing both PatchParams and BendParams not currently defined")
-    elseif isactive(bmultipoleparams)
+    elseif isactive(bmultipoleparams, do_not_use)
       error("Tracking through a LineElement containing both PatchParams and BMultipoleParams not currently defined")
-    elseif isactive(rfparams)
+    elseif isactive(rfparams, do_not_use)
       error("Tracking through a LineElement containing both PatchParams and RFParams not currently defined")
     else
       # Pure patch
       kc = @inline(pure_patch(tm, kc, p_over_q_ref, bunch, patchparams, L))
     end
 
-  elseif isactive(rfparams)
-    if isactive(bendparams)
+  elseif isactive(rfparams, do_not_use)
+    if isactive(bendparams, do_not_use)
       error("Tracking through a LineElement containing both RFParams and BendParams not currently defined")
     end
     !rfparams.is_crabcavity || error("Crab cavities not yet supported for tracking")
 
     kc = @inline(rfcavity(tm, kc, p_over_q_ref, bunch, bmultipoleparams, rfparams, beamlineparams, L))
     
-  elseif isactive(bendparams)
+  elseif isactive(bendparams, do_not_use)
     if bendparams.edge1_int != 0 || bendparams.edge2_int != 0; error("edge1_int and edge2_int not yet handled for tracking"); end
-    if isactive(emultipoleparams); error("Tracking through a LineElement containing both BendParams and EMultipoleParams not currently defined"); end
+    if isactive(emultipoleparams, do_not_use); error("Tracking through a LineElement containing both BendParams and EMultipoleParams not currently defined"); end
     # Bend
-    if !isactive(bmultipoleparams) 
+    if !isactive(bmultipoleparams, do_not_use) 
       # Bend no field
       kc = @inline(bend_no_field(tm, kc, p_over_q_ref, bunch, bendparams, L))
     else
@@ -246,8 +260,8 @@ function universal!(
       end
     end
 
-  elseif isactive(bmultipoleparams)
-    if isactive(emultipoleparams); error("Tracking through a LineElement containing both BMultipoleParams and EMultipoleParams not currently defined"); end
+  elseif isactive(bmultipoleparams, do_not_use)
+    if isactive(emultipoleparams, do_not_use); error("Tracking through a LineElement containing both BMultipoleParams and EMultipoleParams not currently defined"); end
     # BMultipole
     n_multipoles = get_n_multipoles(bmultipoleparams)
     if 0 in bmultipoleparams.order # Solenoid
@@ -288,7 +302,7 @@ function universal!(
       end
     end
 
-  elseif isactive(emultipoleparams)
+  elseif isactive(emultipoleparams, do_not_use)
     # EMultipole
     n_multipoles = get_n_multipoles(emultipoleparams)
     if n_multipoles == 1 && 1 in emultipoleparams.order
@@ -304,8 +318,8 @@ function universal!(
   end
 
   # Exit aperture and alignment
-  if isactive(alignmentparams)
-    if isactive(apertureparams)
+  if isactive(alignmentparams, do_not_use)
+    if isactive(apertureparams, do_not_use)
       if apertureparams.aperture_shifts_with_body
         kc = @inline(aperture(tm, kc, p_over_q_ref, bunch, apertureparams, false))
         kc = @inline(alignment(tm, kc, p_over_q_ref, bunch, alignmentparams, bendparams, L, false))
@@ -316,7 +330,7 @@ function universal!(
     else
       kc = @inline(alignment(tm, kc, p_over_q_ref, bunch, alignmentparams, bendparams, L, false))
     end
-  elseif isactive(apertureparams)
+  elseif isactive(apertureparams, do_not_use)
     kc = @inline(aperture(tm, kc, p_over_q_ref, bunch, apertureparams, false))
   end
 
@@ -342,14 +356,20 @@ end
 
 function universal!(coords, tm::SaganCavity, ele, ramp_particle_energy_without_rf, ramp_update_each_particle, batch_start, bunch, L,
   p_over_q_ref, alignmentparams, bendparams, bmultipoleparams, patchparams, apertureparams,
-  rfparams, beamlineparams, mapparams, fourpotentialparams, emultipoleparams; kwargs...) 
+  rfparams, beamlineparams, mapparams, fourpotentialparams, emultipoleparams, do_not_use; kwargs...) 
 
-  !isactive(mapparams) || error("SaganCavity Tracking through element $ele_name with MapParams is undefined")
-  !isactive(patchparams) || error("SaganCavity Tracking through element $ele_name with PatchParams is undefined")
-  !isactive(patchparams) || error("SaganCavity Tracking through element $ele_name with BendParams is undefined")
-  !isactive(fourpotentialparams) || error("SaganCavity Tracking through element $ele_name with FourPotentialParams is undefined")\
-  !isactive(emultipoleparams) || error("SaganCavity Tracking through element $ele_name with EMultipoleParams is undefined")
-  isactive(rfparams) || error("SaganCavity Tracking through element $ele_name without RFParams is undefined")
+  # bendparams and bmultipoleparams are also passed as secondary arguments to tracking
+  # routines (e.g. alignment) which do not check do_not_use, so replace them with nothing
+  # if they are not to be used. Since do_not_use is a Val this is resolved at compile time.
+  bendparams = isactive(bendparams, do_not_use) ? bendparams : nothing
+  bmultipoleparams = isactive(bmultipoleparams, do_not_use) ? bmultipoleparams : nothing
+
+  !isactive(mapparams, do_not_use) || error("SaganCavity Tracking through element $(ele.name) with MapParams is undefined")
+  !isactive(patchparams, do_not_use) || error("SaganCavity Tracking through element $(ele.name) with PatchParams is undefined")
+  !isactive(bendparams, do_not_use) || error("SaganCavity Tracking through element $(ele.name) with BendParams is undefined")
+  !isactive(fourpotentialparams, do_not_use) || error("SaganCavity Tracking through element $(ele.name) with FourPotentialParams is undefined")
+  !isactive(emultipoleparams, do_not_use) || error("SaganCavity Tracking through element $(ele.name) with EMultipoleParams is undefined")
+  isactive(rfparams, do_not_use) || error("SaganCavity Tracking through element $(ele.name) without RFParams is undefined")
 
   beta_gamma_ref = R_to_beta_gamma(bunch.species, bunch.p_over_q_ref)
 
@@ -361,7 +381,7 @@ function universal!(coords, tm::SaganCavity, ele, ramp_particle_energy_without_r
     beta_gamma_enter = R_to_beta_gamma(bunch.species, p_over_q_ref)
   end
   g = isnothing(bendparams) ? (0,0) : reverse((bendparams.g_ref .* sincos(bendparams.tilt_ref)))
-  ds_step = (L == 0 || isactive(patchparams)) ? L : BeamTracking.find_steps(tm, L)[2]
+  ds_step = (L == 0 || isactive(patchparams, do_not_use)) ? L : BeamTracking.find_steps(tm, L)[2]
   # reference time change
   if L != 0
     species = bunch.species
@@ -383,9 +403,9 @@ function universal!(coords, tm::SaganCavity, ele, ramp_particle_energy_without_r
         dt_ref += L_active / (n_cells * E_to_v(species, E_now_ref))
       end
     end
-    t_exit = dt_ref
+    t_exit = t_enter + dt_ref
   else
-    t_exit = 0
+    t_exit = t_enter
   end
   if p_over_q_ref isa TimeDependentParam
     beta_gamma_exit = R_to_beta_gamma(bunch.species, p_over_q_ref(t_exit))
@@ -409,8 +429,8 @@ function universal!(coords, tm::SaganCavity, ele, ramp_particle_energy_without_r
   end
 
   # Entrance aperture and alignment
-  if isactive(alignmentparams)
-    if isactive(apertureparams)
+  if isactive(alignmentparams, do_not_use)
+    if isactive(apertureparams, do_not_use)
       if apertureparams.aperture_shifts_with_body
         kc = @inline(alignment(tm, kc, p_over_q_ref, bunch, alignmentparams, bendparams, L, true))
         kc = @inline(aperture(tm, kc, p_over_q_ref, bunch, apertureparams, true))
@@ -421,7 +441,7 @@ function universal!(coords, tm::SaganCavity, ele, ramp_particle_energy_without_r
     else
       kc = @inline(alignment(tm, kc, p_over_q_ref, bunch, alignmentparams, bendparams, L, true))
     end
-  elseif isactive(apertureparams)
+  elseif isactive(apertureparams, do_not_use)
     kc = @inline(aperture(tm, kc, p_over_q_ref, bunch, apertureparams, true))
   end
 
@@ -429,8 +449,8 @@ function universal!(coords, tm::SaganCavity, ele, ramp_particle_energy_without_r
   kc = @inline(sagan_cavity(tm, kc, p_over_q_ref, bunch, ele.name, bmultipoleparams, rfparams, beamlineparams, L))
 
   # Exit aperture and alignment
-  if isactive(alignmentparams)
-    if isactive(apertureparams)
+  if isactive(alignmentparams, do_not_use)
+    if isactive(apertureparams, do_not_use)
       if apertureparams.aperture_shifts_with_body
         kc = @inline(aperture(tm, kc, p_over_q_ref, bunch, apertureparams, false))
         kc = @inline(alignment(tm, kc, p_over_q_ref, bunch, alignmentparams, bendparams, L, false))
@@ -441,7 +461,7 @@ function universal!(coords, tm::SaganCavity, ele, ramp_particle_energy_without_r
     else
       kc = @inline(alignment(tm, kc, p_over_q_ref, bunch, alignmentparams, bendparams, L, false))
     end
-  elseif isactive(apertureparams)
+  elseif isactive(apertureparams, do_not_use)
     kc = @inline(aperture(tm, kc, p_over_q_ref, bunch, apertureparams, false))
   end
 
