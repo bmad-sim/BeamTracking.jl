@@ -364,12 +364,12 @@ function universal!(coords, tm::SaganCavity, ele, ramp_particle_energy_without_r
   bendparams = isactive(bendparams, do_not_use) ? bendparams : nothing
   bmultipoleparams = isactive(bmultipoleparams, do_not_use) ? bmultipoleparams : nothing
 
-  !isactive(mapparams, do_not_use) || error("SaganCavity Tracking through element $ele_name with MapParams is undefined")
-  !isactive(patchparams, do_not_use) || error("SaganCavity Tracking through element $ele_name with PatchParams is undefined")
-  !isactive(patchparams, do_not_use) || error("SaganCavity Tracking through element $ele_name with BendParams is undefined")
-  !isactive(fourpotentialparams, do_not_use) || error("SaganCavity Tracking through element $ele_name with FourPotentialParams is undefined")\
-  !isactive(emultipoleparams, do_not_use) || error("SaganCavity Tracking through element $ele_name with EMultipoleParams is undefined")
-  isactive(rfparams, do_not_use) || error("SaganCavity Tracking through element $ele_name without RFParams is undefined")
+  !isactive(mapparams, do_not_use) || error("SaganCavity Tracking through element $(ele.name) with MapParams is undefined")
+  !isactive(patchparams, do_not_use) || error("SaganCavity Tracking through element $(ele.name) with PatchParams is undefined")
+  !isactive(bendparams, do_not_use) || error("SaganCavity Tracking through element $(ele.name) with BendParams is undefined")
+  !isactive(fourpotentialparams, do_not_use) || error("SaganCavity Tracking through element $(ele.name) with FourPotentialParams is undefined")
+  !isactive(emultipoleparams, do_not_use) || error("SaganCavity Tracking through element $(ele.name) with EMultipoleParams is undefined")
+  isactive(rfparams, do_not_use) || error("SaganCavity Tracking through element $(ele.name) without RFParams is undefined")
 
   beta_gamma_ref = R_to_beta_gamma(bunch.species, bunch.p_over_q_ref)
 
@@ -403,9 +403,9 @@ function universal!(coords, tm::SaganCavity, ele, ramp_particle_energy_without_r
         dt_ref += L_active / (n_cells * E_to_v(species, E_now_ref))
       end
     end
-    t_exit = dt_ref
+    t_exit = t_enter + dt_ref
   else
-    t_exit = 0
+    t_exit = t_enter
   end
   if p_over_q_ref isa TimeDependentParam
     beta_gamma_exit = R_to_beta_gamma(bunch.species, p_over_q_ref(t_exit))
