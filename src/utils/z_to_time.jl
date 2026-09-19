@@ -13,8 +13,9 @@
 # 
 # Therefore, we should pass to the kernel beta_0*gamma_0 and t_ref to get beta
 @generated function compute_time(z::T, pz, t_ref, beta_gamma_ref) where {T}
-  if T == Float16 || T == Float32
-    TC_LIGHT = T(C_LIGHT)
+  TS = ForwardDiff.valtype(T)
+  if TS == Float16 || TS == Float32
+    TC_LIGHT = TS(C_LIGHT)
   else
     TC_LIGHT = C_LIGHT
   end

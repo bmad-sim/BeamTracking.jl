@@ -104,6 +104,7 @@ function universal!(
   L = BeamTracking.num_lower(T, L)
   g = BeamTracking.num_lower(T, g)
   ds_step = BeamTracking.num_lower(T, ds_step)
+  p_over_q_ref = BeamTracking.num_lower(T, p_over_q_ref)
 
   # Current KernelChain length is 10 because we have up to
   # 2 aperture, 2 alignment, 1 body kernel, 1 IBS kernel,

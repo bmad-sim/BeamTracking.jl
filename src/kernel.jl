@@ -15,7 +15,7 @@ function make_kernel_call(kernel=blank_kernel!, args=())
   return KernelCall(kernel, _args)
 end
 
-num_lower(::Type, t) = t
+num_lower(::Type, t) = t #(@show typeof(t); @show t; t)
 num_lower(::Type{T}, t::Float64) where {T<:Union{Float32,Float16}} = T(t)
 num_lower(::Type{T}, t::SArray{S,Float64}) where {T<:Union{Float32,Float16},S} = T.(t)
 num_lower(::Type{T}, t::S) where {T<:Union{Float32,Float16},S<:Tuple} = map(ti->num_lower(T, ti), t)
@@ -34,6 +34,35 @@ end
 function num_lower(::Type{T}, b::BatchParam) where {T<:Union{Float32,Float16}}
   S = eltype(b)
   if S != T
+    return BatchParam(T.(b.batch))
+  else
+    return b
+  end
+end
+
+# For ForwardDiff specifically
+num_lower(::Type{T}, t::Float64) where {S<:Union{Float32,Float16},T<:ForwardDiff.Dual{<:Any,S}} = S(t)
+num_lower(::Type{T}, t::ForwardDiff.Dual{<:Any,Float64}) where {T<:ForwardDiff.Dual{<:Any,<:Union{Float32,Float16}}} = T(t)
+num_lower(::Type{T}, t::SArray{SI,Float64}) where {SI,S<:Union{Float32,Float16},T<:ForwardDiff.Dual{<:Any,S}} = S.(t)
+num_lower(::Type{T}, t::SArray{SI,ForwardDiff.Dual{TAG,Float64,N}}) where {SI,TAG,N,S<:Union{Float32,Float16},T<:ForwardDiff.Dual{<:Any,S}} = T.(t)
+num_lower(::Type{T}, t::S) where {T<:ForwardDiff.Dual{<:Any,<:Union{Float16,Float32}},S<:Tuple} = map(ti->num_lower(T, ti), t)
+function num_lower(::Type{T}, tf::TimeFunction) where {T<:ForwardDiff.Dual{<:Any,<:Union{Float32,Float16}}}
+  S = typeof(tf(0))
+  if S != ForwardDiff.valtype(T)
+    error("
+      Failure to lower TimeFunction with output type $S to $T: if you are ramping
+      the reference energy, for $T support you will need to specify a ramping 
+      TimeFunction of `p_over_q_ref` that outputs $T.
+    ")
+  end
+  return tf
+end
+
+function num_lower(::Type{T}, b::BatchParam) where {S<:Union{Float32,Float16},T<:ForwardDiff.Dual{<:Any,S}}
+  B = eltype(b)
+  if B == Float64
+    return BatchParam(S.(b.batch))
+  elseif B <: ForwardDiff.Dual{<:Any,Float64}
     return BatchParam(T.(b.batch))
   else
     return b

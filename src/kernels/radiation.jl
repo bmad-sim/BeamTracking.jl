@@ -60,7 +60,7 @@ Returns the perpendicular component of e_vec divided by the speed of light plus
 the cross product of beta and b_vec.
 """
 @inline @generated function radiation_field(e_vec::V, b_vec, beta) where {V}
-  T = V.parameters[1]
+  T = ForwardDiff.valtype(V.parameters[1])
   if T == Float16 || T == Float32
     coeff = T(1/C_LIGHT)
   else
@@ -93,7 +93,7 @@ the coordinate system has already been rotated such that the curvature
 is in the horizontal plane.
 """
 @generated function deterministic_radiation_field!(i, coords::Coords{<:Any,V}, q, mc2, E_ref, g, ax, ay, e_vec, b_vec, L) where {V}
-  T = eltype(V)
+  T = ForwardDiff.valtype(eltype(V))
   coeff = 1/(4*pi*EPS_0) * 2/3
   if T == Float16 || T == Float32
     coeff = T(coeff)
@@ -167,7 +167,7 @@ the coordinate system has already been rotated such that the curvature
 is in the horizontal plane.
 """
 @inline @generated function stochastic_radiation_field!(i, coords::Coords{<:Any,V}, backend, q, mc2, E_ref, g, ax, ay, e_vec, b_vec, L) where {V}
-  T = eltype(V)
+  T = ForwardDiff.valtype(eltype(V))
   coeff = 55/(24*sqrt(3))/(4*pi*EPS_0)*H_BAR*C_LIGHT
   coeff2 = sqrt(13/55)
   if T == Float16 || T == Float32
