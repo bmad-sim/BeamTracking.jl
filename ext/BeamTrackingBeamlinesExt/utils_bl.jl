@@ -17,6 +17,10 @@ end
 
 # Ensures the 
 function _check_bunch!(bunch, species_ref, p_over_q_ref, notify::Bool=true)
+  if p_over_q_ref isa BatchParam && (!(bunch.p_over_q_ref isa BatchParam) || !(bunch.t_ref isa BatchParam))
+    error("A Beamline with batched p_over_q_ref requires a Bunch with batched p_over_q_ref and t_ref.")
+  end
+
   if isnullspecies(bunch.species)
     if species_ref isa Beamlines.GetError
       error("Neither the Bunch nor the Beamline has set a species.")
