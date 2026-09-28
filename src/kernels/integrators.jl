@@ -52,8 +52,11 @@ end
   end
   return quote
     @inbounds begin
-      w0 = $(c[1]) * ds_step
-      w1 = $(c[2]) * ds_step
+      # Coefficients are mathematical constants written as Float64 literals.
+      # Convert them through the step scalar so GPU paths with Float32 custom
+      # coordinate algebras never materialize a device-side double.
+      w0 = typeof(ds_step)($(c[1])) * ds_step
+      w1 = typeof(ds_step)($(c[2])) * ds_step
       if !isnothing(edge_params) && fringe_in
         fringe!(i, coords, edge_params..., 1)
       end

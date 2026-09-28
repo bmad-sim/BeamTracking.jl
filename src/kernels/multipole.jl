@@ -55,25 +55,17 @@ end # function multipole_kick!()
       T = SIMD.Vec{simd, T}
     end
     quote
-        $(if T <: TPS
-            # Get output type in a GTPSA-friendly way
-            # Needed bc if dynamic descriptor resolution then don't know which 
-            quote
-              on = one(first(knl))*one(first(ksl))*one(x)*one(y)
-              zer = zero(on)
-            end
-          else
-            quote
-              on = one($T)
-              zer = zero($T)
-            end
-          end
-        )
-        knl_0::$T = zer
-        ksl_0::$T = zer
+        # Use the coordinate algebra to construct the accumulator.  Splicing a
+        # promoted generated-function type can widen custom Number subtypes to
+        # `Number`; that breaks GPU compilation for RayJet.  Coordinate-based
+        # units also retain the descriptor for GTPSA and the lane shape for SIMD.
+        on = one(x) * one(y)
+        zer = zero(on)
+        knl_0 = zer
+        ksl_0 = zer
         add = (ms[$N] != excluding && ms[$N] > 0)
-        by::$T = vifelse(add, knl[$N] * on, knl_0)
-        bx::$T = vifelse(add, ksl[$N] * on, ksl_0)
+        by = vifelse(add, knl[$N] * on, knl_0)
+        bx = vifelse(add, ksl[$N] * on, ksl_0)
 
         $([quote
             curknl = knl[$j] * on

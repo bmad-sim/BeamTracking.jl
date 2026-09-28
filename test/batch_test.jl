@@ -89,6 +89,16 @@ function test_batch(
 end
 
 @testset "Batch" begin
+  @testset "static batch containers lower to concrete tuples" begin
+    params = BeamTracking.SVector(BatchParam([1.0, 2.0]), BatchParam([10.0, 20.0]))
+    lowered = BeamTracking.batch_lower(params)
+    @test lowered isa Tuple
+    @test BeamTracking.static_batchcheck(lowered)
+    @test BeamTracking.beval(lowered, 1, 1) == (1.0, 10.0)
+    @test BeamTracking.beval(lowered, 2, 1) == (2.0, 20.0)
+    @test BeamTracking.beval(lowered, 3, 1) == (1.0, 10.0)
+  end
+
   # Test each of the splits: DKD, MKM, SKS, BKB
   # MKM:
   test_batch((;Kn1=0.36), (;L=0.5))

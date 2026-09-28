@@ -64,8 +64,11 @@ end
 get_n_multipoles(::BMultipoleParams{T,N}) where {T,N} = N
 get_n_multipoles(::EMultipoleParams{T,N}) where {T,N} = N
 
-make_static(a::StaticArray) = SVector(a)
-make_static(a::SizedArray) = SVector(a)
+# A LineElement can hold mixed scalar and BatchParam coefficients.  Preserving
+# it as an SVector widens that mixture to `Any`; a tuple retains each concrete
+# field type through BatchParam lowering and is accepted by the kernels.
+make_static(a::StaticArray) = Tuple(a)
+make_static(a::SizedArray) = Tuple(a)
 make_static(a) = a
 
 #---------------------------------------------------------------------------------------------------

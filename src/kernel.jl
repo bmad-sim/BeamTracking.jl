@@ -321,6 +321,12 @@ function check_kwargs(mac, kwargs...)
   end
 end
 
+# Kernels annotated with `fastgtpsa=true` use GTPSA's CPU-oriented expression
+# rewrite by default.  Algebra extensions can opt out for a coordinate scalar
+# type that has its own ordinary Julia arithmetic (for example RayJets on a
+# GPU).  The type-only trait is constant-folded at kernel specialization time.
+fastgtpsa_compatible(::Type) = true
+
 # Also allow launch! on single KernelCalls
 @inline launch!(coords::Coords, kcall::KernelCall; kwargs...) = launch!(coords, KernelChain((kcall,), RefState{eltype(coords.v)}(0,0,0,0,0,0,0)); kwargs...)
 
@@ -334,6 +340,11 @@ macro makekernel(args...)
 
   fcn_name = esc(signature[1])
   args = esc.(signature[2:end])
+  # `coords` is conventionally the second kernel argument.  Preserve its
+  # caller-local binding when emitting the fast-GTPSA trait test.
+  coords_arg = signature[3]
+  coords_name = coords_arg isa Expr && coords_arg.head == :(::) ? coords_arg.args[1] : coords_arg
+  coords_ref = esc(coords_name)
 
   # Check if function body contains a return:
   MacroTools.postwalk(body) do x
@@ -367,17 +378,25 @@ macro makekernel(args...)
     if isnothing(idx_inbounds) || kwargvals[idx_inbounds] # inbounds
       return quote
         @inline function $(fcn_name)($(args...))
-          @inbounds begin @FastGTPSA begin
+          @inbounds if fastgtpsa_compatible(eltype($coords_ref.v))
+            @FastGTPSA begin
+              $(body)
+            end
+          else
             $(body)
-          end end
+          end
         end
       end
     else # no inbounds
       return quote
         @inline function $(fcn_name)($(args...))
-          @FastGTPSA begin
+          if fastgtpsa_compatible(eltype($coords_ref.v))
+            @FastGTPSA begin
+              $(body)
+            end
+          else
             $(body)
-          end 
+          end
         end
       end
 

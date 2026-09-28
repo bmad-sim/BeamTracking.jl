@@ -315,7 +315,10 @@ end
 # the CPU and we are already type unstable here anyways, so we should do this.
 batch_lower(bp::T) where {T<:Tuple} = map(bi->batch_lower(bi), bp)
 
-# Arrays MUST be converted into tuples, for SIMD
+# A static container may hold a mixture of scalar and array BatchParams.  Its
+# lowered values then have different concrete types, which cannot be stored in
+# an SVector without widening its element type to `Any`.  Use a tuple so a
+# KernelCall remains concrete and GPU-compilable.
 batch_lower(bp::SArray{N,BatchParam}) where {N} = batch_lower(Tuple(bp))
 static_batchcheck(bp) = false
 static_batchcheck(::_LoweredBatchParam) = true
