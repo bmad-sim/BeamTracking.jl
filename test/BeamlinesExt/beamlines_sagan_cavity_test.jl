@@ -131,9 +131,9 @@ end
     @test_throws "SaganCavity Tracking through element $(ele.name) with $pg is undefined" track!(b1, bl)
   end
 
-  # With the BendParams in do_not_use, the cavity is tracked as if it has no BendParams
+  # With the BendParams in ignore_parameters, the cavity is tracked as if it has no BendParams
   sc_bend = RFCavity(L = 2.0, voltage = 0.2*E0, rf_frequency = 1e9, dE_ref = 0.1*E0, g_ref = 0.01,
-                     tracking_method = SaganCavity(n_cells = 2), do_not_use = [:BendParams])
+                     tracking_method = SaganCavity(n_cells = 2), ignore_parameters = [:BendParams])
   sc_nobend = RFCavity(L = 2.0, voltage = 0.2*E0, rf_frequency = 1e9, dE_ref = 0.1*E0,
                        tracking_method = SaganCavity(n_cells = 2))
   bs = map((sc_bend, sc_nobend)) do sc
