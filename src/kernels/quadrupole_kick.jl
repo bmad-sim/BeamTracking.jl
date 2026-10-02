@@ -169,7 +169,7 @@ end
 
 # There seems to be a bug with FastGTPSA temps not being released
 @inline @generated function quadrupole_magnus6!(i, coords::Coords{<:Any,V}, k1, tilde_m, a, L) where {V}
-  T = eltype(V)
+  T = ForwardDiff.valtype(eltype(V))
   coeff = sqrt(15)/10
   if T == Float16 || T == Float32
     coeff = T(coeff)

@@ -79,6 +79,16 @@ Base.eltype(b::BatchParam) = eltype(b.batch)
 Base.zero(b::BatchParam) = BatchParam(zero(first(b.batch)))
 Base.one(b::BatchParam)  = BatchParam(one(first(b.batch))) 
 
+
+function batch_num_lower(batch, num_or_array)
+  T = ForwardDiff.valtype(eltype(batch))
+  if T == Float16 || T == Float32 # Then we need to keep it that
+    return eltype(batch).(num_or_array)
+  else
+    return num_or_array
+  end
+end
+
 # Now define the math operations:
 # The operations are individually-specialized for each operator, assuming that the 
 # most expensive step is creating temporary arrays, not type instability. As such, 
@@ -92,7 +102,7 @@ function _batch_addsub(batch_a, batch_b, op::T) where {T<:Union{typeof(+),typeof
       if batch_a ≈ 0 # add/sub by zero gives identity
         return BatchParam(batch_b)
       else
-        let a = batch_a
+        let a = batch_num_lower(batch_b, batch_a)
           return BatchParam(map((bi)->op(a, bi), batch_b))
         end
       end
@@ -101,7 +111,7 @@ function _batch_addsub(batch_a, batch_b, op::T) where {T<:Union{typeof(+),typeof
     if batch_b ≈ 0 # add/sub by zero gives identity
       return BatchParam(batch_a)
     else
-      let b = batch_b
+      let b = batch_num_lower(batch_a, batch_b)
         return BatchParam(map((ai)->op(ai, b), batch_a))
       end
     end
@@ -131,7 +141,7 @@ function _batch_mul(batch_a, batch_b)
       elseif batch_a ≈ 1 # mul by 1 gives identity
         return BatchParam(batch_b)
       else
-        let a = batch_a
+        let a = batch_num_lower(batch_b, batch_a)
           return BatchParam(map((bi)->*(a, bi), batch_b))
         end
       end
@@ -142,7 +152,7 @@ function _batch_mul(batch_a, batch_b)
     elseif batch_b ≈ 1 # mul by 1 gives identity
         return BatchParam(batch_a)
     else
-      let b = batch_b
+      let b = batch_num_lower(batch_a, batch_b)
         return BatchParam(map((ai)->*(ai, b), batch_a))
       end
     end
@@ -163,7 +173,7 @@ function _batch_div(batch_a, batch_b)
     if batch_b isa Number
       return BatchParam(/(batch_a, batch_b))
     else
-      let a = batch_a
+      let a = batch_num_lower(batch_b, batch_a)
         return BatchParam(map((bi)->/(a, bi), batch_b))
       end
     end
@@ -173,7 +183,7 @@ function _batch_div(batch_a, batch_b)
     elseif batch_b ≈ 1 # div by 1 gives identity
         return BatchParam(batch_a)
     else
-      let b = batch_b
+      let b = batch_num_lower(batch_a, batch_b)
         return BatchParam(map((ai)->/(ai, b), batch_a))
       end
     end
@@ -195,12 +205,12 @@ function _batch_pow(batch_a, batch_b)
     if batch_b isa Number
       return BatchParam(^(batch_a, batch_b))
     else
-      let a = batch_a
+      let a = batch_num_lower(batch_b, batch_a)
         return BatchParam(map((bi)->^(a, bi), batch_b))
       end
     end
   elseif batch_b isa Number
-    let b = batch_b
+    let b = batch_num_lower(batch_a, batch_b)
       return BatchParam(map((ai)->^(ai, b), batch_a))
     end
   elseif length(batch_a) == length(batch_b)
@@ -211,8 +221,8 @@ function _batch_pow(batch_a, batch_b)
   end
 end
 
-Base.:^(ba::BatchParam, n::Number)      = _batch_pow(ba.batch, n)
-Base.:^(n::Number, bb::BatchParam)      = _batch_pow(n, bb.batch)
+Base.:^(ba::BatchParam, n::Number)      = _batch_pow(ba.batch, batch_num_lower(ba.batch, n))
+Base.:^(n::Number, bb::BatchParam)      = _batch_pow(batch_num_lower(bb.batch, n), bb.batch)
 Base.:^(ba::BatchParam, bb::BatchParam) = _batch_pow(ba.batch, bb.batch)
 
 function Base.literal_pow(::typeof(^), ba::BatchParam, ::Val{N}) where {N}
@@ -226,12 +236,12 @@ function _batch_atan2(batch_a, batch_b)
     if batch_b isa Number
       return BatchParam(atan2(batch_a, batch_b))
     else
-      let a = batch_a
+      let a = batch_num_lower(batch_b, batch_a)
         return BatchParam(map((bi)->atan2(a, bi), batch_b))
       end
     end
   elseif batch_b isa Number
-    let b = batch_b
+    let b = batch_num_lower(batch_a, batch_b)
       return BatchParam(map((ai)->atan2(ai, b), batch_a))
     end
   elseif length(batch_a) == length(batch_b)
@@ -304,11 +314,14 @@ end
 # We can use map on the CPU, but not the GPU. This step of batch_lower-ing is on 
 # the CPU and we are already type unstable here anyways, so we should do this.
 batch_lower(bp::T) where {T<:Tuple} = map(bi->batch_lower(bi), bp)
+@inline batch_lower(nt::NamedTuple{names}) where {names} =
+  NamedTuple{names}(batch_lower(Tuple(nt)))
 
 # Arrays MUST be converted into tuples, for SIMD
 batch_lower(bp::SArray{N,BatchParam}) where {N} = batch_lower(Tuple(bp))
 static_batchcheck(bp) = false
 static_batchcheck(::_LoweredBatchParam) = true
+@inline static_batchcheck(nt::NamedTuple) = static_batchcheck(Tuple(nt))
 @unroll function static_batchcheck(t::Tuple)
   @unroll for ti in t
     if static_batchcheck(ti)
@@ -317,6 +330,9 @@ static_batchcheck(::_LoweredBatchParam) = true
   end
   return false
 end
+
+@inline beval(nt::NamedTuple{names}, i, batch_start) where {names} =
+  NamedTuple{names}(beval(Tuple(nt), i, batch_start))
 
 @inline beval(b::_LoweredBatchParam{B}, i, batch_start) where {B} = b.batch[mod1((i+batch_start-1), B)]
 

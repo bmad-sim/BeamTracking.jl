@@ -10,8 +10,9 @@ R_to_v(species::Species, R) = @FastGTPSA abs(chargeof(species))*C_LIGHT / sqrt(1
 
 @generated function beta_gamma_to_v(beta_gamma::T) where {T}
   clight = C_LIGHT
-  if T == Float32 || T == Float16
-    clight = T(C_LIGHT)
+  TS = ForwardDiff.valtype(T)
+  if TS == Float32 || TS == Float16
+    clight = TS(C_LIGHT)
   end
   return :($clight*beta_gamma/sqrt(1+beta_gamma^2))
 end

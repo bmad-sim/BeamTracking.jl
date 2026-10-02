@@ -3,8 +3,9 @@ This function computes sin(sqrt(x))/sqrt(x) and cos(sqrt(x)), which are both
 necessary for exponentiating a rotation vector into a quaternion.
 """
 @generated function sincos_quaternion(x::T) where {T}
-  if T == Float16 || T == Float32
-    threshold = sqrt(24*eps(T))
+  TS = ForwardDiff.valtype(T)
+  if TS == Float16 || TS == Float32
+    threshold = sqrt(24*eps(TS))
   else
     threshold = 7.3e-8 
   end

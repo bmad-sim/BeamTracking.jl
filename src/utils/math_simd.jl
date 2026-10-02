@@ -28,8 +28,9 @@ Compute the unnormalized sinc function ``\\operatorname{sincu}(x) = \\sin(x) / (
 with accuracy near the origin.
 """
 @generated function sincu(x::T) where {T}
-  if T == Float16 || T == Float32
-    threshold = (120*eps(T))^(1//4)
+  TS = ForwardDiff.valtype(T)
+  if TS == Float16 || TS == Float32
+    threshold = (120*eps(TS))^(1//4)
   else
     threshold = 0.004
   end
@@ -44,8 +45,9 @@ Compute the unnormalized sinhc function ``\\operatorname{sinhcu}(x) = \\sinh(x) 
 with accuracy near the origin.
 """
 @generated function sinhcu(x::T) where {T}
-  if T == Float16 || T == Float32
-    threshold = (120*eps(T))^(1//4)
+  TS = ForwardDiff.valtype(T)
+  if TS == Float16 || TS == Float32
+    threshold = (120*eps(TS))^(1//4)
   else
     threshold = 0.004
   end
