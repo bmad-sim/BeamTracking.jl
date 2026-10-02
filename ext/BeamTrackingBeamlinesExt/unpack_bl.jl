@@ -18,17 +18,21 @@ function _track!(
   # float call is required because L is allowed to be any type
   # in order to keep binaries smaller for tracking routines, 
   # we don't want to compile separate routines for Int64
-  ap = deval(ele.AlignmentParams, context)
-  bp = deval(ele.BendParams, context)
-  bm = deval(ele.BMultipoleParams, context)
-  pp = deval(ele.PatchParams, context)
-  dp = deval(ele.ApertureParams, context)
-  mp = deval(ele.MapParams, context)
-  rp = rf_on ? deval(ele.RFParams, context) : nothing
+  # Parameter groups in ignore_parameters are replaced with nothing, exactly as if the element
+  # did not have them (like RFParams with rf_on = false). The list is checked here because
+  # invalid symbols may have been added directly, e.g. with push!
+  ig = check_ignore_parameters(ele.ignore_parameters)
+  ap = :AlignmentParams in ig ? nothing : deval(ele.AlignmentParams, context)
+  bp = :BendParams in ig ? nothing : deval(ele.BendParams, context)
+  bm = :BMultipoleParams in ig ? nothing : deval(ele.BMultipoleParams, context)
+  pp = :PatchParams in ig ? nothing : deval(ele.PatchParams, context)
+  dp = :ApertureParams in ig ? nothing : deval(ele.ApertureParams, context)
+  mp = :MapParams in ig ? nothing : deval(ele.MapParams, context)
+  rp = (!rf_on || :RFParams in ig) ? nothing : deval(ele.RFParams, context)
   lp = deval(ele.BeamlineParams, context)
-  fpp = deval(ele.FourPotentialParams, context)
-  em = deval(ele.EMultipoleParams, context)
-  emfp = deval(ele.EMFieldParams, context)
+  fpp = :FourPotentialParams in ig ? nothing : deval(ele.FourPotentialParams, context)
+  em = :EMultipoleParams in ig ? nothing : deval(ele.EMultipoleParams, context)
+  emfp = :EMFieldParams in ig ? nothing : deval(ele.EMFieldParams, context)
 
   if scalar_params
     L = scalarize(L)
@@ -353,12 +357,12 @@ function universal!(coords, tm::SaganCavity, ele, ramp_particle_energy_without_r
   p_over_q_ref, alignmentparams, bendparams, bmultipoleparams, patchparams, apertureparams,
   rfparams, beamlineparams, mapparams, fourpotentialparams, emultipoleparams, em_field_params; kwargs...)
 
-  !isactive(mapparams) || error("SaganCavity Tracking through element $ele_name with MapParams is undefined")
-  !isactive(patchparams) || error("SaganCavity Tracking through element $ele_name with PatchParams is undefined")
-  !isactive(bendparams) || error("SaganCavity Tracking through element $ele_name with BendParams is undefined")
-  !isactive(fourpotentialparams) || error("SaganCavity Tracking through element $ele_name with FourPotentialParams is undefined")\
-  !isactive(emultipoleparams) || error("SaganCavity Tracking through element $ele_name with EMultipoleParams is undefined")
-  isactive(rfparams) || error("SaganCavity Tracking through element $ele_name without RFParams is undefined")
+  !isactive(mapparams) || error("SaganCavity Tracking through element $(ele.name) with MapParams is undefined")
+  !isactive(patchparams) || error("SaganCavity Tracking through element $(ele.name) with PatchParams is undefined")
+  !isactive(bendparams) || error("SaganCavity Tracking through element $(ele.name) with BendParams is undefined")
+  !isactive(fourpotentialparams) || error("SaganCavity Tracking through element $(ele.name) with FourPotentialParams is undefined")
+  !isactive(emultipoleparams) || error("SaganCavity Tracking through element $(ele.name) with EMultipoleParams is undefined")
+  isactive(rfparams) || error("SaganCavity Tracking through element $(ele.name) without RFParams is undefined")
 
   beta_gamma_ref = R_to_beta_gamma(bunch.species, bunch.p_over_q_ref)
 
@@ -392,9 +396,9 @@ function universal!(coords, tm::SaganCavity, ele, ramp_particle_energy_without_r
         dt_ref += L_active / (n_cells * E_to_v(species, E_now_ref))
       end
     end
-    t_exit = dt_ref
+    t_exit = t_enter + dt_ref
   else
-    t_exit = 0
+    t_exit = t_enter
   end
   if p_over_q_ref isa TimeDependentParam
     beta_gamma_exit = R_to_beta_gamma(bunch.species, p_over_q_ref(t_exit))
