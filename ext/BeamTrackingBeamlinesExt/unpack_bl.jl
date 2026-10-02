@@ -355,7 +355,7 @@ function universal!(coords, tm::SaganCavity, ele, ramp_particle_energy_without_r
 
   !isactive(mapparams) || error("SaganCavity Tracking through element $ele_name with MapParams is undefined")
   !isactive(patchparams) || error("SaganCavity Tracking through element $ele_name with PatchParams is undefined")
-  !isactive(patchparams) || error("SaganCavity Tracking through element $ele_name with BendParams is undefined")
+  !isactive(bendparams) || error("SaganCavity Tracking through element $ele_name with BendParams is undefined")
   !isactive(fourpotentialparams) || error("SaganCavity Tracking through element $ele_name with FourPotentialParams is undefined")\
   !isactive(emultipoleparams) || error("SaganCavity Tracking through element $ele_name with EMultipoleParams is undefined")
   isactive(rfparams) || error("SaganCavity Tracking through element $ele_name without RFParams is undefined")
