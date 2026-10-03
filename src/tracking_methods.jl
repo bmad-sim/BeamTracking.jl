@@ -17,8 +17,9 @@ macro def_integrator_struct(name)
       ibs_fluctuations_on::Bool
       implicit_use_newton::Bool
       use_optimized_schemes::Bool
+      multipole_fringe_on::Bool   # Hard edge fringe for sextupole and higher multipoles
   
-      function $(esc(name))(; order::Int=4, n_steps::Int=-1, ds_step::Float64=-1.0, radiation_damping_on::Bool=false, radiation_fluctuations_on::Bool=false, fringe_at::Fringe.T=Fringe.BothEnds, ibs_damping_on::Bool=false, ibs_fluctuations_on::Bool=false, implicit_use_newton::Bool=false, use_optimized_schemes::Bool=true)
+      function $(esc(name))(; order::Int=4, n_steps::Int=-1, ds_step::Float64=-1.0, radiation_damping_on::Bool=false, radiation_fluctuations_on::Bool=false, fringe_at::Fringe.T=Fringe.BothEnds, ibs_damping_on::Bool=false, ibs_fluctuations_on::Bool=false, implicit_use_newton::Bool=false, use_optimized_schemes::Bool=true, multipole_fringe_on::Bool=false)
         _order = order
         _n_steps = n_steps
         _ds_step = ds_step
@@ -35,7 +36,7 @@ macro def_integrator_struct(name)
         elseif _ds_step > 0
           _n_steps = -1
         end
-        return new(_order, _n_steps, _ds_step, radiation_damping_on, radiation_fluctuations_on, fringe_at, ibs_damping_on, ibs_fluctuations_on, implicit_use_newton, use_optimized_schemes)
+        return new(_order, _n_steps, _ds_step, radiation_damping_on, radiation_fluctuations_on, fringe_at, ibs_damping_on, ibs_fluctuations_on, implicit_use_newton, use_optimized_schemes, multipole_fringe_on)
       end
     end
   end
@@ -58,7 +59,8 @@ function remake(::Type{T}, ytm::AbstractSymplectic) where {T<:AbstractSymplectic
     ibs_damping_on = ytm.ibs_damping_on,
     ibs_fluctuations_on = ytm.ibs_fluctuations_on,
     implicit_use_newton = ytm.implicit_use_newton,
-    use_optimized_schemes = ytm.use_optimized_schemes
+    use_optimized_schemes = ytm.use_optimized_schemes,
+    multipole_fringe_on = ytm.multipole_fringe_on
   )
 end
 

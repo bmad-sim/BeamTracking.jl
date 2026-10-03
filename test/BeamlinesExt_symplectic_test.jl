@@ -700,8 +700,9 @@
     b0 = Bunch(v, q, p_over_q_ref=p_over_q_ref, species=Species("electron"))
     bl = Beamline([ele], p_over_q_ref=p_over_q_ref, species_ref=Species("electron"))
     track!(b0, bl)
-    v_expected = [0.026172709210547637 0.013283654892913688 0.0752222208993626 0.0583923740672597 0.048976075148431955 0.06]
-    q_expected = [0.9999550310129977 -0.008905896376194768 -0.0032459810037083338 0.00029080723839939075]
+    # Berg hard edge multipole fringe (agrees with Lee-Whiting/Forest to leading order in the angles)
+    v_expected = [0.026172708433368396 0.013283663088259788 0.07522220706086713 0.05839237499430643 0.048976075755420866 0.06]
+    q_expected = [0.9999550310148457 -0.008905896237621877 -0.0032459808193486474 0.0002908071932733792]
     @test b0.coords.v ≈ v_expected
     @test b0.coords.q ≈ q_expected 
 
