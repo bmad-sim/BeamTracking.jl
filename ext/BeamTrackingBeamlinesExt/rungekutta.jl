@@ -74,6 +74,14 @@ end
   length(field_functions) == length(field_parameters) == length(field_normalized) ||
     throw(DimensionMismatch("field functions, parameters, and normalization flags must have equal lengths"))
 
+  # In a bend with tilt_ref, fields are defined in the frame of the tilted bend, as for the
+  # other tracking methods. The curvature (gx, gy) is already tilted.
+  if isactive(bendparams) && !(bendparams.tilt_ref ≈ 0)
+    ct, st = cos(bendparams.tilt_ref), sin(bendparams.tilt_ref)
+    field_parameters = map((f, p) -> (f, p, ct, st), field_functions, field_parameters)
+    field_functions = map(_ -> BeamTracking.tilted_field, field_functions)
+  end
+
   # Time-dependent values in params are evaluated once, at the particle's
   # element-entrance time, by the common kernel path. They stay fixed during
   # all RK substeps.
