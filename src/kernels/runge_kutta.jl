@@ -259,14 +259,39 @@ end
 
 """
   rk4_kernel!(i, coords, beta_0, tilde_m, charge, p0c, mc2,
-              L, ds_step, n_steps, gx, gy, field_function, field_parameters, field_normalized)
+              L, ds_step, n_steps, gx, gy, field_function, field_parameters, field_normalized,
+              edge_params=nothing, edge_ksol=nothing, fringe_in=Val(false), fringe_out=Val(false))
 
 Kernelized RK4 tracking through a concrete electromagnetic field source.
 Compatible with @makekernel and the package's kernel architecture.
+
+If `edge_params` is not `nothing`, the hard edge fringe kick `fringe!(i, coords, edge_params..., 1)`
+is applied at the entrance when `fringe_in` is `Val(true)` and `fringe!(i, coords, edge_params..., -1)`
+at the exit when `fringe_out` is `Val(true)`, as with the symplectic integrators.
+
+The fringe kicks use canonical momenta while RK4 tracks the mechanical momenta. These are
+the same except in a solenoid of strength `edge_ksol`, where the vector potential
+`(ax, ay) = (-y, x) * edge_ksol / 2` is subtracted after the entrance fringe and added back
+before the exit fringe. This gives the linear hard edge focusing of the solenoid.
 """
 @makekernel function rk4_kernel!(i, coords::Coords, beta_0, tilde_m, charge, p0c, mc2,
                                 L, ds_step, n_steps,
                                 gx, gy, field_function, field_parameters, field_normalized)
+  rk4_kernel!(i, coords, beta_0, tilde_m, charge, p0c, mc2, L, ds_step, n_steps,
+              gx, gy, field_function, field_parameters, field_normalized, nothing, nothing, Val(false), Val(false))
+end
+
+@makekernel function rk4_kernel!(i, coords::Coords, beta_0, tilde_m, charge, p0c, mc2,
+                                L, ds_step, n_steps,
+                                gx, gy, field_function, field_parameters, field_normalized,
+                                edge_params, edge_ksol, fringe_in::Val, fringe_out::Val)
+  if !isnothing(edge_params) && fringe_in === Val(true)
+    fringe!(i, coords, edge_params..., 1)
+    if !isnothing(edge_ksol)
+      _solenoid_canonical_shift!(i, coords, edge_ksol, 1)
+    end
+  end
+
   s = zero(L)
   electric_scale = charge / p0c
   magnetic_scale = electric_scale * c_light(typeof(p0c))
@@ -281,4 +306,22 @@ Compatible with @makekernel and the package's kernel architecture.
       execute_callbacks(i, coords, s, s / (beta_0 * c_light(typeof(ds_step))))
     end
   end
+
+  if !isnothing(edge_params) && fringe_out === Val(true)
+    if !isnothing(edge_ksol)
+      _solenoid_canonical_shift!(i, coords, edge_ksol, -1)
+    end
+    fringe!(i, coords, edge_params..., -1)
+  end
+end
+
+# Canonical to mechanical transverse momenta (sign = 1) or the reverse (sign = -1) in a solenoid.
+@inline function _solenoid_canonical_shift!(i, coords, ksol, sign)
+  v = coords.v
+  alive = (coords.state[i] == STATE_ALIVE)
+  new_px = v[i,PXI] + sign*v[i,YI]*ksol/2
+  new_py = v[i,PYI] - sign*v[i,XI]*ksol/2
+  v[i,PXI] = vifelse(alive, new_px, v[i,PXI])
+  v[i,PYI] = vifelse(alive, new_py, v[i,PYI])
+  return nothing
 end

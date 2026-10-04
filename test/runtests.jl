@@ -222,7 +222,8 @@ const TEST_GROUPS = Dict(
              "ImplicitTracking_test.jl",
              "RungeKuttaTracking_test.jl",
              "multipole_fringe_test.jl",
-             "bend_fringe_test.jl"],
+             "bend_fringe_test.jl",
+             "rk_fringe_test.jl"],
   # By far the longest-running group; kept on its own so it does not set the
   # wall-clock floor for everything else.
   "symplectic" => ["BeamlinesExt_symplectic_test.jl"],

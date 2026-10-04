@@ -91,14 +91,22 @@ struct SaganCavity
 end
 
 # ========== Explicit RK4 Tracking ==========
+# fringe_at selects the ends where the hard edge fringe kicks of the symplectic methods are
+# applied, with multipole_fringe_on adding sextupole and higher orders. Custom em_field
+# functions get no fringe kick. Without the fringe at an end, the field ends abruptly there.
+# For a solenoid this also omits the linear edge focusing, which the symplectic methods
+# always include through the canonical momenta. A bend with a nonzero e1 (e2) requires the
+# entrance (exit) fringe, which applies the edge angle as a thin kick.
 struct RungeKutta
   ds_step::Float64
   n_steps::Int
   ibs_damping_on::Bool
   ibs_fluctuations_on::Bool
+  fringe_at::Fringe.T
+  multipole_fringe_on::Bool   # Hard edge fringe for sextupole and higher multipoles
 end
 
-RungeKutta(ds_step, n_steps) = RungeKutta(ds_step, n_steps, false, false)
+RungeKutta(ds_step, n_steps) = RungeKutta(ds_step, n_steps, false, false, Fringe.BothEnds, false)
 
 DEFAULT_RK4_DS_STEP = 0.2
 function RungeKutta(;
@@ -106,6 +114,8 @@ function RungeKutta(;
   n_steps::Union{Int,Nothing}=nothing,
   ibs_damping_on::Bool=false,
   ibs_fluctuations_on::Bool=false,
+  fringe_at::Fringe.T=Fringe.BothEnds,
+  multipole_fringe_on::Bool=false,
 )
   # Get actual values (use provided or sentinel)
   _ds_step = ds_step === nothing ? -1.0 : ds_step
@@ -118,14 +128,14 @@ function RungeKutta(;
   
   # If user sets n_steps (and it's positive), set ds_step to negative
   if _n_steps > 0
-    return RungeKutta(-1.0, _n_steps, ibs_damping_on, ibs_fluctuations_on)
+    return RungeKutta(-1.0, _n_steps, ibs_damping_on, ibs_fluctuations_on, fringe_at, multipole_fringe_on)
   end
   
   # If user sets ds_step (and it's positive), set n_steps to -1
   if _ds_step > 0
-    return RungeKutta(_ds_step, -1, ibs_damping_on, ibs_fluctuations_on)
+    return RungeKutta(_ds_step, -1, ibs_damping_on, ibs_fluctuations_on, fringe_at, multipole_fringe_on)
   end
   
   # Fallback: use defaults if both are negative/not set
-  return RungeKutta(DEFAULT_RK4_DS_STEP, -1, ibs_damping_on, ibs_fluctuations_on)
+  return RungeKutta(DEFAULT_RK4_DS_STEP, -1, ibs_damping_on, ibs_fluctuations_on, fringe_at, multipole_fringe_on)
 end
