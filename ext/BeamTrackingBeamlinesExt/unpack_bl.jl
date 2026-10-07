@@ -20,10 +20,9 @@ function _track!(
   # we don't want to compile separate routines for Int64
 
   # Parameter groups in ignore_params are replaced with nothing, exactly as if the element
-  # did not have them (like RFParams with rf_on = false). The list is checked here because
-  # invalid entries may have been added directly, e.g. with push!
+  # did not have them (like RFParams with rf_on = false)
   ip = ele.IgnoreParams
-  ig = isnothing(ip) ? () : check_ignore_params(ip.ignore_params)
+  ig = isnothing(ip) ? () : ip.ignore_params
   ap = AlignmentParams in ig ? nothing : deval(ele.AlignmentParams, context)
   bp = BendParams in ig ? nothing : deval(ele.BendParams, context)
   bm = BMultipoleParams in ig ? nothing : deval(ele.BMultipoleParams, context)

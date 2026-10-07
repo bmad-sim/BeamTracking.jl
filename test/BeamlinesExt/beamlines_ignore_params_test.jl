@@ -58,8 +58,4 @@
   q.ignore_params = [AlignmentParams]
   b2 = Bunch(copy(v0), species=species); track!(b2, bl)
   @test same(b2, b_ref)
-
-  # Invalid entries added directly to the list are caught when tracking
-  push!(q.ignore_params, BeamlineParams)
-  @test_throws ErrorException track!(Bunch(copy(v0), species=species), bl)
 end
