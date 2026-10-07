@@ -18,21 +18,23 @@ function _track!(
   # float call is required because L is allowed to be any type
   # in order to keep binaries smaller for tracking routines, 
   # we don't want to compile separate routines for Int64
-  # Parameter groups in ignore_parameters are replaced with nothing, exactly as if the element
+
+  # Parameter groups in ignore_params are replaced with nothing, exactly as if the element
   # did not have them (like RFParams with rf_on = false). The list is checked here because
-  # invalid symbols may have been added directly, e.g. with push!
-  ig = check_ignore_parameters(ele.ignore_parameters)
-  ap = :AlignmentParams in ig ? nothing : deval(ele.AlignmentParams, context)
-  bp = :BendParams in ig ? nothing : deval(ele.BendParams, context)
-  bm = :BMultipoleParams in ig ? nothing : deval(ele.BMultipoleParams, context)
-  pp = :PatchParams in ig ? nothing : deval(ele.PatchParams, context)
-  dp = :ApertureParams in ig ? nothing : deval(ele.ApertureParams, context)
-  mp = :MapParams in ig ? nothing : deval(ele.MapParams, context)
-  rp = (!rf_on || :RFParams in ig) ? nothing : deval(ele.RFParams, context)
+  # invalid entries may have been added directly, e.g. with push!
+  ip = ele.IgnoreParams
+  ig = isnothing(ip) ? () : check_ignore_params(ip.ignore_params)
+  ap = AlignmentParams in ig ? nothing : deval(ele.AlignmentParams, context)
+  bp = BendParams in ig ? nothing : deval(ele.BendParams, context)
+  bm = BMultipoleParams in ig ? nothing : deval(ele.BMultipoleParams, context)
+  pp = PatchParams in ig ? nothing : deval(ele.PatchParams, context)
+  dp = ApertureParams in ig ? nothing : deval(ele.ApertureParams, context)
+  mp = MapParams in ig ? nothing : deval(ele.MapParams, context)
+  rp = (!rf_on || RFParams in ig) ? nothing : deval(ele.RFParams, context)
   lp = deval(ele.BeamlineParams, context)
-  fpp = :FourPotentialParams in ig ? nothing : deval(ele.FourPotentialParams, context)
-  em = :EMultipoleParams in ig ? nothing : deval(ele.EMultipoleParams, context)
-  emfp = :EMFieldParams in ig ? nothing : deval(ele.EMFieldParams, context)
+  fpp = FourPotentialParams in ig ? nothing : deval(ele.FourPotentialParams, context)
+  em = EMultipoleParams in ig ? nothing : deval(ele.EMultipoleParams, context)
+  emfp = EMFieldParams in ig ? nothing : deval(ele.EMFieldParams, context)
 
   if scalar_params
     L = scalarize(L)
