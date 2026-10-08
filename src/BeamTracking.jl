@@ -41,6 +41,9 @@ include("types.jl")
 include("time.jl")
 include("batch.jl")
 include("callbacks.jl")
+# ramp_P0.jl defines reference_momentum_shift!, which the @generated __generic_kernel! in
+# kernel.jl refers to, so it must be defined before kernel.jl is included
+include("kernels/ramp_P0.jl")
 include("kernel.jl")
 include("tracking_methods.jl")
 
@@ -54,7 +57,6 @@ include("kernels/multipole.jl")
 include("kernels/patch.jl")
 include("kernels/quadrupole_kick.jl")
 include("kernels/radiation.jl")
-include("kernels/ramp_P0.jl")
 include("kernels/rfcavity_kick.jl")
 include("kernels/sagan_cavity.jl")
 include("kernels/solenoid_kick.jl")
