@@ -19,6 +19,14 @@ function find_steps(tm::RungeKutta, L)
   return n_steps, L / n_steps
 end
 
+find_m_tilde(::Type{K}) where {K<:typeof(implicit_integrator!)} = 3
+find_m_tilde(::Type{K}) where {K<:typeof(exact_drift!)} = 3
+find_m_tilde(::Type{K}) where {K<:typeof(sks_multipole!)} = 4
+find_m_tilde(::Type{K}) where {K<:typeof(dkd_multipole!)} = 4
+find_m_tilde(::Type{K}) where {K<:typeof(bkb_multipole!)} = 2
+find_m_tilde(::Type{K}) where {K<:typeof(mkm_quadrupole!)} = 4
+find_m_tilde(::Type{K}) where {K} = 0 # Fallback
+
 # Temporary disgusting solution for callbacks - Symplectic
 @generated function compute_dt_ref(s, ker::K, params) where {K}
   idx = find_m_tilde(ker)
@@ -33,11 +41,3 @@ end
     end
   end
 end
-
-find_m_tilde(::Type{K}) where {K<:typeof(implicit_integrator!)} = 3
-find_m_tilde(::Type{K}) where {K<:typeof(exact_drift!)} = 3
-find_m_tilde(::Type{K}) where {K<:typeof(sks_multipole!)} = 4
-find_m_tilde(::Type{K}) where {K<:typeof(dkd_multipole!)} = 4
-find_m_tilde(::Type{K}) where {K<:typeof(bkb_multipole!)} = 2
-find_m_tilde(::Type{K}) where {K<:typeof(mkm_quadrupole!)} = 4
-find_m_tilde(::Type{K}) where {K} = 0 # Fallback
