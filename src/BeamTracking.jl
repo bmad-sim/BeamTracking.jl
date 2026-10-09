@@ -72,8 +72,12 @@ include("kernels/runge_kutta.jl")
 
 include("utils/find_stuff.jl")
 
-# 
-"""
+# Empty tracking method to be imported+implemented by package extensions.
+# Also needed here to make the association between docstring and `track!` name.
+
+function track! end
+
+@doc """
     track!(bunch::Bunch, ele::LineElement; kwargs...) -> bunch
     track!(bunch::Bunch, bl::Beamline; kwargs...) -> bunch
     track!(bunch::Bunch, branch::Branch; kwargs...) -> bunch
@@ -131,7 +135,6 @@ bunch = Bunch(zeros(10, 6))
 bunch.v[:, BeamTracking.XI] .= 1e-3
 track!(bunch, fodo)  # bunch.species and bunch.p_over_q_ref are set from fodo
 ```
-"""
-function track! end
+""" track!
 
 end
