@@ -1,5 +1,111 @@
 # Curved magnetic
-@makekernel fastgtpsa=true function fringe!(i, coords::Coords, a, tilde_m, Kn0, w, w_inv, e1, e2, sign)
+#
+# Second order hard edge bend fringe of Hwang and Lee with the quadrupole terms of
+# Iselin (Bmad manual "Bend Second Order Fringe Map"). The Lie generator is
+#   Ω = K(x, y, pz) + sign * B(x, px, y, py, pz)
+# with K independent of the transverse momenta and B linear in them. Instead of
+# truncating exp(:Ω:) at second order, which is not symplectic, the map is
+#   exp(:K/2:) exp(:sign*B1:) exp(:sign*B2:) exp(:sign*B3:) exp(:K/2:)
+# where B = B1 + B2 + B3 and each factor is integrated exactly. Since {K, {K, B}} = 0,
+# this agrees with exp(:Ω:) through second order and is exactly symplectic.
+# edge1_int and edge2_int are fint*hgap in Bmad.
+@makekernel fastgtpsa=true function fringe!(i, coords::Coords, a, tilde_m, Kn0, Kn1, w, w_inv, e1, e2, edge1_int, edge2_int, sign)
+  v = coords.v
+  alive = (coords.state[i] == STATE_ALIVE)
+
+  if sign > 0
+    e = e1
+    edge_int = edge1_int
+  else
+    e = e2
+    edge_int = edge2_int
+  end
+
+  if isnothing(Kn1)
+    k1 = zero(Kn0)
+  else
+    k1 = Kn1
+  end
+
+  sn, cs = sincos(e)
+  t = sn/cs
+  t2 = t*t
+  sec2 = 1/(cs*cs)
+  f = Kn0*t
+
+  if !isnothing(w)
+    rotation!(i, coords, w, 0)
+  end
+
+  if !isnothing(coords.q)
+    b_vec = (-v[i,YI]*f, -v[i,XI]*f, sign*v[i,YI]*Kn0)
+    rotate_spin_field!(i, coords, a, 0, tilde_m, 0, 0, (0, 0, 0), b_vec, 1/2)
+  end
+
+  rel_p = 1 + v[i,PZI]
+  # K = f*(x^2 - y^2)/2 + (cy2*y^2 + cx3*x^3 + cxy2*x*y^2)/rel_p
+  cy2  = Kn0*Kn0*sec2/cs*(1 + sn*sn)*edge_int
+  cx3  = (4*k1*t - Kn0*Kn0*t2*t)/12
+  cxy2 = (-4*k1*t + Kn0*Kn0*t*sec2)/4
+  # B = c*(t2*x^2*px - 2*t2*x*y*py - sec2*y^2*px)
+  c = sign*Kn0/(2*rel_p)
+
+  x  = v[i,XI]
+  px = v[i,PXI]
+  y  = v[i,YI]
+  py = v[i,PYI]
+  z  = v[i,ZI]
+
+  # exp(:K/2:)
+  px = px + (f*x + (3*cx3*x*x + cxy2*y*y)/rel_p)/2
+  py = py + (-f*y + 2*(cy2 + cxy2*x)*y/rel_p)/2
+  z  = z  + (cy2*y*y + cx3*x*x*x + cxy2*x*y*y)/(2*rel_p*rel_p)
+
+  # exp(:B1:), B1 = c*t2*x^2*px
+  u = 1 + c*t2*x
+  good_u = (u > 0)
+  coords.state[i] = vifelse(!good_u & alive, STATE_LOST, coords.state[i])
+  alive = (coords.state[i] == STATE_ALIVE)
+  u = vifelse(good_u, u, one(u))
+  z  = z + c*t2*x*x*px/rel_p
+  x  = x/u
+  px = px*u*u
+
+  # exp(:B2:), B2 = -c*sec2*y^2*px
+  z  = z - c*sec2*y*y*px/rel_p
+  x  = x + c*sec2*y*y
+  py = py - 2*c*sec2*y*px
+
+  # exp(:B3:), B3 = -2*c*t2*x*y*py
+  z  = z - 2*c*t2*x*y*py/rel_p
+  px = px - 2*c*t2*y*py
+  ex = exp(2*c*t2*x)
+  y  = y*ex
+  py = py/ex
+
+  # exp(:K/2:)
+  px = px + (f*x + (3*cx3*x*x + cxy2*y*y)/rel_p)/2
+  py = py + (-f*y + 2*(cy2 + cxy2*x)*y/rel_p)/2
+  z  = z  + (cy2*y*y + cx3*x*x*x + cxy2*x*y*y)/(2*rel_p*rel_p)
+
+  v[i,XI]  = vifelse(alive, x,  v[i,XI])
+  v[i,PXI] = vifelse(alive, px, v[i,PXI])
+  v[i,YI]  = vifelse(alive, y,  v[i,YI])
+  v[i,PYI] = vifelse(alive, py, v[i,PYI])
+  v[i,ZI]  = vifelse(alive, z,  v[i,ZI])
+
+  if !isnothing(coords.q)
+    rotate_spin_field!(i, coords, a, 0, tilde_m, 0, 0, (0, 0, 0), b_vec, 1/2)
+  end
+
+  if !isnothing(w_inv)
+    rotation!(i, coords, w_inv, 0)
+  end
+end
+
+
+# Curved magnetic, linear hard edge kick only. Used by exact bend tracking.
+@makekernel fastgtpsa=true function linear_bend_fringe!(i, coords::Coords, a, tilde_m, Kn0, w, w_inv, e1, e2, sign)
   v = coords.v
   alive = (coords.state[i] == STATE_ALIVE)
 
