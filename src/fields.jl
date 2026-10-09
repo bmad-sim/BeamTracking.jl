@@ -28,6 +28,20 @@ during unpacking. Return `(Ex, Ey, Ez, Bx, By, Bz)` in the coefficients' units.
 end
 
 """
+    tilted_field(x, y, s, t, parameters)
+
+Evaluate a field defined in a frame rotated by `tilt` about the `s` axis, for example the frame
+of a bend with `tilt_ref = tilt`. `parameters` is `(field_function, field_parameters, cos(tilt),
+sin(tilt))`. The coordinates are rotated into the tilted frame, `field_function` is evaluated
+there, and the transverse field components are rotated back.
+"""
+@inline function tilted_field(x, y, s, t, parameters)
+  field_function, field_parameters, ct, st = parameters
+  Ex, Ey, Ez, Bx, By, Bz = field_function(ct*x + st*y, -st*x + ct*y, s, t, field_parameters)
+  return (ct*Ex - st*Ey, st*Ex + ct*Ey, Ez, ct*Bx - st*By, st*Bx + ct*By, Bz)
+end
+
+"""
     normalized_field_at(field_function, parameters, normalized, x, y, s, t, inv_rigidity)
 
 Evaluate `field_function(x, y, s, t, parameters)`. `normalized` is `Val(true)` for an evaluator that
