@@ -1,4 +1,4 @@
-# RungeKutta only constructs the body field integration kernel.
+# RungeKutta only constructs the body field integration kernel, which includes the hard edge fringes.
 # Unpacking, reference-ramp, alignment, aperture, and callback
 # are handled by the shared unpacking step.
 
@@ -11,6 +11,91 @@
   bn, bs = get_strengths(bmultipoleparams, L, p_over_q_ref)
   parameters = mm isa Integer ? (SA[mm], SA[bn], SA[bs]) : (mm, bn, bs)
   return ((BeamTracking.multipole_field,), (parameters,), (Val(true),))
+end
+
+# Hard edge fringe parameters for the fringe! kernels, built as for the symplectic methods.
+# A bend gets the curved (Hwang) fringe using its dipole and quadrupole strengths. Otherwise
+# the straight fringe is used for the solenoid, dipole, quadrupole, and (if
+# tm.multipole_fringe_on) higher order multipole components. Custom field functions get no
+# fringe kick. A nonzero bend edge angle is only allowed if the fringe at that end is on.
+# Also returns the solenoid strength for the canonical/mechanical momentum shift at the edges.
+@inline function runge_kutta_edge_params(tm::RungeKutta, bunch, bendparams, bmultipoleparams, L, p_over_q_ref)
+  fin = fringe_in(tm.fringe_at)
+  fout = fringe_out(tm.fringe_at)
+
+  if isactive(bendparams)
+    (bendparams.e1 == 0 || fin isa Val{true}) ||
+      error("RungeKutta tracking with a nonzero bend edge angle e1 requires the entrance fringe to be on")
+    (bendparams.e2 == 0 || fout isa Val{true}) ||
+      error("RungeKutta tracking with a nonzero bend edge angle e2 requires the exit fringe to be on")
+  end
+
+  tm.fringe_at == Fringe.NoEnd && return nothing, nothing, fin, fout
+
+  tilde_m, _, _ = BeamTracking.drift_params(bunch.species, p_over_q_ref)
+  a = gyromagnetic_anomaly(bunch.species)
+
+  if isactive(bmultipoleparams)
+    mm = getfield(bmultipoleparams, :order)
+    kn, ks = get_strengths(bmultipoleparams, L, p_over_q_ref)
+    if mm isa Integer
+      mm, kn, ks = SA[mm], SA[kn], SA[ks]
+    end
+  else
+    mm, kn, ks = nothing, nothing, nothing
+  end
+
+  if isactive(bendparams)
+    Kn0 = zero(L)
+    Kn1 = nothing
+    if !isnothing(mm)
+      for j in 1:length(mm)
+        if mm[j] == 1
+          Kn0 = kn[j]
+          ks[j] ≈ 0 || error("A skew dipole field cannot yet be used with a bend fringe")
+        elseif mm[j] == 2
+          Kn1 = kn[j]
+        end
+      end
+    end
+    ntilt = -bendparams.tilt_ref
+    if ntilt ≈ 0
+      w = nothing
+      w_inv = nothing
+    else
+      w = rot_quaternion(0, 0, ntilt)
+      w_inv = inv_rot_quaternion(0, 0, ntilt)
+    end
+    edge_params = (a, tilde_m, Kn0, Kn1, w, w_inv, bendparams.e1, bendparams.e2,
+                   bendparams.edge1_int, bendparams.edge2_int)
+    return edge_params, nothing, fin, fout
+  end
+
+  isnothing(mm) && return nothing, nothing, fin, fout
+
+  Ksol = nothing
+  Kn0 = nothing
+  tilt0 = 0
+  for j in 1:length(mm)
+    if mm[j] == 0
+      Ksol = kn[j]
+    elseif mm[j] == 1
+      Kn0 = sqrt(kn[j]^2 + ks[j]^2)
+      tilt0 = atan2(ks[j], kn[j])
+    end
+  end
+  if tilt0 ≈ 0
+    w0 = nothing
+    w0_inv = nothing
+  else
+    w0 = rot_quaternion(0, 0, tilt0)
+    w0_inv = inv_rot_quaternion(0, 0, tilt0)
+  end
+  mm_f, kn_f, ks_f = fringe_multipoles(tm, mm, kn, ks)
+  if isnothing(Ksol) && isnothing(Kn0) && isnothing(mm_f)
+    return nothing, nothing, fin, fout
+  end
+  return (a, tilde_m, Ksol, Kn0, w0, w0_inv, mm_f, kn_f, ks_f), Ksol, fin, fout
 end
 
 @inline runge_kutta_custom_field(::Nothing) = ((), (), ())
@@ -44,11 +129,9 @@ end
   !isactive(fourpotentialparams) || error("RungeKutta tracking does not support FourPotentialParams")
   !isactive(emultipoleparams) || error("RungeKutta tracking does not support electric multipoles")
 
+  edge_params, edge_ksol, fin, fout = runge_kutta_edge_params(tm, bunch, bendparams, bmultipoleparams, L, p_over_q_ref)
+
   if isactive(bendparams)
-    (bendparams.edge1_int == 0 && bendparams.edge2_int == 0) ||
-      error("edge1_int and edge2_int not yet handled for tracking")
-    (bendparams.e1 == 0 && bendparams.e2 == 0) ||
-      error("RungeKutta tracking does not support nonzero bend edge angles e1 or e2 because fringe tracking is not implemented")
     g_ref = bendparams.g_ref
     tilt_ref = bendparams.tilt_ref
     gx = g_ref * cos(tilt_ref)
@@ -78,6 +161,6 @@ end
   # element-entrance time, by the common kernel path. They stay fixed during
   # all RK substeps.
   params = (beta_0, tilde_m, charge, p0c, mc2, L, ds_step, n_steps,
-            gx, gy, field_functions, field_parameters, field_normalized)
+            gx, gy, field_functions, field_parameters, field_normalized, edge_params, edge_ksol, fin, fout)
   return push(kc, make_kernel_call(BeamTracking.rk4_kernel!, params))
 end

@@ -243,6 +243,17 @@ function fringe_out(f::Fringe.T)
   end
 end
 
+# Multipoles passed to the straight hard edge fringe: the quadrupole, and sextupole and higher
+# orders if tm.multipole_fringe_on. Excluded orders get zero strength so the arrays stay static.
+function fringe_multipoles(tm, mm, kn, ks)
+  use(m) = m == 2 || (m > 2 && tm.multipole_fringe_on)
+  if any(use, mm)
+    return mm, map((m, k) -> use(m) ? k : zero(k), mm, kn), map((m, k) -> use(m) ? k : zero(k), mm, ks)
+  else
+    return nothing, nothing, nothing
+  end
+end
+
 #---------------------------------------------------------------------------------------------------
 """
     rf_step_calc(n_cells, L_active, rf_omega, L) -> n_cells_out, L_active_out
