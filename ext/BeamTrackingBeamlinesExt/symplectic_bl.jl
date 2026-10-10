@@ -440,7 +440,7 @@ end
     w_inv = inv_rot_quaternion(0, 0, ntilt)
   end
   a = gyromagnetic_anomaly(bunch.species)
-  edge_params = (a, tilde_m, Kn0, w, w_inv, e1, e2)
+  edge_params = (a, tilde_m, beta_0, Kn0, w, w_inv, e1, e2)
   q = chargeof(bunch.species)
   mc2 = massof(bunch.species)
   E_ref = mc2/tilde_m/beta_0
@@ -474,7 +474,7 @@ end
     w_inv = inv_rot_quaternion(0, 0, ntilt)
   end
   a = gyromagnetic_anomaly(bunch.species)
-  edge_params = (a, tilde_m, Kn0, w, w_inv, e1, e2)
+  edge_params = (a, tilde_m, beta_0, Kn0, w, w_inv, e1, e2)
   q = chargeof(bunch.species)
   mc2 = massof(bunch.species)
   E_ref = mc2/tilde_m/beta_0

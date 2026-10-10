@@ -681,7 +681,19 @@
     @test b0.coords.v ≈ v_expected
     @test b0.coords.q ≈ q_expected 
 
-    # Dipole hard-edge fringe:
+    # Curved dipole hard-edge fringe:
+    ele = LineElement(g_ref=0.1, Kn0=0.09, e1=-0.2, e2=0.3, L=1.0, tracking_method=BendKick(order=2, fringe_at=Fringe.BothEnds))
+    v = [0.01 0.02 0.03 0.04 0.05 0.06]
+    q = [1.0 0.0 0.0 0.0]
+    b0 = Bunch(v, q, p_over_q_ref=p_over_q_ref, species=Species("electron"))
+    bl = Beamline([ele], p_over_q_ref=p_over_q_ref, species_ref=Species("electron"))
+    track!(b0, bl)
+    v_expected = [-0.0185407314436441 -0.07999999999999999 0.06773781043103988 0.0394311017804856 0.0486403579195499 0.06]
+    q_expected = [0.9988283540819322 0.00022881568956878987 -0.04835817826999246 0.0018312071881943616]
+    @test b0.coords.v ≈ v_expected
+    @test b0.coords.q ≈ q_expected
+
+    # Straight dipole hard-edge fringe:
     ele = LineElement(Kn0=0.1, L=1.0, tracking_method=BendKick(order=2, fringe_at=Fringe.BothEnds))
     v = [0.01 0.02 0.03 0.04 0.05 0.06]
     q = [1.0 0.0 0.0 0.0]
@@ -693,7 +705,7 @@
     @test b0.coords.v ≈ v_expected
     @test b0.coords.q ≈ q_expected
     
-    # Rotated dipole hard-edge fringe:
+    # Straight rotated dipole hard-edge fringe:
     ele = LineElement(Kn0=0.1, Ks0=-0.3, L=1.0, tracking_method=BendKick(order=2, fringe_at=Fringe.BothEnds))
     v = [0.01 0.02 0.03 0.04 0.05 0.06]
     q = [1.0 0.0 0.0 0.0]
