@@ -10,6 +10,7 @@ end
 end
 
 @inline function thick_bend_pure_bdipole(tm::Exact, kc, p_over_q_ref, bunch, bendparams, bm1, L)
+  (bendparams.edge1_int == 0 && bendparams.edge2_int == 0) || error("edge1_int and edge2_int not yet handled for Exact tracking")
   g = bendparams.g_ref
   tilt = bendparams.tilt_ref
   if tm.fringe_at == Fringe.BothEnds || tm.fringe_at == Fringe.EntranceEnd
@@ -42,6 +43,7 @@ end
 end
 
 @inline function thick_bend_no_field(tm::Exact, kc, p_over_q_ref, bunch, bendparams, L)
+  (bendparams.edge1_int == 0 && bendparams.edge2_int == 0) || error("edge1_int and edge2_int not yet handled for Exact tracking")
   g = bendparams.g_ref
   tilt = bendparams.tilt_ref
   e1 = bendparams.e1

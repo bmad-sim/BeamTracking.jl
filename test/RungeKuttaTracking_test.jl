@@ -145,7 +145,8 @@ end
     @test rk_nothing.ds_step == 0.2
     @test rk_nothing.n_steps == -1
 
-    @test fieldnames(RungeKutta) == (:ds_step, :n_steps, :ibs_damping_on, :ibs_fluctuations_on)
+    @test fieldnames(RungeKutta) == (:ds_step, :n_steps, :ibs_damping_on, :ibs_fluctuations_on,
+                                     :fringe_at, :multipole_fringe_on)
     @test RungeKutta(0.1, -1) == rk_ds
     @test_throws MethodError RungeKutta(em_field=rk_test_uniform_field)
 
@@ -481,9 +482,10 @@ end
     species, R, _, _, _, _, _, _ = setup_particle()
     initial = [0.001 0.01 -0.002 0.003 0.0 0.0]
     external = (0.0, 0.0, 0.0, 0.0, 0.004, 0.0)
+    # No fringe since the reference map is a custom field, which gets no fringe kick.
     element = Quadrupole(L=0.5, Kn1=0.2,
       em_field=rk_test_uniform_field, em_field_params=external,
-      tracking_method=RungeKutta(n_steps=5))
+      tracking_method=RungeKutta(n_steps=5, fringe_at=Fringe.NoEnd))
     # Independent complete map, without BMultipoleParams, gives the same total field.
     complete_map = (x,y,s,t,p) -> (zero(x), zero(x), zero(x),
                                         p[1]*y, p[1]*x + p[2], zero(x))
@@ -557,7 +559,7 @@ end
       )
       expected = similar(initial)
       for i in axes(initial, 1)
-        line = Beamline([Drift(L=0.5, Bn0=expected_strengths[i], tracking_method=RungeKutta(n_steps=5))],
+        line = Beamline([Drift(L=0.5, Bn0=expected_strengths[i], tracking_method=RungeKutta(n_steps=5, fringe_at=Fringe.NoEnd))],
                         p_over_q_ref=p_over_q_ref, species_ref=species)
         bunch = Bunch(copy(initial[i:i, :]), p_over_q_ref=p_over_q_ref, species=species)
         track!(bunch, line; use_KA=false, use_explicit_SIMD=false)
@@ -893,20 +895,20 @@ end
     @test all(isfinite, bunch.coords.v)
   end
 
-  @testset "Unsupported bend edge angles" begin
+  @testset "Bend edge angles without the fringe at that end" begin
     using Beamlines
 
     species, p_over_q_ref, _, _, _, _, _, _ = setup_particle()
     bunch = Bunch(zeros(1, 6), p_over_q_ref=p_over_q_ref, species=species)
 
     entrance_edge = SBend(L=1.0, g_ref=0.1, e1=0.01,
-                          tracking_method=RungeKutta())
+                          tracking_method=RungeKutta(fringe_at=Fringe.ExitEnd))
     entrance_line = Beamline([entrance_edge], p_over_q_ref=p_over_q_ref,
                              species_ref=species)
     @test_throws ErrorException track!(bunch, entrance_line)
 
     exit_edge = SBend(L=1.0, g_ref=0.1, e2=0.01,
-                      tracking_method=RungeKutta())
+                      tracking_method=RungeKutta(fringe_at=Fringe.EntranceEnd))
     exit_line = Beamline([exit_edge], p_over_q_ref=p_over_q_ref,
                          species_ref=species)
     @test_throws ErrorException track!(bunch, exit_line)
