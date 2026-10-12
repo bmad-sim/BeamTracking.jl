@@ -121,7 +121,7 @@
     @test quaternion_coeffs_approx_equal(q_expected, q_z, 0.0)
 
     # Drift yet another way: 
-    ele = LineElement(L=1.0, Kn2=0.0, Kn1=0.0, tracking_method=MatrixKick(order=2))   
+    ele = LineElement(L=1.0, Kn2=0.0, Kn1=0.0, tracking_method=MatrixKick(order=2, fringe_at=Fringe.NoEnd))   
     v = collect(transpose(@vars(D10)))
     q = TPS64{D10}[1 0 0 0]
     b0 = Bunch(v, q, p_over_q_ref=p_over_q_ref, species=Species("electron"))
@@ -413,7 +413,7 @@
     @test quaternion_coeffs_approx_equal(q_expected, q_z, 4e-8)
 
     # Pure sextupole:
-    ele = LineElement(L=2.0, Kn2=10.0, tilt2=0.2*pi, tracking_method=Symplectic(order=2))
+    ele = LineElement(L=2.0, Kn2=10.0, tilt2=0.2*pi, tracking_method=Symplectic(order=2, fringe_at=Fringe.NoEnd))
     v = collect(transpose(@vars(D10)))
     q = TPS64{D10}[1 0 0 0]
     b0 = Bunch(v, q, p_over_q_ref=p_over_q_ref, species=Species("electron"))
@@ -425,7 +425,7 @@
     @test quaternion_coeffs_approx_equal(q_expected, q_z, 7e-8)
 
     # DK multiple steps:
-    ele = LineElement(L=2.0, Kn2=10.0, tracking_method=Symplectic(order=4, n_steps=2, use_optimized_schemes=false))
+    ele = LineElement(L=2.0, Kn2=10.0, tracking_method=Symplectic(order=4, n_steps=2, use_optimized_schemes=false, fringe_at=Fringe.NoEnd))
     v = collect(transpose(@vars(D10)))
     q = TPS64{D10}[1 0 0 0]
     b0 = Bunch(v, q, p_over_q_ref=p_over_q_ref, species=Species("electron"))
@@ -437,7 +437,7 @@
     @test quaternion_coeffs_approx_equal(q_expected, q_z, 2e-7)
 
     # Sextupole with decapole:
-    ele = LineElement(L=2.0, Kn2=10.0, Kn4=100.0, tracking_method=Symplectic(order=2))
+    ele = LineElement(L=2.0, Kn2=10.0, Kn4=100.0, tracking_method=Symplectic(order=2, fringe_at=Fringe.NoEnd))
     v = collect(transpose(@vars(D10)))
     q = TPS64{D10}[1 0 0 0]
     b0 = Bunch(v, q, p_over_q_ref=p_over_q_ref, species=Species("electron"))
@@ -449,7 +449,7 @@
     @test quaternion_coeffs_approx_equal(q_expected, q_z, 6e-8)
 
     # Order 4:
-    ele = LineElement(L=2.0, Kn2=10.0, Kn4=100.0, tracking_method=Symplectic(order=4, use_optimized_schemes=false))
+    ele = LineElement(L=2.0, Kn2=10.0, Kn4=100.0, tracking_method=Symplectic(order=4, use_optimized_schemes=false, fringe_at=Fringe.NoEnd))
     v = collect(transpose(@vars(D10)))
     q = TPS64{D10}[1 0 0 0]
     b0 = Bunch(v, q, p_over_q_ref=p_over_q_ref, species=Species("electron"))
@@ -461,7 +461,7 @@
     @test quaternion_coeffs_approx_equal(q_expected, q_z, 2e-7)
 
     # Order 6:
-    ele = LineElement(L=2.0, Kn2=10.0, Kn4=100.0, tracking_method=Symplectic(order=6, use_optimized_schemes=false))
+    ele = LineElement(L=2.0, Kn2=10.0, Kn4=100.0, tracking_method=Symplectic(order=6, use_optimized_schemes=false, fringe_at=Fringe.NoEnd))
     v = collect(transpose(@vars(D10)))
     q = TPS64{D10}[1 0 0 0]
     b0 = Bunch(v, q, p_over_q_ref=p_over_q_ref, species=Species("electron"))
@@ -473,7 +473,7 @@
     @test quaternion_coeffs_approx_equal(q_expected, q_z, 6e-8)
 
     # Order 8:
-    ele = LineElement(L=2.0, Kn2=10.0, Kn4=100.0, tracking_method=Symplectic(order=8, use_optimized_schemes=false))
+    ele = LineElement(L=2.0, Kn2=10.0, Kn4=100.0, tracking_method=Symplectic(order=8, use_optimized_schemes=false, fringe_at=Fringe.NoEnd))
     v = collect(transpose(@vars(D10)))
     q = TPS64{D10}[1 0 0 0]
     b0 = Bunch(v, q, p_over_q_ref=p_over_q_ref, species=Species("electron"))
@@ -534,7 +534,7 @@
     @test b0.coords.q ≈ q_expected
 
     # With sextupole:
-    ele = LineElement(L=4.01667, voltage=3321.0942126011, zero_phase=PhaseRef.AboveTransition, rf_frequency=591142.68014977, phi0=0.1, Kn2=1.3, tracking_method=Symplectic(order=10, n_steps=3))
+    ele = LineElement(L=4.01667, voltage=3321.0942126011, zero_phase=PhaseRef.AboveTransition, rf_frequency=591142.68014977, phi0=0.1, Kn2=1.3, tracking_method=Symplectic(order=10, n_steps=3, fringe_at=Fringe.NoEnd))
     v = [0.01 0.02 0.03 0.04 0.05 0.06]
     q = [1.0 0.0 0.0 0.0]
     b0 = Bunch(v, q, p_over_q_ref=p_over_q_ref, species=Species("electron"))
@@ -576,7 +576,7 @@
     @test b0.coords.v ≈ v_expected
 
     # Sextupole with deterministic radiation:
-    ele = LineElement(L=0.8, Kn2=1.3, tracking_method=DriftKick(order=6, radiation_damping_on=true))
+    ele = LineElement(L=0.8, Kn2=1.3, tracking_method=DriftKick(order=6, radiation_damping_on=true, fringe_at=Fringe.NoEnd))
     v = [0.01 0.02 0.03 0.04 0.05 0.06]
     b0 = Bunch(v, p_over_q_ref=-18e9/C_LIGHT, species=Species("electron"))
     bl = Beamline([ele], p_over_q_ref=-18e9/C_LIGHT, species_ref=Species("electron"))
@@ -682,6 +682,18 @@
     @test b0.coords.q ≈ q_expected 
 
     # Curved dipole hard-edge fringe:
+    ele = LineElement(g_ref=0.1, Kn0=-0.2, L=1.0, tracking_method=BendKick(order=2, fringe_at=Fringe.BothEnds))
+    v = [0.01 0.02 0.03 0.04 0.05 0.06]
+    q = [1.0 0.0 0.0 0.0]
+    b0 = Bunch(v, q, p_over_q_ref=p_over_q_ref, species=Species("electron"))
+    bl = Beamline([ele], p_over_q_ref=p_over_q_ref, species_ref=Species("electron"))
+    track!(b0, bl)
+    v_expected = [0.17929426789364 0.32549365843005 0.06879567135768 0.03567716316355 0.02464323270473 0.06]
+    q_expected = [0.9889028384384425 0.0014682139996403595 0.1485014361477475 -0.004042763671012137]
+    @test b0.coords.v ≈ v_expected
+    @test b0.coords.q ≈ q_expected
+
+    # Curved dipole hard-edge fringe with edge angles:
     ele = LineElement(g_ref=0.1, Kn0=0.09, e1=-0.2, e2=0.3, L=1.0, tracking_method=BendKick(order=2, fringe_at=Fringe.BothEnds))
     v = [0.01 0.02 0.03 0.04 0.05 0.06]
     q = [1.0 0.0 0.0 0.0]
@@ -700,8 +712,8 @@
     b0 = Bunch(v, q, p_over_q_ref=p_over_q_ref, species=Species("electron"))
     bl = Beamline([ele], p_over_q_ref=p_over_q_ref, species_ref=Species("electron"))
     track!(b0, bl)
-    v_expected = [-0.0185407314436441 -0.07999999999999999 0.06773781043103988 0.0394311017804856 0.0486403579195499 0.06]
-    q_expected = [0.9988283540819322 0.00022881568956878987 -0.04835817826999246 0.0018312071881943616]
+    v_expected = [-0.01847610705200665 -0.08000517519684797 0.06772433569847262 0.03960048843996799 0.048645571400521705 0.06]
+    q_expected = [0.9988283529362899 0.0002288100531053532 -0.04835819292336552 0.001831445801812697]
     @test b0.coords.v ≈ v_expected
     @test b0.coords.q ≈ q_expected
     
@@ -712,8 +724,8 @@
     b0 = Bunch(v, q, p_over_q_ref=p_over_q_ref, species=Species("electron"))
     bl = Beamline([ele], p_over_q_ref=p_over_q_ref, species_ref=Species("electron"))
     track!(b0, bl)
-    v_expected = [-0.018842447675735494 -0.08047978154521343 -0.07557985724639052 -0.25984007281826205 0.04035694664364305 0.06]
-    q_expected = [0.9881264199533176 0.1457095282370502 -0.04872398007162082 -0.0009409235654852521]
+    v_expected = [-0.018952910827766713 -0.07983751458281615 -0.07584583176134443 -0.25851412493322334 0.040287397964589876 0.06]
+    q_expected = [0.9881261571587073 0.14571117425168267 -0.04872439877356082 -0.0009403196883394188]
     @test b0.coords.v ≈ v_expected
     @test b0.coords.q ≈ q_expected 
 

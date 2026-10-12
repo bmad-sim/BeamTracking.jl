@@ -10,10 +10,13 @@ function fringe!(i, coords::Coords, a, tilde_m, beta_0, Kn0, w, w_inv, e1, e2, :
     end
 
     if sign == 1
-      #polar_Y!(i, coords, e1, tilde_m, beta_0, a)
-      exact_wedge!(i, coords, e1, 0, tilde_m, beta_0, a)
+      if !(e1 ≈ 0)
+        polar_Y!(i, coords, e1, tilde_m, beta_0, a)
+      end
     elseif sign == -1
-      exact_wedge!(i, coords, -e2, Kn0, tilde_m, beta_0, a)
+      if !(e2 ≈ 0)
+        exact_wedge!(i, coords, -e2, Kn0, tilde_m, beta_0, a)
+      end
     end
 
     if !isnothing(coords.q)
@@ -57,10 +60,13 @@ function fringe!(i, coords::Coords, a, tilde_m, beta_0, Kn0, w, w_inv, e1, e2, :
     end
 
     if sign == -1
-      #polar_Y!(i, coords, e2, tilde_m, beta_0, a)
-      exact_wedge!(i, coords, e2, 0, tilde_m, beta_0, a)
+      if !(e2 ≈ 0)
+        polar_Y!(i, coords, e2, tilde_m, beta_0, a)
+      end
     elseif sign == 1
-      exact_wedge!(i, coords, -e1, Kn0, tilde_m, beta_0, a)
+      if !(e1 ≈ 0)
+        exact_wedge!(i, coords, -e1, Kn0, tilde_m, beta_0, a)
+      end
     end
 
     if !isnothing(w_inv)
@@ -78,8 +84,8 @@ function fringe!(i, coords::Coords, a, tilde_m, Ksol, Kn0, Ks0, Kn1, Ks1, Kn2, K
     alive = (coords.state[i] == STATE_ALIVE)
     rel_p = 1 + v[i,PZI]
 
-    ax = 0
-    ay = 0
+    ax = zero(v[i,XI])
+    ay = zero(v[i,YI])
 
     if !isnothing(Ksol)
       if sign > 0
@@ -91,9 +97,15 @@ function fringe!(i, coords::Coords, a, tilde_m, Ksol, Kn0, Ks0, Kn1, Ks1, Kn2, K
       end
     end
 
-    # Multipole spin
-    if !isnothing(coords.q) & (!isnothing(Kn0) | !isnothing(Kn1) | !isnothing(Kn2))
+    # Spin
+    if !isnothing(coords.q)
+      bx = zero(v[i,XI])
+      by = zero(v[i,XI])
       bz = zero(v[i,XI])
+      if !isnothing(Ksol)
+        bx += -sign*v[i,XI]*Ksol/2
+        by += -sign*v[i,YI]*Ksol/2
+      end
       if !isnothing(Kn0) & !isnothing(Ks0)
         bz += sign*v[i,YI]*Kn0 + sign*v[i,XI]*Ks0
       end
@@ -105,13 +117,7 @@ function fringe!(i, coords::Coords, a, tilde_m, Ksol, Kn0, Ks0, Kn1, Ks1, Kn2, K
         y2 = v[i,YI]*v[i,YI]
         bz += sign*v[i,YI]*(x2 - y2/3)*Kn2 + sign*v[i,XI]*(x2/3 - y2)*Ks2
       end
-      rotate_spin_field!(i, coords, a, 0, tilde_m, ax, ay, (0, 0, 0), (0, 0, bz), 1/2)
-    end
-
-    # Solenoid spin
-    if !isnothing(coords.q) & !isnothing(Ksol)
-      b_vec = (-sign*v[i,XI]*Ksol/2, -sign*v[i,YI]*Ksol/2, 0)
-      rotate_spin_field!(i, coords, a, 0, tilde_m, ax, ay, (0, 0, 0), b_vec, 1/2)
+      rotate_spin_field!(i, coords, a, 0, tilde_m, ax, ay, (0, 0, 0), (bx, by, bz), 1/2)
     end
 
     # Multipole orbit
@@ -195,9 +201,15 @@ function fringe!(i, coords::Coords, a, tilde_m, Ksol, Kn0, Ks0, Kn1, Ks1, Kn2, K
       end
     end
 
-    # Multipole spin
+    # Spin
     if !isnothing(coords.q)
+      bx = zero(v[i,XI])
+      by = zero(v[i,XI])
       bz = zero(v[i,XI])
+      if !isnothing(Ksol)
+        bx += -sign*v[i,XI]*Ksol/2
+        by += -sign*v[i,YI]*Ksol/2
+      end
       if !isnothing(Kn0) & !isnothing(Ks0)
         bz += sign*v[i,YI]*Kn0 + sign*v[i,XI]*Ks0
       end
@@ -209,13 +221,7 @@ function fringe!(i, coords::Coords, a, tilde_m, Ksol, Kn0, Ks0, Kn1, Ks1, Kn2, K
         y2 = v[i,YI]*v[i,YI]
         bz += sign*v[i,YI]*(x2 - y2/3)*Kn2 + sign*v[i,XI]*(x2/3 - y2)*Ks2
       end
-      rotate_spin_field!(i, coords, a, 0, tilde_m, ax, ay, (0, 0, 0), (0, 0, bz), 1/2)
-    end
-
-    # Solenoid spin
-    if !isnothing(coords.q) & !isnothing(Ksol)
-      b_vec = (-sign*v[i,XI]*Ksol/2, -sign*v[i,YI]*Ksol/2, 0)
-      rotate_spin_field!(i, coords, a, 0, tilde_m, ax, ay, (0, 0, 0), b_vec, 1/2)
+      rotate_spin_field!(i, coords, a, 0, tilde_m, ax, ay, (0, 0, 0), (bx, by, bz), 1/2)
     end
   end end
   return nothing
@@ -265,7 +271,7 @@ end
   rel_p = 1 + v[i,PZI]
   rel_p2 = rel_p*rel_p
 
-  pt2 = rel_p2 - v[i,PYI]*v[i,PYI]
+  pt2 = rel_p2 - py_0*py_0
   good_momenta = (pt2 > 0)
   alive_at_start = (coords.state[i] == STATE_ALIVE)
   coords.state[i] = vifelse(!good_momenta & alive_at_start, STATE_LOST, coords.state[i])
@@ -273,54 +279,38 @@ end
   pt2_1 = one(pt2)
   pt = sqrt(vifelse(good_momenta, pt2, pt2_1))
 
-  arg = v[i,PXI]/pt
-  abs_arg = abs(arg)
-  arg_1 = one(arg)
-  arg_0 = zero(arg)
-  good_arg = (abs_arg < arg_1)
-  coords.state[i] = vifelse(!good_arg & alive, STATE_LOST, coords.state[i])
+  ps2 = pt2 - px_0*px_0
+  good_momenta = (ps2 > 0)
+  alive_at_start = (coords.state[i] == STATE_ALIVE)
+  coords.state[i] = vifelse(!good_momenta & alive_at_start, STATE_LOST, coords.state[i])
   alive = (coords.state[i] == STATE_ALIVE)
+  ps2_1 = one(ps2)
+  ps = sqrt(vifelse(good_momenta, ps2, ps2_1))
 
-  phi1 = theta + asin(vifelse(good_arg, arg, arg_0))
-  gp = Kn0/pt
-  splus, cplus = sincos(phi1)
-  sth, cth = sincos(theta)
-  sgn = vifelse(theta > 0, one(theta), -one(theta))
-  s = v[i,XI]*sth
-
-  cond = cplus*cplus + gp*s*(2*splus - gp*s)
-  good_cond = (cond > 0)
-  coords.state[i] = vifelse(!good_cond & alive, STATE_LOST, coords.state[i])
+  sin_theta, cos_theta = sincos(theta)
+  new_px = v[i,PXI]*cos_theta + (ps - Kn0*v[i,XI])*sin_theta
+  new_ps2 = pt2 - new_px*new_px
+  good_momenta = (new_ps2 > 0)
+  alive_at_start = (coords.state[i] == STATE_ALIVE)
+  coords.state[i] = vifelse(!good_momenta & alive_at_start, STATE_LOST, coords.state[i])
   alive = (coords.state[i] == STATE_ALIVE)
-  cond_1 = one(cond)
-  nasty_sqrt = sqrt(vifelse(good_cond, cond, cond_1))
+  new_ps2_1 = one(new_ps2)
+  new_ps = sqrt(vifelse(good_momenta, new_ps2, new_ps2_1))
 
-  gp_0 = zero(gp)
-  abs_gp = abs(gp)
-  good_gp = (abs_gp > gp_0)
-  gp_1 = one(gp)
-  gp_safe = vifelse(good_gp, gp, gp_1)
-  pos_cplus = (cplus > 0)
-  branch1 = !good_gp | pos_cplus
-  den = vifelse(branch1, nasty_sqrt + cplus, one(cplus))
-  beta = (2*splus - gp*s)/den
-  xi1 = s*beta
-  xi2 = (nasty_sqrt - cplus)/gp_safe
-  xi = vifelse(branch1, xi1, xi2)
+  Lp_over_pt = (theta + atan2(px_0*new_ps - new_px*ps, px_0*new_px + ps*new_ps))/Kn0
+  xi_num = sin_theta*(2*v[i,XI]*px_0*cos_theta + (2*v[i,XI]*ps - Kn0*v[i,XI]*v[i,XI])*sin_theta)
+  xi_den = new_ps + ps*cos_theta - px_0*sin_theta
+  good_xi = !(xi_den ≈ zero(xi_den))
+  alive_at_start = (coords.state[i] == STATE_ALIVE)
+  coords.state[i] = vifelse(!good_xi & alive_at_start, STATE_LOST, coords.state[i])
+  alive = (coords.state[i] == STATE_ALIVE)
+  xi_den_1 = one(xi_den)
+  xi = vifelse(good_xi, xi_num/xi_den, xi_den_1)
 
-  u = sgn*s
-  Lcv = -u
-  e = vifelse(u > 0, one(u), -one(u))  
-  ang1 = sgn*atan2(sgn*e*beta, e)          
-  ang2 = sgn*atan2(xi, u)                   
-  ang = vifelse(branch1, ang1, ang2)
-  thetap = 2*(phi1 - ang)
-  Lp = sgn*sqrt(Lcv*Lcv + xi*xi)/sincu(thetap/2) 
+  new_x  = v[i,XI]*cos_theta + xi
+  new_y  = v[i,YI] + v[i,PYI]*Lp_over_pt
+  new_z  = v[i,ZI] - rel_p*Lp_over_pt
 
-  new_x = v[i,XI]*cth + xi
-  new_px = pt*sin(phi1 - thetap)
-  new_y = v[i,YI] + v[i,PYI]*Lp/pt
-  new_z = v[i,ZI] - rel_p*Lp/pt
   v[i,XI]  = vifelse(alive, new_x,  v[i,XI])
   v[i,PXI] = vifelse(alive, new_px, v[i,PXI])
   v[i,YI]  = vifelse(alive, new_y,  v[i,YI])
@@ -329,20 +319,11 @@ end
   if !isnothing(coords.q) && !isnothing(a)
     q = coords.q
 
-    ps2 = pt2 - px_0*px_0
-    good_momenta = (ps2 > 0)
-    alive_at_start = (coords.state[i] == STATE_ALIVE)
-    coords.state[i] = vifelse(!good_momenta & alive_at_start, STATE_LOST, coords.state[i])
-    alive = (coords.state[i] == STATE_ALIVE)
-    ps2_1 = one(ps2)
-    ps = sqrt(vifelse(good_momenta, ps2, ps2_1))
-
     beta_gamma = rel_p/tilde_m
     beta_gamma2 = beta_gamma*beta_gamma
     gamma_minus_1 = beta_gamma2/(1 + sqrt(1 + beta_gamma2))
     gamma = gamma_minus_1 + 1
-    vt_over_rel_p = Lp/pt
-    factor = vt_over_rel_p*Kn0
+    factor = Lp_over_pt*Kn0
     coeff = a*factor*gamma_minus_1*py_0/rel_p2
 
     o1 = coeff*px_0

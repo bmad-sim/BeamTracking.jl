@@ -119,13 +119,6 @@ end
       Ks2 = ks[j]
     end
   end
-  if tilt0 ≈ 0
-    w0 = nothing
-    w0_inv = nothing
-  else
-    w0 = rot_quaternion(0, 0, tilt0)
-    w0_inv = inv_rot_quaternion(0, 0, tilt0)
-  end
   edge_params = (a, tilde_m, Ksol, Kn0, Ks0, Kn1, Ks1, Kn2, Ks2)
   E_ref = mc2/tilde_m/beta_0
   radiation_params = ifelse(tm.radiation_damping_on, (q, mc2, E_ref), nothing)
@@ -220,12 +213,12 @@ end
   tilde_m, gamsqr_0, beta_0 = BeamTracking.drift_params(bunch.species, p_over_q_ref)
   mm = bm.order
   kn, ks = get_strengths(bm, L, p_over_q_ref)
-  k1 = sqrt(kn^2 + ks^2)
-  tilt = atan2(ks, kn) / 2
   Kn0 = kn[1]
   Ks0 = ks[1]
-  Kn1 = nothing
-  Ks1 = nothing
+  Kn1 = 0
+  Ks1 = 0
+  k1 = 0
+  tilt1 = 0
   Kn2 = nothing
   Ks2 = nothing
   for j in 1:length(mm)
@@ -238,13 +231,6 @@ end
       Kn2 = kn[j]
       Ks2 = ks[j]
     end
-  end
-  if tilt0 ≈ 0
-    w0 = nothing
-    w0_inv = nothing
-  else
-    w0 = rot_quaternion(0, 0, tilt0)
-    w0_inv = inv_rot_quaternion(0, 0, tilt0)
   end
   if tilt1 ≈ 0
     w1 = nothing
