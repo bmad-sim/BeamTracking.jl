@@ -113,6 +113,8 @@ Tracks a particle through a sector bend via exact tracking.
   splus, cplus = sincos(phi1)
   sinc_theta = sincu(theta)
   cosc_theta = one_cos_norm(theta)
+  sin_theta = theta*sinc_theta
+  cos_theta = 1 - theta*theta*cosc_theta
   sgn = sign(L)
   alpha_helper = h*L*sinc_theta
   alpha = alpha_helper*(2*splus - gp*alpha_helper)
@@ -134,12 +136,12 @@ Tracks a particle through a sector bend via exact tracking.
   xi2 = (nasty_sqrt - cplus)/gp_safe
   xi = vifelse(!good_gp | pos_cplus, xi1, xi2)
 
-  Lcv = -sgn*(L*sinc_theta + v[i,XI]*sin(theta)) 
+  Lcv = -sgn*(L*sinc_theta + v[i,XI]*sin_theta) 
   negative_Lcv = -Lcv
   thetap = 2*(phi1 - sgn*atan2(xi, negative_Lcv)) 
   Lp = sgn*sqrt(Lcv*Lcv + xi*xi)/sincu(thetap/2) 
 
-  new_x = v[i,XI]*cos(theta) - L*L*g*cosc_theta + xi
+  new_x = v[i,XI]*cos_theta - L*L*g*cosc_theta + xi
   new_px = pt*sin(phi1 - thetap)
   new_y = v[i,YI] + v[i,PYI]*Lp/pt
   new_z = v[i,ZI] - rel_p*Lp/pt + L*rel_p/sqrt(tilde_m*tilde_m + rel_p*rel_p)/beta_0
@@ -187,9 +189,7 @@ end
   if !isnothing(w)
     rotation!(i, coords, w, 0)
   end
-  fringe!(i, coords, a, tilde_m, Kn0, nothing, nothing, e1, e2, 1)
   exact_bend!(i, coords, theta, g, Kn0, tilde_m, beta_0, a, L)
-  fringe!(i, coords, a, tilde_m, Kn0, nothing, nothing, e1, e2, -1)
   if !isnothing(w_inv)
     rotation!(i, coords, w_inv, 0)
   end
