@@ -1,5 +1,5 @@
 # Curved magnetic
-function fringe!(i, coords::Coords, a, tilde_m, beta_0, Kn0, w, w_inv, e1, e2, ::Val{sign}) where {sign}
+function fringe!(i, coords::Coords, a, tilde_m, beta_0, Kn0, w, w_inv, e1, e2, ::Val{sgn}) where {sgn}
   @inbounds begin @FastGTPSA begin
     v = coords.v
     rel_p = 1 + v[i,PZI]
@@ -9,18 +9,18 @@ function fringe!(i, coords::Coords, a, tilde_m, beta_0, Kn0, w, w_inv, e1, e2, :
       rotation!(i, coords, w, 0)
     end
 
-    if sign == 1
+    if sgn == 1
       if !(e1 ≈ 0)
         polar_Y!(i, coords, e1, tilde_m, beta_0, a)
       end
-    elseif sign == -1
+    elseif sgn == -1
       if !(e2 ≈ 0)
         exact_wedge!(i, coords, -e2, Kn0, tilde_m, beta_0, a)
       end
     end
 
     if !isnothing(coords.q)
-      b_vec = (0, 0, sign*v[i,YI]*Kn0)
+      b_vec = (0, 0, sgn*v[i,YI]*Kn0)
       rotate_spin_field!(i, coords, a, 0, tilde_m, 0, 0, (0, 0, 0), b_vec, 1/2)
     end
     
@@ -36,7 +36,7 @@ function fringe!(i, coords::Coords, a, tilde_m, beta_0, Kn0, w, w_inv, e1, e2, :
     yp_2 = yp*yp
     yp_factor = 1 + yp_2
 
-    y_sqrt2 = 1 + sign*Kn0*xp*yp/(ps*yp_factor)*2*v[i,YI]
+    y_sqrt2 = 1 + sgn*Kn0*xp*yp/(ps*yp_factor)*2*v[i,YI]
     good_sqrt = (y_sqrt2 > 0)
     coords.state[i] = vifelse(!good_sqrt & alive, STATE_LOST, coords.state[i])
     alive = (coords.state[i] == STATE_ALIVE)
@@ -45,9 +45,9 @@ function fringe!(i, coords::Coords, a, tilde_m, beta_0, Kn0, w, w_inv, e1, e2, :
 
     new_y  = 2*v[i,YI]/(1 + y_sqrt)
     new_y2 = new_y*new_y
-    new_py = v[i,PYI] - sign*Kn0*xp/yp_factor*new_y
-    new_x  = v[i,XI]  + sign*Kn0/(2*ps)*new_y2/yp_factor*((1 + xp*xp) - 2*xp*xp*yp_2/yp_factor)
-    new_z  = v[i,ZI]  - sign*Kn0*rel_p*xp/(2*ps2)*(1 - yp_2)/(yp_factor*yp_factor)*new_y2
+    new_py = v[i,PYI] - sgn*Kn0*xp/yp_factor*new_y
+    new_x  = v[i,XI]  + sgn*Kn0/(2*ps)*new_y2/yp_factor*((1 + xp*xp) - 2*xp*xp*yp_2/yp_factor)
+    new_z  = v[i,ZI]  - sgn*Kn0*rel_p*xp/(2*ps2)*(1 - yp_2)/(yp_factor*yp_factor)*new_y2
 
     v[i,XI]  = vifelse(alive, new_x,  v[i,XI])
     v[i,YI]  = vifelse(alive, new_y,  v[i,YI])
@@ -55,15 +55,15 @@ function fringe!(i, coords::Coords, a, tilde_m, beta_0, Kn0, w, w_inv, e1, e2, :
     v[i,ZI]  = vifelse(alive, new_z,  v[i,ZI])
 
     if !isnothing(coords.q)
-      b_vec = (0, 0, sign*v[i,YI]*Kn0)
+      b_vec = (0, 0, sgn*v[i,YI]*Kn0)
       rotate_spin_field!(i, coords, a, 0, tilde_m, 0, 0, (0, 0, 0), b_vec, 1/2)
     end
 
-    if sign == -1
+    if sgn == -1
       if !(e2 ≈ 0)
         polar_Y!(i, coords, e2, tilde_m, beta_0, a)
       end
-    elseif sign == 1
+    elseif sgn == 1
       if !(e1 ≈ 0)
         exact_wedge!(i, coords, -e1, Kn0, tilde_m, beta_0, a)
       end
@@ -78,7 +78,7 @@ end
 
 
 # Straight magnetic
-function fringe!(i, coords::Coords, a, tilde_m, Ksol, Kn0, Ks0, Kn1, Ks1, Kn2, Ks2, ::Val{sign}) where {sign}
+function fringe!(i, coords::Coords, a, tilde_m, Ksol, Kn0, Ks0, Kn1, Ks1, Kn2, Ks2, ::Val{sgn}) where {sgn}
   @inbounds begin @FastGTPSA begin
     v = coords.v
     alive = (coords.state[i] == STATE_ALIVE)
@@ -88,7 +88,7 @@ function fringe!(i, coords::Coords, a, tilde_m, Ksol, Kn0, Ks0, Kn1, Ks1, Kn2, K
     ay = zero(v[i,YI])
 
     if !isnothing(Ksol)
-      if sign > 0
+      if sgn > 0
         ax = zero(v[i,YI]*Ksol)
         ay = zero(v[i,XI]*Ksol)
       else
@@ -103,19 +103,19 @@ function fringe!(i, coords::Coords, a, tilde_m, Ksol, Kn0, Ks0, Kn1, Ks1, Kn2, K
       by = zero(v[i,XI])
       bz = zero(v[i,XI])
       if !isnothing(Ksol)
-        bx += -sign*v[i,XI]*Ksol/2
-        by += -sign*v[i,YI]*Ksol/2
+        bx += -sgn*v[i,XI]*Ksol/2
+        by += -sgn*v[i,YI]*Ksol/2
       end
       if !isnothing(Kn0) & !isnothing(Ks0)
-        bz += sign*v[i,YI]*Kn0 + sign*v[i,XI]*Ks0
+        bz += sgn*v[i,YI]*Kn0 + sgn*v[i,XI]*Ks0
       end
       if !isnothing(Kn1) & !isnothing(Ks1)
-        bz += sign*v[i,XI]*v[i,YI]*Kn1 + sign/2*(v[i,XI]*v[i,XI] - v[i,YI]*v[i,YI])*Ks1
+        bz += sgn*v[i,XI]*v[i,YI]*Kn1 + sgn/2*(v[i,XI]*v[i,XI] - v[i,YI]*v[i,YI])*Ks1
       end
       if !isnothing(Kn2) & !isnothing(Ks2)
         x2 = v[i,XI]*v[i,XI]
         y2 = v[i,YI]*v[i,YI]
-        bz += sign*v[i,YI]*(x2 - y2/3)*Kn2 + sign*v[i,XI]*(x2/3 - y2)*Ks2
+        bz += sgn*v[i,YI]*(x2 - y2/3)*Kn2 + sgn*v[i,XI]*(x2/3 - y2)*Ks2
       end
       rotate_spin_field!(i, coords, a, 0, tilde_m, ax, ay, (0, 0, 0), (bx, by, bz), 1/2)
     end
@@ -137,8 +137,8 @@ function fringe!(i, coords::Coords, a, tilde_m, Ksol, Kn0, Ks0, Kn1, Ks1, Kn2, K
       y4 = y2*y2
 
       if !isnothing(Kn0) & !isnothing(Ks0)
-        Kn0_over_rel_p = sign*Kn0/rel_p
-        Ks0_over_rel_p = sign*Ks0/rel_p
+        Kn0_over_rel_p = sgn*Kn0/rel_p
+        Ks0_over_rel_p = sgn*Ks0/rel_p
 
         fx_over_rel_p += -Kn0_over_rel_p/8*(x2 + 3*y2) - Ks0_over_rel_p/4*xy
         fy_over_rel_p += Kn0_over_rel_p/4*xy + Ks0_over_rel_p/8*(3*x2 + y2)
@@ -147,8 +147,8 @@ function fringe!(i, coords::Coords, a, tilde_m, Ksol, Kn0, Ks0, Kn1, Ks1, Kn2, K
         betax += (Kn0_over_rel_p*v[i,YI] + 3*Ks0_over_rel_p*v[i,XI])/4
       end
       if !isnothing(Kn1) & !isnothing(Ks1)
-        Kn1_over_rel_p = sign*Kn1/rel_p
-        Ks1_over_rel_p = sign*Ks1/rel_p
+        Kn1_over_rel_p = sgn*Kn1/rel_p
+        Ks1_over_rel_p = sgn*Ks1/rel_p
 
         fx_over_rel_p += -Kn1_over_rel_p/12*v[i,XI]*(x2 + 3*y2) + Ks1_over_rel_p/6*y3
         fy_over_rel_p += Kn1_over_rel_p/12*v[i,YI]*(3*x2 + y2) + Ks1_over_rel_p/6*x3
@@ -157,8 +157,8 @@ function fringe!(i, coords::Coords, a, tilde_m, Ksol, Kn0, Ks0, Kn1, Ks1, Kn2, K
         betax += v[i,XI]/2*(Ks1_over_rel_p*v[i,XI] + Kn1_over_rel_p*v[i,YI])
       end
       if !isnothing(Kn2) & !isnothing(Ks2)
-        Kn2_over_rel_p = sign*Kn2/rel_p
-        Ks2_over_rel_p = sign*Ks2/rel_p
+        Kn2_over_rel_p = sgn*Kn2/rel_p
+        Ks2_over_rel_p = sgn*Ks2/rel_p
 
         fx_over_rel_p += -Kn2_over_rel_p/48*(3*x4 + 6*x2*y2 - 5*y4) + Ks2_over_rel_p/12*xy*(x2 + 3*y2)
         fy_over_rel_p += Kn2_over_rel_p/12*xy*(3*x2 + y2) + Ks2_over_rel_p/48*(5*x4 - 6*x2*y2 - 3*y4)
@@ -192,7 +192,7 @@ function fringe!(i, coords::Coords, a, tilde_m, Ksol, Kn0, Ks0, Kn1, Ks1, Kn2, K
 
     # Solenoid orbit
     if !isnothing(Ksol)
-      if sign > 0
+      if sgn > 0
         ax = -v[i,YI]*Ksol/2
         ay =  v[i,XI]*Ksol/2
       else
@@ -207,19 +207,19 @@ function fringe!(i, coords::Coords, a, tilde_m, Ksol, Kn0, Ks0, Kn1, Ks1, Kn2, K
       by = zero(v[i,XI])
       bz = zero(v[i,XI])
       if !isnothing(Ksol)
-        bx += -sign*v[i,XI]*Ksol/2
-        by += -sign*v[i,YI]*Ksol/2
+        bx += -sgn*v[i,XI]*Ksol/2
+        by += -sgn*v[i,YI]*Ksol/2
       end
       if !isnothing(Kn0) & !isnothing(Ks0)
-        bz += sign*v[i,YI]*Kn0 + sign*v[i,XI]*Ks0
+        bz += sgn*v[i,YI]*Kn0 + sgn*v[i,XI]*Ks0
       end
       if !isnothing(Kn1) & !isnothing(Ks1)
-        bz += sign*v[i,XI]*v[i,YI]*Kn1 + sign/2*(v[i,XI]*v[i,XI] - v[i,YI]*v[i,YI])*Ks1
+        bz += sgn*v[i,XI]*v[i,YI]*Kn1 + sgn/2*(v[i,XI]*v[i,XI] - v[i,YI]*v[i,YI])*Ks1
       end
       if !isnothing(Kn2) & !isnothing(Ks2)
         x2 = v[i,XI]*v[i,XI]
         y2 = v[i,YI]*v[i,YI]
-        bz += sign*v[i,YI]*(x2 - y2/3)*Kn2 + sign*v[i,XI]*(x2/3 - y2)*Ks2
+        bz += sgn*v[i,YI]*(x2 - y2/3)*Kn2 + sgn*v[i,XI]*(x2/3 - y2)*Ks2
       end
       rotate_spin_field!(i, coords, a, 0, tilde_m, ax, ay, (0, 0, 0), (bx, by, bz), 1/2)
     end
@@ -229,7 +229,7 @@ end
 
 
 # Straight electric
-function fringe!(i, coords::Coords, a, tilde_m, kE, w, w_inv, ::Val{sign}) where {sign}
+function fringe!(i, coords::Coords, a, tilde_m, kE, w, w_inv, ::Val{sgn}) where {sgn}
   @inbounds begin @FastGTPSA begin
     if !isnothing(coords.q)
       if !isnothing(w)
@@ -238,9 +238,9 @@ function fringe!(i, coords::Coords, a, tilde_m, kE, w, w_inv, ::Val{sign}) where
 
       beta_0 = 1/sqrt(1 + tilde_m*tilde_m)
       phi = -kE*coords.v[i,XI]
-      e_vec = (0, 0, -sign*c_light(eltype(coords.v))*phi)
+      e_vec = (0, 0, -sgn*c_light(eltype(coords.v))*phi)
 
-      if sign > 0
+      if sgn > 0
         phi_in = zero(phi)
         phi_out = phi
       else
