@@ -5,7 +5,7 @@
 @inline function order_two_integrator!(i, coords::Coords, ker, params, photon_params, ds_step, n_steps, edge_params, ::Val{fringe_in}, ::Val{fringe_out}, use_optimized_schemes, L) where {fringe_in, fringe_out}
   @inbounds begin
     if !isnothing(edge_params) && fringe_in
-      fringe!(i, coords, edge_params..., 1)
+      fringe!(i, coords, edge_params..., Val{1}())
     end
     s = 0
     if !isnothing(photon_params)
@@ -26,7 +26,7 @@
       stochastic_radiation!(i, coords, s, photon_params..., ds_step / 2)
     end
     if !isnothing(edge_params) && fringe_out
-      fringe!(i, coords, edge_params..., -1)
+      fringe!(i, coords, edge_params..., Val{-1}())
     end
   end
   return nothing
@@ -55,7 +55,7 @@ end
       w0 = $(c[1]) * ds_step
       w1 = $(c[2]) * ds_step
       if !isnothing(edge_params) && fringe_in
-        fringe!(i, coords, edge_params..., 1)
+        fringe!(i, coords, edge_params..., Val{1}())
       end
       s = 0
       if !isnothing(photon_params)
@@ -100,7 +100,7 @@ end
         stochastic_radiation!(i, coords, s, photon_params..., ds_step / 2)
       end
       if !isnothing(edge_params) && fringe_out
-        fringe!(i, coords, edge_params..., -1)
+        fringe!(i, coords, edge_params..., Val{-1}())
       end
     end
     return nothing
@@ -152,7 +152,7 @@ end
         w3 = $(c[4]) * ds_step
       end
       if !isnothing(edge_params)  && fringe_in
-        fringe!(i, coords, edge_params..., 1)
+        fringe!(i, coords, edge_params..., Val{1}())
       end
       s = 0
       if !isnothing(photon_params)
@@ -229,7 +229,7 @@ end
         stochastic_radiation!(i, coords, s, photon_params..., ds_step / 2)
       end
       if !isnothing(edge_params) && fringe_out
-        fringe!(i, coords, edge_params..., -1)
+        fringe!(i, coords, edge_params..., Val{-1}())
       end
     end
     return nothing
@@ -297,7 +297,7 @@ end
         w7 = $(c[8]) * ds_step
       end
       if !isnothing(edge_params) && fringe_in
-        fringe!(i, coords, edge_params..., 1)
+        fringe!(i, coords, edge_params..., Val{1}())
       end
       s = 0
       if !isnothing(photon_params)
@@ -406,7 +406,7 @@ end
         stochastic_radiation!(i, coords, s, photon_params..., ds_step / 2)
       end
       if !isnothing(edge_params) && fringe_out
-        fringe!(i, coords, edge_params..., -1)
+        fringe!(i, coords, edge_params..., Val{-1}())
       end
     end
     return nothing
@@ -460,7 +460,7 @@ end
       w16 = $(c[17])* ds_step
       w17 = $(c[18])* ds_step
       if !isnothing(edge_params) && fringe_in
-        fringe!(i, coords, edge_params..., 1)
+        fringe!(i, coords, edge_params..., Val{1}())
       end
       s = 0
       if !isnothing(photon_params)
@@ -617,7 +617,7 @@ end
         stochastic_radiation!(i, coords, s, photon_params..., ds_step / 2)
       end
       if !isnothing(edge_params) && fringe_out
-        fringe!(i, coords, edge_params..., -1)
+        fringe!(i, coords, edge_params..., Val{-1}())
       end
     end
     return nothing
