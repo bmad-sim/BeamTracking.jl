@@ -4,12 +4,12 @@ using Beamlines
 @elements begin
   d_error = LineElement(L=1, x1_limit=1, dx=5)
 
-  d1_rect = Drift(L=1, x1_limit = 1, x2_limit = 2, y1_limit = 3, y2_limit = 5, aperture_shape = ApertureShape.Rectangular, aperture_active = false)
+  d1_rect = Drift(L=1, x1_limit = 1, x2_limit = 2, y1_limit = 3, y2_limit = 5, aperture_shape = ApertureShape.Rectangular, ignore_params=[ApertureParams])
   d2_rect = Drift(L=1,               x2_limit = 2, y1_limit = 3, y2_limit = 5, aperture_shape = ApertureShape.Rectangular, aperture_at = ApertureAt.Exit)
   d3_rect = Drift(L=1,               x2_limit = 2, y1_limit = 3, y2_limit = 5, aperture_shape = ApertureShape.Rectangular, aperture_at = ApertureAt.BothEnds)
   d4_rect = Drift(L=1, x1_limit = 1, x2_limit = 2,                             aperture_shape = ApertureShape.Rectangular)
 
-  d1_ellip =  Drift(L=1, x1_limit = -Inf, x2_limit = 2, y1_limit = 3, y2_limit = 5, aperture_active = false)
+  d1_ellip =  Drift(L=1, x1_limit = -Inf, x2_limit = 2, y1_limit = 3, y2_limit = 5, ignore_params=[ApertureParams])
   d2_ellip =  Drift(L=1, x1_limit = 1, x2_limit = 2, y1_limit = 3, y2_limit = 5, aperture_at = ApertureAt.Exit)
   d3_ellip =  Drift(L=1, x1_limit = 1, x2_limit = 2, y1_limit = 3, y2_limit = 5)
   d4_ellip =  Drift(L=1, x1_limit = 1, x2_limit = Inf, y1_limit = 3, y2_limit = 5)
