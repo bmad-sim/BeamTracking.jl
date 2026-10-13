@@ -30,7 +30,7 @@ function _track!(
   dp = ApertureParams in ig ? nothing : deval(ele.ApertureParams, context)
   mp = MapParams in ig ? nothing : deval(ele.MapParams, context)
   rp = (!rf_on || RFParams in ig) ? nothing : deval(ele.RFParams, context)
-  lp = deval(ele.BeamlineParams, context)
+  lp = BeamlineParams in ig ? nothing : deval(ele.BeamlineParams, context)
   fpp = FourPotentialParams in ig ? nothing : deval(ele.FourPotentialParams, context)
   em = EMultipoleParams in ig ? nothing : deval(ele.EMultipoleParams, context)
   emfp = EMFieldParams in ig ? nothing : deval(ele.EMFieldParams, context)
