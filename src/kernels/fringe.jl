@@ -300,7 +300,7 @@ end
   Lp_over_pt = (theta + atan2(px_0*new_ps - new_px*ps, px_0*new_px + ps*new_ps))/Kn0
   xi_num = sin_theta*(2*v[i,XI]*px_0*cos_theta + (2*v[i,XI]*ps - Kn0*v[i,XI]*v[i,XI])*sin_theta)
   xi_den = new_ps + ps*cos_theta - px_0*sin_theta
-  good_xi = (xi_den > 0 | xi_den < 0)
+  good_xi = ((xi_den > 0) | (xi_den < 0))
   alive_at_start = (coords.state[i] == STATE_ALIVE)
   coords.state[i] = vifelse(!good_xi & alive_at_start, STATE_LOST, coords.state[i])
   alive = (coords.state[i] == STATE_ALIVE)
