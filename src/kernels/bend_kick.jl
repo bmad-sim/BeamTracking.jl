@@ -136,10 +136,9 @@ Tracks a particle through a sector bend via exact tracking.
   xi2 = (nasty_sqrt - cplus)/gp_safe
   xi = vifelse(!good_gp | pos_cplus, xi1, xi2)
 
-  Lcv = -sgn*(L*sinc_theta + v[i,XI]*sin_theta) 
-  negative_Lcv = -Lcv
+  negative_Lcv = sgn*(L*sinc_theta + v[i,XI]*sin_theta) 
   thetap = 2*(phi1 - sgn*atan2(xi, negative_Lcv)) 
-  Lp = sgn*sqrt(Lcv*Lcv + xi*xi)/sincu(thetap/2) 
+  Lp = sgn*sqrt(negative_Lcv*negative_Lcv + xi*xi)/sincu(thetap/2) 
 
   new_x = v[i,XI]*cos_theta - L*L*g*cosc_theta + xi
   new_px = pt*sin(phi1 - thetap)
