@@ -2,7 +2,7 @@
 # ===============  I N T E G R A T O R S  ===============
 #
 
-@inline function order_two_integrator!(i, coords::Coords, ker, params, photon_params, ds_step, n_steps, edge_params, ::Val{fringe_in}, ::Val{fringe_out}, use_optimized_schemes, L) where {fringe_in, fringe_out}
+function order_two_integrator!(i, coords::Coords, ker, params, photon_params, ds_step, n_steps, edge_params, ::Val{fringe_in}, ::Val{fringe_out}, use_optimized_schemes, L) where {fringe_in, fringe_out}
   @inbounds begin
     if !isnothing(edge_params) && fringe_in
       fringe!(i, coords, edge_params..., Val{1}())
@@ -33,7 +33,7 @@
 end
 
 
-@inline @generated function order_four_integrator!(i, coords::Coords{<:Any,V}, ker, params, photon_params, ds_step, n_steps, edge_params, ::Val{fringe_in}, ::Val{fringe_out}, ::Val{use_optimized_schemes}, L) where {V, fringe_in, fringe_out, use_optimized_schemes}
+@generated function order_four_integrator!(i, coords::Coords{<:Any,V}, ker, params, photon_params, ds_step, n_steps, edge_params, ::Val{fringe_in}, ::Val{fringe_out}, ::Val{use_optimized_schemes}, L) where {V, fringe_in, fringe_out, use_optimized_schemes}
   if use_optimized_schemes
     c = (
       -0.6579630871775028477799196480191312730312347412109375,
@@ -108,7 +108,7 @@ end
 end
 
 
-@inline @generated function order_six_integrator!(i, coords::Coords{<:Any,V}, ker, params, photon_params, ds_step, n_steps, edge_params, ::Val{fringe_in}, ::Val{fringe_out}, ::Val{use_optimized_schemes}, L) where {V, fringe_in, fringe_out, use_optimized_schemes}
+@generated function order_six_integrator!(i, coords::Coords{<:Any,V}, ker, params, photon_params, ds_step, n_steps, edge_params, ::Val{fringe_in}, ::Val{fringe_out}, ::Val{use_optimized_schemes}, L) where {V, fringe_in, fringe_out, use_optimized_schemes}
   if use_optimized_schemes
     c = (
       0.39907751534871587459988795520665,
@@ -237,7 +237,7 @@ end
 end
 
 
-@inline @generated function order_eight_integrator!(i, coords::Coords{<:Any,V}, ker, params, photon_params, ds_step, n_steps, edge_params, ::Val{fringe_in}, ::Val{fringe_out}, ::Val{use_optimized_schemes}, L) where {V, fringe_in, fringe_out, use_optimized_schemes}
+@generated function order_eight_integrator!(i, coords::Coords{<:Any,V}, ker, params, photon_params, ds_step, n_steps, edge_params, ::Val{fringe_in}, ::Val{fringe_out}, ::Val{use_optimized_schemes}, L) where {V, fringe_in, fringe_out, use_optimized_schemes}
   if use_optimized_schemes
     c = (
       -0.38263596012643665350944670744040,
@@ -414,7 +414,7 @@ end
 end
 
 
-@inline @generated function order_ten_integrator!(i, coords::Coords{<:Any,V}, ker, params, photon_params, ds_step, n_steps, edge_params, ::Val{fringe_in}, ::Val{fringe_out}, use_optimized_schemes, L) where {V, fringe_in, fringe_out}
+@generated function order_ten_integrator!(i, coords::Coords{<:Any,V}, ker, params, photon_params, ds_step, n_steps, edge_params, ::Val{fringe_in}, ::Val{fringe_out}, use_optimized_schemes, L) where {V, fringe_in, fringe_out}
   c = (
     0.049317735759594537917680008339338 ,
     0.049674370639729879054568800279461 ,

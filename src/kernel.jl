@@ -164,7 +164,7 @@ end
 # KA does not like Vararg
 @kernel function generic_kernel!(coords::Coords, @Const(kc::KernelChain))
   i = @index(Global, Linear)
-  @inline _generic_kernel!(i, coords, kc)
+  _generic_kernel!(i, coords, kc)
 end
 
 _generic_kernel!(i, coords, kc) = __generic_kernel!(i, coords, kc.chain, beval(kc.ref, i, kc.batch_start), kc.batch_start, kc.transforms_out, kc.transforms_in)
@@ -215,7 +215,7 @@ function __generic_kernel_ramp!(i, coords::Coords, chain, ref, batch_start, tran
   @assert last(chain).args[2] isa TimeFunction
   # Have to store each particles initial time:
   t_initial = compute_time(coords.v[i,ZI], coords.v[i,PZI], ref.t_enter, ref.beta_gamma_enter)
-  @inline __generic_kernel_noramp!(i, coords, Base.front(chain), ref, batch_start, transforms_out, transforms_in)
+  __generic_kernel_noramp!(i, coords, Base.front(chain), ref, batch_start, transforms_out, transforms_in)
   # With initial particle's time we now know the dbeta_gamma to evaluate for the last function
   beta_gamma_in_ele = teval(last(chain).args[1], t_initial)
   dbeta_gamma_in_ele = teval(last(chain).args[2], t_initial)
@@ -248,7 +248,7 @@ end
 
 # Generic function to launch a kernel on the bunch coordinates matrix
 # Matrix v should ALWAYS be in SoA whether for real or as a view via tranpose(v)
-@inline function launch!(
+function launch!(
   coords::Coords{<:Any,V},
   kc::KernelChain;
   groupsize::Union{Nothing,Integer}=nothing, #backend isa CPU ? floor(Int,REGISTER_SIZE/sizeof(eltype(v))) : 256 
@@ -333,7 +333,7 @@ function check_kwargs(mac, kwargs...)
 end
 
 # Also allow launch! on single KernelCalls
-@inline launch!(coords::Coords, kcall::KernelCall; kwargs...) = launch!(coords, KernelChain((kcall,), RefState{eltype(coords.v)}(0,0,0,0,0,0,0)); kwargs...)
+launch!(coords::Coords, kcall::KernelCall; kwargs...) = launch!(coords, KernelChain((kcall,), RefState{eltype(coords.v)}(0,0,0,0,0,0,0)); kwargs...)
 
 macro makekernel(args...)
   kwargs = args[1:length(args)-1]
@@ -361,7 +361,7 @@ macro makekernel(args...)
    if isnothing(idx_fastgtpsa) || !kwargvals[idx_fastgtpsa] # no fastgtpsa
     if isnothing(idx_inbounds) || kwargvals[idx_inbounds] # inbounds
       return quote
-        @inline function $(fcn_name)($(args...))
+        function $(fcn_name)($(args...))
           @inbounds begin
             $(body)
           end
@@ -369,7 +369,7 @@ macro makekernel(args...)
       end
     else # no inbounds
       return quote
-        @inline function $(fcn_name)($(args...))
+        function $(fcn_name)($(args...))
           $(body)
         end
       end
@@ -377,7 +377,7 @@ macro makekernel(args...)
   else # fastgtpsa
     if isnothing(idx_inbounds) || kwargvals[idx_inbounds] # inbounds
       return quote
-        @inline function $(fcn_name)($(args...))
+        function $(fcn_name)($(args...))
           @inbounds begin @FastGTPSA begin
             $(body)
           end end
@@ -385,7 +385,7 @@ macro makekernel(args...)
       end
     else # no inbounds
       return quote
-        @inline function $(fcn_name)($(args...))
+        function $(fcn_name)($(args...))
           @FastGTPSA begin
             $(body)
           end 
