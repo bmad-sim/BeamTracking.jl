@@ -1,4 +1,4 @@
-@inline function ibs_damping_and_diffusion!(i, coords::Coords, backend, tilde_m, gamma_0, ::Val{damping_on}, ::Val{fluctuations_on}, b_coeff, integrals, diffusion_lambdas, diffusion_P, P, sigma_inv, means, g, w, w_inv, L) where {damping_on, fluctuations_on}
+function ibs_damping_and_diffusion!(i, coords::Coords, backend, tilde_m, gamma_0, ::Val{damping_on}, ::Val{fluctuations_on}, b_coeff, integrals, diffusion_lambdas, diffusion_P, P, sigma_inv, means, g, w, w_inv, L) where {damping_on, fluctuations_on}
   @inbounds begin
     if isprimitivetype(eltype(coords.v))
       v = coords.v

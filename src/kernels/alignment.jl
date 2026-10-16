@@ -3,7 +3,7 @@
 # in=true  : nominal -> body  (entering),  reduces to track_alignment_straight_entering! at s=0
 # in=false : body -> nominal  (exiting),   reduces to track_alignment_straight_exiting!  at s=L
 
-@inline function track_alignment_straight_at_s!(i, coords::Coords, x_off, y_off, z_off,
+function track_alignment_straight_at_s!(i, coords::Coords, x_off, y_off, z_off,
                                   x_rot, y_rot, tilt, ele_orient, L, s, ::Val{in}) where {in}
   # Signed longitudinal distance from the element center (rotation center) to the s-face.
   L2 = @FastGTPSA (L/2 - s) * ele_orient
@@ -23,7 +23,7 @@ end
 
 # TRANSFORM FOR CALLBACKS:
 # note this doesn't have the s argument after L, instead using cur_s
-@inline function callback_alignment_straight_at_s!(
+function callback_alignment_straight_at_s!(
   i, coords, cur_s, cur_t_ref, x_off, y_off, z_off, x_rot, y_rot, tilt, ele_orient, L, in
   )
   return track_alignment_straight_at_s!(i, coords, x_off, y_off, z_off, x_rot, y_rot, tilt, ele_orient, L, cur_s, in)
@@ -50,7 +50,7 @@ end
 
 #---------------------------------------------------------------------------------------------------
 # s = 0 entering, s = L exiting
-@inline function track_coord_bend_transform_at_s!(i, coords::Coords, mid_r, mid_q, st, ct, g_ref, L, s, ::Val{in}) where {in}
+function track_coord_bend_transform_at_s!(i, coords::Coords, mid_r, mid_q, st, ct, g_ref, L, s, ::Val{in}) where {in}
   r, q = coord_alignment_bend_at_s(mid_r, mid_q, st, ct, g_ref, L, s)
   if in
     track_coord_transform!(i, coords, r, q)
@@ -63,7 +63,7 @@ end
 
 # TRANSFORM FOR CALLBACKS:
 # note this doesn't have the s argument after L, instead using cur_s
-@inline function callback_coord_bend_transform_at_s!(
+function callback_coord_bend_transform_at_s!(
   i, coords, cur_s, cur_t_ref, mid_r, mid_q, st, ct, g_ref, L, in,
   )
   return track_coord_bend_transform_at_s!(i, coords, mid_r, mid_q, st, ct, g_ref, L, cur_s, in)
