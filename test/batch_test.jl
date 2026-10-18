@@ -239,6 +239,20 @@ end
   @test b01_batch.coords.v[3,:]' ≈ b0_batch.coords.v[1,:]'
   @test b01_batch.coords.v[4,:]' ≈ b0_batch.coords.v[2,:]'
 
+
+  # Batched p_over_q_ref => batched t_ref
+  species = Species("proton")
+  p_ref = BatchParam([11.2, 13.1])
+  bl = Beamline([Drift(L=1.2), LineElement(L=1.0, Kn1=-0.045)]; species_ref=species, p_over_q_ref=p_ref)
+  bunch = Bunch(zeros(2, 6); species, p_over_q_ref=p_ref)
+  scalar_bunch = Bunch(zeros(2, 6); species)
+
+  @test bunch.t_ref isa BatchParam
+  @test bunch.t_ref.batch == [0.0, 0.0]
+  @test_nowarn track!(bunch, bl)
+  @test bunch.t_ref.batch ≈ 2.2 ./ BeamTracking.R_to_v.(Ref(species), p_ref.batch)
+  @test_throws ErrorException track!(scalar_bunch, bl)
+
   #=
   # Aperture:
   # let's make a time-dependent aperture which oscillates but will allow both
