@@ -1,11 +1,11 @@
 #---------------------------------------------------------------------------------------------------
 
-@inline function sagan_cavity(tm::SaganCavity, kc, p_over_q_ref, bunch, ele_name, bmultipoleP, rfP, beamlineP, L)
+# p1_over_q_ref is the reference at the cavity exit (already evaluated if time dependent)
+@inline function sagan_cavity(tm::SaganCavity, kc, p1_over_q_ref, bunch, ele_name, bmultipoleP, rfP, beamlineP, L)
   species = bunch.species
   mass = massof(species)
   q = chargeof(species)
 
-  p1_over_q_ref = beamlineP.beamline.p_over_q_ref
   rf_omega = rf_omega_calc(rfP, beamlineP)
   E1_ref = R_to_E(species, p1_over_q_ref)
   dE_ref = beamlineP.dE_ref

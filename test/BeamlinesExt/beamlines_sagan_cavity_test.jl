@@ -146,3 +146,75 @@ end
   @test bs[1].coords.q ≈ bs[2].coords.q
   @test bs[1].t_ref ≈ bs[2].t_ref
 end
+
+@testset "SaganCavity reference momentum" begin
+  # Issue 367: after the cavity the bunch must be referenced to the cavity exit energy so the
+  # next element does not shift pz a second time.
+  for nc in (4, 0)
+    cav = RFCavity(L = 1.0, voltage = 1e8, rf_frequency = 1.3e9, dE_ref = 1e8, phi0 = 0.0,
+            zero_phase = PhaseRef.Accelerating, tracking_method = SaganCavity(n_cells = nc), traveling_wave = true)
+    br = Branch([Marker(E_ref = 1e8, species_ref = species), cav, Drift(L = 0.5), Drift(L = 0.5)])
+    eles = collect(Iterators.flatten(bl.line for bl in br.beamlines))
+    b = Bunch(zeros(1, 6), species = species, p_over_q_ref = BT.E_to_R(species, 1e8))
+    for ele in eles
+      track!(b, ele)
+      @test abs(b.coords.v[1,6]) < 1e-14
+    end
+    @test b.p_over_q_ref ≈ eles[2].p_over_q_ref
+  end
+
+  # A bunch arriving with a reference different from E0_ref = E_ref - dE_ref is shifted to E0_ref
+  # first: the result must match tracking the same particle given relative to E0_ref.
+  sc = RFCavity(L = 2.0, voltage = 0.2*E0, rf_frequency = 1e9, dE_ref = 0.1*E0, phi0 = 0.1,
+                tracking_method = SaganCavity(n_cells = 3))
+  ele = Branch([Marker(E_ref = E0, species_ref = species), sc]).beamlines[2].line[1]
+  E_in = ele.E_ref - ele.dE_ref
+  R_in = BT.E_to_R(species, E_in)
+  R_b = BT.E_to_R(species, 1.05*E_in)
+  v_b = copy(v1)
+  v_b[1,2] *= R_in/R_b;  v_b[1,4] *= R_in/R_b;  v_b[1,6] = (1 + v1[1,6])*R_in/R_b - 1
+  b_ref = Bunch(copy(v1), species = species, p_over_q_ref = R_in)
+  b_mis = Bunch(v_b, species = species, p_over_q_ref = R_b)
+  track!(b_ref, ele)
+  track!(b_mis, ele)
+  @test b_mis.coords.v ≈ b_ref.coords.v
+  @test b_mis.p_over_q_ref ≈ ele.p_over_q_ref
+  @test b_mis.t_ref ≈ b_ref.t_ref
+
+  # The particle time used to evaluate time dependent parameters at the entrance must use the
+  # entrance reference E0_ref (RefState beta_gamma_enter): a voltage that depends on time must give
+  # the same result as a constant voltage equal to its value at the particle's entrance time.
+  # Low energy so that the particle velocity differs strongly between E0_ref and E_ref.
+  V(t) = 3e6*(1 + 1e9*t)
+  mk(volt) = Branch([Marker(E_ref = 1e6, species_ref = species),
+                     RFCavity(L = 1.0, voltage = volt, rf_frequency = 1e9, dE_ref = 2e6, phi0 = 0.1,
+                              tracking_method = SaganCavity(n_cells = 3))]).beamlines[2].line[1]
+  ele_t = mk(3e6*(1 + 1e9*Time()))
+  R_in = BT.E_to_R(species, 1e6)
+  t0 = 2e-9
+  K = (1 + v1[1,6])*BT.R_to_beta_gamma(species, R_in)
+  t_particle = t0 - v1[1,5]/BT.beta_gamma_to_v(K)
+  ele_c = mk(V(t_particle))
+  b_t = Bunch(copy(v1), species = species, p_over_q_ref = R_in, t_ref = t0)
+  b_c = Bunch(copy(v1), species = species, p_over_q_ref = R_in, t_ref = t0)
+  track!(b_t, ele_t)
+  track!(b_c, ele_c)
+  @test b_t.coords.v ≈ b_c.coords.v
+  @test b_t.t_ref ≈ b_c.t_ref
+
+  # Ramped (time dependent) reference energy: equivalent to a constant reference equal to the
+  # ramped value at the bunch entrance time.
+  E_ramp = TimeDependentParam(t -> E0*(1 + 1e6*t), false)
+  t0 = 1e-6
+  ele_r = Branch([Marker(E_ref = E_ramp, species_ref = species), deepcopy(sc)]).beamlines[2].line[1]
+  ele_c = Branch([Marker(E_ref = E0*(1 + 1e6*t0), species_ref = species), deepcopy(sc)]).beamlines[2].line[1]
+  @test ele_r.p_over_q_ref(t0) ≈ ele_c.p_over_q_ref
+  R_in = BT.E_to_R(species, ele_c.E_ref - ele_c.dE_ref)
+  b_r = Bunch(copy(v1), species = species, p_over_q_ref = R_in, t_ref = t0)
+  b_c = Bunch(copy(v1), species = species, p_over_q_ref = R_in, t_ref = t0)
+  track!(b_r, ele_r)
+  track!(b_c, ele_c)
+  @test b_r.coords.v ≈ b_c.coords.v
+  @test b_r.p_over_q_ref ≈ ele_c.p_over_q_ref
+  @test b_r.t_ref ≈ b_c.t_ref
+end
