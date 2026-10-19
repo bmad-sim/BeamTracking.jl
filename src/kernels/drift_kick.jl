@@ -46,10 +46,9 @@ the corresponding value of the squared Lorentz factor, and the
 particle rest energy normalized to the reference value of ``pc``.
 
 NB: In the computation of ``z_final``, we use the fact that
-  - ``1/√a - 1/√b == (coords - a)/(√a √b (√a + √b))``
-to avoid the potential for severe cancellation when
-``a`` and ``coords`` both have the form ``1 + ε`` for different small
-values of ``ε``.
+  - ``1/√a - 1/√b == (b - a)/(√a √b (√a + √b))``
+to avoid the potential for severe cancellation when ``a`` and ``b`` both 
+have the form ``1 + ε`` for different small values of ``ε``.
 
 ## Arguments
 - `β_0`:     reference velocity normalized to the speed of light, ``v_0 / c``
@@ -74,12 +73,9 @@ values of ``ε``.
   new_y = v[i,YI] + v[i,PYI] * L / P_s
   # high-precision computation of z_final:
   #   vf.z = vi.z - (1 + δ) * L * (1 / Ps - 1 / (β0 * sqrt((1 + δ)^2 + tilde_m^2)))
-  new_z = v[i,ZI] - ( (1 + v[i,PZI]) * L
-                * (P_t2 - v[i,PZI] * (2 + v[i,PZI]) / gamsqr_0)
-                / ( beta_0 * sqrt(rel_p*rel_p + tilde_m*tilde_m) * P_s
-                    * (beta_0 * sqrt(rel_p*rel_p + tilde_m*tilde_m) + P_s)
-                  )
-              )
+  b0E = beta_0 * sqrt(rel_p*rel_p + tilde_m*tilde_m)
+  new_z = v[i,ZI] - (rel_p * L * (P_t2 - v[i,PZI] * (2 + v[i,PZI]) / gamsqr_0) /
+                                                         (b0E * P_s * (b0E + P_s)))
   v[i,XI] = vifelse(alive, new_x, v[i,XI])
   v[i,YI] = vifelse(alive, new_y, v[i,YI])
   v[i,ZI] = vifelse(alive, new_z, v[i,ZI])
