@@ -67,10 +67,28 @@ end
 # ========== Exact ===========================
 
 struct Exact
+  n_steps::Int 
+  ds_step::Float64
+  radiation_damping_on::Bool
+  radiation_fluctuations_on::Bool
   fringe_at::Fringe.T
-  
-  function Exact(; fringe_at::Fringe.T=Fringe.BothEnds)
-    return new(fringe_at)
+  ibs_damping_on::Bool
+  ibs_fluctuations_on::Bool
+  function Exact(; n_steps::Int=-1, ds_step::Float64=-1.0, radiation_damping_on::Bool=false, radiation_fluctuations_on::Bool=false, fringe_at::Fringe.T=Fringe.BothEnds, ibs_damping_on::Bool=false, ibs_fluctuations_on::Bool=false)
+     _n_steps = n_steps
+    _ds_step = ds_step
+    if _n_steps == -1 && _ds_step == -1.0
+      _n_steps = 1
+    elseif _n_steps > 0 && _ds_step > 0
+      error("Only one of n_steps or ds_step should be specified")
+    elseif _n_steps < 1 && _ds_step <= 0
+      error("Invalid step size")
+    elseif _n_steps > 0
+      _ds_step = -1.0
+    elseif _ds_step > 0
+      _n_steps = -1
+    end
+    return new(_n_steps, _ds_step, radiation_damping_on, radiation_fluctuations_on, fringe_at, ibs_damping_on, ibs_fluctuations_on)
   end
 end
 
