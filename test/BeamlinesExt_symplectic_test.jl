@@ -777,6 +777,16 @@
     @test b0.coords.v ≈ v_expected
     @test b0.coords.q ≈ q_expected 
 
+    # Normal dipole + sextupole hard-edge fringes, without and with RF: by mid-plane symmetry
+    # a particle with y = py = 0 stays at y = py = 0
+    for ele in (LineElement(Kn0=0.3, Kn2=0.8, L=0.2, tracking_method=Symplectic(order=2, fringe_at=Fringe.BothEnds)),
+                LineElement(Kn0=0.3, Kn2=0.8, L=0.2, voltage=1e3, rf_frequency=1e8, tracking_method=Symplectic(order=2, fringe_at=Fringe.BothEnds)))
+      b0 = Bunch([0.013 0.021 0.0 0.0 0.0 0.0], p_over_q_ref=p_over_q_ref, species=Species("electron"))
+      bl = Beamline([ele], p_over_q_ref=p_over_q_ref, species_ref=Species("electron"))
+      track!(b0, bl)
+      @test b0.coords.v[1, 3:4] == [0.0, 0.0]
+    end
+
     # Straight electric dipole
     ele = LineElement(En0=-1e6, L=1.0, tracking_method=Symplectic(order=2, fringe_at=Fringe.NoEnd))
     v = [0.01 0.02 0.03 0.04 0.05 0.06] .+ collect(transpose(@vars(D1)))
