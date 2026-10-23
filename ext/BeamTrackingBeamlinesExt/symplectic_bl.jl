@@ -433,7 +433,7 @@ end
   radiation_params = ifelse(tm.radiation_damping_on, (q, mc2, E_ref), nothing)
   params = (radiation_params, tilde_m, beta_0, a, g, w, w_inv, Kn0, SA[mm], SA[Kn0], SA[Ks0])
   if isprimitivetype(eltype(bunch.coords.v)) && tm.radiation_fluctuations_on
-    photon_params = (get_backend(bunch.coords.v), q, mc2, E_ref, g, ntilt, SA[mm], SA[Kn0], SA[Ks0])
+    photon_params = (get_backend(bunch.coords.v), q, mc2, E_ref, g, bendparams.tilt_ref, SA[mm], SA[Kn0], SA[Ks0])
   else
     photon_params = nothing
   end
@@ -467,7 +467,7 @@ end
   radiation_params = ifelse(tm.radiation_damping_on, (q, mc2, E_ref), nothing)
   params = (radiation_params, tilde_m, beta_0, a, g, w, w_inv, Kn0, mm, kn, ks)
   if isprimitivetype(eltype(bunch.coords.v)) && tm.radiation_fluctuations_on
-    photon_params = (get_backend(bunch.coords.v), q, mc2, E_ref, g, ntilt, mm, kn, ks)
+    photon_params = (get_backend(bunch.coords.v), q, mc2, E_ref, g, bendparams.tilt_ref, mm, kn, ks)
   else
     photon_params = nothing
   end
@@ -565,7 +565,7 @@ end
   radiation_params = ifelse(tm.radiation_damping_on, (q, mc2, E_ref), nothing)
   params = (radiation_params, beta_0, tilde_m, a, g, w, w_inv, potential_and_jac, potential_params, p_over_q_ref, normalized, Val{tm.implicit_use_newton}())
   if isprimitivetype(eltype(bunch.coords.v)) && tm.radiation_fluctuations_on
-    photon_params = (BeamTracking.implicit_integrator!, get_backend(bunch.coords.v), q, mc2, E_ref, g, potential_and_jac, potential_params, p_over_q_ref, normalized)
+    photon_params = (BeamTracking.implicit_integrator!, get_backend(bunch.coords.v), q, mc2, E_ref, g, w, w_inv, potential_and_jac, potential_params, p_over_q_ref, normalized)
   else
     photon_params = nothing
   end
@@ -607,7 +607,7 @@ end
   radiation_params = ifelse(tm.radiation_damping_on, (q, mc2, E_ref), nothing)
   params = (radiation_params, kE, beta_0, tilde_m, w, w_inv, a)
   if isprimitivetype(eltype(bunch.coords.v)) && tm.radiation_fluctuations_on
-    photon_params = (BeamTracking.exact_elsep!, get_backend(bunch.coords.v), q, mc2, E_ref, kE)
+    photon_params = (BeamTracking.exact_elsep!, get_backend(bunch.coords.v), q, mc2, E_ref, kE, w, w_inv)
   else
     photon_params = nothing
   end
