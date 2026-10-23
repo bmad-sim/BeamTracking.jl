@@ -365,27 +365,35 @@ function universal!(coords, tm::SaganCavity, ele, ramp_particle_energy_without_r
   !isactive(emultipoleparams) || error("SaganCavity Tracking through element $(ele.name) with EMultipoleParams is undefined")
   isactive(rfparams) || error("SaganCavity Tracking through element $(ele.name) without RFParams is undefined")
 
-  beta_gamma_ref = R_to_beta_gamma(bunch.species, bunch.p_over_q_ref)
+  species = bunch.species
 
-  # Compute information about reference coordinate system:
+  # The element's p_over_q_ref is the reference at the cavity exit. A time dependent reference
+  # is evaluated once at the entrance time (as in universal! when !ramp_update_each_particle).
   t_enter = bunch.t_ref
   if p_over_q_ref isa TimeDependentParam
-    beta_gamma_enter = R_to_beta_gamma(bunch.species, p_over_q_ref(t_enter))
+    if ramp_update_each_particle
+      error("ramp_update_each_particle = true not yet implemented for SaganCavity") # TODO
+    end
+    p1_over_q_ref = p_over_q_ref(t_enter)
   else
-    beta_gamma_enter = R_to_beta_gamma(bunch.species, p_over_q_ref)
+    p1_over_q_ref = p_over_q_ref
   end
+
+  # The cavity kernels expect the particles referenced to E0_ref = E1_ref - dE_ref and
+  # leave them referenced to E1_ref.
+  E1_ref = R_to_E(species, p1_over_q_ref)
+  dE_ref = beamlineparams.dE_ref
+  E0_ref = E1_ref - dE_ref
+  beta_gamma_enter = R_to_beta_gamma(species, E_to_R(species, E0_ref))
+  beta_gamma_exit = R_to_beta_gamma(species, p1_over_q_ref)
+
   g = isnothing(bendparams) ? (0,0) : reverse((bendparams.g_ref .* sincos(bendparams.tilt_ref)))
   ds_step = (L == 0 || isactive(patchparams)) ? L : BeamTracking.find_steps(tm, L)[2]
   # reference time change
   if L != 0
-    species = bunch.species
-    p1_over_q_ref = p_over_q_ref
     rf_omega = rf_omega_calc(rfparams, beamlineparams)
     n_cells, L_active = rf_step_calc(tm.n_cells, tm.L_active, rf_omega, L)
     L_outer = (L - L_active) / 2
-    E1_ref = R_to_E(species, p1_over_q_ref)
-    dE_ref = beamlineparams.dE_ref
-    E0_ref = E1_ref - dE_ref
     dt_ref = L_outer/E_to_v(species, E0_ref) + L_outer/E_to_v(species, E1_ref)
  
     if n_cells == 0
@@ -401,67 +409,57 @@ function universal!(coords, tm::SaganCavity, ele, ramp_particle_energy_without_r
   else
     t_exit = t_enter
   end
-  if p_over_q_ref isa TimeDependentParam
-    beta_gamma_exit = R_to_beta_gamma(bunch.species, p_over_q_ref(t_exit))
-  else
-    beta_gamma_exit = R_to_beta_gamma(bunch.species, p_over_q_ref)
-  end
   kc = KernelChain(Val{10}(), RefState{eltype(coords.v)}(; t_enter, beta_gamma_enter, t_exit, beta_gamma_exit, L, g, ds_step), batch_start)
 
-  # Ramping
-  if p_over_q_ref isa TimeDependentParam
-    if ramp_update_each_particle
-      error("ramp_update_each_particle = true not yet implemented for SaganCavity") # TODO
-    end
-    p_over_q_ref_initial = bunch.p_over_q_ref
-    p_over_q_ref_final = p_over_q_ref(bunch.t_ref)
-    if !(p_over_q_ref_initial ≈ p_over_q_ref_final)
-      kc = push(kc, make_kernel_call(BeamTracking.reference_momentum_shift!, (p_over_q_ref_initial, 
-                                       p_over_q_ref_final-p_over_q_ref_initial, Val{!ramp_particle_energy_without_rf}())))
-      setfield!(bunch, :p_over_q_ref, p_over_q_ref_final)
-    end
+  # Shift the particles from the bunch reference (upstream element exit, or a ramped
+  # reference) to the cavity entrance reference E0_ref.
+  bunch_beta_gamma = R_to_beta_gamma(species, bunch.p_over_q_ref)
+  if !(BeamTracking.num_lower(typeof(bunch.p_over_q_ref), beta_gamma_enter) ≈ BeamTracking.num_lower(typeof(bunch.p_over_q_ref), bunch_beta_gamma))
+    kc = push(kc, make_kernel_call(BeamTracking.reference_momentum_shift!, (bunch_beta_gamma, beta_gamma_enter - bunch_beta_gamma, Val{!ramp_particle_energy_without_rf}())))
   end
 
   # Entrance aperture and alignment
   if isactive(alignmentparams)
     if isactive(apertureparams)
       if apertureparams.aperture_shifts_with_body
-        kc = @inline(alignment(tm, kc, p_over_q_ref, bunch, alignmentparams, bendparams, L, true))
-        kc = @inline(aperture(tm, kc, p_over_q_ref, bunch, apertureparams, true))
+        kc = @inline(alignment(tm, kc, p1_over_q_ref, bunch, alignmentparams, bendparams, L, true))
+        kc = @inline(aperture(tm, kc, p1_over_q_ref, bunch, apertureparams, true))
       else
-        kc = @inline(aperture(tm, kc, p_over_q_ref, bunch, apertureparams, true))
-        kc = @inline(alignment(tm, kc, p_over_q_ref, bunch, alignmentparams, bendparams, L, true))
+        kc = @inline(aperture(tm, kc, p1_over_q_ref, bunch, apertureparams, true))
+        kc = @inline(alignment(tm, kc, p1_over_q_ref, bunch, alignmentparams, bendparams, L, true))
       end
     else
-      kc = @inline(alignment(tm, kc, p_over_q_ref, bunch, alignmentparams, bendparams, L, true))
+      kc = @inline(alignment(tm, kc, p1_over_q_ref, bunch, alignmentparams, bendparams, L, true))
     end
   elseif isactive(apertureparams)
-    kc = @inline(aperture(tm, kc, p_over_q_ref, bunch, apertureparams, true))
+    kc = @inline(aperture(tm, kc, p1_over_q_ref, bunch, apertureparams, true))
   end
 
   # Cavity tracking
-  kc = @inline(sagan_cavity(tm, kc, p_over_q_ref, bunch, ele.name, bmultipoleparams, rfparams, beamlineparams, L))
+  kc = @inline(sagan_cavity(tm, kc, p1_over_q_ref, bunch, ele.name, bmultipoleparams, rfparams, beamlineparams, L))
 
   # Exit aperture and alignment
   if isactive(alignmentparams)
     if isactive(apertureparams)
       if apertureparams.aperture_shifts_with_body
-        kc = @inline(aperture(tm, kc, p_over_q_ref, bunch, apertureparams, false))
-        kc = @inline(alignment(tm, kc, p_over_q_ref, bunch, alignmentparams, bendparams, L, false))
+        kc = @inline(aperture(tm, kc, p1_over_q_ref, bunch, apertureparams, false))
+        kc = @inline(alignment(tm, kc, p1_over_q_ref, bunch, alignmentparams, bendparams, L, false))
       else
-        kc = @inline(alignment(tm, kc, p_over_q_ref, bunch, alignmentparams, bendparams, L, false))
-        kc = @inline(aperture(tm, kc, p_over_q_ref, bunch, apertureparams, false))
+        kc = @inline(alignment(tm, kc, p1_over_q_ref, bunch, alignmentparams, bendparams, L, false))
+        kc = @inline(aperture(tm, kc, p1_over_q_ref, bunch, apertureparams, false))
       end
     else
-      kc = @inline(alignment(tm, kc, p_over_q_ref, bunch, alignmentparams, bendparams, L, false))
+      kc = @inline(alignment(tm, kc, p1_over_q_ref, bunch, alignmentparams, bendparams, L, false))
     end
   elseif isactive(apertureparams)
-    kc = @inline(aperture(tm, kc, p_over_q_ref, bunch, apertureparams, false))
+    kc = @inline(aperture(tm, kc, p1_over_q_ref, bunch, apertureparams, false))
   end
 
   # noinline necessary here for small binaries and faster execution
   @noinline launch!(coords, kc; kwargs...)
   
+  # The cavity kernels leave the particles referenced to the exit reference
+  bunch.p_over_q_ref = p1_over_q_ref
   bunch.t_ref = t_exit
   
   return nothing
