@@ -784,7 +784,7 @@
       b0 = Bunch([0.013 0.021 0.0 0.0 0.0 0.0], p_over_q_ref=p_over_q_ref, species=Species("electron"))
       bl = Beamline([ele], p_over_q_ref=p_over_q_ref, species_ref=Species("electron"))
       track!(b0, bl)
-      @test b0.coords.v[1, 3:4] == [0.0, 0.0]
+      @test b0.coords.v[1, 3:4] ≈ [0.0, 0.0]
     end
 
     # Straight electric dipole
