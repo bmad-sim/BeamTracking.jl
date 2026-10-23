@@ -99,7 +99,7 @@ function _batch_addsub(batch_a, batch_b, op::T) where {T<:Union{typeof(+),typeof
     if batch_b isa Number
       return BatchParam(op(batch_a, batch_b))
     else
-      if batch_a ≈ 0 # add/sub by zero gives identity
+      if op === (+) && batch_a ≈ 0 # add by zero gives identity
         return BatchParam(batch_b)
       else
         let a = batch_num_lower(batch_b, batch_a)
