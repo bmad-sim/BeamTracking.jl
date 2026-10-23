@@ -846,6 +846,54 @@ end
     @test vertical[4] ≈ 0.1
   end
 
+  @testset "Tilted bend" begin
+    using Beamlines
+
+    species = Species("electron")
+    R = BeamTracking.E_to_R(species, 5e9)
+    p0 = [0.01, -0.02, 0.015, 0.01, 0.003, 0.03]
+    function track_ele(ele, p=p0)
+      line = Beamline([ele], p_over_q_ref=R, species_ref=species)
+      bunch = Bunch(reshape(copy(p), 1, 6), p_over_q_ref=R, species=species)
+      track!(bunch, line)
+      return vec(bunch.coords.v)
+    end
+    # Coordinates in a frame rotated by t about s
+    rot(v, t) = [cos(t)*v[1] + sin(t)*v[3], cos(t)*v[2] + sin(t)*v[4],
+                 -sin(t)*v[1] + cos(t)*v[3], -sin(t)*v[2] + cos(t)*v[4], v[5], v[6]]
+
+    # The field rotates with the bend
+    field = BeamTracking.tilted_field(0.3, -0.2, 0.0, 0.0,
+      (rk_test_uniform_field, (0.0, 0.0, 0.0, 0.0, 2.0, 0.0), cos(0.4), sin(0.4)))
+    @test collect(field) ≈ [0, 0, 0, -2*sin(0.4), 2*cos(0.4), 0]
+
+    for tilt in (0.3, -1.2, pi/2)
+      # Agrees with BendKick, which tracks a tilted bend in its own frame
+      for Kn0 in (0.1, 0.12)
+        fields = (L=1.0, g=0.1, Kn0=Kn0, tilt_ref=tilt)
+        v_rk = track_ele(LineElement(; fields..., tracking_method=RungeKutta(n_steps=400)))
+        v_bk = track_ele(LineElement(; fields..., tracking_method=BendKick(order=8, n_steps=20)))
+        @test maximum(abs, v_rk - v_bk) < 1e-12
+      end
+
+      # Equals the untilted bend in the rotated frame, including multipoles
+      fields = (L=1.0, g=0.1, Kn0=0.1, Kn1=0.2, Kn2=3.0, Ks2=1.0)
+      tilted = track_ele(LineElement(; fields..., tilt_ref=tilt, tracking_method=RungeKutta(n_steps=50)))
+      untilted = track_ele(LineElement(; fields..., tracking_method=RungeKutta(n_steps=50)), rot(p0, tilt))
+      @test maximum(abs, tilted - rot(untilted, -tilt)) < 1e-14
+
+      # A custom field is also defined in the frame of the bend. Kn0 = 0 since a bend
+      # otherwise gets Kn0 = g.
+      B = 0.1*R
+      v_custom = track_ele(LineElement(L=1.0, g=0.1, Kn0=0.0, tilt_ref=tilt, em_field=rk_test_uniform_field,
+                                       em_field_params=(0.0, 0.0, 0.0, 0.0, B, 0.0),
+                                       tracking_method=RungeKutta(n_steps=50)))
+      v_multipole = track_ele(LineElement(L=1.0, g=0.1, tilt_ref=tilt, Bn0=B,
+                                          tracking_method=RungeKutta(n_steps=50)))
+      @test v_custom ≈ v_multipole rtol=1e-13
+    end
+  end
+
   @testset "RungeKutta callbacks" begin
     using Beamlines
 
