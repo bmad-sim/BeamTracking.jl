@@ -368,13 +368,13 @@ end
   for j in 1:length(mm)
     if mm[j] == 1
       Kn0 = kn[j]
-      Ks0 = kn[j]
+      Ks0 = ks[j]
     elseif mm[j] == 2
       Kn1 = kn[j]
       Ks1 = ks[j]
     elseif mm[j] == 3
       Kn2 = kn[j]
-      Ks2 = kn[j]
+      Ks2 = ks[j]
     end
   end
   edge_params = (a, tilde_m, nothing, Kn0, Ks0, Kn1, Ks1, Kn2, Ks2)
@@ -514,13 +514,13 @@ end
       Ksol = kn[j]
     elseif mm[j] == 1
       Kn0 = kn[j]
-      Ks0 = kn[j]
+      Ks0 = ks[j]
     elseif mm[j] == 2
       Kn1 = kn[j]
       Ks1 = ks[j]
     elseif mm[j] == 3
       Kn2 = kn[j]
-      Ks2 = kn[j]
+      Ks2 = ks[j]
     end
   end
   a = gyromagnetic_anomaly(bunch.species)
