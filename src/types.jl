@@ -100,6 +100,8 @@ bunch = Bunch(v=v, species=Species("electron"), p_over_q_ref=-60.0)
 bunch = Bunch(v=v, spin=true, species=Species("electron"), p_over_q_ref=-60.0)
 ```
 """
+_default_t_ref(v, p_over_q_ref) = p_over_q_ref isa BatchParam ? BatchParam(zero.(p_over_q_ref.batch)) : (float_type(eltype(v)))(0)
+
 function Bunch(;
   v::AbstractMatrix,
   state=(s = similar(v, UInt8, size(v, 1)); s .= STATE_ALIVE; s),
@@ -108,14 +110,14 @@ function Bunch(;
   weight=nothing,
   callbacks=(),
   p_over_q_ref=(float_type(eltype(v)))(NaN), 
-  t_ref=(float_type(eltype(v)))(0), 
+  t_ref=_default_t_ref(v, p_over_q_ref),
   species=Species(),
 )
   size(v, 2) == 6 || error("The number of columns of the particle coordinates vector `v` must be equal to 6")
   return Bunch(species, p_over_q_ref, t_ref, Coords(state, v, q, weight, callbacks))
 end
 
-function Bunch(v::AbstractMatrix, q=nothing, weight=nothing; p_over_q_ref=(float_type(eltype(v)))(NaN), t_ref=(float_type(eltype(v)))(0), species=Species(), callbacks=())
+function Bunch(v::AbstractMatrix, q=nothing, weight=nothing; p_over_q_ref=(float_type(eltype(v)))(NaN), t_ref=_default_t_ref(v, p_over_q_ref), species=Species(), callbacks=())
   size(v, 2) == 6 || error("The number of columns must be equal to 6")
   N_particle = size(v, 1)
   state = similar(v, UInt8, N_particle)
@@ -123,7 +125,7 @@ function Bunch(v::AbstractMatrix, q=nothing, weight=nothing; p_over_q_ref=(float
   return Bunch(species, p_over_q_ref, t_ref, Coords(state, v, q, weight, callbacks))
 end
 
-function Bunch(v::AbstractVector, q=nothing, weight=nothing; p_over_q_ref=(float_type(eltype(v)))(NaN), t_ref=(float_type(eltype(v)))(0), species=Species(), callbacks=())
+function Bunch(v::AbstractVector, q=nothing, weight=nothing; p_over_q_ref=(float_type(eltype(v)))(NaN), t_ref=_default_t_ref(v, p_over_q_ref), species=Species(), callbacks=())
   length(v) == 6 || error("Bunch accepts a N x 6 matrix of N particle coordinates,
                             or alternatively a single particle as a vector. Received 
                             a vector of length $(length(v))")
