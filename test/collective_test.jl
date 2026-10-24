@@ -61,18 +61,27 @@
            0.06                 0.09999999999999999 0.13999999999999999 0.18                0.21999999999999997 0.26               ; 
            0.07333333333333332  0.12222222222222223 0.1711111111111111  0.21999999999999997 0.26888888888888884 0.3177777777777777 ; 
            0.08666666666666667  0.14444444444444443 0.20222222222222222 0.26                0.3177777777777777  0.37555555555555553]
-  mean, cov = BeamTracking.mean_and_cov(v, w, CPU())
+  mean, cov = BeamTracking.mean_and_cov(v, w, trues(2), CPU())
+  @test mean ≈ mu
+  @test cov ≈ sigma
+
+  # Rows outside the mask are excluded, whatever they hold
+  mean, cov = BeamTracking.mean_and_cov([v; fill(NaN, 1, 6)], [w; 5.0], [true, true, false], CPU())
   @test mean ≈ mu
   @test cov ≈ sigma
   
   v = [0.1  0.2  0.3  0.4  0.5  0.6;
       -0.2 -0.3 -0.4 -0.5 -0.6 -0.7;
       -0.2 -0.3 -0.4 -0.5 -0.6 -0.7]
-  mean, cov = BeamTracking.mean_and_cov(v, nothing, CPU())
+  mean, cov = BeamTracking.mean_and_cov(v, nothing, trues(3), CPU())
   @test mean ≈ mu
   @test cov ≈ sigma
 
-  mean, cov = BeamTracking.mean_and_cov(v, 1e5, CPU())
+  mean, cov = BeamTracking.mean_and_cov(v, 1e5, trues(3), CPU())
+  @test mean ≈ mu
+  @test cov ≈ sigma
+
+  mean, cov = BeamTracking.mean_and_cov([v; fill(NaN, 1, 6)], nothing, [true, true, true, false], CPU())
   @test mean ≈ mu
   @test cov ≈ sigma
 end
