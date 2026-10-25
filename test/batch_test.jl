@@ -137,6 +137,9 @@ end
   test_batch((;Bn0L=Kn0, Kn1L=Kn1, Bn3=Kn3), (;L=0))
   test_batch((;Bn0L=Kn0, Kn1L=Kn1, Bn3=Kn3), (;L=0))
 
+  # Subtracting a batch from scalar zero negates every lane:
+  @test (0 - BatchParam([1.0, -2.0])).batch ≈ [-1.0, 2.0]
+
   # Test MapParams with batch:
   function map(v, q, p)
     x  = p[1]*v[1] + p[2]*v[2]
