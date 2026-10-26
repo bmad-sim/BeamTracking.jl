@@ -77,14 +77,13 @@ Construct a `Bunch` of particles for tracking.
   unit quaternion `[q0 q1 q2 q3]`. Element type must match that of `v`.
 - `weight`: Array of particle weights with length `N`, or `nothing` if 
    even weights for all particles. Defaults to `nothing`.
-- `callbacks`: Tuple of functions to evaluate inside tracking kernels, which should 
-   be of the form `callback(coords::Coords, ds_step, g)` where `coords` is the structure 
-   storing particle coordinates AFTER taking an integration step of size `ds_step`, and 
-   `g` is a tuple of the instantaneous coordinate system curvatures in x and y, i.e. 
-   `g = (gx, gy)`. Note that if more information is needed (e.g. previous step `coords` 
-   or perhaps `s` position), then the callback should be a *closure* that reads/writes 
-   to an outside mutable state each execution. 
-  Defaults to `()`.
+- `callbacks`: Tuple of functions to evaluate inside tracking kernels at each integration
+  step (defaults to `()`), where each callback should be of the form 
+
+```julia
+callback(i, coords, cur_s, cur_t_ref, cur_beta_gamma_ref, last_ds_step, last_g, transforms_out!, transforms_in!)
+``` 
+
 - `p_over_q_ref`: Reference momentum-over-charge defining the normalization 
   of the phase space coordinates.
 - `t_ref=0.`: Reference time.
