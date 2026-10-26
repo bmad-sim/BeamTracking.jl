@@ -78,11 +78,12 @@ Construct a `Bunch` of particles for tracking.
 - `weight`: Array of particle weights with length `N`, or `nothing` if 
    even weights for all particles. Defaults to `nothing`.
 - `callbacks`: Tuple of functions to evaluate inside tracking kernels at each integration
-  step, which should be of the form 
-  ```julia
-  callback(i, coords, cur_s, cur_t_ref, cur_beta_gamma_ref, last_ds_step, last_g, transforms_out!, transforms_in!)
-  ``` 
-  Defaults to `()`.
+  step (defaults to `()`), where each callback should be of the form 
+
+```julia
+callback(i, coords, cur_s, cur_t_ref, cur_beta_gamma_ref, last_ds_step, last_g, transforms_out!, transforms_in!)
+``` 
+
 - `p_over_q_ref`: Reference momentum-over-charge defining the normalization 
   of the phase space coordinates.
 - `t_ref=0.`: Reference time.
