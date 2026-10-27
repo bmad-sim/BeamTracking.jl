@@ -160,7 +160,7 @@ end
   # bkb_multipole! works in the frame rotated by w, where the dipole is (Kn0, 0)
   params = (radiation_params, tilde_m, beta_0, a, 0, w, w_inv, Kn0, SA[mm], SA[Kn0], SA[zero(Kn0)])
   if isprimitivetype(eltype(bunch.coords.v)) && tm.radiation_fluctuations_on
-    photon_params = (get_backend(bunch.coords.v), q, mc2, E_ref, 0, w, w_inv, SA[mm], SA[kn], SA[ks])
+    photon_params = (get_backend(bunch.coords.v), q, mc2, E_ref, 0, nothing, nothing, SA[mm], SA[kn], SA[ks])
   else
     photon_params = nothing
   end
@@ -205,7 +205,7 @@ end
   ksr = @. -kn*sin(mm*tilt0) + ks*cos(mm*tilt0)
   params = (radiation_params, tilde_m, beta_0, a, 0, w0, w0_inv, Kn0, mm, knr, ksr)
   if isprimitivetype(eltype(bunch.coords.v)) && tm.radiation_fluctuations_on
-    photon_params = (get_backend(bunch.coords.v), q, mc2, E_ref, 0, w0, w0_inv, mm, kn, ks)
+    photon_params = (get_backend(bunch.coords.v), q, mc2, E_ref, 0, nothing, nothing, mm, kn, ks)
   else
     photon_params = nothing
   end
