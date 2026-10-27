@@ -157,7 +157,8 @@ end
   a = gyromagnetic_anomaly(bunch.species)
   edge_params = (a, tilde_m, nothing, kn, ks, nothing, nothing, nothing, nothing)
   radiation_params = ifelse(tm.radiation_damping_on, (q, mc2, E_ref), nothing)
-  params = (radiation_params, tilde_m, beta_0, a, 0, w, w_inv, Kn0, SA[mm], SA[kn], SA[ks])
+  # bkb_multipole! works in the frame rotated by w, where the dipole is (Kn0, 0)
+  params = (radiation_params, tilde_m, beta_0, a, 0, w, w_inv, Kn0, SA[mm], SA[Kn0], SA[zero(Kn0)])
   if isprimitivetype(eltype(bunch.coords.v)) && tm.radiation_fluctuations_on
     photon_params = (get_backend(bunch.coords.v), q, mc2, E_ref, 0, w, w_inv, SA[mm], SA[kn], SA[ks])
   else
@@ -199,7 +200,10 @@ end
   edge_params = (a, tilde_m, nothing, kn[1], ks[1], Kn1, Ks1, Kn2, Ks2)
   E_ref = mc2/tilde_m/beta_0
   radiation_params = ifelse(tm.radiation_damping_on, (q, mc2, E_ref), nothing)
-  params = (radiation_params, tilde_m, beta_0, a, 0, w0, w0_inv, Kn0, mm, kn, ks)
+  # Strengths in the dipole frame (rotated by w0), rotated as get_strengths does for a tilt
+  knr = @. kn*cos(mm*tilt0) + ks*sin(mm*tilt0)
+  ksr = @. -kn*sin(mm*tilt0) + ks*cos(mm*tilt0)
+  params = (radiation_params, tilde_m, beta_0, a, 0, w0, w0_inv, Kn0, mm, knr, ksr)
   if isprimitivetype(eltype(bunch.coords.v)) && tm.radiation_fluctuations_on
     photon_params = (get_backend(bunch.coords.v), q, mc2, E_ref, 0, w0, w0_inv, mm, kn, ks)
   else

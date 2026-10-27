@@ -276,6 +276,21 @@
     @test GTPSA.jacobian(b0.coords.v) ≈ v_expected
     @test GTPSA.jacobian(b0.coords.q) ≈ q_expected
 
+    # Straight dipoles (BK kernel) with radiation damping, dipole + sextupole and pure dipole: tilting
+    # every multipole by 0.37 equals rotating the coordinates by -0.37, tracking the untilted element
+    # and rotating back
+    rot_xy(v, a) = [cos(a)*v[1]-sin(a)*v[3] cos(a)*v[2]-sin(a)*v[4] sin(a)*v[1]+cos(a)*v[3] sin(a)*v[2]+cos(a)*v[4] v[5] v[6]]
+    R_5GeV = BeamTracking.E_to_R(Species("electron"), 5e9)
+    v = [0.013 0.021 -0.009 -0.017 0.025 0.08]
+    tm = BendKick(fringe_at=Fringe.NoEnd, radiation_damping_on=true)
+    for (k, tilts) in (((Kn0=0.3, Kn2=0.8), (tilt0=0.37, tilt2=0.37)), ((Kn0=0.3,), (tilt0=0.37,)))
+      b1 = Bunch(copy(v), p_over_q_ref=R_5GeV, species=Species("electron"))
+      b2 = Bunch(rot_xy(v, -0.37), p_over_q_ref=R_5GeV, species=Species("electron"))
+      track!(b1, Beamline([LineElement(L=0.2; k..., tilts..., tracking_method=tm)], p_over_q_ref=R_5GeV, species_ref=Species("electron")))
+      track!(b2, Beamline([LineElement(L=0.2; k..., tracking_method=tm)], p_over_q_ref=R_5GeV, species_ref=Species("electron")))
+      @test b1.coords.v ≈ rot_xy(b2.coords.v, 0.37) atol=1e-15
+    end
+
     # Straight dipole with quadrupole (MK):
     ele = LineElement(L=2.0, Kn0=0.1, Kn1=0.1, tracking_method=Symplectic(order=6, n_steps=10, fringe_at=Fringe.NoEnd))
     v = collect(transpose(@vars(D10)))
