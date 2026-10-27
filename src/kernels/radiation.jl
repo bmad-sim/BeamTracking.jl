@@ -239,11 +239,12 @@ end
 """
 Gives radiation diffusion kick in a multipole.
 """
-@makekernel fastgtpsa=true function stochastic_radiation!(i, coords::Coords, s, backend, q, mc2, E_ref, g, tilt_ref, mm, kn, ks, L) 
+@makekernel fastgtpsa=true function stochastic_radiation!(i, coords::Coords, s, backend, q, mc2, E_ref, g, w, w_inv, mm, kn, ks, L) 
   v = coords.v
 
-  w = rot_quaternion(0, 0, -tilt_ref)
-  rotation!(i, coords, w, 0)
+  if !isnothing(w)
+    rotation!(i, coords, w, 0)
+  end
 
   # Vector potential is (ax, ay, does-not-matter)
   if mm[1] == 0
@@ -266,6 +267,7 @@ Gives radiation diffusion kick in a multipole.
 
   stochastic_radiation_field!(i, coords, backend, q, mc2, E_ref, g, ax, ay, e_vec, b_vec, L)
 
-  w_inv = inv_rot_quaternion(0, 0, -tilt_ref)
-  rotation!(i, coords, w_inv, 0)
+  if !isnothing(w_inv)
+    rotation!(i, coords, w_inv, 0)
+  end
 end

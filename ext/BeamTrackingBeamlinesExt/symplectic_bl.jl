@@ -85,7 +85,7 @@ end
   radiation_params = ifelse(tm.radiation_damping_on, (q, mc2, E_ref), nothing)
   params = (radiation_params, beta_0, gamsqr_0, tilde_m, a, Ksol, mm, kn, ks)
   if isprimitivetype(eltype(bunch.coords.v)) && tm.radiation_fluctuations_on
-    photon_params = (get_backend(bunch.coords.v), q, mc2, E_ref, 0, 0, mm, kn, ks)
+    photon_params = (get_backend(bunch.coords.v), q, mc2, E_ref, 0, nothing, nothing, mm, kn, ks)
   else
     photon_params = nothing
   end
@@ -124,7 +124,7 @@ end
   radiation_params = ifelse(tm.radiation_damping_on, (q, mc2, E_ref), nothing)
   params = (radiation_params, beta_0, gamsqr_0, tilde_m, a, Ksol, mm, kn, ks)
   if isprimitivetype(eltype(bunch.coords.v)) && tm.radiation_fluctuations_on
-    photon_params = (get_backend(bunch.coords.v), q, mc2, E_ref, 0, 0, mm, kn, ks)
+    photon_params = (get_backend(bunch.coords.v), q, mc2, E_ref, 0, nothing, nothing, mm, kn, ks)
   else
     photon_params = nothing
   end
@@ -159,7 +159,7 @@ end
   radiation_params = ifelse(tm.radiation_damping_on, (q, mc2, E_ref), nothing)
   params = (radiation_params, tilde_m, beta_0, a, 0, w, w_inv, Kn0, SA[mm], SA[kn], SA[ks])
   if isprimitivetype(eltype(bunch.coords.v)) && tm.radiation_fluctuations_on
-    photon_params = (get_backend(bunch.coords.v), q, mc2, E_ref, 0, 0, SA[mm], SA[kn], SA[ks])
+    photon_params = (get_backend(bunch.coords.v), q, mc2, E_ref, 0, w, w_inv, SA[mm], SA[kn], SA[ks])
   else
     photon_params = nothing
   end
@@ -201,7 +201,7 @@ end
   radiation_params = ifelse(tm.radiation_damping_on, (q, mc2, E_ref), nothing)
   params = (radiation_params, tilde_m, beta_0, a, 0, w0, w0_inv, Kn0, mm, kn, ks)
   if isprimitivetype(eltype(bunch.coords.v)) && tm.radiation_fluctuations_on
-    photon_params = (get_backend(bunch.coords.v), q, mc2, E_ref, 0, 0, mm, kn, ks)
+    photon_params = (get_backend(bunch.coords.v), q, mc2, E_ref, 0, w0, w0_inv, mm, kn, ks)
   else
     photon_params = nothing
   end
@@ -247,7 +247,7 @@ end
   radiation_params = ifelse(tm.radiation_damping_on, (q, mc2, E_ref), nothing)
   params = (radiation_params, beta_0, gamsqr_0, tilde_m, a, w1, w1_inv, k1, mm, kn, ks)
   if isprimitivetype(eltype(bunch.coords.v)) && tm.radiation_fluctuations_on
-    photon_params = (get_backend(bunch.coords.v), q, mc2, E_ref, 0, 0, mm, kn, ks)
+    photon_params = (get_backend(bunch.coords.v), q, mc2, E_ref, 0, nothing, nothing, mm, kn, ks)
   else
     photon_params = nothing
   end
@@ -276,7 +276,7 @@ end
   radiation_params = ifelse(tm.radiation_damping_on, (q, mc2, E_ref), nothing)
   params = (radiation_params, beta_0, gamsqr_0, tilde_m, a, w, w_inv, k1, SA[mm], SA[kn], SA[ks])
   if isprimitivetype(eltype(bunch.coords.v)) && tm.radiation_fluctuations_on
-    photon_params = (get_backend(bunch.coords.v), q, mc2, E_ref, 0, 0, SA[mm], SA[kn], SA[ks])
+    photon_params = (get_backend(bunch.coords.v), q, mc2, E_ref, 0, nothing, nothing, SA[mm], SA[kn], SA[ks])
   else
     photon_params = nothing
   end
@@ -314,7 +314,7 @@ end
   radiation_params = ifelse(tm.radiation_damping_on, (q, mc2, E_ref), nothing)
   params = (radiation_params, beta_0, gamsqr_0, tilde_m, a, w, w_inv, k1, mm, kn, ks)
   if isprimitivetype(eltype(bunch.coords.v)) && tm.radiation_fluctuations_on
-    photon_params = (get_backend(bunch.coords.v), q, mc2, E_ref, 0, 0, mm, kn, ks)
+    photon_params = (get_backend(bunch.coords.v), q, mc2, E_ref, 0, nothing, nothing, mm, kn, ks)
   else
     photon_params = nothing
   end
@@ -344,7 +344,7 @@ end
   radiation_params = ifelse(tm.radiation_damping_on, (q, mc2, E_ref), nothing)
   params = (radiation_params, beta_0, gamsqr_0, tilde_m, a, SA[mm], SA[kn], SA[ks])
   if isprimitivetype(eltype(bunch.coords.v)) && tm.radiation_fluctuations_on
-    photon_params = (get_backend(bunch.coords.v), q, mc2, E_ref, 0, 0, SA[mm], SA[kn], SA[ks])
+    photon_params = (get_backend(bunch.coords.v), q, mc2, E_ref, 0, nothing, nothing, SA[mm], SA[kn], SA[ks])
   else
     photon_params = nothing
   end
@@ -382,7 +382,7 @@ end
   radiation_params = ifelse(tm.radiation_damping_on, (q, mc2, E_ref), nothing)
   params = (radiation_params, beta_0, gamsqr_0, tilde_m, a, mm, kn, ks)
   if isprimitivetype(eltype(bunch.coords.v)) && tm.radiation_fluctuations_on
-    photon_params = (get_backend(bunch.coords.v), q, mc2, E_ref, 0, 0, mm, kn, ks)
+    photon_params = (get_backend(bunch.coords.v), q, mc2, E_ref, 0, nothing, nothing, mm, kn, ks)
   else
     photon_params = nothing
   end
@@ -433,7 +433,7 @@ end
   radiation_params = ifelse(tm.radiation_damping_on, (q, mc2, E_ref), nothing)
   params = (radiation_params, tilde_m, beta_0, a, g, w, w_inv, Kn0, SA[mm], SA[Kn0], SA[Ks0])
   if isprimitivetype(eltype(bunch.coords.v)) && tm.radiation_fluctuations_on
-    photon_params = (get_backend(bunch.coords.v), q, mc2, E_ref, g, bendparams.tilt_ref, SA[mm], SA[Kn0], SA[Ks0])
+    photon_params = (get_backend(bunch.coords.v), q, mc2, E_ref, g, w, w_inv, SA[mm], SA[Kn0], SA[Ks0])
   else
     photon_params = nothing
   end
@@ -467,7 +467,7 @@ end
   radiation_params = ifelse(tm.radiation_damping_on, (q, mc2, E_ref), nothing)
   params = (radiation_params, tilde_m, beta_0, a, g, w, w_inv, Kn0, mm, kn, ks)
   if isprimitivetype(eltype(bunch.coords.v)) && tm.radiation_fluctuations_on
-    photon_params = (get_backend(bunch.coords.v), q, mc2, E_ref, g, bendparams.tilt_ref, mm, kn, ks)
+    photon_params = (get_backend(bunch.coords.v), q, mc2, E_ref, g, w, w_inv, mm, kn, ks)
   else
     photon_params = nothing
   end
@@ -528,7 +528,7 @@ end
   radiation_params = ifelse(tm.radiation_damping_on, (q, mc2, E_ref), nothing)
   params = (radiation_params, beta_0, gamsqr_0, tilde_m, a, omega, t_ref, E0_normalized, Ksol, Val{!isnothing(Ksol)}(), mm, kn, ks)
   if isprimitivetype(eltype(bunch.coords.v)) && tm.radiation_fluctuations_on
-    photon_params = (get_backend(bunch.coords.v), q, mc2, E_ref, 0, 0, mm, kn, ks)
+    photon_params = (get_backend(bunch.coords.v), q, mc2, E_ref, 0, nothing, nothing, mm, kn, ks)
   else
     photon_params = nothing
   end
