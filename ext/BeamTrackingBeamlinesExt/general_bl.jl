@@ -112,19 +112,36 @@ end
   log_m = log(massof(bunch.species)) - 2*log_c_light
   log_q = log(abs(chargeof(bunch.species)))
   log_k = log_m + 2*log_q - log(4*pi*EPS_0)
-  if isnothing(bunch.coords.weight)
-    log_N = log(size(bunch.coords.v, 1))
-  elseif bunch.coords.weight isa Number
-    log_N = log(bunch.coords.weight) + log(size(bunch.coords.v, 1))
+  # map gives a Vector{Bool} on the CPU; the BitVector of .== packs the flags into bits,
+  # whose extraction keeps the statistics loops from vectorizing (3-4x slower)
+  alive = map(==(BeamTracking.STATE_ALIVE), bunch.coords.state)
+  weight = bunch.coords.weight
+  if weight isa Union{Number,Nothing}
+    n_live = isnothing(weight) || !iszero(weight) ? count(alive) : 0
   else
-    log_N = log(sum(bunch.coords.weight))
+    w_alive = ifelse.(alive, weight, zero(eltype(weight)))
+    W_live = sum(w_alive)
+    isfinite(W_live) || error("IBS needs finite particle weights; the live weights sum to $W_live")
+    n_live = count(>(0), w_alive)
+  end
+  iszero(n_live) && return kc
+  # The covariance of n points has rank at most n - 1
+  if n_live < 7
+    error("IBS needs at least 7 live particles with positive weight for a nonsingular 6D beam covariance; the bunch has $n_live")
+  end
+  if isnothing(weight)
+    log_N = log(n_live)
+  elseif weight isa Number
+    log_N = log(weight) + log(n_live)
+  else
+    log_N = log(W_live)
   end
   tilde_m, gamsqr_0, _ = BeamTracking.drift_params(bunch.species, bunch.p_over_q_ref)
   log_p0 = log_m + log_c_light - log(tilde_m)
   gamma_0 = sqrt(gamsqr_0)
   backend = get_backend(bunch.coords.v)
 
-  means, sigma = mean_and_cov(bunch.coords.v, bunch.coords.weight, backend)
+  means, sigma = mean_and_cov(bunch.coords.v, weight, alive, backend)
   sigma = Symmetric(sigma)
   sigma_inv = inv(sigma)
   log_b_min = log(4) + log_k - log(sigma[2,2] + sigma[4,4] + sigma[6,6]/gamsqr_0) - 2*log_p0
