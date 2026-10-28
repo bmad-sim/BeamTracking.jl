@@ -760,9 +760,12 @@ end
 """
 Applies radiation diffusion kick for implicit integrators.
 """
-function stochastic_radiation!(i, coords::Coords, s, ::typeof(implicit_integrator!), backend, q, mc2, E_ref, g, potential_and_jac::U, potential_params, p_over_q_ref, normalized, L) where {U}
+function stochastic_radiation!(i, coords::Coords, s, ::typeof(implicit_integrator!), backend, q, mc2, E_ref, g, w, w_inv, potential_and_jac::U, potential_params, p_over_q_ref, normalized, L) where {U}
   @inbounds begin
     v = coords.v
+    if !isnothing(w)
+      rotation!(i, coords, w, 0)
+    end
     t = (s - v[i,ZI])/c_light(eltype(coords.v)) # radiation is only accurate when beta_0 is approximately 1
     tilde_m = mc2/E_ref
 
@@ -773,6 +776,10 @@ function stochastic_radiation!(i, coords::Coords, s, ::typeof(implicit_integrato
     mad_to_bmad!(i, coords, 1, tilde_m, phi)
     stochastic_radiation_field!(i, coords, backend, q, mc2, E_ref, g, ax, ay, e_vec, b_vec, L)
     bmad_to_mad!(i, coords, 1, tilde_m, phi)
+
+    if !isnothing(w_inv)
+      rotation!(i, coords, w_inv, 0)
+    end
   end
   return nothing
 end

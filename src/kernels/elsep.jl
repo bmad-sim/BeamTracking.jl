@@ -112,7 +112,11 @@ end
 end
 
 
-@makekernel function stochastic_radiation!(i, coords::Coords, s, ::typeof(exact_elsep!), backend, q, mc2, E_ref, kE, L)
+@makekernel function stochastic_radiation!(i, coords::Coords, s, ::typeof(exact_elsep!), backend, q, mc2, E_ref, kE, w, w_inv, L)
+  if !isnothing(w)
+    rotation!(i, coords, w, 0)
+  end
+
   e_vec = (c_light(eltype(coords.v))*kE, 0, 0)
   phi = -kE*coords.v[i,XI]
   tilde_m = mc2/E_ref # ultrarelativistic approximation
@@ -120,6 +124,10 @@ end
   mad_to_bmad!(i, coords, 1, tilde_m, phi)
   stochastic_radiation_field!(i, coords, backend, q, mc2, E_ref, 0, 0, 0, e_vec, (0, 0, 0), L)
   bmad_to_mad!(i, coords, 1, tilde_m, phi)
+
+  if !isnothing(w_inv)
+    rotation!(i, coords, w_inv, 0)
+  end
 end
 
 
