@@ -70,7 +70,7 @@ Particle coordinate rotation. This rotates both `(x, y)` and `(px, py, pz)` phas
 
 Returned is the new longitudinal offset from the center of rotation.
 """
-@inline function rotation!(i, coords::Coords, q_inv, z_0) 
+function rotation!(i, coords::Coords, q_inv, z_0) 
   @FastGTPSA begin @inbounds begin
     v = coords.v
     rel_p = 1 + v[i,PZI]

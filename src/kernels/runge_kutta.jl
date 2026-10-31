@@ -161,7 +161,7 @@ Only updates state if particle is alive.
 - `gx`, `gy`: Horizontal and vertical reference curvature components
 - `magnetic_scale`: inverse reference rigidity, q/p₀
 """
-@inline function _rk4_step!(coords, i, s, h, field_function, field_parameters, field_normalized, tilde_m, beta_0, gx, gy, magnetic_scale,
+function _rk4_step!(coords, i, s, h, field_function, field_parameters, field_normalized, tilde_m, beta_0, gx, gy, magnetic_scale,
                             reference=_rk_reference_factors(beta_0, tilde_m))
   # Check if particle is alive
   alive = (coords.state[i] == STATE_ALIVE)
@@ -251,7 +251,7 @@ end
 Advance one RK4 step using a field source with its declared unit convention. The full tracking
 kernel reuses the field conversion factors across all steps for each particle.
 """
-@inline function rk4_step!(coords, i, s, h, field_function, field_parameters, field_normalized, charge, tilde_m, beta_0, gx, gy, p0c, mc2)
+function rk4_step!(coords, i, s, h, field_function, field_parameters, field_normalized, charge, tilde_m, beta_0, gx, gy, p0c, mc2)
   electric_scale = charge / p0c
   return _rk4_step!(coords, i, s, h, field_function, field_parameters, field_normalized, tilde_m, beta_0, gx, gy,
                    electric_scale * c_light(typeof(p0c)))

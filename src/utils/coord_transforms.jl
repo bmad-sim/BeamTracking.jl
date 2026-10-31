@@ -34,7 +34,7 @@ Compute once, then feed to `coord_alignment_bend_at_s` for as many `s` values as
 - `st`      `sin(tilt_ref)`.
 - `ct`      `cos(tilt_ref)`.
 """
-@inline function coord_alignment_bend_mid(x_off, y_off, z_off, x_rot, y_rot, tilt, g_ref, tilt_ref, L)
+function coord_alignment_bend_mid(x_off, y_off, z_off, x_rot, y_rot, tilt, g_ref, tilt_ref, L)
   st, ct = sincos(tilt_ref)
 
   ang2 = L * g_ref / 2
@@ -72,7 +72,7 @@ transform (before inversion).
 - `r`     Coordinate origin shift.
 - `q`     Quaternion rotation.
 """
-@inline function coord_alignment_bend_at_s(mid_r, mid_q, st, ct, g_ref, L, s)
+function coord_alignment_bend_at_s(mid_r, mid_q, st, ct, g_ref, L, s)
   @FastGTPSA begin
     ds  = L/2 - s
     ang = ds * g_ref
@@ -110,7 +110,7 @@ Returns `dr` origin shift and `q` quaternion rotation for the coordinate transfo
 from the nominal bend entrance face (in branch coordinates) to the actual entrance face
 (in body coordinates) taking into account the element alignment parameters.
 """
-@inline function coord_alignment_bend_entering(x_off, y_off, z_off, x_rot, y_rot, tilt,
+function coord_alignment_bend_entering(x_off, y_off, z_off, x_rot, y_rot, tilt,
                                                g_ref, tilt_ref, ele_orient, L)
   mid_r, mid_q, st, ct = coord_alignment_bend_mid(x_off, y_off, z_off, x_rot, y_rot, tilt,
                                                   g_ref, tilt_ref, L)
@@ -128,7 +128,7 @@ Returns `dr` origin shift and `q` quaternion rotation for the coordinate transfo
 from the actual exit face (in body coordinates) to the nominal bend exit face
 (in branch coordinates) taking into account the element alignment parameters.
 """
-@inline function coord_alignment_bend_exiting(x_off, y_off, z_off, x_rot, y_rot, tilt,
+function coord_alignment_bend_exiting(x_off, y_off, z_off, x_rot, y_rot, tilt,
                                               g_ref, tilt_ref, ele_orient, L)
   mid_r, mid_q, st, ct = coord_alignment_bend_mid(x_off, y_off, z_off, x_rot, y_rot, tilt,
                                                   g_ref, tilt_ref, L)

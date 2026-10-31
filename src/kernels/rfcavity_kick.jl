@@ -1,4 +1,4 @@
-@inline function cavity!(i, coords::Coords, s, radiation_params, beta_0, gamsqr_0, tilde_m, a, omega, t_ref, E0_normalized, Ksol, ::Val{sol}, mm, kn, ks, L) where {sol}
+function cavity!(i, coords::Coords, s, radiation_params, beta_0, gamsqr_0, tilde_m, a, omega, t_ref, E0_normalized, Ksol, ::Val{sol}, mm, kn, ks, L) where {sol}
   @inbounds begin @FastGTPSA begin
     multipoles = (length(mm) > 0)
     if sol
