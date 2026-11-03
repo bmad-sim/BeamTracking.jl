@@ -227,7 +227,7 @@ end
 
 #---------------------------------------------------------------------------------------------------
 
-function fringe_in(f::Fringe.T)
+@inline function fringe_in(f::Fringe.T)
   if f == Fringe.BothEnds || f == Fringe.EntranceEnd
     return Val{true}()
   else
@@ -235,7 +235,7 @@ function fringe_in(f::Fringe.T)
   end
 end
 
-function fringe_out(f::Fringe.T)
+@inline function fringe_out(f::Fringe.T)
   if f == Fringe.BothEnds || f == Fringe.ExitEnd
     return Val{true}()
   else
@@ -264,4 +264,14 @@ function rf_step_calc(n_cells, L_active, rf_omega, L)
   else
     return n_cells, L_act
   end
+end
+
+#---------------------------------------------------------------------------------------------------
+
+function drift_params(species::Species, p_over_q_ref)
+  beta_gamma_0 = R_to_beta_gamma(species, p_over_q_ref)
+  tilde_m = 1/beta_gamma_0
+  gamsqr_0 = @FastGTPSA 1+beta_gamma_0*beta_gamma_0
+  beta_0 = @FastGTPSA beta_gamma_0/sqrt(gamsqr_0)
+  return tilde_m, gamsqr_0, beta_0
 end

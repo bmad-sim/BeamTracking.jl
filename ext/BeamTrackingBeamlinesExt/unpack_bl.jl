@@ -1,6 +1,41 @@
+struct _ConcreteUniversalParams{A}
+  L::A
+  n_steps::Int
+  ds_step::Float64
+  n_slices::Int
+  fringe_at::Fringe.T
+  rad_damping::Bool
+  rad_fluctuations::Bool
+  function _ConcreteUniversalParams(up::UniversalParams)
+    L = float(up.L)
+    n_steps = up.n_steps
+    ds_step = L / n_steps # actual ds_step, not fake one
+    n_slices = up.n_slices
+    fringe_at = up.fringe_at
+    rad_damping = up.rad_damping
+    rad_fluctuations = up.rad_fluctuations
+    return new{typeof(L)}(L, n_steps, ds_step, n_slices, fringe_at, rad_damping, rad_fluctuations)
+  end
+end
+
+Base.@kwdef struct LoweredElement{A,B,C,D,E,F,G,H,I,J,K,L}
+  universalparams::A
+  alignmentparams::B
+  bendparams::C
+  bmultipoleparams::D
+  patchparams::E
+  apertureparams::F
+  rfparams::G
+  beamlineparams::H
+  mapparams::I
+  fourpotentialparams::J
+  emultipoleparams::K
+  emfieldparams::L
+  ibsparams::M
+end
+
 # Step 1: Unpack the element ---------------------------------------------
 function _track!(
-  coords::Coords,
   bunch::Bunch,
   ele::LineElement, 
   context::Context,
@@ -13,78 +48,113 @@ function _track!(
   batch_start;
   kwargs...
 )
-  # Unpack the line element (type unstable)
-  L = float(ele.L) # Automatically calls deval (element-level get)
-  # float call is required because L is allowed to be any type
-  # in order to keep binaries smaller for tracking routines, 
-  # we don't want to compile separate routines for Int64
-
   # Parameter groups in ignore_params are replaced with nothing, exactly as if the element
   # did not have them (like RFParams with rf_on = false)
-  ip = ele.IgnoreParams
-  ig = isnothing(ip) ? () : ip.ignore_params
-  ap = AlignmentParams in ig ? nothing : deval(ele.AlignmentParams, context)
-  bp = BendParams in ig ? nothing : deval(ele.BendParams, context)
-  bm = BMultipoleParams in ig ? nothing : deval(ele.BMultipoleParams, context)
-  pp = PatchParams in ig ? nothing : deval(ele.PatchParams, context)
-  dp = ApertureParams in ig ? nothing : deval(ele.ApertureParams, context)
-  mp = MapParams in ig ? nothing : deval(ele.MapParams, context)
-  rp = (!rf_on || RFParams in ig) ? nothing : deval(ele.RFParams, context)
-  lp = BeamlineParams in ig ? nothing : deval(ele.BeamlineParams, context)
-  fpp = FourPotentialParams in ig ? nothing : deval(ele.FourPotentialParams, context)
-  em = EMultipoleParams in ig ? nothing : deval(ele.EMultipoleParams, context)
-  emfp = EMFieldParams in ig ? nothing : deval(ele.EMFieldParams, context)
+  ignoreparams = ele.IgnoreParams
+  ig = isnothing(ignoreparams) ? () : ignoreparams.ignore_params
+  universalparams = UniversalParams in ig ? nothing : deval(ele.UniversalParams, context)
+  alignmentparams = AlignmentParams in ig ? nothing : deval(ele.AlignmentParams, context)
+  bendparams = BendParams in ig ? nothing : deval(ele.BendParams, context)
+  bmultipoleparams = BMultipoleParams in ig ? nothing : deval(ele.BMultipoleParams, context)
+  patchparams = PatchParams in ig ? nothing : deval(ele.PatchParams, context)
+  apertureparams = ApertureParams in ig ? nothing : deval(ele.ApertureParams, context)
+  mapparams = MapParams in ig ? nothing : deval(ele.MapParams, context)
+  rfparams = (!rf_on || RFParams in ig) ? nothing : deval(ele.RFParams, context)
+  beamlineparams = BeamlineParams in ig ? nothing : deval(ele.BeamlineParams, context)
+  fourpotentialparams = FourPotentialParams in ig ? nothing : deval(ele.FourPotentialParams, context)
+  emultipoleparams = EMultipoleParams in ig ? nothing : deval(ele.EMultipoleParams, context)
+  emfieldparams = EMFieldParams in ig ? nothing : deval(ele.EMFieldParams, context)
+  ibsparams = IBSParams in ig ? nothing : deval(ele.IBSParams, context)
+
+  universalparams = isactive(universalparams) ? universalparams : nothing
+  alignmentparams = isactive(alignmentparams) ? alignmentparams : nothing
+  bendparams = isactive(bendparams) ? bendparams : nothing
+  bmultipoleparams = isactive(bmultipoleparams) ? bmultipoleparams : nothing
+  patchparams = isactive(patchparams) ? patchparams : nothing
+  apertureparams = isactive(apertureparams) ? apertureparams : nothing
+  mapparams = isactive(mapparams) ? mapparams : nothing
+  rfparams = isactive(rfparams) ? rfparams : nothing
+  beamlineparams = isactive(beamlineparams) ? beamlineparams : nothing
+  fourpotentialparams = isactive(fourpotentialparams) ? fourpotentialparams : nothing
+  emultipoleparams = isactive(emultipoleparams) ? emultipoleparams : nothing
+  emfieldparams = isactive(emfieldparams) ? emfieldparams : nothing
+  ibsparams = isactive(ibsparams) ? ibsparams : nothing
 
   if scalar_params
-    L = scalarize(L)
-    ap = scalarize(ap)
-    bp = scalarize(bp)
-    bm = scalarize(bm)
-    pp = scalarize(pp)
-    dp = scalarize(dp)
-    mp = scalarize(mp)
-    rp = scalarize(rp)
-    lp = scalarize(lp)
-    fpp = scalarize(fpp)
-    em = scalarize(em)
-    emfp = scalarize(emfp)
+    universalparams = scalarize(universalparams)
+    alignmentparams = scalarize(alignmentparams)
+    bendparams = scalarize(bendparams)
+    bmultipoleparams = scalarize(bmultipoleparams)
+    patchparams = scalarize(patchparams)
+    apertureparams = scalarize(apertureparams)
+    mapparams = scalarize(mapparams)
+    rfparams = scalarize(rfparams)
+    beamlineparams = scalarize(beamlineparams)
+    fourpotentialparams = scalarize(fourpotentialparams)
+    emultipoleparams = scalarize(emultipoleparams)
+    emfieldparams = scalarize(emfieldparams)
+    ibsparams = scalarize(ibsparams)
     p_over_q_ref = scalarize(p_over_q_ref)
   end
 
+  loweredele = LoweredElement(; 
+    universalparams=_ConcreteUniversalParams(universalparams),
+    alignmentparams,
+    bendparams, 
+    bmultipoleparams, 
+    patchparams, 
+    apertureparams, 
+    rfparams, 
+    beamlineparams, 
+    mapparams, 
+    fourpotentialparams, 
+    emultipoleparams, 
+    emfieldparams, 
+    ibsparams,
+  )
   # Function barrier
-  universal!(coords, tm, ele, ramp_particle_energy_without_rf, ramp_update_each_particle, batch_start, bunch, L, p_over_q_ref, ap, bp, bm, pp, dp, rp, lp, mp, fpp, em, emfp; kwargs...)
+  @noinline universal!(bunch, tm, ele, loweredele, p_over_q_ref, Val(ramp_particle_energy_without_rf), Val(ramp_update_each_particle), batch_start; kwargs...)
 end
 
 # Step 2: Push particles through -----------------------------------------
 function universal!(
-  coords,
-  tm,
-  ele,
-  ramp_particle_energy_without_rf, 
-  ramp_update_each_particle,
-  batch_start,
   bunch,
-  L, 
+  tm,
+  fullele,
+  ele,
   p_over_q_ref,
-  alignmentparams,
-  bendparams,
-  bmultipoleparams,
-  patchparams,
-  apertureparams,
-  rfparams,
-  beamlineparams,
-  mapparams,
-  fourpotentialparams,
-  emultipoleparams,
-  em_field_params;
+  ::Val{ramp_particle_energy_without_rf}, 
+  ::Val{ramp_update_each_particle},
+  batch_start;
   kwargs...
-) 
+) where {ramp_particle_energy_without_rf, ramp_update_each_particle}
+  universalparams = ele.universalparams
+  alignmentparams = ele.alignmentparams
+  bendparams = ele.bendparams
+  # bmultipoleparams = ele.bmultipoleparams
+  # patchparams = ele.patchparams
+  apertureparams = ele.apertureparams
+  # rfparams = ele.rfparams
+  # beamlineparams = ele.beamlineparams
+  # mapparams = ele.mapparams
+  # fourpotentialparams = ele.fourpotentialparams
+  # emultipoleparams = ele.emultipoleparams
+  # emfieldparams = ele.emfieldparams
+  ibsparams = ele.ibsparams
+
+  L = universalparams.L
+
+  if universalparams.n_slices != 1
+    error("Elements with n_slices > 1 not yet supported")
+  end
+
   # Compute information about reference coordinate system:
   t_enter = bunch.t_ref
   beta_gamma_enter_t = R_to_beta_gamma(bunch.species, p_over_q_ref)
   beta_gamma_enter = p_over_q_ref isa TimeDependentParam ? beta_gamma_enter_t(t_enter) : beta_gamma_enter_t
   g = isnothing(bendparams) ? (0,0) : reverse((bendparams.g_ref .* sincos(bendparams.tilt_ref)))
-  ds_step = (L == 0 || isactive(patchparams)) ? L : BeamTracking.find_steps(tm, L)[2]
+  ds_step = universalparams.ds_step
+
   # Reference time evolution thru element assumes constant energy
   # using the energy at the start of the element:
   t_exit = bunch.t_ref + L / beta_gamma_to_v(beta_gamma_enter)
@@ -103,8 +173,8 @@ function universal!(
     p_over_q_ref_exit = p_over_q_ref
   end
 
-  T = eltype(coords.v)
-
+  # Lower RefState values to coordinates number types
+  T = eltype(bunch.coords.v)
   t_enter = BeamTracking.num_lower(T, t_enter)
   beta_gamma_enter = BeamTracking.num_lower(T, beta_gamma_enter)
   t_exit  = BeamTracking.num_lower(T, t_exit)
@@ -120,6 +190,10 @@ function universal!(
   # and 2 for coordinate conversion with implicit
   kc = KernelChain(Val{10}(), RefState{T}(; t_enter, beta_gamma_enter, t_exit, beta_gamma_exit, L, g, ds_step), batch_start)
   
+  if !isnothing(ibsparams) && ibsparams.ibs_model != IBSModel.None && L > 0
+    kc = @inline(ibs_kick(kc, bunch, ibsparams, bendparams, L))
+  end
+
   ramp_per_particle = p_over_q_ref isa TimeDependentParam && ramp_update_each_particle
   bunch_beta_gamma = R_to_beta_gamma(bunch.species, bunch.p_over_q_ref)
 
@@ -137,201 +211,39 @@ function universal!(
   end
 
   # Entrance aperture and alignment
-  if isactive(alignmentparams)
-    if isactive(apertureparams)
+  if !isnothing(alignmentparams)
+    if !isnothing(apertureparams)
       if apertureparams.aperture_shifts_with_body
-        kc = @inline(alignment(tm, kc, p_over_q_ref, bunch, alignmentparams, bendparams, L, true))
-        kc = @inline(aperture(tm, kc, p_over_q_ref, bunch, apertureparams, true))
+        kc = @inline(alignment(kc, alignmentparams, bendparams, L, true))
+        kc = @inline(aperture(kc, apertureparams, true))
       else
-        kc = @inline(aperture(tm, kc, p_over_q_ref, bunch, apertureparams, true))
-        kc = @inline(alignment(tm, kc, p_over_q_ref, bunch, alignmentparams, bendparams, L, true))
+        kc = @inline(aperture(kc, apertureparams, true))
+        kc = @inline(alignment(kc, alignmentparams, bendparams, L, true))
       end
     else
-      kc = @inline(alignment(tm, kc, p_over_q_ref, bunch, alignmentparams, bendparams, L, true))
+      kc = @inline(alignment(kc, alignmentparams, bendparams, L, true))
     end
-  elseif isactive(apertureparams)
-    kc = @inline(aperture(tm, kc, p_over_q_ref, bunch, apertureparams, true))
+  elseif !isnothing(apertureparams)
+    kc = @inline(aperture(kc, apertureparams, true))
   end
 
-  if ((hasfield(typeof(tm), :ibs_damping_on) && hasfield(typeof(tm), :ibs_fluctuations_on)) 
-    && (tm.ibs_damping_on || tm.ibs_fluctuations_on) && L > 0)
-    bp = ifelse(isactive(bendparams), bendparams, nothing)
-    kc = @inline(ibs_kick(tm, kc, p_over_q_ref, bunch, bp, L))
-  end
-
-  if tm isa RungeKutta
-    kc = @inline(runge_kutta_body(tm, kc, p_over_q_ref, bunch, bendparams, bmultipoleparams,
-                                  patchparams, rfparams, mapparams, fourpotentialparams,
-                                  emultipoleparams, em_field_params, L))
-
-  elseif isactive(mapparams)    
-    if isactive(bendparams)
-      error("Tracking through a LineElement containing both MapParams and BendParams not currently defined")
-    elseif isactive(bmultipoleparams)
-      error("Tracking through a LineElement containing both MapParams and BMultipoleParams not currently defined")
-    elseif isactive(rfparams)
-      error("Tracking through a LineElement containing both MapParams and RFParams not currently defined")
-    elseif isactive(patchparams)
-      error("Tracking through a LineElement containing both MapParams and PatchParams not currently defined")
-    elseif isactive(fourpotentialparams)
-      error("Tracking through a LineElement containing both MapParams and FourPotentialParams not currently defined")
-    else
-      kc = @inline(pure_map(tm, kc, p_over_q_ref, bunch, mapparams, L))
-    end
-
-  elseif isactive(fourpotentialparams)    
-    if isactive(bmultipoleparams)
-      error("Tracking through a LineElement containing both FourPotentialParams and BMultipoleParams not currently defined")
-    elseif isactive(rfparams)
-      error("Tracking through a LineElement containing both FourPotentialParams and RFParams not currently defined")
-    elseif isactive(patchparams)
-      error("Tracking through a LineElement containing both MapParams and PatchParams not currently defined")
-    else
-      kc = @inline(implicit(tm, kc, p_over_q_ref, bunch, fourpotentialparams, bendparams, L))
-    end
-
-  elseif isactive(patchparams)    
-    if isactive(alignmentparams)
-      error("Tracking through a LineElement containing both PatchParams and AlignmentParams is undefined")
-    elseif isactive(bendparams)
-      error("Tracking through a LineElement containing both PatchParams and BendParams not currently defined")
-    elseif isactive(bmultipoleparams)
-      error("Tracking through a LineElement containing both PatchParams and BMultipoleParams not currently defined")
-    elseif isactive(rfparams)
-      error("Tracking through a LineElement containing both PatchParams and RFParams not currently defined")
-    else
-      # Pure patch
-      kc = @inline(pure_patch(tm, kc, p_over_q_ref, bunch, patchparams, L))
-    end
-
-  elseif isactive(rfparams)
-    if isactive(bendparams)
-      error("Tracking through a LineElement containing both RFParams and BendParams not currently defined")
-    end
-    !rfparams.is_crabcavity || error("Crab cavities not yet supported for tracking")
-
-    kc = @inline(rfcavity(tm, kc, p_over_q_ref, bunch, bmultipoleparams, rfparams, beamlineparams, L))
-    
-  elseif isactive(bendparams)
-    if bendparams.edge1_int != 0 || bendparams.edge2_int != 0; error("edge1_int and edge2_int not yet handled for tracking"); end
-    if isactive(emultipoleparams); error("Tracking through a LineElement containing both BendParams and EMultipoleParams not currently defined"); end
-    # Bend
-    if !isactive(bmultipoleparams) 
-      # Bend no field
-      kc = @inline(bend_no_field(tm, kc, p_over_q_ref, bunch, bendparams, L))
-    else
-      n_multipoles = get_n_multipoles(bmultipoleparams)
-      if 0 in bmultipoleparams.order # Bend-solenoid
-        if n_multipoles == 1
-          bm0 = first(bmultipoleparams)
-          # Pure bend-solenoid
-          kc = @inline(bend_pure_bsolenoid(tm, kc, p_over_q_ref, bunch, bendparams, bm0, L))
-        else
-          # Bend-solenoid with other multipoles of order > 0
-          kc = @inline(bend_bsolenoid(tm, kc, p_over_q_ref, bunch, bendparams, bmultipoleparams, L))
-        end
-      elseif 1 in bmultipoleparams.order # Bend-dipole
-        if n_multipoles == 1
-          bm1 = first(bmultipoleparams)
-          # Pure bend-dipole
-          kc = @inline(bend_pure_bdipole(tm, kc, p_over_q_ref, bunch, bendparams, bm1, L))
-        else
-          # Bend-dipole with other multipoles of order > 1
-          kc = @inline(bend_bdipole(tm, kc, p_over_q_ref, bunch, bendparams, bmultipoleparams, L))
-        end
-      elseif 2 in bmultipoleparams.order # Bend-quadrupole
-        if n_multipoles == 1
-          bm2 = first(bmultipoleparams)
-          # Pure bend-quadrupole
-          kc = @inline(bend_pure_bquadrupole(tm, kc, p_over_q_ref, bunch, bendparams, bm2, L))
-        else
-          # Bend-quadrupole with other multipoles of order > 1
-          kc = @inline(bend_bquadrupole(tm, kc, p_over_q_ref, bunch, bendparams, bmultipoleparams, L))
-        end
-      else # Bend-multipole
-        if n_multipoles == 1
-          bmk = first(bmultipoleparams)
-          # Pure bend-multipole
-          kc = @inline(bend_pure_bmultipole(tm, kc, p_over_q_ref, bunch, bendparams, bmk, L))
-        else
-          # Bend-multipole with other multipoles of order > 2
-          kc = @inline(bend_bmultipole(tm, kc, p_over_q_ref, bunch, bendparams, bmultipoleparams, L))
-        end
-      end
-    end
-
-  elseif isactive(bmultipoleparams)
-    if isactive(emultipoleparams); error("Tracking through a LineElement containing both BMultipoleParams and EMultipoleParams not currently defined"); end
-    # BMultipole
-    n_multipoles = get_n_multipoles(bmultipoleparams)
-    if 0 in bmultipoleparams.order # Solenoid
-      if n_multipoles == 1
-        # Pure solenoid
-        bm0 = first(bmultipoleparams)
-        kc = @inline(pure_bsolenoid(tm, kc, p_over_q_ref, bunch, bm0, L))
-      else
-        # Solenoid with other multipoles of order > 0
-        kc = @inline(bsolenoid(tm, kc, p_over_q_ref, bunch, bmultipoleparams, L))
-      end
-    elseif 1 in bmultipoleparams.order # Dipole without bend
-      if n_multipoles == 1
-        # Pure dipole
-        bm1 = first(bmultipoleparams)
-        kc = @inline(pure_bdipole(tm, kc, p_over_q_ref, bunch, bm1, L))
-      else
-        # Dipole with other multipoles of order > 1
-        kc = @inline(bdipole(tm, kc, p_over_q_ref, bunch, bmultipoleparams, L))
-      end
-    elseif 2 in bmultipoleparams.order # Quadrupole
-      if n_multipoles == 1
-        # Pure quadrupole
-        bm2 = first(bmultipoleparams)
-        kc = @inline(pure_bquadrupole(tm, kc, p_over_q_ref, bunch, bm2, L))
-      else
-        # Quadrupole with other multipoles of order > 1
-        kc = @inline(bquadrupole(tm, kc, p_over_q_ref, bunch, bmultipoleparams, L))
-      end
-    else # Higher order multipole
-      if n_multipoles == 1
-        # Pure multipole
-        bmk = first(bmultipoleparams)
-        kc = @inline(pure_bmultipole(tm, kc, p_over_q_ref, bunch, bmk, L))
-      else
-        # Multipole with other multipoles of order > 2
-        kc = @inline(bmultipole(tm, kc, p_over_q_ref, bunch, bmultipoleparams, L))
-      end
-    end
-
-  elseif isactive(emultipoleparams)
-    # EMultipole
-    n_multipoles = get_n_multipoles(emultipoleparams)
-    if n_multipoles == 1 && 1 in emultipoleparams.order
-      # Pure dipole
-      em1 = first(emultipoleparams)
-      kc = @inline(pure_edipole(tm, kc, p_over_q_ref, bunch, em1, L))
-    else
-      error("Tracking through a LineElement containing EMultipoleParams not currently defined for order > 1")
-    end
-
-  elseif L != 0
-    kc = @inline(drift(tm, kc, p_over_q_ref, bunch, L))
-  end
+  kc = @inline fringe_body_fringe(tm, kc, p_over_q_ref, bunch, ele)
 
   # Exit aperture and alignment
-  if isactive(alignmentparams)
-    if isactive(apertureparams)
+  if !isnothing(alignmentparams)
+    if !isnothing(apertureparams)
       if apertureparams.aperture_shifts_with_body
-        kc = @inline(aperture(tm, kc, p_over_q_ref, bunch, apertureparams, false))
-        kc = @inline(alignment(tm, kc, p_over_q_ref, bunch, alignmentparams, bendparams, L, false))
+        kc = @inline(aperture(kc, apertureparams, false))
+        kc = @inline(alignment(kc, alignmentparams, bendparams, L, false))
       else
-        kc = @inline(alignment(tm, kc, p_over_q_ref, bunch, alignmentparams, bendparams, L, false))
-        kc = @inline(aperture(tm, kc, p_over_q_ref, bunch, apertureparams, false))
+        kc = @inline(alignment(kc, alignmentparams, bendparams, L, false))
+        kc = @inline(aperture(kc, apertureparams, false))
       end
     else
-      kc = @inline(alignment(tm, kc, p_over_q_ref, bunch, alignmentparams, bendparams, L, false))
+      kc = @inline(alignment(kc, alignmentparams, bendparams, L, false))
     end
-  elseif isactive(apertureparams)
-    kc = @inline(aperture(tm, kc, p_over_q_ref, bunch, apertureparams, false))
+  elseif !isnothing(apertureparams)
+    kc = @inline(aperture(kc, apertureparams, false))
   end
 
   # If ramping, now need to uniformly ramp all particles to same reference energy

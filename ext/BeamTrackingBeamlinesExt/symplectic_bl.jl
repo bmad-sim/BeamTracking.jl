@@ -65,14 +65,14 @@ end
 
 # === Thick elements === #
 @inline function drift(tm::Union{Symplectic,DriftKick}, kc, p_over_q_ref, bunch, L)
-  tilde_m, gamsqr_0, beta_0 = BeamTracking.drift_params(bunch.species, p_over_q_ref)
+  tilde_m, gamsqr_0, beta_0 = BeamTrackingdrift_params(bunch.species, p_over_q_ref)
   params = (beta_0, gamsqr_0, tilde_m)
   return push(kc, integration_launcher(BeamTracking.exact_drift!, params, nothing, tm, nothing, L))
 end
 
 @inline function thick_pure_bsolenoid(tm::Union{Symplectic,SolenoidKick}, kc, p_over_q_ref, bunch, bm, L) 
   p_over_q_ref = p_over_q_ref
-  tilde_m, gamsqr_0, beta_0 = BeamTracking.drift_params(bunch.species, p_over_q_ref)
+  tilde_m, gamsqr_0, beta_0 = BeamTrackingdrift_params(bunch.species, p_over_q_ref)
   mm = SA[bm.order]
   Ksol, Ksol_skew = get_strengths(bm, L, p_over_q_ref)
   kn = SA[Ksol]
@@ -94,7 +94,7 @@ end
 
 @inline function thick_bsolenoid(tm::Union{Symplectic,SolenoidKick}, kc, p_over_q_ref, bunch, bm, L) 
   p_over_q_ref = p_over_q_ref
-  tilde_m, gamsqr_0, beta_0 = BeamTracking.drift_params(bunch.species, p_over_q_ref)
+  tilde_m, gamsqr_0, beta_0 = BeamTrackingdrift_params(bunch.species, p_over_q_ref)
   mm = bm.order
   kn, ks = get_strengths(bm, L, p_over_q_ref)
   Ksol = kn[1]
@@ -139,7 +139,7 @@ end
 
 @inline function thick_pure_bdipole(tm::Union{Symplectic,BendKick}, kc, p_over_q_ref, bunch, bm1, L) 
   p_over_q_ref = p_over_q_ref
-  tilde_m, _, beta_0 = BeamTracking.drift_params(bunch.species, p_over_q_ref)
+  tilde_m, _, beta_0 = BeamTrackingdrift_params(bunch.species, p_over_q_ref)
   mm = bm1.order
   kn, ks = get_strengths(bm1, L, p_over_q_ref)
   Kn0 = sqrt(kn^2 + ks^2)
@@ -169,7 +169,7 @@ end
 
 @inline function thick_bdipole(tm::BendKick, kc, p_over_q_ref, bunch, bm, L)
   p_over_q_ref = p_over_q_ref
-  tilde_m, _, beta_0 = BeamTracking.drift_params(bunch.species, p_over_q_ref)
+  tilde_m, _, beta_0 = BeamTrackingdrift_params(bunch.species, p_over_q_ref)
   mm = bm.order
   kn, ks = get_strengths(bm, L, p_over_q_ref)
   Kn0 = sqrt(kn[1]^2 + ks[1]^2)
@@ -214,7 +214,7 @@ end
 
 @inline function thick_bdipole(tm::MatrixKick, kc, p_over_q_ref, bunch, bm, L)
   p_over_q_ref = p_over_q_ref
-  tilde_m, gamsqr_0, beta_0 = BeamTracking.drift_params(bunch.species, p_over_q_ref)
+  tilde_m, gamsqr_0, beta_0 = BeamTrackingdrift_params(bunch.species, p_over_q_ref)
   mm = bm.order
   kn, ks = get_strengths(bm, L, p_over_q_ref)
   Kn0 = kn[1]
@@ -260,7 +260,7 @@ end
 
 @inline function thick_pure_bquadrupole(tm::Union{Symplectic,MatrixKick}, kc, p_over_q_ref, bunch, bm, L)
   p_over_q_ref = p_over_q_ref
-  tilde_m, gamsqr_0, beta_0 = BeamTracking.drift_params(bunch.species, p_over_q_ref)
+  tilde_m, gamsqr_0, beta_0 = BeamTrackingdrift_params(bunch.species, p_over_q_ref)
   mm = bm.order
   kn, ks = get_strengths(bm, L, p_over_q_ref)
   k1 = sqrt(kn^2 + ks^2)
@@ -292,7 +292,7 @@ end
 
 @inline function thick_bquadrupole(tm::Union{Symplectic,MatrixKick}, kc, p_over_q_ref, bunch, bm, L)
   p_over_q_ref = p_over_q_ref
-  tilde_m, gamsqr_0, beta_0 = BeamTracking.drift_params(bunch.species, p_over_q_ref)
+  tilde_m, gamsqr_0, beta_0 = BeamTrackingdrift_params(bunch.species, p_over_q_ref)
   mm = bm.order
   kn, ks = get_strengths(bm, L, p_over_q_ref)
   k1 = sqrt(kn[1]^2 + ks[1]^2)
@@ -328,7 +328,7 @@ end
 @inline thick_bquadrupole(tm::DriftKick, kc, p_over_q_ref, bunch, bm, L) = thick_bmultipole(tm, kc, p_over_q_ref, bunch, bm, L)
 
 @inline function thick_pure_bmultipole(tm::Union{Symplectic,DriftKick}, kc, p_over_q_ref, bunch, bm, L)
-  tilde_m, gamsqr_0, beta_0 = BeamTracking.drift_params(bunch.species, p_over_q_ref)
+  tilde_m, gamsqr_0, beta_0 = BeamTrackingdrift_params(bunch.species, p_over_q_ref)
   mm = bm.order
   kn, ks = get_strengths(bm, L, p_over_q_ref)
   q = chargeof(bunch.species)
@@ -357,7 +357,7 @@ end
 
 @inline function thick_bmultipole(tm::Union{Symplectic,DriftKick}, kc, p_over_q_ref, bunch, bm, L)
   p_over_q_ref = p_over_q_ref
-  tilde_m, gamsqr_0, beta_0 = BeamTracking.drift_params(bunch.species, p_over_q_ref)
+  tilde_m, gamsqr_0, beta_0 = BeamTrackingdrift_params(bunch.species, p_over_q_ref)
   mm = bm.order
   kn, ks = get_strengths(bm, L, p_over_q_ref)
   q = chargeof(bunch.species)
@@ -407,14 +407,14 @@ end
     w = rot_quaternion(0, 0, ntilt)
     w_inv = inv_rot_quaternion(0, 0, ntilt)
   end
-  tilde_m, _, beta_0 = BeamTracking.drift_params(bunch.species, p_over_q_ref)
+  tilde_m, _, beta_0 = BeamTrackingdrift_params(bunch.species, p_over_q_ref)
   params = (nothing, tilde_m, beta_0, gyromagnetic_anomaly(bunch.species), g, w, w_inv, 0, SA[0], SA[0], SA[0])
   return push(kc, integration_launcher(BeamTracking.bkb_multipole!, params, nothing, tm, nothing, L))
 end
 
 @inline function thick_bend_pure_bdipole(tm::Union{Symplectic,BendKick}, kc, p_over_q_ref, bunch, bendparams, bm1, L)
   p_over_q_ref = p_over_q_ref
-  tilde_m, _, beta_0 = BeamTracking.drift_params(bunch.species, p_over_q_ref)
+  tilde_m, _, beta_0 = BeamTrackingdrift_params(bunch.species, p_over_q_ref)
   g = bendparams.g_ref
   ntilt = -bendparams.tilt_ref
   e1 = bendparams.e1
@@ -447,7 +447,7 @@ end
 @inline function thick_bend_bdipole(tm::Union{Symplectic,BendKick}, kc, p_over_q_ref, bunch, bendparams, bm, L)
   @warn "Straight multipoles are being used in a curved reference system. Maxwell's equations in free space are not satisfied." maxlog=1
   p_over_q_ref = p_over_q_ref
-  tilde_m, _, beta_0 = BeamTracking.drift_params(bunch.species, p_over_q_ref)
+  tilde_m, _, beta_0 = BeamTrackingdrift_params(bunch.species, p_over_q_ref)
   g = bendparams.g_ref
   ntilt = -bendparams.tilt_ref
   e1 = bendparams.e1
@@ -484,7 +484,7 @@ end
   p_over_q_ref = p_over_q_ref
   omega = rf_omega_calc(rfparams, beamlineparams)
   t_ref = (rf_phi0_calc(rfparams, beamlineparams.beamline.species_ref) - pi/2)/omega
-  tilde_m, gamsqr_0, beta_0 = BeamTracking.drift_params(bunch.species, p_over_q_ref)
+  tilde_m, gamsqr_0, beta_0 = BeamTrackingdrift_params(bunch.species, p_over_q_ref)
   E0_normalized = rfparams.voltage/L/p_over_q_ref
   q = chargeof(bunch.species)
   mc2 = massof(bunch.species)
@@ -499,7 +499,7 @@ end
   p_over_q_ref = p_over_q_ref
   omega = rf_omega_calc(rfparams, beamlineparams)
   t_ref = (rf_phi0_calc(rfparams, beamlineparams.beamline.species_ref) - pi/2) / omega
-  tilde_m, gamsqr_0, beta_0 = BeamTracking.drift_params(bunch.species, p_over_q_ref)
+  tilde_m, gamsqr_0, beta_0 = BeamTrackingdrift_params(bunch.species, p_over_q_ref)
   E0_normalized = rfparams.voltage/L/p_over_q_ref
   mm = bm.order
   kn, ks = get_strengths(bm, L, p_over_q_ref)
@@ -543,7 +543,7 @@ end
 # =========== IMPLICIT ============= #
 @inline function implicit(tm::Symplectic, kc, p_over_q_ref, bunch, fpp, bp, L)
   p_over_q_ref = p_over_q_ref
-  tilde_m, _, beta_0 = BeamTracking.drift_params(bunch.species, p_over_q_ref)
+  tilde_m, _, beta_0 = BeamTrackingdrift_params(bunch.species, p_over_q_ref)
   if !isnothing(bp)
     g = bp.g_ref
     ntilt = -bp.tilt_ref
@@ -591,7 +591,7 @@ end
 # =========== ELECTRIC ============= #
 @inline function thick_pure_edipole(tm::Symplectic, kc, p_over_q_ref, bunch, em1, L)
   p_over_q_ref = p_over_q_ref
-  tilde_m, _, beta_0 = BeamTracking.drift_params(bunch.species, p_over_q_ref)
+  tilde_m, _, beta_0 = BeamTrackingdrift_params(bunch.species, p_over_q_ref)
   mm = em1.order
   kn, ks = get_e_strengths(em1, L)
   kE = sqrt(kn^2 + ks^2)/(p_over_q_ref * C_LIGHT)
