@@ -1,5 +1,6 @@
 module BeamTracking
-using GTPSA,
+using AcceleratorSimUtils,
+      GTPSA,
       ReferenceFrameRotations,
       StaticArrays, 
       SIMD,
@@ -24,8 +25,7 @@ import GTPSA: sincu, sinhcu
 
 export Species
 export Bunch, State, ParticleView, Time, TimeDependentParam, BatchParam
-export Symplectic, MatrixKick, BendKick, SolenoidKick, DriftKick, Exact, RungeKutta
-export Fringe, SaganCavity, track!
+export track!
 
 include("utils/float32.jl")
 include("utils/coord_transforms.jl")
