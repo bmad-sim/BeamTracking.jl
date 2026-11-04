@@ -67,7 +67,7 @@ using Random
   b02 = Bunch(vars(D1), species = line.species_ref, p_over_q_ref = line.p_over_q_ref)
   track!(b02, line)
 
-  @test norm(normTPS.(b0.coords.v - b02.coords.v)) ≈ 0
+  @test norm(normTPS.(b0.coords.v - b02.coords.v)) == 0
 
   # A tilted bend acts as rotating into the bend frame, tracking the untilted bend and rotating
   # back. With the same random numbers this holds for the radiation fluctuations as well.

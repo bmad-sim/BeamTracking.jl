@@ -226,24 +226,6 @@ function rf_phi0_calc(rfparams, species)
 end
 
 #---------------------------------------------------------------------------------------------------
-
-@inline function fringe_in(f::Fringe.T)
-  if f == Fringe.BothEnds || f == Fringe.EntranceEnd
-    return Val{true}()
-  else
-    return Val{false}()
-  end
-end
-
-@inline function fringe_out(f::Fringe.T)
-  if f == Fringe.BothEnds || f == Fringe.ExitEnd
-    return Val{true}()
-  else
-    return Val{false}()
-  end
-end
-
-#---------------------------------------------------------------------------------------------------
 """
     rf_step_calc(n_cells, L_active, rf_omega, L) -> n_cells_out, L_active_out
 

@@ -74,7 +74,7 @@ end
 #---------------------------------------------------------------------------------------------------
 
 @inline function pure_patch(tm, kc, p_over_q_ref, bunch, patchparams, L) 
-  tilde_m, gamsqr_0, beta_0 = BeamTrackingdrift_params(bunch.species, p_over_q_ref)
+  tilde_m, gamsqr_0, beta_0 = drift_params(bunch.species, p_over_q_ref)
   winv = inv_rot_quaternion(patchparams.dx_rot, patchparams.dy_rot, patchparams.dz_rot)
   return push(kc, make_kernel_call(BeamTracking.patch!, (beta_0, gamsqr_0, tilde_m, patchparams.dt, patchparams.dx, patchparams.dy, patchparams.dz, winv, L)))
 end
@@ -107,7 +107,7 @@ end
   else
     log_N = log(sum(bunch.coords.weight))
   end
-  tilde_m, gamsqr_0, _ = BeamTrackingdrift_params(bunch.species, bunch.p_over_q_ref)
+  tilde_m, gamsqr_0, _ = drift_params(bunch.species, bunch.p_over_q_ref)
   log_p0 = log_m + log_c_light - log(tilde_m)
   gamma_0 = sqrt(gamsqr_0)
   backend = get_backend(bunch.coords.v)

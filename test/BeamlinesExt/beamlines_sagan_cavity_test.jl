@@ -62,7 +62,7 @@ R0 = BT.E_to_R(species, E0)
   if printit; println(b1.coords.q); end
   @test b1.coords.v ≈ out3
   @test b1.coords.q ≈ qout3
-  @test b1.t_ref ≈ 0
+  @test b1.t_ref == 0
 
   ele = sc4
   b1 = Bunch(deepcopy(v1), deepcopy(quat1), species=species, p_over_q_ref = BT.E_to_R(species, ele.E_ref-ele.dE_ref))
@@ -70,7 +70,7 @@ R0 = BT.E_to_R(species, E0)
   if printit; println(b1.coords.q); end
   @test b1.coords.v ≈ out4
   @test b1.coords.q ≈ qout4
-  @test b1.t_ref ≈ 0
+  @test b1.t_ref == 0
 
   ele = sc5
   b1 = Bunch(deepcopy(v1), deepcopy(quat1), species=species, p_over_q_ref = BT.E_to_R(species, ele.E_ref-ele.dE_ref))

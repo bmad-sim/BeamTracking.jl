@@ -59,7 +59,7 @@ end
   end
 
   species = bunch.species
-  tilde_m, _, beta_0 = BeamTrackingdrift_params(species, p_over_q_ref)
+  tilde_m, _, beta_0 = drift_params(species, p_over_q_ref)
   charge = chargeof(species)
   p0c = BeamTracking.R_to_pc(species, p_over_q_ref)
   mc2 = massof(species)

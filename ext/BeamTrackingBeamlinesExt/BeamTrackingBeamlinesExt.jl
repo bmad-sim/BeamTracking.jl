@@ -1,9 +1,9 @@
 module BeamTrackingBeamlinesExt
 using Beamlines, BeamTracking, GTPSA, StaticArrays, KernelAbstractions, AtomicAndPhysicalConstants, LinearAlgebra
-using Beamlines: isactive, deval, R_to_E, R_to_beta_gamma, R_to_pc, R_to_v, E_to_R, E_to_v
+using Beamlines: isactive, deval, R_to_E, R_to_beta_gamma, R_to_pc, R_to_v, E_to_R, E_to_v, LineElement
 using BeamTracking: beta_gamma_to_v, make_kernel_call, KernelChain, push, TimeDependentParam, RefState, 
                     launch!, rot_quaternion, inv_rot_quaternion, atan2, exact_wedge!,
-                    mean_and_cov, ibs_integrals, push_transforms_in, push_transforms_out
+                    mean_and_cov, ibs_integrals, push_transforms_in, push_transforms_out, @set
                     
 import BeamTracking: track!
 
