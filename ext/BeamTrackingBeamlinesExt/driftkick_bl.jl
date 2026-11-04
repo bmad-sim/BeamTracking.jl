@@ -5,6 +5,7 @@
   isnothing(ele.mapparams) || error("DriftKick is not compatible with elements containing MapParams. Try Exact instead")
   isnothing(ele.patchparams) || error("DriftKick is not compatible with elements containing PatchParams. Try Exact instead")
   isnothing(ele.fourpotentialparams) || error("DriftKick is not compatible with elements containing FourPotentialParams. Try Implicit instead")
+  isnothing(ele.emfieldparams) || error("DriftKick is not compatible with elements containing EMFieldParams. Try RK4 instead")
   L != 0 || error("DriftKick is not compatible with zero length elements. Try Exact instead")
 
   tilde_m, gamsqr_0, beta_0 = drift_params(bunch.species, p_over_q_ref)
@@ -30,11 +31,12 @@
 
   if isnothing(ele.bmultipoleparams)
     # Cavity with no BMultipoles
-    params = (radiation_params, beta_0, gamsqr_0, tilde_m, a, omega, t_ref, E0_normalized, 0, Val{false}(), SA[], SA[], SA[])
+    params = (radiation_params, beta_0, gamsqr_0, tilde_m, a, omega, t_ref, E0_normalized, nothing, Val{false}(), SA[], SA[], SA[])
     return push(kc, integration_launcher(BeamTracking.cavity!, params, nothing, nothing, tm, ele.universalparams))
   end
 
   mm = ele.bmultipoleparams.order
+  first(mm) != 0 || error("DriftKick is not compatible in element with solenoidal multipole component. Try SolenoidKick instead")
   kn, ks = get_strengths(ele.bmultipoleparams, L, p_over_q_ref)
   Kn0::Union{Nothing,eltype(kn)} = nothing
   Ks0::Union{Nothing,eltype(ks)} = nothing
@@ -63,7 +65,7 @@
     return push(kc, integration_launcher(BeamTracking.dkd_multipole!, params, photon_params, edge_params, tm, ele.universalparams))
   else
     # Cavity with BMultipoles
-    params = (radiation_params, beta_0, gamsqr_0, tilde_m, a, omega, t_ref, E0_normalized, 0, Val{false}(), mm, kn, ks)
+    params = (radiation_params, beta_0, gamsqr_0, tilde_m, a, omega, t_ref, E0_normalized, nothing, Val{false}(), mm, kn, ks)
     return push(kc, integration_launcher(BeamTracking.cavity!, params, photon_params, edge_params, tm, ele.universalparams))
   end
 end
