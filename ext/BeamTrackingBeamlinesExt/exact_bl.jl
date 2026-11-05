@@ -5,31 +5,46 @@
   isnothing(ele.rfparams) || error("Exact is not compatible with elements containing RFParams. Try SolenoidKick or DriftKick instead")
   !isnothing(ele.patchparams) + !isnothing(ele.emultipoleparams) + !isnothing(ele.mapparams) +
     !(isnothing(ele.bmultipoleparams) && isnothing(ele.bendparams)) <= 1 ||
-    error("Exact can only handle one of PatchParams, EMultipoleParams, MapParams, or BMultipoleParams/BendParams in a single element")
+    error("Exact is only compatible with one of PatchParams, EMultipoleParams, MapParams, or BMultipoleParams/BendParams")
 
   tilde_m, gamsqr_0, beta_0 = drift_params(bunch.species, p_over_q_ref)
   a = gyromagnetic_anomaly(bunch.species)
 
   if !isnothing(ele.patchparams)
     # Patch
-    params = (beta_0, gamsqr_0, tilde_m, ele.patchparams) # TODO: actual patch kernel params
-    return push(kc, integration_launcher(BeamTracking.patch!, params, nothing, nothing, tm, ele.universalparams))
+    pp = ele.patchparams
+    winv = inv_rot_quaternion(pp.dx_rot, pp.dy_rot, pp.dz_rot)
+    return push(kc, make_kernel_call(BeamTracking.patch!, (beta_0, gamsqr_0, tilde_m, pp.dt, pp.dx, pp.dy, pp.dz, winv, L)))
   end
 
   if !isnothing(ele.mapparams)
     # User-supplied map
-    params = (ele.mapparams,) # TODO: actual map kernel params
-    return push(kc, integration_launcher(BeamTracking.map!, params, nothing, nothing, tm, ele.universalparams))
+    return push(kc, make_kernel_call(BeamTracking.map!, (ele.mapparams.transport_map, ele.mapparams.transport_map_params, L)))
   end
 
   if !isnothing(ele.emultipoleparams)
     # Electric dipole
     L != 0 || error("Exact is not compatible with zero length elements containing EMultipoleParams")
-    em = getfield(ele, :emultipoleparams)
+    em = ele.emultipoleparams
     length(em.order) == 1 && first(em.order) == 1 || error("Exact only supports EMultipoleParams with only a dipole component")
-    en, es = get_strengths(em, L, p_over_q_ref) # TODO: check electric normalization matches get_strengths
-    params = (tilde_m, beta_0, gamsqr_0, a, en[1], es[1]) # TODO: actual electric dipole kernel params
-    return push(kc, integration_launcher(BeamTracking.exact_edipole!, params, nothing, nothing, tm, ele.universalparams))
+    kn, ks = get_e_strengths(em, L)
+    kE = sqrt(kn^2 + ks^2)/(p_over_q_ref * C_LIGHT)
+    tilt = atan(ks, kn)
+    w = tilt == 0 ? nothing : rot_quaternion(0, 0, tilt)
+    w_inv = tilt == 0 ? nothing : inv_rot_quaternion(0, 0, tilt)
+    q = chargeof(bunch.species)
+    mc2 = massof(bunch.species)
+    E_ref = mc2/tilde_m/beta_0
+    edge_params = (a, tilde_m, kE, w, w_inv)
+    radiation_params = ele.universalparams.rad_damping ? (q, mc2, E_ref) : nothing
+    params = (radiation_params, kE, beta_0, tilde_m, w, w_inv, a)
+    photon_params = isprimitivetype(eltype(bunch.coords.v)) && ele.universalparams.rad_fluctuations ? (BeamTracking.exact_elsep!, get_backend(bunch.coords.v), q, mc2, E_ref, kE, w, w_inv) : nothing
+    kc = push(kc, make_kernel_call(BeamTracking.bmad_to_mad!, (beta_0, tilde_m, 0)))
+    kc = push(kc, integration_launcher(BeamTracking.elsep_rad!, params, photon_params, edge_params, tm, ele.universalparams))
+    kc = push(kc, make_kernel_call(BeamTracking.mad_to_bmad!, (beta_0, tilde_m, 0)))
+    kc = push_transforms_out(kc, make_kernel_call(BeamTracking.callback_electric!, (beta_0, tilde_m, kE, Val{false}())))
+    kc = push_transforms_in(kc, make_kernel_call(BeamTracking.callback_electric!, (beta_0, tilde_m, kE, Val{true}())))
+    return kc
   end
 
   if isnothing(ele.bmultipoleparams) && isnothing(ele.bendparams)
@@ -44,11 +59,13 @@
     isnothing(ele.bendparams) || error("Exact is not compatible with zero length elements containing BendParams")
     mm = ele.bmultipoleparams.order
     first(mm) != 0 || error("Exact is not compatible with zero length elements with a solenoidal multipole component")
-    all(ele.bmultipoleparams.integrated) || error("Zero length elements require integrated multipole strengths")
-    # get_strengths divides integrated strengths by L, so pass L = 1 to get them back integrated
-    kn, ks = get_strengths(ele.bmultipoleparams, one(L), p_over_q_ref)
-    params = (tilde_m, beta_0, a, mm, kn, ks) # TODO: actual thin kick kernel params
-    return push(kc, integration_launcher(BeamTracking.thin_multipole_kick!, params, nothing, nothing, tm, ele.universalparams))
+    knl, ksl = get_integrated_strengths(ele.bmultipoleparams, 0, p_over_q_ref)
+    if isnothing(bunch.coords.q)
+      params = (mm, knl, ksl, 0, 0, 0)
+    else
+      params = (mm, knl, ksl, a, 0, tilde_m)
+    end
+    return push(kc, make_kernel_call(BeamTracking.integrate_thin!, params))
   end
 
   q = chargeof(bunch.species)

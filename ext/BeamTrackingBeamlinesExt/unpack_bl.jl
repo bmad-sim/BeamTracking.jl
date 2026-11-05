@@ -131,15 +131,7 @@ function universal!(
   universalparams = ele.universalparams
   alignmentparams = ele.alignmentparams
   bendparams = ele.bendparams
-  # bmultipoleparams = ele.bmultipoleparams
-  # patchparams = ele.patchparams
   apertureparams = ele.apertureparams
-  # rfparams = ele.rfparams
-  # beamlineparams = ele.beamlineparams
-  # mapparams = ele.mapparams
-  # fourpotentialparams = ele.fourpotentialparams
-  # emultipoleparams = ele.emultipoleparams
-  # emfieldparams = ele.emfieldparams
   ibsparams = ele.ibsparams
 
   L = universalparams.L

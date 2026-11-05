@@ -28,7 +28,7 @@ function track!(
   return bunch
 end
 
-#=
+
 function track!(
   bunch::Bunch, 
   bl::Beamline; 
@@ -51,15 +51,17 @@ function track!(
 
   return bunch
 end
-=#
 
 include("utils_bl.jl")
 include("unpack_bl.jl")
-include("scibmadstandard_bl.jl")
-include("exact_bl.jl")
-include("symplectic_bl.jl")
-include("sagan_cavity_bl.jl")
 include("general_bl.jl")
-include("rungekutta.jl")
+include("symplectic_bl.jl")
+include("driftkick_bl.jl")
+include("matrixkick_bl.jl")
+include("solenoidkick_bl.jl")
+include("bendkick_bl.jl")
+include("exact_bl.jl")
+include("rk4_bl.jl")
+include("sagan_cavity_bl.jl")
 
 end

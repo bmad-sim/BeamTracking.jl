@@ -29,7 +29,6 @@ export track!
 
 include("utils/float32.jl")
 include("utils/coord_transforms.jl")
-include("utils/energy.jl")
 include("utils/math_simd.jl")
 include("utils/quaternions.jl")
 include("utils/z_to_time.jl")
