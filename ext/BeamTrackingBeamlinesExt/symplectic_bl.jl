@@ -1,5 +1,5 @@
 # =========== HELPER FUNCTIONS ============= #
-@inline function fringe_in(::Val{f}) where {f}
+@inline function fringe_in(f::Fringe.T)
   if f == Fringe.BothEnds || f == Fringe.EntranceEnd
     return Val{true}()
   else
@@ -7,7 +7,7 @@
   end
 end
 
-@inline function fringe_out(::Val{f}) where {f}
+@inline function fringe_out(f::Fringe.T)
   if f == Fringe.BothEnds || f == Fringe.ExitEnd
     return Val{true}()
   else

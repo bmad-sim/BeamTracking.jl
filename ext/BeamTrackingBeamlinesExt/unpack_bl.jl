@@ -1,9 +1,11 @@
-struct _ConcreteUniversalParams{A,F}
+# fringe_at, rad_damping and rad_fluctuations are also type parameters, and getproperty returns 
+# those, so that they are known to the compiler after the function barrier
+struct _ConcreteUniversalParams{A,F,RD,RF}
   L::A
   n_steps::Int
   ds_step::Float64
   n_slices::Int
-  fringe_at::F # Val{fringe_at}, so the fringe choice is static after the function barrier
+  fringe_at::Fringe.T
   rad_damping::Bool
   rad_fluctuations::Bool
   function _ConcreteUniversalParams(up::UniversalParams)
@@ -11,12 +13,15 @@ struct _ConcreteUniversalParams{A,F}
     n_steps = up.n_steps
     ds_step = L / n_steps # actual ds_step, not fake one
     n_slices = up.n_slices
-    fringe_at = Val(up.fringe_at)
+    fringe_at = up.fringe_at
     rad_damping = up.rad_damping
     rad_fluctuations = up.rad_fluctuations
-    return new{typeof(L),typeof(fringe_at)}(L, n_steps, ds_step, n_slices, fringe_at, rad_damping, rad_fluctuations)
+    return new{typeof(L),fringe_at,rad_damping,rad_fluctuations}(L, n_steps, ds_step, n_slices, fringe_at, rad_damping, rad_fluctuations)
   end
 end
+
+Base.getproperty(up::_ConcreteUniversalParams{A,F,RD,RF}, key::Symbol) where {A,F,RD,RF} = 
+  key === :fringe_at ? F : key === :rad_damping ? RD : key === :rad_fluctuations ? RF : getfield(up, key)
 
 Base.@kwdef struct LoweredElement{A,B,C,D,E,F,G,H,I,J,K,L,M,N}
   universalparams::A
