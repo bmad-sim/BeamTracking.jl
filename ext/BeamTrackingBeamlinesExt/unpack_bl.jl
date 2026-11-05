@@ -35,6 +35,20 @@ Base.@kwdef struct LoweredElement{A,B,C,D,E,F,G,H,I,J,K,L,M,N}
   ref::N
 end
 
+function _track!(
+  bunch::Bunch,
+  ele::LatElement, 
+  context::Context,
+  ref::TrackReference,
+  tm::Nothing,
+  scalar_params,
+  ramp_particle_energy_without_rf,
+  ramp_update_each_particle,
+  rf_on,
+  batch_start;
+  kwargs...
+) = error("No t")
+
 # Step 1: Unpack the element ---------------------------------------------
 function _track!(
   bunch::Bunch,
@@ -49,6 +63,7 @@ function _track!(
   batch_start;
   kwargs...
 )
+  !isnothing(tm) || error("LatElement $(ele.name) has no tracking_method set")
   # Every element in a Beamline has the same p_over_q_ref (possibly a function of time)
   p_over_q_ref = ref.p_over_q_ref
 
