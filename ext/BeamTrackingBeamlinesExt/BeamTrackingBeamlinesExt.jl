@@ -1,6 +1,6 @@
 module BeamTrackingBeamlinesExt
 using Beamlines, BeamTracking, GTPSA, StaticArrays, KernelAbstractions, AtomicAndPhysicalConstants, LinearAlgebra
-using Beamlines: isactive, deval, R_to_E, R_to_beta_gamma, R_to_pc, R_to_v, E_to_R, E_to_v, LineElement
+using Beamlines: isactive, deval, R_to_E, R_to_beta_gamma, R_to_pc, R_to_v, E_to_R, E_to_v, LatElement, AbstractSymplectic
 using BeamTracking: beta_gamma_to_v, make_kernel_call, KernelChain, push, TimeDependentParam, RefState, 
                     launch!, rot_quaternion, inv_rot_quaternion, atan2, exact_wedge!,
                     mean_and_cov, ibs_integrals, push_transforms_in, push_transforms_out, @set
@@ -9,7 +9,7 @@ import BeamTracking: track!
 
 function track!( 
   bunch::Bunch, 
-  ele::LineElement;
+  ele::LatElement;
   scalar_params::Bool=false,
   ramp_particle_energy_without_rf::Bool=false,
   ramp_update_each_particle::Bool=false,
@@ -66,6 +66,6 @@ include("solenoidkick_bl.jl")
 include("bendkick_bl.jl")
 include("exact_bl.jl")
 include("rk4_bl.jl")
-include("sagan_cavity_bl.jl")
+include("sagancavity_bl.jl")
 
 end

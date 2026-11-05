@@ -28,7 +28,7 @@
     t_ref = (rf_phi0_calc(ele.rfparams, ele.ref.species_ref) - pi/2)/omega
     # RF phase is locked to the reference species: slip is the extra time per length the Bunch 
     # reference particle takes over the reference species particle (0 if same species)
-    slip = 1/R_to_v(bunch.species, p_over_q_ref) - 1/R_to_v(ele.ref.species_ref, p_over_q_ref)
+    slip = 1/R_to_v(bunch.species, p_over_q_ref) - 1/R_to_v(ele.ref.species_ref, ele.ref.field_scale*p_over_q_ref)
     E0_normalized = ele.rfparams.voltage/L/p_over_q_ref
   end
 

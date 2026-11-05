@@ -28,7 +28,9 @@
     L != 0 || error("Exact is not compatible with zero length elements containing EMultipoleParams")
     em = ele.emultipoleparams
     length(em.order) == 1 && first(em.order) == 1 || error("Exact only supports EMultipoleParams with only a dipole component")
-    kn, ks = get_e_strengths(em, L)
+    en, es = get_e_strengths(em, L)
+    kn = en[1]
+    ks = es[1]
     kE = sqrt(kn^2 + ks^2)/(p_over_q_ref * C_LIGHT)
     tilt = atan(ks, kn)
     w = tilt == 0 ? nothing : rot_quaternion(0, 0, tilt)
@@ -105,7 +107,7 @@
   if first(mm) == 0
     # Pure solenoid
     edge_params = (a, tilde_m, kn[1], nothing, nothing, nothing, nothing, nothing, nothing)
-    params = (radiation_params, beta_0, gamsqr_0, tilde_m, a, mm, kn, ks)
+    params = (radiation_params, beta_0, gamsqr_0, tilde_m, a, kn[1], mm, kn, ks)
     return push(kc, integration_launcher(BeamTracking.sks_multipole!, params, photon_params, edge_params, tm, ele.universalparams))
   elseif first(mm) == 1
     # Pure straight dipole, tracked in the dipole frame

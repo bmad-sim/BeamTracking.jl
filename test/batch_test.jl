@@ -23,11 +23,11 @@ function test_batch(
   E_ref = 5e9
   species = Species("electron")
 
-  ele_1 = LineElement()
-  ele_2 = LineElement()
-  ele_3 = LineElement()
-  ele_4 = LineElement()
-  ele_batch = LineElement()
+  ele_1 = LatElement()
+  ele_2 = LatElement()
+  ele_3 = LatElement()
+  ele_4 = LatElement()
+  ele_batch = LatElement()
   for (k,val) in pairs(batch_params)
     val_1 = -val
     val_2 = -0.5*val
@@ -147,7 +147,7 @@ end
     return ((x, px, v[3], v[4], v[5], v[6]), q)
   end
 
-  ele_batch = LineElement(
+  ele_batch = LatElement(
     transport_map=map, 
     transport_map_params=(
       BatchParam(Float64[1,2,3,4]), 
@@ -157,7 +157,7 @@ end
     )
   )
 
-  ele_1 = LineElement(
+  ele_1 = LatElement(
     transport_map=map, 
     transport_map_params=(
       1.,
@@ -167,7 +167,7 @@ end
     )
   )
 
-  ele_2 = LineElement(
+  ele_2 = LatElement(
     transport_map=map, 
     transport_map_params=(
       2.,
@@ -177,7 +177,7 @@ end
     )
   )
 
-  ele_3 = LineElement(
+  ele_3 = LatElement(
     transport_map=map, 
     transport_map_params=(
       3.,
@@ -187,7 +187,7 @@ end
     )
   )
   
-  ele_4 = LineElement(
+  ele_4 = LatElement(
     transport_map=map, 
     transport_map_params=(
       4.,

@@ -26,9 +26,9 @@ function test_time(
   E_ref = 100e9
   species = Species("electron")
 
-  ele_plus = LineElement()
-  ele_minus = LineElement()
-  ele_time = LineElement()
+  ele_plus = LatElement()
+  ele_minus = LatElement()
+  ele_time = LatElement()
   for (k,val) in pairs(dynamic_params)
     setproperty!(ele_plus, k, Beamlines.deval(ft(val))(v[5]))
     setproperty!(ele_minus, k, Beamlines.deval(ft(val))(v[5]/BeamTracking.C_LIGHT-pi))

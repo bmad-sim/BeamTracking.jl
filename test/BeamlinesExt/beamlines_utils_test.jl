@@ -39,9 +39,9 @@ end
   b = Bunch(copy(v0); species=p)
   ref = btbl.resolve_reference!(b, e, R, false)
   @test ref.field_scale == -1 && ref.p_over_q_ref == -R && b.p_over_q_ref == -R
-  kn, ks = btbl.get_strengths(LineElement(L=2.0, Kn1=0.3).BMultipoleParams, 2.0, -R, -1)
+  kn, ks = btbl.get_strengths(LatElement(L=2.0, Kn1=0.3).BMultipoleParams, 2.0, -R, -1)
   @test kn[1] ≈ -0.3
-  kn, ks = btbl.get_strengths(LineElement(L=2.0, Bn1=0.3).BMultipoleParams, 2.0, -R, -1)
+  kn, ks = btbl.get_strengths(LatElement(L=2.0, Bn1=0.3).BMultipoleParams, 2.0, -R, -1)
   @test kn[1] ≈ 0.3/(-R)
 
   # A positron through a Beamline designed for electrons (fields held fixed) is the same as

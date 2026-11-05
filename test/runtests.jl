@@ -136,7 +136,7 @@ function test_map(
   end
 
 
-  #= LineElement tracking test
+  #= LatElement tracking test
     if haskey(kwargs, :p_over_q_ref) && haskey(kwargs, :species)
       p_over_q_ref = kwargs[:p_over_q_ref]
     elseif haskey(kwargs, :E) && haskey(kwargs, :species)

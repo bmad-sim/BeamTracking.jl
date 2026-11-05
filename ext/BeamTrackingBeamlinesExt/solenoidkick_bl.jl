@@ -28,7 +28,7 @@
     t_ref = (rf_phi0_calc(ele.rfparams, ele.ref.species_ref) - pi/2)/omega
     # RF phase is locked to the reference species: slip is the extra time per length the Bunch 
     # reference particle takes over the reference species particle (0 if same species)
-    slip = 1/R_to_v(bunch.species, p_over_q_ref) - 1/R_to_v(ele.ref.species_ref, p_over_q_ref)
+    slip = 1/R_to_v(bunch.species, p_over_q_ref) - 1/R_to_v(ele.ref.species_ref, ele.ref.field_scale*p_over_q_ref)
     E0_normalized = ele.rfparams.voltage/L/p_over_q_ref
   end
 
@@ -64,9 +64,15 @@
   
   if isnothing(ele.rfparams)
     # Just BMultipoles (not a cavity)
-    tm_new = (first(mm) == 0 && length(mm) == 1) ? (@set tm.order = 2) : tm # Pure solenoid, use order 2 (exact solution)
-    params = (radiation_params, beta_0, gamsqr_0, tilde_m, a, mm, kn, ks)
-    return push(kc, integration_launcher(BeamTracking.sks_multipole!, params, photon_params, edge_params, tm_new, ele.universalparams))
+    if isnothing(Ksol)
+      # sks_multipole! takes the first multipole to be the solenoid: prepend a zero solenoid component
+      params = (radiation_params, beta_0, gamsqr_0, tilde_m, a, zero(eltype(kn)), hcat(0, mm), hcat(0, kn),  hcat(0, ks))
+      return push(kc, integration_launcher(BeamTracking.sks_multipole!, params, photon_params, edge_params, tm, ele.universalparams))
+    else
+      tm_new = length(mm) == 1 ? (@set tm.order = 2) : tm # Pure solenoid, use order 2 (exact solution)
+      params = (radiation_params, beta_0, gamsqr_0, tilde_m, a, Ksol, mm, kn, ks)
+      return push(kc, integration_launcher(BeamTracking.sks_multipole!, params, photon_params, edge_params, tm_new, ele.universalparams))
+    end
   else
     # Cavity with BMultipoles
     if isnothing(Ksol)
