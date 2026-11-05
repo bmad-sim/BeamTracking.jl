@@ -26,9 +26,10 @@ function test_time(
   E_ref = 100e9
   species = Species("electron")
 
-  ele_plus = LatElement()
-  ele_minus = LatElement()
-  ele_time = LatElement()
+  # SolenoidKick handles every straight element here (setting L = 0 switches to Exact)
+  ele_plus = LatElement(tracking_method=SolenoidKick())
+  ele_minus = LatElement(tracking_method=SolenoidKick())
+  ele_time = LatElement(tracking_method=SolenoidKick())
   for (k,val) in pairs(dynamic_params)
     setproperty!(ele_plus, k, Beamlines.deval(ft(val))(v[5]))
     setproperty!(ele_minus, k, Beamlines.deval(ft(val))(v[5]/BeamTracking.C_LIGHT-pi))

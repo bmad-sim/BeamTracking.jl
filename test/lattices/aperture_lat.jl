@@ -2,7 +2,7 @@ using BeamTracking
 using Beamlines
 
 @elements begin
-  d_error = LatElement(L=1, x1_limit=1, dx=5)
+  d_error = LatElement(L=1, x1_limit=1, dx=5, tracking_method=Exact())
 
   d1_rect = Drift(L=1, x1_limit = 1, x2_limit = 2, y1_limit = 3, y2_limit = 5, aperture_shape = ApertureShape.Rectangular, ignore_params=[ApertureParams])
   d2_rect = Drift(L=1,               x2_limit = 2, y1_limit = 3, y2_limit = 5, aperture_shape = ApertureShape.Rectangular, aperture_at = ApertureAt.Exit)

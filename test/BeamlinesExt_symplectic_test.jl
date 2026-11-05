@@ -523,7 +523,7 @@
     @test b0.coords.q ≈ q_expected
 
     # Harmon:
-    ele_drift = LatElement(L=1.04812778909)
+    ele_drift = LatElement(L=1.04812778909, tracking_method=DriftKick())
     ele = LatElement(L=4.01667, voltage=3.3210942126011E6, harmon=10, zero_phase=PhaseRef.AboveTransition, tracking_method=DriftKick(order=2))
     v = [0.01 0.02 0.03 0.04 0.05 0.06]
     q = [1.0 0.0 0.0 0.0]
@@ -626,7 +626,7 @@
       end
       return v_out, q_out
     end
-    ele = LatElement(transport_map=transport_map)
+    ele = LatElement(transport_map=transport_map, tracking_method=Exact())
     v = [0.01 0.02 0.03 0.04 0.05 0.06]
     b0 = Bunch(v, p_over_q_ref=-18e9/C_LIGHT, species=Species("electron"))
     bl = Beamline([ele], p_over_q_ref=-18e9/C_LIGHT, species_ref=Species("electron"))
@@ -634,7 +634,7 @@
     v_expected = [sin(0.01) 2*0.02 exp(0.03) 1-0.04 0.06 0.05]
     @test b0.coords.v ≈ v_expected
 
-    ele = LatElement(transport_map=transport_map)
+    ele = LatElement(transport_map=transport_map, tracking_method=Exact())
     v = [0.01 0.02 0.03 0.04 0.05 0.06]
     q = [1/sqrt(2) 0.0 1/sqrt(2) 0.0]
     b0 = Bunch(v, q, p_over_q_ref=-18e9/C_LIGHT, species=Species("electron"))
@@ -866,10 +866,10 @@
     @test q_init == b0.coords.q
 
     # Errors:
-    @test_throws ErrorException LatElement(L = 1.0, ds_step = 0)
-    @test_throws ErrorException LatElement(L = 1.0, n_steps = -2)
-    @test_throws ErrorException LatElement(L = 1.0, ds_step = -0.1)
-    @test_throws ErrorException LatElement(L = 1.0, n_steps = 1.5)
+    @test_throws ErrorException LatElement(L = 1.0, tracking_method = DriftKick(), ds_step = 0)
+    @test_throws ErrorException LatElement(L = 1.0, tracking_method = DriftKick(), n_steps = -2)
+    @test_throws ErrorException LatElement(L = 1.0, tracking_method = DriftKick(), ds_step = -0.1)
+    @test_throws ErrorException LatElement(L = 1.0, tracking_method = DriftKick(), n_steps = 1.5)
     @test_throws ErrorException DriftKick(order = 5)
   end  
 end

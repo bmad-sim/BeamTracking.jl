@@ -23,11 +23,12 @@ function test_batch(
   E_ref = 5e9
   species = Species("electron")
 
-  ele_1 = LatElement()
-  ele_2 = LatElement()
-  ele_3 = LatElement()
-  ele_4 = LatElement()
-  ele_batch = LatElement()
+  # SolenoidKick handles every straight element here (setting L = 0 switches to Exact)
+  ele_1 = LatElement(tracking_method=SolenoidKick())
+  ele_2 = LatElement(tracking_method=SolenoidKick())
+  ele_3 = LatElement(tracking_method=SolenoidKick())
+  ele_4 = LatElement(tracking_method=SolenoidKick())
+  ele_batch = LatElement(tracking_method=SolenoidKick())
   for (k,val) in pairs(batch_params)
     val_1 = -val
     val_2 = -0.5*val
@@ -148,6 +149,7 @@ end
   end
 
   ele_batch = LatElement(
+    tracking_method=Exact(),
     transport_map=map, 
     transport_map_params=(
       BatchParam(Float64[1,2,3,4]), 
@@ -158,6 +160,7 @@ end
   )
 
   ele_1 = LatElement(
+    tracking_method=Exact(),
     transport_map=map, 
     transport_map_params=(
       1.,
@@ -168,6 +171,7 @@ end
   )
 
   ele_2 = LatElement(
+    tracking_method=Exact(),
     transport_map=map, 
     transport_map_params=(
       2.,
@@ -178,6 +182,7 @@ end
   )
 
   ele_3 = LatElement(
+    tracking_method=Exact(),
     transport_map=map, 
     transport_map_params=(
       3.,
@@ -188,6 +193,7 @@ end
   )
   
   ele_4 = LatElement(
+    tracking_method=Exact(),
     transport_map=map, 
     transport_map_params=(
       4.,
