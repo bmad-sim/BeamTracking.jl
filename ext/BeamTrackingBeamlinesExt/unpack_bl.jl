@@ -165,7 +165,7 @@ function universal!(
   t_exit = bunch.t_ref + L / beta_gamma_to_v(beta_gamma_enter)
   if shift_time
     p_over_q_ref_enter = p_over_q_ref isa TimeDependentParam ? p_over_q_ref(t_enter) : p_over_q_ref
-    t_exit_design = bunch.t_ref + L / R_to_v(ele.ref.species_ref, p_over_q_ref_enter)
+    t_exit_design = bunch.t_ref + L / R_to_v(ele.ref.species_ref, ele.ref.field_scale*p_over_q_ref_enter)
   else
     t_exit_design = t_exit
   end
