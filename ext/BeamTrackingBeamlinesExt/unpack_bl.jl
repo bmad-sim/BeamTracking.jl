@@ -35,20 +35,6 @@ Base.@kwdef struct LoweredElement{A,B,C,D,E,F,G,H,I,J,K,L,M,N}
   ref::N
 end
 
-function _track!(
-  bunch::Bunch,
-  ele::LatElement, 
-  context::Context,
-  ref::TrackReference,
-  tm::Nothing,
-  scalar_params,
-  ramp_particle_energy_without_rf,
-  ramp_update_each_particle,
-  rf_on,
-  batch_start;
-  kwargs...
-) = error("No t")
-
 # Step 1: Unpack the element ---------------------------------------------
 function _track!(
   bunch::Bunch,
