@@ -1,9 +1,9 @@
-struct _ConcreteUniversalParams{A}
+struct _ConcreteUniversalParams{A,F}
   L::A
   n_steps::Int
   ds_step::Float64
   n_slices::Int
-  fringe_at::Fringe.T
+  fringe_at::F # Val{fringe_at}, so the fringe choice is static after the function barrier
   rad_damping::Bool
   rad_fluctuations::Bool
   function _ConcreteUniversalParams(up::UniversalParams)
@@ -11,10 +11,10 @@ struct _ConcreteUniversalParams{A}
     n_steps = up.n_steps
     ds_step = L / n_steps # actual ds_step, not fake one
     n_slices = up.n_slices
-    fringe_at = up.fringe_at
+    fringe_at = Val(up.fringe_at)
     rad_damping = up.rad_damping
     rad_fluctuations = up.rad_fluctuations
-    return new{typeof(L)}(L, n_steps, ds_step, n_slices, fringe_at, rad_damping, rad_fluctuations)
+    return new{typeof(L),typeof(fringe_at)}(L, n_steps, ds_step, n_slices, fringe_at, rad_damping, rad_fluctuations)
   end
 end
 
@@ -43,8 +43,9 @@ function _track!(
   ref::TrackReference,
   tm,
   scalar_params,
-  ramp_particle_energy_without_rf,
-  ramp_update_each_particle,
+  ramp_particle_energy_without_rf::Val,
+  ramp_update_each_particle::Val,
+  shift_time::Val,
   rf_on,
   batch_start;
   kwargs...
@@ -56,7 +57,7 @@ function _track!(
   # Parameter groups in ignore_params are replaced with nothing, exactly as if the element
   # did not have them (like RFParams with rf_on = false)
   ignoreparams = ele.IgnoreParams
-  ig = isnothing(ignoreparams) ? () : ignoreparams.ignore_params
+  ig = isnothing(ignoreparams) ? () : (ignoreparams::IgnoreParams).ignore_params
   universalparams = UniversalParams in ig ? nothing : deval(ele.UniversalParams, context)
   alignmentparams = AlignmentParams in ig ? nothing : deval(ele.AlignmentParams, context)
   bendparams = BendParams in ig ? nothing : deval(ele.BendParams, context)
@@ -102,26 +103,11 @@ function _track!(
     p_over_q_ref = scalarize(p_over_q_ref)
   end
 
-  loweredele = LoweredElement(; 
-    universalparams=_ConcreteUniversalParams(universalparams),
-    alignmentparams,
-    bendparams, 
-    bmultipoleparams, 
-    patchparams, 
-    apertureparams, 
-    rfparams, 
-    beamlineparams, 
-    mapparams, 
-    fourpotentialparams, 
-    emultipoleparams, 
-    emfieldparams, 
-    ibsparams,
-    ref,
-  )
-  # The Bunch species differing from the reference species is static for the whole track! call
-  shift_time = bunch.species != ref.species_ref
-  # Function barrier
-  @noinline universal!(bunch, tm, ele, loweredele, p_over_q_ref, Val(ramp_particle_energy_without_rf), Val(ramp_update_each_particle), Val(shift_time), batch_start; kwargs...)
+  # Function barrier. The LoweredElement is built after the barrier, where all types are known
+  @noinline universal!(bunch, tm, ele, _ConcreteUniversalParams(universalparams), alignmentparams, bendparams, bmultipoleparams, 
+                       patchparams, apertureparams, rfparams, beamlineparams, mapparams, fourpotentialparams, emultipoleparams, 
+                       emfieldparams, ibsparams, ref, p_over_q_ref, ramp_particle_energy_without_rf, ramp_update_each_particle, 
+                       shift_time, batch_start; kwargs...)
 end
 
 # Step 2: Push particles through -----------------------------------------
@@ -129,7 +115,20 @@ function universal!(
   bunch,
   tm,
   fullele,
-  ele,
+  universalparams,
+  alignmentparams,
+  bendparams,
+  bmultipoleparams,
+  patchparams,
+  apertureparams,
+  rfparams,
+  beamlineparams,
+  mapparams,
+  fourpotentialparams,
+  emultipoleparams,
+  emfieldparams,
+  ibsparams,
+  ref,
   p_over_q_ref,
   ::Val{ramp_particle_energy_without_rf}, 
   ::Val{ramp_update_each_particle},
@@ -137,11 +136,8 @@ function universal!(
   batch_start;
   kwargs...
 ) where {ramp_particle_energy_without_rf, ramp_update_each_particle, shift_time}
-  universalparams = ele.universalparams
-  alignmentparams = ele.alignmentparams
-  bendparams = ele.bendparams
-  apertureparams = ele.apertureparams
-  ibsparams = ele.ibsparams
+  ele = LoweredElement(universalparams, alignmentparams, bendparams, bmultipoleparams, patchparams, apertureparams, rfparams, 
+                       beamlineparams, mapparams, fourpotentialparams, emultipoleparams, emfieldparams, ibsparams, ref)
 
   L = universalparams.L
 

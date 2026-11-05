@@ -5,7 +5,20 @@ function universal!(
   bunch,
   tm::SaganCavity,
   fullele,
-  ele,
+  universalparams,
+  alignmentparams,
+  bendparams,
+  bmultipoleparams,
+  patchparams,
+  apertureparams,
+  rfparams,
+  beamlineparams,
+  mapparams,
+  fourpotentialparams,
+  emultipoleparams,
+  emfieldparams,
+  ibsparams,
+  ref,
   p_over_q_ref,
   ::Val{ramp_particle_energy_without_rf}, 
   ::Val{ramp_update_each_particle},
@@ -13,18 +26,8 @@ function universal!(
   batch_start;
   kwargs...
 ) where {ramp_particle_energy_without_rf, ramp_update_each_particle, shift_time}
-  alignmentparams= ele.alignmentparams
-  bendparams = ele.bendparams 
-  bmultipoleparams = ele.bmultipoleparams 
-  patchparams = ele.patchparams 
-  apertureparams = ele.apertureparams 
-  rfparams = ele.rfparams 
-  beamlineparams = ele.beamlineparams 
-  mapparams = ele.mapparams 
-  fourpotentialparams = ele.fourpotentialparams 
-  emultipoleparams = ele.emultipoleparams 
-  emfieldparams = ele.emfieldparams 
-  ibsparams= ele.ibsparams
+  ele = LoweredElement(universalparams, alignmentparams, bendparams, bmultipoleparams, patchparams, apertureparams, rfparams, 
+                       beamlineparams, mapparams, fourpotentialparams, emultipoleparams, emfieldparams, ibsparams, ref)
   L = ele.universalparams.L
   coords = bunch.coords
   !shift_time || error("SaganCavity Tracking is not compatible with Bunch species differing from Beamline reference species")

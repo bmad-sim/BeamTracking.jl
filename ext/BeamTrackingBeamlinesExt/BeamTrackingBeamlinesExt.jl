@@ -26,7 +26,9 @@ function track!(
     # Standalone element: everything from the Bunch
     ref = resolve_reference!(bunch, nothing, nothing, notify)
   end
-  @noinline _track!(bunch, ele, context, ref, ele.tracking_method, scalar_params, ramp_particle_energy_without_rf, ramp_update_each_particle, rf_on, batch_start; kwargs...)
+  # The Bunch species differing from the reference species is static for the whole track! call
+  shift_time = bunch.species != ref.species_ref
+  @noinline _track!(bunch, ele, context, ref, ele.tracking_method, scalar_params, Val(ramp_particle_energy_without_rf), Val(ramp_update_each_particle), Val(shift_time), rf_on, batch_start; kwargs...)
   return bunch
 end
 
@@ -48,9 +50,14 @@ function track!(
   # Resolved once for the whole Beamline
   ref = resolve_reference!(bunch, Beamlines.trygetproperty(bl, :species_ref), Beamlines.trygetproperty(bl, :p_over_q_ref), notify)
   context = bl.context
+  # These are static for the whole track! call, so the Vals are built once here and not per element
+  shift_time = bunch.species != ref.species_ref
+  v_ramp_particle_energy_without_rf = Val(ramp_particle_energy_without_rf)
+  v_ramp_update_each_particle = Val(ramp_update_each_particle)
+  v_shift_time = Val(shift_time)
 
   for ele in bl.line
-    @noinline _track!(bunch, ele, context, ref, ele.tracking_method, scalar_params, ramp_particle_energy_without_rf, ramp_update_each_particle, rf_on, batch_start; kwargs...)
+    @noinline _track!(bunch, ele, context, ref, ele.tracking_method, scalar_params, v_ramp_particle_energy_without_rf, v_ramp_update_each_particle, v_shift_time, rf_on, batch_start; kwargs...)
   end
 
   return bunch
