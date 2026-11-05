@@ -25,7 +25,7 @@
     multipole_normalized = ()
   else
     mm = ele.bmultipoleparams.order
-    bn, bs = get_strengths(ele.bmultipoleparams, L, p_over_q_ref)
+    bn, bs = get_strengths(ele.bmultipoleparams, L, p_over_q_ref, ele.ref.field_scale)
     multipole_functions = (BeamTracking.multipole_field,)
     multipole_parameters = ((mm, bn, bs),)
     multipole_normalized = (Val{true}(),)
@@ -37,6 +37,7 @@
     custom_parameters = ()
     custom_normalized = ()
   else
+    !ep.em_field_normalized || ele.ref.field_scale == 1 || error("RK4 is not yet compatible with normalized EMFieldParams when the Bunch species has the opposite charge sign of the reference species")
     custom_functions = (ep.em_field,)
     custom_parameters = (ep.em_field_params,)
     custom_normalized = (ep.em_field_normalized ? Val{true}() : Val{false}(),)
@@ -47,7 +48,7 @@
   charge = chargeof(species)
   p0c = R_to_pc(species, p_over_q_ref)
   mc2 = massof(species)
-  n_steps = ele.universalparams.num_steps
+  n_steps = ele.universalparams.n_steps
   ds_step = ele.universalparams.ds_step
 
   params = (beta_0, tilde_m, charge, p0c, mc2, L, ds_step, n_steps, gx, gy,

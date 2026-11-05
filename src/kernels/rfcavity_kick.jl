@@ -1,4 +1,4 @@
-@inline function cavity!(i, coords::Coords, s, radiation_params, beta_0, gamsqr_0, tilde_m, a, omega, t_ref, E0_normalized, Ksol, ::Val{sol}, mm, kn, ks, L) where {sol}
+@inline function cavity!(i, coords::Coords, s, radiation_params, beta_0, gamsqr_0, tilde_m, a, omega, t_ref, slip, E0_normalized, Ksol, ::Val{sol}, mm, kn, ks, L) where {sol}
   @inbounds begin @FastGTPSA begin
     multipoles = (length(mm) > 0)
     if sol
@@ -18,12 +18,15 @@
       multipole_kick!(i, coords, mm, knl, ksl, -1)
     end
 
+    # RF phase relative to the reference species particle at the kick
+    t_ref_s = t_ref + (s + L / 2)*slip
+
     if isnothing(coords.q)
-      cavity_kick!(i, coords, beta_0, tilde_m, omega, t_ref, E0_normalized, L)
+      cavity_kick!(i, coords, beta_0, tilde_m, omega, t_ref_s, E0_normalized, L)
     else
-      cavity_kick!(i, coords, beta_0, tilde_m, omega, t_ref, E0_normalized, L / 2)
-      rotate_spin_cavity!(i, coords, a, beta_0, tilde_m, omega, t_ref, E0_normalized, mm, kn, ks, L)
-      cavity_kick!(i, coords, beta_0, tilde_m, omega, t_ref, E0_normalized, L / 2)
+      cavity_kick!(i, coords, beta_0, tilde_m, omega, t_ref_s, E0_normalized, L / 2)
+      rotate_spin_cavity!(i, coords, a, beta_0, tilde_m, omega, t_ref_s, E0_normalized, mm, kn, ks, L)
+      cavity_kick!(i, coords, beta_0, tilde_m, omega, t_ref_s, E0_normalized, L / 2)
     end
 
     if multipoles

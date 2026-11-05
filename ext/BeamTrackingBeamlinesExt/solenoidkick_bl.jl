@@ -24,19 +24,22 @@
   radiation_params = ele.universalparams.rad_damping ? (q, mc2, E_ref) : nothing
 
   if !isnothing(ele.rfparams)
-    omega = rf_omega_calc(ele.rfparams, ele.beamlineparams)
-    t_ref = (rf_phi0_calc(ele.rfparams, ele.beamlineparams.beamline.species_ref) - pi/2)/omega
+    omega = rf_omega_calc(ele.rfparams, ele.beamlineparams, ele.ref)
+    t_ref = (rf_phi0_calc(ele.rfparams, ele.ref.species_ref) - pi/2)/omega
+    # RF phase is locked to the reference species: slip is the extra time per length the Bunch 
+    # reference particle takes over the reference species particle (0 if same species)
+    slip = 1/R_to_v(bunch.species, p_over_q_ref) - 1/R_to_v(ele.ref.species_ref, p_over_q_ref)
     E0_normalized = ele.rfparams.voltage/L/p_over_q_ref
   end
 
   if isnothing(ele.bmultipoleparams)
     # Cavity with no BMultipoles
-    params = (radiation_params, beta_0, gamsqr_0, tilde_m, a, omega, t_ref, E0_normalized, nothing, Val{false}(), SA[], SA[], SA[])
+    params = (radiation_params, beta_0, gamsqr_0, tilde_m, a, omega, t_ref, slip, E0_normalized, nothing, Val{false}(), SA[], SA[], SA[])
     return push(kc, integration_launcher(BeamTracking.cavity!, params, nothing, nothing, tm, ele.universalparams))
   end
 
   mm = ele.bmultipoleparams.order
-  kn, ks = get_strengths(ele.bmultipoleparams, L, p_over_q_ref)
+  kn, ks = get_strengths(ele.bmultipoleparams, L, p_over_q_ref, ele.ref.field_scale)
   Ksol = first(mm) == 0 ? kn[1] : nothing
   Kn0::Union{Nothing,eltype(kn)} = nothing
   Ks0::Union{Nothing,eltype(ks)} = nothing
@@ -67,9 +70,9 @@
   else
     # Cavity with BMultipoles
     if isnothing(Ksol)
-      params = (radiation_params, beta_0, gamsqr_0, tilde_m, a, omega, t_ref, E0_normalized, nothing, Val{false}(), mm, kn, ks)
+      params = (radiation_params, beta_0, gamsqr_0, tilde_m, a, omega, t_ref, slip, E0_normalized, nothing, Val{false}(), mm, kn, ks)
     else
-      params = (radiation_params, beta_0, gamsqr_0, tilde_m, a, omega, t_ref, E0_normalized, Ksol, Val{true}(), mm, kn, ks)
+      params = (radiation_params, beta_0, gamsqr_0, tilde_m, a, omega, t_ref, slip, E0_normalized, Ksol, Val{true}(), mm, kn, ks)
     end
     return push(kc, integration_launcher(BeamTracking.cavity!, params, photon_params, edge_params, tm, ele.universalparams))
   end

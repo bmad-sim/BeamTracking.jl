@@ -28,7 +28,7 @@
                    t_ref, Val{false}(), SA{Int32}[], SA{Int32}[], SA{Int32}[], a, q*rfP.voltage, rf_omega, t_phi0)))
     else
       m_order = bmultipoleP.order
-      KnL, KsL = get_integrated_strengths(bmultipoleP, L, p0q)
+      KnL, KsL = get_integrated_strengths(bmultipoleP, L, p0q, 1)
       has_mult = (length(m_order) > 0)
       return push(kc, make_kernel_call(BeamTracking.sagan_cavity_zero_L!, 
                    (Val{tm.radiation_damping_on}(), Val{tm.radiation_fluctuations_on}(), mass, q, P0c, dE_ref,
@@ -42,7 +42,7 @@
                    t_ref, Val{false}(), Val{false}(), SA{Int32}[], SA{Int32}[], SA{Int32}[], a, q*rfP.voltage, rf_omega, t_phi0, L)))
     else
       m_order = bmultipoleP.order
-      Kn, Ks = get_strengths(bmultipoleP, L, p0q)
+      Kn, Ks = get_strengths(bmultipoleP, L, p0q, 1)
       has_mult = (length(m_order) > 0)
       has_sol = (has_mult && m_order[1] == 0)
       return push(kc, make_kernel_call(BeamTracking.sagan_cavity_zero_L_active!, 
@@ -58,7 +58,7 @@
                 a, q*rfP.voltage/L_active, rf_omega, t_phi0, L_active, L)))
     else
       m_order = bmultipoleP.order
-      Kn, Ks = get_strengths(bmultipoleP, L, p0q)
+      Kn, Ks = get_strengths(bmultipoleP, L, p0q, 1)
       has_mult = (length(m_order) > 0)
       has_sol = (has_mult && m_order[1] == 0)
       return push(kc, make_kernel_call(BeamTracking.sagan_cavity_thick!, 

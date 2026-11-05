@@ -18,7 +18,8 @@
   end
 
   if !isnothing(ele.mapparams)
-    # User-supplied map
+    # User-supplied map, which is in the coordinates of the reference species
+    bunch.species == ele.ref.species_ref || error("Exact is not compatible with elements containing MapParams when the Bunch species ($(bunch.species)) differs from the reference species ($(ele.ref.species_ref))")
     return push(kc, make_kernel_call(BeamTracking.map!, (ele.mapparams.transport_map, ele.mapparams.transport_map_params, L)))
   end
 
@@ -59,7 +60,7 @@
     isnothing(ele.bendparams) || error("Exact is not compatible with zero length elements containing BendParams")
     mm = ele.bmultipoleparams.order
     first(mm) != 0 || error("Exact is not compatible with zero length elements with a solenoidal multipole component")
-    knl, ksl = get_integrated_strengths(ele.bmultipoleparams, 0, p_over_q_ref)
+    knl, ksl = get_integrated_strengths(ele.bmultipoleparams, 0, p_over_q_ref, ele.ref.field_scale)
     if isnothing(bunch.coords.q)
       params = (mm, knl, ksl, 0, 0, 0)
     else
@@ -87,7 +88,7 @@
     # Dipole + BendParams
     mm = ele.bmultipoleparams.order
     length(mm) == 1 && first(mm) == 1 || error("Exact only supports BendParams with a pure dipole BMultipoleParams. Try BendKick instead")
-    kn, ks = get_strengths(ele.bmultipoleparams, L, p_over_q_ref)
+    kn, ks = get_strengths(ele.bmultipoleparams, L, p_over_q_ref, ele.ref.field_scale)
     ks[1] == 0 || error("Exact is not currently compatible in an element with both BendParams and a skew dipole multipole")
     Kn0 = kn[1]
     edge_params = (a, tilde_m, beta_0, Kn0, w, w_inv, ele.bendparams.e1, ele.bendparams.e2)
@@ -98,7 +99,7 @@
 
   mm = ele.bmultipoleparams.order
   length(mm) == 1 || error("Exact only supports a pure solenoid or pure dipole in a nonzero length element. Try DriftKick, SolenoidKick, MatrixKick or BendKick instead")
-  kn, ks = get_strengths(ele.bmultipoleparams, L, p_over_q_ref)
+  kn, ks = get_strengths(ele.bmultipoleparams, L, p_over_q_ref, ele.ref.field_scale)
   photon_params = fluctuations ? (get_backend(bunch.coords.v), q, mc2, E_ref, 0, nothing, nothing, mm, kn, ks) : nothing
 
   if first(mm) == 0

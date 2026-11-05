@@ -19,6 +19,16 @@ Shift coordinates due to a change in reference energy `dbeta_gamma`.
   end
 end
 
+@inline function reference_time_shift!(i, coords::Coords, tilde_m, c_dt)
+  @inbounds begin
+    v = coords.v
+    alive = (coords.state[i] == STATE_ALIVE)
+    rel_p = 1 + v[i,PZI]
+    beta = @FastGTPSA rel_p / sqrt(rel_p*rel_p + tilde_m*tilde_m)
+    v[i,ZI] = vifelse(alive, fma(beta, c_dt, v[i,ZI]), v[i,ZI])
+  end
+end
+
 # Fallback
 fma(a, b, c) = a * b + c
 

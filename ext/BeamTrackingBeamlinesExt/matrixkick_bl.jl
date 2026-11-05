@@ -26,7 +26,7 @@
 
   mm = ele.bmultipoleparams.order
   first(mm) != 0 || error("MatrixKick is not compatible in element with solenoidal multipole component. Try SolenoidKick instead")
-  kn, ks = get_strengths(ele.bmultipoleparams, L, p_over_q_ref)
+  kn, ks = get_strengths(ele.bmultipoleparams, L, p_over_q_ref, ele.ref.field_scale)
   Kn0::Union{Nothing,eltype(kn)} = nothing
   Ks0::Union{Nothing,eltype(ks)} = nothing
   Kn1::eltype(kn) = zero(kn[1])

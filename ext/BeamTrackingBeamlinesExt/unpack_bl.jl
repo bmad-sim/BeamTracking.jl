@@ -18,7 +18,7 @@ struct _ConcreteUniversalParams{A}
   end
 end
 
-Base.@kwdef struct LoweredElement{A,B,C,D,E,F,G,H,I,J,K,L}
+Base.@kwdef struct LoweredElement{A,B,C,D,E,F,G,H,I,J,K,L,M,N}
   universalparams::A
   alignmentparams::B
   bendparams::C
@@ -32,6 +32,7 @@ Base.@kwdef struct LoweredElement{A,B,C,D,E,F,G,H,I,J,K,L}
   emultipoleparams::K
   emfieldparams::L
   ibsparams::M
+  ref::N
 end
 
 # Step 1: Unpack the element ---------------------------------------------
@@ -39,7 +40,7 @@ function _track!(
   bunch::Bunch,
   ele::LineElement, 
   context::Context,
-  p_over_q_ref,
+  ref::TrackReference,
   tm,
   scalar_params,
   ramp_particle_energy_without_rf,
@@ -48,6 +49,9 @@ function _track!(
   batch_start;
   kwargs...
 )
+  # Every element in a Beamline has the same p_over_q_ref (possibly a function of time)
+  p_over_q_ref = ref.p_over_q_ref
+
   # Parameter groups in ignore_params are replaced with nothing, exactly as if the element
   # did not have them (like RFParams with rf_on = false)
   ignoreparams = ele.IgnoreParams
@@ -111,6 +115,7 @@ function _track!(
     emultipoleparams, 
     emfieldparams, 
     ibsparams,
+    ref,
   )
   # Function barrier
   @noinline universal!(bunch, tm, ele, loweredele, p_over_q_ref, Val(ramp_particle_energy_without_rf), Val(ramp_update_each_particle), batch_start; kwargs...)
@@ -148,14 +153,26 @@ function universal!(
   ds_step = universalparams.ds_step
 
   # Reference time evolution thru element assumes constant energy
-  # using the energy at the start of the element:
+  # using the energy at the start of the element.
+  # bunch.t_ref is the design clock: the time of the Beamline reference species at the Beamline
+  # reference energy, which time dependent parameters and RF are timed against. t_exit is the time
+  # of the Bunch reference particle, which the kernels' z is measured against. The two differ only
+  # if the Bunch species differs from the reference species, in which case z is re-referenced to 
+  # the design clock at the end of the element.
   t_exit = bunch.t_ref + L / beta_gamma_to_v(beta_gamma_enter)
+  shift_time = bunch.species != ele.ref.species_ref
+  if shift_time
+    p_over_q_ref_enter = p_over_q_ref isa TimeDependentParam ? p_over_q_ref(t_enter) : p_over_q_ref
+    t_exit_design = bunch.t_ref + L / R_to_v(ele.ref.species_ref, p_over_q_ref_enter)
+  else
+    t_exit_design = t_exit
+  end
   beta_gamma_exit_t = R_to_beta_gamma(bunch.species, p_over_q_ref)
 
   if p_over_q_ref isa TimeDependentParam
     if ramp_update_each_particle
-      beta_gamma_exit = beta_gamma_exit_t(t_exit)
-      p_over_q_ref_exit = p_over_q_ref(t_exit)
+      beta_gamma_exit = beta_gamma_exit_t(t_exit_design)
+      p_over_q_ref_exit = p_over_q_ref(t_exit_design)
     else
       beta_gamma_exit = beta_gamma_enter # Don't ramp at end of element if !ramp_update_each_particle
       p_over_q_ref_exit = p_over_q_ref(t_enter)
@@ -167,6 +184,7 @@ function universal!(
 
   # Lower RefState values to coordinates number types
   T = eltype(bunch.coords.v)
+  t_exit_design = BeamTracking.num_lower(T, t_exit_design)
   t_enter = BeamTracking.num_lower(T, t_enter)
   beta_gamma_enter = BeamTracking.num_lower(T, beta_gamma_enter)
   t_exit  = BeamTracking.num_lower(T, t_exit)
@@ -176,11 +194,12 @@ function universal!(
   ds_step = BeamTracking.num_lower(T, ds_step)
   p_over_q_ref = BeamTracking.num_lower(T, p_over_q_ref)
 
-  # Current KernelChain length is 10 because we have up to
+  # Current KernelChain length is 11 because we have up to
   # 2 aperture, 2 alignment, 1 body kernel, 1 IBS kernel,
   # 2 kernels to update the particles' reference energy,
-  # and 2 for coordinate conversion with implicit
-  kc = KernelChain(Val{10}(), RefState{T}(; t_enter, beta_gamma_enter, t_exit, beta_gamma_exit, L, g, ds_step), batch_start)
+  # 2 for coordinate conversion with implicit,
+  # and 1 to update the particles' reference time
+  kc = KernelChain(Val{11}(), RefState{T}(; t_enter, beta_gamma_enter, t_exit, beta_gamma_exit, L, g, ds_step), batch_start)
   
   if !isnothing(ibsparams) && ibsparams.ibs_model != IBSModel.None && L > 0
     kc = @inline(ibs_kick(kc, bunch, ibsparams, bendparams, L))
@@ -198,7 +217,6 @@ function universal!(
     p_over_q_ref = p_over_q_ref isa TimeDependentParam ? p_over_q_ref(t_enter) : p_over_q_ref
     if !(BeamTracking.num_lower(typeof(bunch.p_over_q_ref), beta_gamma_enter) ≈ BeamTracking.num_lower(typeof(bunch.p_over_q_ref), bunch_beta_gamma))
         kc = push(kc, make_kernel_call(BeamTracking.reference_momentum_shift!, (bunch_beta_gamma, beta_gamma_enter - bunch_beta_gamma, Val{!ramp_particle_energy_without_rf}())))
-        bunch.p_over_q_ref = p_over_q_ref
     end
   end
 
@@ -244,12 +262,17 @@ function universal!(
     # uniformly to p_over_q_ref(t_ref at end)
     kc = push(kc, make_kernel_call(BeamTracking.reference_momentum_shift!, (beta_gamma_enter_t, beta_gamma_exit-beta_gamma_enter_t, Val{!ramp_particle_energy_without_rf}())))
   end
+
+  # If the Bunch species differs from the reference species, re-reference z to the design clock
+  if shift_time
+    kc = push(kc, make_kernel_call(BeamTracking.reference_time_shift!, (1/beta_gamma_exit, C_LIGHT*(t_exit_design - t_exit))))
+  end
   
   # noinline necessary here for small binaries and faster execution
-  @noinline launch!(coords, kc; kwargs...)
+  @noinline launch!(bunch.coords, kc; kwargs...)
 
   # Update reference time
-  bunch.t_ref = t_exit
+  bunch.t_ref = t_exit_design
   bunch.p_over_q_ref = p_over_q_ref_exit
 
   return nothing

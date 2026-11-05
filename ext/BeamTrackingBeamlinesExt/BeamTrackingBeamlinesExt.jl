@@ -16,15 +16,17 @@ function track!(
   rf_on::Bool=true,
   context=(haskey(getfield(ele, :pdict), BeamlineParams) ? ele.beamline.context : Beamlines.NULL_CONTEXT),
   batch_start=1,
+  notify::Bool=true,
   kwargs...
 )
-  if isnothing(_p_over_q_ref)
-    p_over_q_ref = ele.p_over_q_ref
+  if haskey(getfield(ele, :pdict), BeamlineParams)
+    bl = ele.beamline
+    ref = resolve_reference!(bunch, Beamlines.trygetproperty(bl, :species_ref), Beamlines.trygetproperty(bl, :p_over_q_ref), notify)
   else
-    p_over_q_ref = _p_over_q_ref
+    # Standalone element: everything from the Bunch
+    ref = resolve_reference!(bunch, nothing, nothing, notify)
   end
-  coords = bunch.coords
-  @noinline _track!(coords, bunch, ele, context, p_over_q_ref, ele.tracking_method, scalar_params, ramp_particle_energy_without_rf, ramp_update_each_particle, rf_on, batch_start; kwargs...)
+  @noinline _track!(bunch, ele, context, ref, ele.tracking_method, scalar_params, ramp_particle_energy_without_rf, ramp_update_each_particle, rf_on, batch_start; kwargs...)
   return bunch
 end
 
@@ -37,16 +39,18 @@ function track!(
   ramp_update_each_particle::Bool=false,
   rf_on::Bool=true,
   batch_start=1,
+  notify::Bool=true,
   kwargs...
 )
   if length(bl.line) == 0
     return bunch
   end
-  __, p_over_q_ref = check_bl_bunch!(bunch, bl)
+  # Resolved once for the whole Beamline
+  ref = resolve_reference!(bunch, Beamlines.trygetproperty(bl, :species_ref), Beamlines.trygetproperty(bl, :p_over_q_ref), notify)
   context = bl.context
-  
+
   for ele in bl.line
-    track!(bunch, ele; context, scalar_params, ramp_particle_energy_without_rf, ramp_update_each_particle, rf_on, batch_start, kwargs...)
+    @noinline _track!(bunch, ele, context, ref, ele.tracking_method, scalar_params, ramp_particle_energy_without_rf, ramp_update_each_particle, rf_on, batch_start; kwargs...)
   end
 
   return bunch

@@ -31,7 +31,7 @@
   end
 
   mm = ele.bmultipoleparams.order
-  kn, ks = get_strengths(ele.bmultipoleparams, L, p_over_q_ref)
+  kn, ks = get_strengths(ele.bmultipoleparams, L, p_over_q_ref, ele.ref.field_scale)
   first(mm) != 0 || error("BendKick is not compatible in element with solenoidal multipole component. Try SolenoidKick instead")
   has_dipole = first(mm) == 1
   # Pure bend, use order 2 (exact solution)
