@@ -41,7 +41,6 @@ function _track!(
   ele::LatElement, 
   context::Context,
   ref::TrackReference,
-  tm,
   scalar_params,
   ramp_particle_energy_without_rf::Val,
   ramp_update_each_particle::Val,
@@ -50,27 +49,94 @@ function _track!(
   batch_start;
   kwargs...
 )
-  !isnothing(tm) || error("LatElement $(ele.name) has no tracking_method set")
   # Every element in a Beamline has the same p_over_q_ref (possibly a function of time)
   p_over_q_ref = ref.p_over_q_ref
 
+  # Get the parameter groups in one pass over the element's ParamDict, then its parent's (if it 
+  # has InheritParams), etc. A child's parameter group takes precedence over its parent's. This 
+  # is the same as ele.<parameter group> for each group, but without hashing a type for each lookup
+  universalparams = nothing
+  alignmentparams = nothing
+  bendparams = nothing
+  bmultipoleparams = nothing
+  patchparams = nothing
+  apertureparams = nothing
+  mapparams = nothing
+  rfparams = nothing
+  beamlineparams = nothing
+  fourpotentialparams = nothing
+  emultipoleparams = nothing
+  emfieldparams = nothing
+  ibsparams = nothing
+  ignoreparams = nothing
+  pdict = getfield(ele, :pdict)
+  while true
+    # As in getproperty, a protected parameter group errors unless a child already had it
+    protect = get(pdict, Beamlines.ProtectParams, nothing)
+    if !isnothing(protect)
+      for (G, p) in (UniversalParams=>universalparams, AlignmentParams=>alignmentparams, BendParams=>bendparams, 
+                     BMultipoleParams=>bmultipoleparams, PatchParams=>patchparams, ApertureParams=>apertureparams, 
+                     MapParams=>mapparams, RFParams=>rfparams, BeamlineParams=>beamlineparams, 
+                     FourPotentialParams=>fourpotentialparams, EMultipoleParams=>emultipoleparams, 
+                     EMFieldParams=>emfieldparams, IBSParams=>ibsparams, IgnoreParams=>ignoreparams)
+        isnothing(p) && nameof(G) in (protect::Beamlines.ProtectParams).protected_properties && error("Cannot get $G: parameter group is protected by ProtectParams. This can be unsafely-overridden using `unsafe_getparams`")
+      end
+    end
+    for (T, p) in pdict
+      if T === UniversalParams
+        universalparams = isnothing(universalparams) ? p : universalparams
+      elseif T === AlignmentParams
+        alignmentparams = isnothing(alignmentparams) ? p : alignmentparams
+      elseif T === BendParams
+        bendparams = isnothing(bendparams) ? p : bendparams
+      elseif T === BMultipoleParams
+        bmultipoleparams = isnothing(bmultipoleparams) ? p : bmultipoleparams
+      elseif T === PatchParams
+        patchparams = isnothing(patchparams) ? p : patchparams
+      elseif T === ApertureParams
+        apertureparams = isnothing(apertureparams) ? p : apertureparams
+      elseif T === MapParams
+        mapparams = isnothing(mapparams) ? p : mapparams
+      elseif T === RFParams
+        rfparams = isnothing(rfparams) ? p : rfparams
+      elseif T === BeamlineParams
+        beamlineparams = isnothing(beamlineparams) ? p : beamlineparams
+      elseif T === FourPotentialParams
+        fourpotentialparams = isnothing(fourpotentialparams) ? p : fourpotentialparams
+      elseif T === EMultipoleParams
+        emultipoleparams = isnothing(emultipoleparams) ? p : emultipoleparams
+      elseif T === EMFieldParams
+        emfieldparams = isnothing(emfieldparams) ? p : emfieldparams
+      elseif T === IBSParams
+        ibsparams = isnothing(ibsparams) ? p : ibsparams
+      elseif T === IgnoreParams
+        ignoreparams = isnothing(ignoreparams) ? p : ignoreparams
+      end
+    end
+    inherit = get(pdict, Beamlines.InheritParams, nothing)
+    isnothing(inherit) && break
+    pdict = getfield((inherit::Beamlines.InheritParams).parent::LatElement, :pdict)
+  end
+
   # Parameter groups in ignore_params are replaced with nothing, exactly as if the element
   # did not have them (like RFParams with rf_on = false)
-  ignoreparams = ele.IgnoreParams
   ig = isnothing(ignoreparams) ? () : (ignoreparams::IgnoreParams).ignore_params
-  universalparams = UniversalParams in ig ? nothing : deval(ele.UniversalParams, context)
-  alignmentparams = AlignmentParams in ig ? nothing : deval(ele.AlignmentParams, context)
-  bendparams = BendParams in ig ? nothing : deval(ele.BendParams, context)
-  bmultipoleparams = BMultipoleParams in ig ? nothing : deval(ele.BMultipoleParams, context)
-  patchparams = PatchParams in ig ? nothing : deval(ele.PatchParams, context)
-  apertureparams = ApertureParams in ig ? nothing : deval(ele.ApertureParams, context)
-  mapparams = MapParams in ig ? nothing : deval(ele.MapParams, context)
-  rfparams = (!rf_on || RFParams in ig) ? nothing : deval(ele.RFParams, context)
-  beamlineparams = BeamlineParams in ig ? nothing : deval(ele.BeamlineParams, context)
-  fourpotentialparams = FourPotentialParams in ig ? nothing : deval(ele.FourPotentialParams, context)
-  emultipoleparams = EMultipoleParams in ig ? nothing : deval(ele.EMultipoleParams, context)
-  emfieldparams = EMFieldParams in ig ? nothing : deval(ele.EMFieldParams, context)
-  ibsparams = IBSParams in ig ? nothing : deval(ele.IBSParams, context)
+  universalparams = (UniversalParams in ig || isnothing(universalparams)) ? nothing : deval(universalparams, context)
+  alignmentparams = (AlignmentParams in ig || isnothing(alignmentparams)) ? nothing : deval(alignmentparams, context)
+  bendparams = (BendParams in ig || isnothing(bendparams)) ? nothing : deval(bendparams, context)
+  bmultipoleparams = (BMultipoleParams in ig || isnothing(bmultipoleparams)) ? nothing : deval(bmultipoleparams, context)
+  patchparams = (PatchParams in ig || isnothing(patchparams)) ? nothing : deval(patchparams, context)
+  apertureparams = (ApertureParams in ig || isnothing(apertureparams)) ? nothing : deval(apertureparams, context)
+  mapparams = (MapParams in ig || isnothing(mapparams)) ? nothing : deval(mapparams, context)
+  rfparams = (!rf_on || RFParams in ig || isnothing(rfparams)) ? nothing : deval(rfparams, context)
+  beamlineparams = (BeamlineParams in ig || isnothing(beamlineparams)) ? nothing : deval(beamlineparams, context)
+  fourpotentialparams = (FourPotentialParams in ig || isnothing(fourpotentialparams)) ? nothing : deval(fourpotentialparams, context)
+  emultipoleparams = (EMultipoleParams in ig || isnothing(emultipoleparams)) ? nothing : deval(emultipoleparams, context)
+  emfieldparams = (EMFieldParams in ig || isnothing(emfieldparams)) ? nothing : deval(emfieldparams, context)
+  ibsparams = (IBSParams in ig || isnothing(ibsparams)) ? nothing : deval(ibsparams, context)
+  # Same as ele.tracking_method, without another lookup through the parent element
+  tm = isnothing(universalparams) ? nothing : universalparams.tracking_method
+  !isnothing(tm) || error("LatElement $(ele.name) has no tracking_method set")
 
   universalparams = isactive(universalparams) ? universalparams : nothing
   alignmentparams = isactive(alignmentparams) ? alignmentparams : nothing
