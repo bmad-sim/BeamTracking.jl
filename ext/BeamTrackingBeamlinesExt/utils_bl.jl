@@ -1,4 +1,4 @@
-Base.promote_rule(::Type{DefExpr{T}}, ::Type{TimeDependentParam}) where {T} = DefExpr{TimeDependentParam}
+Base.promote_rule(::Type{DefExpr{T}}, ::Type{<:TimeDependentParam}) where {T} = DefExpr{TimeDependentParam}
 Base.promote_rule(::Type{DefExpr{T}}, ::Type{BatchParam}) where {T} = DefExpr{promote_type(BatchParam, T)}
 Beamlines.DefExpr{T}(a::TimeDependentParam) where {T} = DefExpr{T}(()->convert(T,a))
 Beamlines.DefExpr{BatchParam}(a::BatchParam) = DefExpr{BatchParam}(()->a)

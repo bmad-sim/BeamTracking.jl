@@ -3,11 +3,13 @@ struct TimeFunction{F<:Function}
 end
 (tf::TimeFunction)(t) = tf.f(t)
 
-struct TimeDependentParam
-  f::TimeFunction
+# The TimeFunction type is a type parameter so that operations on and evaluations of a 
+# TimeDependentParam are type stable (closures of statically known types)
+struct TimeDependentParam{F<:TimeFunction}
+  f::F
   _isconst::Bool
-  TimeDependentParam(f::TimeFunction, _isconst) = new(f, _isconst)
-  TimeDependentParam(f::Function, _isconst) = new(TimeFunction(f), _isconst)
+  TimeDependentParam(f::TimeFunction, _isconst) = new{typeof(f)}(f, _isconst)
+  TimeDependentParam(f::Function, _isconst) = TimeDependentParam(TimeFunction(f), _isconst)
 end
 
 # Convenience ctor
@@ -21,7 +23,7 @@ TimeDependentParam(a::Number) = TimeDependentParam((t)->a, true)
 TimeDependentParam(a::TimeDependentParam) = a
 
 # Make these apply via convert
-Base.convert(::Type{D}, a::Number) where {D<:TimeDependentParam} = D((t)->a,true)
+Base.convert(::Type{D}, a::Number) where {D<:TimeDependentParam} = TimeDependentParam((t)->a,true)
 Base.convert(::Type{D}, a::D) where {D<:TimeDependentParam} = a
 
 Base.zero(::TimeDependentParam) = TimeDependentParam((t)->0, true)
@@ -63,7 +65,7 @@ for t = (:unit, :sincu, :sinhc, :sinhcu, :asinc, :asincu, :asinhc, :asinhcu, :er
   end
 end
 
-Base.promote_rule(::Type{TimeDependentParam}, ::Type{U}) where {U<:Number} = TimeDependentParam
+Base.promote_rule(::Type{<:TimeDependentParam}, ::Type{U}) where {U<:Number} = TimeDependentParam
 Base.broadcastable(o::TimeDependentParam) = Ref(o)
 
 Base.isapprox(d::TimeDependentParam, n::Number; kwargs...) = d._isconst ? isapprox(d(0), n) : false
@@ -124,7 +126,7 @@ time_lower(tp::T) where {T<:Tuple} = map(ti->time_lower(ti), tp)
   NamedTuple{names}(time_lower(Tuple(nt)))
 
 # Arrays MUST be converted into tuples, for SIMD
-time_lower(tp::SArray{N,TimeDependentParam}) where {N} = time_lower(Tuple(tp))
+time_lower(tp::SArray{N,<:TimeDependentParam}) where {N} = time_lower(Tuple(tp))
 static_timecheck(tp) = false
 static_timecheck(::TimeFunction) = true
 @inline static_timecheck(nt::NamedTuple) = static_timecheck(Tuple(nt))

@@ -275,8 +275,8 @@ end
 
 
 Base.promote_rule(::Type{BatchParam}, ::Type{U}) where {U<:Number} = BatchParam
-Base.promote_rule(::Type{BatchParam}, ::Type{TimeDependentParam}) = error("Unable to combine BatchParams with TimeDependentParams")
-Base.promote_rule(::Type{TimeDependentParam}, ::Type{BatchParam}) = error("Unable to combine BatchParams with TimeDependentParams")
+Base.promote_rule(::Type{BatchParam}, ::Type{<:TimeDependentParam}) = error("Unable to combine BatchParams with TimeDependentParams")
+Base.promote_rule(::Type{<:TimeDependentParam}, ::Type{BatchParam}) = error("Unable to combine BatchParams with TimeDependentParams")
 Base.broadcastable(o::BatchParam) = Ref(o)
 
 Base.isapprox(b1::BatchParam, b2::BatchParam; kwargs...) = all(isapprox.(b1.batch, b2.batch, kwargs...))

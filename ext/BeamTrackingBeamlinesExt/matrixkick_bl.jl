@@ -29,10 +29,13 @@
   kn, ks = get_strengths(ele.bmultipoleparams, L, p_over_q_ref, ele.ref.field_scale)
   Kn0::Union{Nothing,eltype(kn)} = nothing
   Ks0::Union{Nothing,eltype(ks)} = nothing
-  Kn1::eltype(kn) = zero(kn[1])
-  Ks1::eltype(ks) = zero(ks[1])
-  k1::eltype(kn) = zero(kn[1])
-  tilt1::eltype(kn) = zero(kn[1])
+  # The type of a TimeDependentParam changes with every operation (zero, sqrt, ...)
+  TN = eltype(kn) <: TimeDependentParam ? TimeDependentParam : eltype(kn)
+  TS = eltype(ks) <: TimeDependentParam ? TimeDependentParam : eltype(ks)
+  Kn1::TN = zero(kn[1])
+  Ks1::TS = zero(ks[1])
+  k1::TN = zero(kn[1])
+  tilt1::TN = zero(kn[1])
   Kn2::Union{Nothing,eltype(kn)} = nothing
   Ks2::Union{Nothing,eltype(ks)} = nothing
   for j in 1:length(mm)

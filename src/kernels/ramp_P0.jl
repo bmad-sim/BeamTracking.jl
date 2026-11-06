@@ -14,7 +14,7 @@ Shift coordinates due to a change in reference energy `dbeta_gamma`.
     v[i,PXI] = vifelse(alive, beta_gamma_ratio * v[i,PXI], v[i,PXI])
     v[i,PYI] = vifelse(alive, beta_gamma_ratio * v[i,PYI], v[i,PYI])
     if shift_pz
-      v[i,PZI] = vifelse(alive, fma(beta_gamma_old, v[i,PZI], -dbeta_gamma) / beta_gamma_new, v[i,PZI])
+      v[i,PZI] = vifelse(alive, muladd(beta_gamma_old, v[i,PZI], -dbeta_gamma) / beta_gamma_new, v[i,PZI])
     end
   end
 end
@@ -25,12 +25,9 @@ end
     alive = (coords.state[i] == STATE_ALIVE)
     rel_p = 1 + v[i,PZI]
     beta = @FastGTPSA rel_p / sqrt(rel_p*rel_p + tilde_m*tilde_m)
-    v[i,ZI] = vifelse(alive, fma(beta, c_dt, v[i,ZI]), v[i,ZI])
+    v[i,ZI] = vifelse(alive, muladd(beta, c_dt, v[i,ZI]), v[i,ZI])
   end
 end
-
-# Fallback
-fma(a, b, c) = a * b + c
 
 
 

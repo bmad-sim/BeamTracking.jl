@@ -216,8 +216,10 @@ function universal!(
 
   # Compute information about reference coordinate system:
   t_enter = bunch.t_ref
-  beta_gamma_enter_t = R_to_beta_gamma(bunch.species, p_over_q_ref)
-  beta_gamma_enter = p_over_q_ref isa TimeDependentParam ? beta_gamma_enter_t(t_enter) : beta_gamma_enter_t
+  # Evaluate p_over_q_ref first and convert the number: TimeDependentParams of the energy are 
+  # only needed for per-particle ramping
+  p_over_q_ref_enter = p_over_q_ref isa TimeDependentParam ? p_over_q_ref(t_enter) : p_over_q_ref
+  beta_gamma_enter = R_to_beta_gamma(bunch.species, p_over_q_ref_enter)
   g = isnothing(bendparams) ? (0,0) : reverse((bendparams.g_ref .* sincos(bendparams.tilt_ref)))
   ds_step = universalparams.ds_step
 
@@ -230,24 +232,18 @@ function universal!(
   # the design clock at the end of the element.
   t_exit = bunch.t_ref + L / beta_gamma_to_v(beta_gamma_enter)
   if shift_time
-    p_over_q_ref_enter = p_over_q_ref isa TimeDependentParam ? p_over_q_ref(t_enter) : p_over_q_ref
     t_exit_design = bunch.t_ref + L / R_to_v(ele.ref.species_ref, ele.ref.field_scale*p_over_q_ref_enter)
   else
     t_exit_design = t_exit
   end
-  beta_gamma_exit_t = R_to_beta_gamma(bunch.species, p_over_q_ref)
 
-  if p_over_q_ref isa TimeDependentParam
-    if ramp_update_each_particle
-      beta_gamma_exit = beta_gamma_exit_t(t_exit_design)
-      p_over_q_ref_exit = p_over_q_ref(t_exit_design)
-    else
-      beta_gamma_exit = beta_gamma_enter # Don't ramp at end of element if !ramp_update_each_particle
-      p_over_q_ref_exit = p_over_q_ref(t_enter)
-    end
+  if p_over_q_ref isa TimeDependentParam && ramp_update_each_particle
+    p_over_q_ref_exit = p_over_q_ref(t_exit_design)
+    beta_gamma_exit = R_to_beta_gamma(bunch.species, p_over_q_ref_exit)
   else
-    beta_gamma_exit = beta_gamma_exit_t
-    p_over_q_ref_exit = p_over_q_ref
+    # Don't ramp at end of element if !ramp_update_each_particle
+    p_over_q_ref_exit = p_over_q_ref_enter
+    beta_gamma_exit = beta_gamma_enter
   end
 
   # Lower RefState values to coordinates number types. Only the RefState gets the lowered values:
@@ -277,14 +273,16 @@ function universal!(
 
   ramp_per_particle = p_over_q_ref isa TimeDependentParam && ramp_update_each_particle
   bunch_beta_gamma = R_to_beta_gamma(bunch.species, bunch.p_over_q_ref)
+  # Reference energy as a function of time, evaluated per particle in the ramp kernels
+  beta_gamma_enter_t = ramp_per_particle ? R_to_beta_gamma(bunch.species, p_over_q_ref) : nothing
 
   if ramp_per_particle
-    kc = push(kc, make_kernel_call(BeamTracking.reference_momentum_shift!, (bunch_beta_gamma, beta_gamma_enter_t-bunch_beta_gamma, Val{!ramp_particle_energy_without_rf}())))
+    kc = push(kc,make_kernel_call(BeamTracking.reference_momentum_shift!, (bunch_beta_gamma, beta_gamma_enter_t-bunch_beta_gamma, Val{!ramp_particle_energy_without_rf}())))
     kc = push_transforms_out(kc, make_kernel_call((i, coords, cur_s, cur_t_ref)->error("transforms_out! not supported yet with ramp_update_each_particle = true")))
     kc = push_transforms_in(kc, make_kernel_call((i, coords, cur_s, cur_t_ref)->error("transforms_in! not supported yet with ramp_update_each_particle = true")))
   else
     # Make sure to evaluate p_over_q_ref if not ramp_update_each_particle
-    p_over_q_ref = p_over_q_ref isa TimeDependentParam ? p_over_q_ref(t_enter) : p_over_q_ref
+    p_over_q_ref = p_over_q_ref_enter
     if !(BeamTracking.num_lower(typeof(bunch.p_over_q_ref), beta_gamma_enter) ≈ BeamTracking.num_lower(typeof(bunch.p_over_q_ref), bunch_beta_gamma))
         kc = push(kc, make_kernel_call(BeamTracking.reference_momentum_shift!, (bunch_beta_gamma, beta_gamma_enter - bunch_beta_gamma, Val{!ramp_particle_energy_without_rf}())))
     end
