@@ -1,9 +1,20 @@
 using Beamlines
 
-# Given a list of element parameters, tracks 
-# two elements with same initial particle coordinates, 
-# but element parameters' signs flipped. Then compares 
-# that with tracking two particles through a single 
+# Unless the element already has one, the split it used with the old default tracking method
+# (SciBmadStandard): solenoid -> SKS, quadrupole first -> MKM, dipole or higher first -> DKD,
+# zero length -> Exact
+function default_tracking_method(ele)
+  isnothing(ele.tracking_method) || return ele.tracking_method
+  ele.L == 0 && return Exact()
+  isnothing(ele.BMultipoleParams) && return DriftKick()
+  o = first(ele.BMultipoleParams.order)
+  return o == 0 ? SolenoidKick() : o == 2 ? MatrixKick() : DriftKick()
+end
+
+# Given a list of element parameters, tracks
+# two elements with same initial particle coordinates,
+# but element parameters' signs flipped. Then compares
+# that with tracking two particles through a single
 # time dependent element where the parameters go with ft
 # and the two particles' z coordinates are separated by C_LIGHT*pi
 # so one particle sees positive strengths other negative
@@ -26,10 +37,9 @@ function test_time(
   E_ref = 100e9
   species = Species("electron")
 
-  # SolenoidKick handles every straight element here (setting L = 0 switches to Exact)
-  ele_plus = LatElement(tracking_method=SolenoidKick())
-  ele_minus = LatElement(tracking_method=SolenoidKick())
-  ele_time = LatElement(tracking_method=SolenoidKick())
+  ele_plus = LatElement()
+  ele_minus = LatElement()
+  ele_time = LatElement()
   for (k,val) in pairs(dynamic_params)
     setproperty!(ele_plus, k, Beamlines.deval(ft(val))(v[5]))
     setproperty!(ele_minus, k, Beamlines.deval(ft(val))(v[5]/BeamTracking.C_LIGHT-pi))
@@ -41,6 +51,10 @@ function test_time(
     setproperty!(ele_time, k, val)
   end
 
+
+  ele_plus.tracking_method = default_tracking_method(ele_plus)
+  ele_minus.tracking_method = default_tracking_method(ele_minus)
+  ele_time.tracking_method = default_tracking_method(ele_time)
 
   bl_plus = Beamline([ele_plus], E_ref=E_ref, species_ref=species)
   bl_minus = Beamline([ele_minus], E_ref=E_ref, species_ref=species)

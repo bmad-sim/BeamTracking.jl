@@ -66,10 +66,12 @@
     # Just BMultipoles (not a cavity)
     if isnothing(Ksol)
       # sks_multipole! takes the first multipole to be the solenoid: prepend a zero solenoid component
-      params = (radiation_params, beta_0, gamsqr_0, tilde_m, a, zero(eltype(kn)), hcat(0, mm), hcat(0, kn),  hcat(0, ks))
+      params = (radiation_params, beta_0, gamsqr_0, tilde_m, a, zero(kn[1]), pushfirst(mm, 0), pushfirst(kn, zero(kn[1])), pushfirst(ks, zero(ks[1])))
       return push(kc, integration_launcher(BeamTracking.sks_multipole!, params, photon_params, edge_params, tm, ele.universalparams))
     else
-      tm_new = length(mm) == 1 ? (@set tm.order = 2) : tm # Pure solenoid, use order 2 (exact solution)
+      # Pure solenoid, use order 2 (exact solution). Not with radiation, which is applied in the
+      # integrator steps, so the order sets how accurately it is integrated
+      tm_new = (length(mm) == 1 && isnothing(radiation_params) && isnothing(photon_params)) ? (@set tm.order = 2) : tm
       params = (radiation_params, beta_0, gamsqr_0, tilde_m, a, Ksol, mm, kn, ks)
       return push(kc, integration_launcher(BeamTracking.sks_multipole!, params, photon_params, edge_params, tm_new, ele.universalparams))
     end

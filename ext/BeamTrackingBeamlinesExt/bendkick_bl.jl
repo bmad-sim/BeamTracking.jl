@@ -34,14 +34,15 @@
   kn, ks = get_strengths(ele.bmultipoleparams, L, p_over_q_ref, ele.ref.field_scale)
   first(mm) != 0 || error("BendKick is not compatible in element with solenoidal multipole component. Try SolenoidKick instead")
   has_dipole = first(mm) == 1
-  # Pure bend, use order 2 (exact solution)
-  tm_new = (has_dipole && length(mm) == 1) ? (@set tm.order = 2) : tm
 
   q = chargeof(bunch.species)
   mc2 = massof(bunch.species)
   E_ref = mc2/tilde_m/beta_0
   radiation_params = ele.universalparams.rad_damping ? (q, mc2, E_ref) : nothing
   fluctuations = isprimitivetype(eltype(bunch.coords.v)) && ele.universalparams.rad_fluctuations
+  # Pure bend, use order 2 (exact solution). Not with radiation, which is applied in the
+  # integrator steps, so the order sets how accurately it is integrated
+  tm_new = (has_dipole && length(mm) == 1 && isnothing(radiation_params) && !fluctuations) ? (@set tm.order = 2) : tm
 
   if isnothing(ele.bendparams)
     # Use straight magnet fringe field model AND obtain "tilt_ref" from tilt0, Kn0, Ks0:

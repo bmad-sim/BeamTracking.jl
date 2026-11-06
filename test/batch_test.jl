@@ -3,6 +3,17 @@ using BeamTracking
 using Test
 using LinearAlgebra
 
+# Unless the element already has one, the split it used with the old default tracking method
+# (SciBmadStandard): solenoid -> SKS, quadrupole first -> MKM, dipole or higher first -> DKD,
+# zero length -> Exact
+function default_tracking_method(ele)
+  isnothing(ele.tracking_method) || return ele.tracking_method
+  ele.L == 0 && return Exact()
+  isnothing(ele.BMultipoleParams) && return DriftKick()
+  o = first(ele.BMultipoleParams.order)
+  return o == 0 ? SolenoidKick() : o == 2 ? MatrixKick() : DriftKick()
+end
+
 # Pushes 4 equal particles with 4 batched parameters
 # compares when particle is pushed through 4 different elements
 function test_batch(
@@ -23,12 +34,11 @@ function test_batch(
   E_ref = 5e9
   species = Species("electron")
 
-  # SolenoidKick handles every straight element here (setting L = 0 switches to Exact)
-  ele_1 = LatElement(tracking_method=SolenoidKick())
-  ele_2 = LatElement(tracking_method=SolenoidKick())
-  ele_3 = LatElement(tracking_method=SolenoidKick())
-  ele_4 = LatElement(tracking_method=SolenoidKick())
-  ele_batch = LatElement(tracking_method=SolenoidKick())
+  ele_1 = LatElement()
+  ele_2 = LatElement()
+  ele_3 = LatElement()
+  ele_4 = LatElement()
+  ele_batch = LatElement()
   for (k,val) in pairs(batch_params)
     val_1 = -val
     val_2 = -0.5*val
@@ -47,6 +57,12 @@ function test_batch(
     setproperty!(ele_4, k, val)
     setproperty!(ele_batch, k, val)
   end
+
+  ele_1.tracking_method = default_tracking_method(ele_1)
+  ele_2.tracking_method = default_tracking_method(ele_2)
+  ele_3.tracking_method = default_tracking_method(ele_3)
+  ele_4.tracking_method = default_tracking_method(ele_4)
+  ele_batch.tracking_method = default_tracking_method(ele_batch)
 
   bl_1 = Beamline([ele_1], E_ref=E_ref, species_ref=species)
   bl_2 = Beamline([ele_2], E_ref=E_ref, species_ref=species)
@@ -101,6 +117,9 @@ end
 
   # DKD:
   test_batch((;Kn0=1e-2, Kn1=-2, Kn3=14), (;L=5.1))
+
+  # SKS without a solenoid (a zero solenoid component is prepended):
+  test_batch((;Kn1=0.36, Ks2=-1.2), (;tracking_method=SolenoidKick(), L=3.4))
 
   # BKB not working at the moment because bend multipoles not 
   # implemented and Ks0 (also stored) becomes a TimeDependentParam
