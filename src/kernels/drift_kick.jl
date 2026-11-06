@@ -80,11 +80,3 @@ have the form ``1 + ε`` for different small values of ``ε``.
   v[i,YI] = vifelse(alive, new_y, v[i,YI])
   v[i,ZI] = vifelse(alive, new_z, v[i,ZI])
 end
-
-function drift_params(species::Species, p_over_q_ref)
-  beta_gamma_0 = R_to_beta_gamma(species, p_over_q_ref)
-  tilde_m = 1/beta_gamma_0
-  gamsqr_0 = @FastGTPSA 1+beta_gamma_0*beta_gamma_0
-  beta_0 = @FastGTPSA beta_gamma_0/sqrt(gamsqr_0)
-  return tilde_m, gamsqr_0, beta_0
-end

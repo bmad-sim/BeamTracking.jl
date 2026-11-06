@@ -37,11 +37,11 @@ qout5 = [0.9957322482368662 0.07718724537569223 -0.05056522513866194 0.001605297
 qout6 = [0.9907268064380208 -0.12175040740909787 0.060305653940766195 0.0006792669694700435]
 qout7 = [0.9945900636739683 0.09519284014707527 -0.040806404330128124 -0.00798534854536703]
 
-R0 = BT.E_to_R(species, E0)
+R0 = Beamlines.E_to_R(species, E0)
 
 @testset "SaganCavity" begin
   ele = sc1
-  b1 = Bunch(deepcopy(v1), deepcopy(quat1), species=species, p_over_q_ref = BT.E_to_R(species, ele.E_ref-ele.dE_ref))
+  b1 = Bunch(deepcopy(v1), deepcopy(quat1), species=species, p_over_q_ref = Beamlines.E_to_R(species, ele.E_ref-ele.dE_ref))
   track!(b1, ele)
   if printit; println(b1.coords.q); end
   @test b1.coords.v ≈ out1
@@ -49,7 +49,7 @@ R0 = BT.E_to_R(species, E0)
   @test b1.t_ref ≈ 6.671281911876738e-9
 
   ele = sc2
-  b1 = Bunch(deepcopy(v1), deepcopy(quat1), species=species, p_over_q_ref = BT.E_to_R(species, ele.E_ref-ele.dE_ref))
+  b1 = Bunch(deepcopy(v1), deepcopy(quat1), species=species, p_over_q_ref = Beamlines.E_to_R(species, ele.E_ref-ele.dE_ref))
   track!(b1, ele)
   if printit; println(b1.coords.q); end
   @test b1.coords.v ≈ out2
@@ -57,23 +57,23 @@ R0 = BT.E_to_R(species, E0)
   @test b1.t_ref ≈ 6.6712819105865366e-9
 
   ele = sc3
-  b1 = Bunch(deepcopy(v1), deepcopy(quat1), species=species, p_over_q_ref = BT.E_to_R(species, ele.E_ref-ele.dE_ref))
+  b1 = Bunch(deepcopy(v1), deepcopy(quat1), species=species, p_over_q_ref = Beamlines.E_to_R(species, ele.E_ref-ele.dE_ref))
   track!(b1, ele)
   if printit; println(b1.coords.q); end
   @test b1.coords.v ≈ out3
   @test b1.coords.q ≈ qout3
-  @test b1.t_ref ≈ 0
+  @test b1.t_ref == 0
 
   ele = sc4
-  b1 = Bunch(deepcopy(v1), deepcopy(quat1), species=species, p_over_q_ref = BT.E_to_R(species, ele.E_ref-ele.dE_ref))
+  b1 = Bunch(deepcopy(v1), deepcopy(quat1), species=species, p_over_q_ref = Beamlines.E_to_R(species, ele.E_ref-ele.dE_ref))
   track!(b1, ele)
   if printit; println(b1.coords.q); end
   @test b1.coords.v ≈ out4
   @test b1.coords.q ≈ qout4
-  @test b1.t_ref ≈ 0
+  @test b1.t_ref == 0
 
   ele = sc5
-  b1 = Bunch(deepcopy(v1), deepcopy(quat1), species=species, p_over_q_ref = BT.E_to_R(species, ele.E_ref-ele.dE_ref))
+  b1 = Bunch(deepcopy(v1), deepcopy(quat1), species=species, p_over_q_ref = Beamlines.E_to_R(species, ele.E_ref-ele.dE_ref))
   track!(b1, ele)
   if printit; println(b1.coords.v); end
   if printit; println(b1.coords.q); end
@@ -82,7 +82,7 @@ R0 = BT.E_to_R(species, E0)
   @test b1.t_ref ≈ 6.671281910560153e-9
 
   ele = sc6
-  b1 = Bunch(deepcopy(v1), deepcopy(quat1), species=species, p_over_q_ref = BT.E_to_R(species, ele.E_ref-ele.dE_ref))
+  b1 = Bunch(deepcopy(v1), deepcopy(quat1), species=species, p_over_q_ref = Beamlines.E_to_R(species, ele.E_ref-ele.dE_ref))
   track!(b1, ele)
   if printit; println(b1.coords.v); end
   if printit; println(b1.coords.q); end
@@ -91,7 +91,7 @@ R0 = BT.E_to_R(species, E0)
   @test b1.t_ref ≈ 6.6712819100116676e-9
 
   ele = sc7
-  b1 = Bunch(deepcopy(v1), deepcopy(quat1), species=species, p_over_q_ref = BT.E_to_R(species, ele.E_ref-ele.dE_ref))
+  b1 = Bunch(deepcopy(v1), deepcopy(quat1), species=species, p_over_q_ref = Beamlines.E_to_R(species, ele.E_ref-ele.dE_ref))
   track!(b1, ele)
   if printit; println(b1.coords.v); end
   if printit; println(b1.coords.q); end
@@ -107,14 +107,14 @@ end
   # The reference time is accumulated through a SaganCavity (not reset)
   t0 = 1e-6
   ele = sc1
-  b1 = Bunch(deepcopy(v1), deepcopy(quat1), species=species, p_over_q_ref = BT.E_to_R(species, ele.E_ref-ele.dE_ref))
+  b1 = Bunch(deepcopy(v1), deepcopy(quat1), species=species, p_over_q_ref = Beamlines.E_to_R(species, ele.E_ref-ele.dE_ref))
   b1.t_ref = t0
   track!(b1, ele)
   @test b1.coords.v ≈ out1
   @test b1.t_ref ≈ t0 + 6.671281911876738e-9
 
   ele = sc3 # L = 0
-  b1 = Bunch(deepcopy(v1), deepcopy(quat1), species=species, p_over_q_ref = BT.E_to_R(species, ele.E_ref-ele.dE_ref))
+  b1 = Bunch(deepcopy(v1), deepcopy(quat1), species=species, p_over_q_ref = Beamlines.E_to_R(species, ele.E_ref-ele.dE_ref))
   b1.t_ref = t0
   track!(b1, ele)
   @test b1.coords.v ≈ out3
@@ -138,11 +138,84 @@ end
                        tracking_method = SaganCavity(n_cells = 2))
   bs = map((sc_bend, sc_nobend)) do sc
     ele = Branch([Marker(E_ref = E0, species_ref = species), sc]).beamlines[2].line[1]
-    b = Bunch(deepcopy(v1), deepcopy(quat1), species=species, p_over_q_ref = BT.E_to_R(species, ele.E_ref-ele.dE_ref))
+    b = Bunch(deepcopy(v1), deepcopy(quat1), species=species, p_over_q_ref = Beamlines.E_to_R(species, ele.E_ref-ele.dE_ref))
     track!(b, ele)
     return b
   end
   @test bs[1].coords.v ≈ bs[2].coords.v
   @test bs[1].coords.q ≈ bs[2].coords.q
   @test bs[1].t_ref ≈ bs[2].t_ref
+
+  # A misaligned cavity (x and y offsets) is the same as shifting the Bunch into the cavity frame
+  cavity(sp=species; kw...) = Branch([Marker(E_ref = E0, species_ref = sp), RFCavity(; L = 2.0, voltage = 0.2*E0, rf_frequency = 1e9, 
+                                     dE_ref = 0.1*E0, tracking_method = SaganCavity(n_cells = 3, L_active = 1.0), Ksol = 0.01, Kn1L = 0.001, kw...)]).beamlines[2].line[1]
+  ele = cavity(x_offset = 2e-3, y_offset = -1e-3)
+  b1 = Bunch(deepcopy(v1), deepcopy(quat1), species=species, p_over_q_ref = Beamlines.E_to_R(species, ele.E_ref-ele.dE_ref))
+  track!(b1, ele)
+  v2 = deepcopy(v1); v2[1] -= 2e-3; v2[3] += 1e-3
+  b2 = Bunch(v2, deepcopy(quat1), species=species, p_over_q_ref = Beamlines.E_to_R(species, ele.E_ref-ele.dE_ref))
+  track!(b2, cavity())
+  b2.coords.v[1] += 2e-3; b2.coords.v[3] -= 1e-3
+  @test b1.coords.v == b2.coords.v
+  @test b1.coords.q == b2.coords.q
+
+  # A Bunch species other than the reference species: a species identical to the electron except 
+  # for its name tracks exactly like the electron (with the reference energy change, RF phase and 
+  # design clock of a different species)
+  e2 = Species("electron2", [getfield(species, n) for n in fieldnames(Species)][2:end]...)
+  ele = cavity(Ks0 = 0.001, x_offset = 1e-3, tilt = 0.1)
+  bs = map((species, e2)) do sp
+    b = Bunch(deepcopy(v1), deepcopy(quat1), species=sp, p_over_q_ref = Beamlines.E_to_R(species, ele.E_ref-ele.dE_ref))
+    track!(b, ele; notify=false)
+    return b
+  end
+  @test bs[1].coords.v == bs[2].coords.v
+  @test bs[1].coords.q == bs[2].coords.q
+  @test bs[1].t_ref == bs[2].t_ref
+
+  # A proton through a cavity designed for deuterons (same |Bρ|): with dE_ref = 0 and a small voltage 
+  # the reference energies are constant, the proton reference particle lags the design deuteron by 
+  # s*(1/v_p - 1/v_d) at a kick at s, and gains q*V_k*cos(omega*(t_phi0 + lag)) at each kick. 
+  # Afterwards t_ref is the design (deuteron) time and z is referenced to it
+  d = Species("deuteron")
+  p = Species("proton")
+  R = Beamlines.E_to_R(d, 3e9)
+  V, f, L, n = 1e3, 5e8, 2.0, 10
+  ele = Branch([Marker(p_over_q_ref = R, species_ref = d), RFCavity(L = L, voltage = V, rf_frequency = f, dE_ref = 0.0, 
+               tracking_method = SaganCavity(n_cells = n), zero_phase = PhaseRef.AboveTransition, phi0 = 0.3)]).beamlines[2].line[1]
+  bp = Bunch(zeros(1, 6); species = p, p_over_q_ref = R)
+  track!(bp, ele; notify = false)
+  bd = Bunch(zeros(1, 6); species = d, p_over_q_ref = R)
+  track!(bd, ele; notify = false)
+  @test bp.t_ref == bd.t_ref
+  ext = Base.get_extension(BeamTracking, :BeamTrackingBeamlinesExt)
+  omega = 2pi*f
+  _, L_active = ext.rf_step_calc(n, -1.0, omega, L)
+  t_phi0 = ext.rf_phi0_calc(ele.RFParams, d)/omega
+  v_p = Beamlines.R_to_v(p, R)
+  v_d = Beamlines.R_to_v(d, R)
+  P0c = Beamlines.R_to_pc(p, R)
+  pz(dE) = sqrt((sqrt(P0c^2 + massof(p)^2) + dE)^2 - massof(p)^2)/P0c - 1
+  s_k = [(L - L_active)/2 + k*L_active/n for k in 0:n]
+  w_k = [(k == 0 || k == n ? 0.5 : 1.0)/n for k in 0:n]
+  dE_slip = sum(V*w_k[k]*cos(omega*(t_phi0 + s_k[k]*(1/v_p - 1/v_d))) for k in 1:n+1)
+  dE_no_slip = sum(V*w_k[k]*cos(omega*t_phi0) for k in 1:n+1)
+  @test bp.coords.v[6] ≈ pz(dE_slip) rtol = 1e-5
+  @test !(bp.coords.v[6] ≈ pz(dE_no_slip))
+  @test bp.coords.v[5] ≈ v_p*(L/v_d - L/v_p) rtol = 1e-6
+
+  # Normalized multipoles are normalized by the Beamline p_over_q_ref, so they are the same physical 
+  # fields as the unnormalized ones (R times the normalized), also for a positron in an electron cavity
+  R_bl = Beamlines.E_to_R(species, E0)
+  for sp in (species, Species("positron"))
+    vs = map(((; Kn1L = 0.01, Ksol = 0.02), (; Bn1L = 0.01*R_bl, Bsol = 0.02*R_bl), (; Bn1L = -0.01*R_bl, Bsol = -0.02*R_bl))) do kw
+      ele = Branch([Marker(E_ref = E0, species_ref = species), RFCavity(; L = 2.0, voltage = 1e3, rf_frequency = 1e9, dE_ref = 0.0, 
+                   tracking_method = SaganCavity(n_cells = 3, L_active = 1.0), kw...)]).beamlines[2].line[1]
+      b = Bunch(deepcopy(v1), deepcopy(quat1), species=sp, p_over_q_ref = (sp == species ? 1 : -1)*Beamlines.E_to_R(species, ele.E_ref-ele.dE_ref))
+      track!(b, ele; notify=false)
+      return b.coords.v
+    end
+    @test vs[1] == vs[2]
+    @test maximum(abs.(vs[1] .- vs[3])) > 1e-4
+  end
 end

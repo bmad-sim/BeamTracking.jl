@@ -29,7 +29,7 @@
   # BendParams: bend becomes a straight element with the same multipoles, and
   # alignment is done as for a straight element
   sb = SBend(L=2.0, g=0.01, Kn0=0.01, x_offset=1e-3, y_rot=1e-3)
-  straight = LineElement(L=2.0, Kn0=0.01, x_offset=1e-3, y_rot=1e-3)
+  straight = LatElement(L=2.0, Kn0=0.01, x_offset=1e-3, y_rot=1e-3, tracking_method=BendKick()) # Same tracking method as SBend
   @test !same(track_ele(sb), track_ele(straight))
   sb.ignore_params = [BendParams]
   @test same(track_ele(sb), track_ele(straight))

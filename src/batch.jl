@@ -99,7 +99,7 @@ function _batch_addsub(batch_a, batch_b, op::T) where {T<:Union{typeof(+),typeof
     if batch_b isa Number
       return BatchParam(op(batch_a, batch_b))
     else
-      if op === (+) && batch_a ≈ 0 # add by zero gives identity
+      if op === (+) && batch_a == 0 # add by zero gives identity
         return BatchParam(batch_b)
       else
         let a = batch_num_lower(batch_b, batch_a)
@@ -108,7 +108,7 @@ function _batch_addsub(batch_a, batch_b, op::T) where {T<:Union{typeof(+),typeof
       end
     end
   elseif batch_b isa Number
-    if batch_b ≈ 0 # add/sub by zero gives identity
+    if batch_b == 0 # add/sub by zero gives identity
       return BatchParam(batch_a)
     else
       let b = batch_num_lower(batch_a, batch_b)
@@ -136,7 +136,7 @@ function _batch_mul(batch_a, batch_b)
     if batch_b isa Number
       return BatchParam(*(batch_a, batch_b))
     else
-      if batch_a ≈ 0 # mul by 0 gives 0 -> make scalar
+      if batch_a == 0 # mul by 0 gives 0 -> make scalar
         return BatchParam(0f0)
       elseif batch_a ≈ 1 # mul by 1 gives identity
         return BatchParam(batch_b)
@@ -147,7 +147,7 @@ function _batch_mul(batch_a, batch_b)
       end
     end
   elseif batch_b isa Number
-    if batch_b ≈ 0 # mul by 0 gives 0 -> make scalar
+    if batch_b == 0 # mul by 0 gives 0 -> make scalar
       return BatchParam(0f0)
     elseif batch_b ≈ 1 # mul by 1 gives identity
         return BatchParam(batch_a)
@@ -178,7 +178,7 @@ function _batch_div(batch_a, batch_b)
       end
     end
   elseif batch_b isa Number
-    if batch_b ≈ 0 # div by 0 gives Inf -> make scalar
+    if batch_b == 0 # div by 0 gives Inf -> make scalar
       return BatchParam(Inf32)
     elseif batch_b ≈ 1 # div by 1 gives identity
         return BatchParam(batch_a)
@@ -275,8 +275,8 @@ end
 
 
 Base.promote_rule(::Type{BatchParam}, ::Type{U}) where {U<:Number} = BatchParam
-Base.promote_rule(::Type{BatchParam}, ::Type{TimeDependentParam}) = error("Unable to combine BatchParams with TimeDependentParams")
-Base.promote_rule(::Type{TimeDependentParam}, ::Type{BatchParam}) = error("Unable to combine BatchParams with TimeDependentParams")
+Base.promote_rule(::Type{BatchParam}, ::Type{<:TimeDependentParam}) = error("Unable to combine BatchParams with TimeDependentParams")
+Base.promote_rule(::Type{<:TimeDependentParam}, ::Type{BatchParam}) = error("Unable to combine BatchParams with TimeDependentParams")
 Base.broadcastable(o::BatchParam) = Ref(o)
 
 Base.isapprox(b1::BatchParam, b2::BatchParam; kwargs...) = all(isapprox.(b1.batch, b2.batch, kwargs...))
@@ -337,12 +337,6 @@ end
 @inline beval(b::_LoweredBatchParam{B}, i, batch_start) where {B} = b.batch[mod1((i+batch_start-1), B)]
 
 @inline function beval(b::_LoweredBatchParam{B}, lane::SIMD.VecRange{N}, batch_start) where {B,N}
-  @static if (VERSION < v"1.11" && Sys.ARCH == :x86_64)
-    error("Julia's explicit SIMD.jl has a compiler bug that appears with batch 
-           parameters on versions < 1.11 AND an x86_64 bit architecture, which we 
-           detected that you have. To get around this, specify the `track!` 
-           keyword argument `use_explicit_SIMD=false`")
-  end
   m = rem(lane2vec(lane)+batch_start-1, B)
   i = vifelse(m == 0, B, m)
   return b.batch[i]
@@ -376,4 +370,4 @@ end
 end
 # === END CLAUDE ===
 
-@inline beval(b, i, batch_start) = b
+@inline beval(b, i, batch_start) = _reg(b) # see `_reg` in time.jl

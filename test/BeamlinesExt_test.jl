@@ -8,6 +8,7 @@
   include("BeamlinesExt/beamlines_ibs_test.jl")
   include("BeamlinesExt/beamlines_context_test.jl")
   include("BeamlinesExt/beamlines_ignore_params_test.jl")
+  include("BeamlinesExt/beamlines_slices_test.jl")
 
   #------------------------------------------------------------------------------------------------
 
@@ -15,10 +16,10 @@
   @testset "Exact" begin
     p0c = 10e6
     # E to p_over_q_ref
-    p_over_q_ref = BeamTracking.E_to_R(Species("electron"), sqrt(p0c^2 + massof(Species("electron"))^2))
+    p_over_q_ref = Beamlines.E_to_R(Species("electron"), sqrt(p0c^2 + massof(Species("electron"))^2))
     
     # Patch:
-    ele_patch = LineElement(dt=1e-9, dx=2.0, dy=3.0, dz=4.0, dx_rot=-5.0, dy_rot=6.0, dz_rot=7.0, L=-1.9458360380198412, tracking_method=Exact())
+    ele_patch = LatElement(dt=1e-9, dx=2.0, dy=3.0, dz=4.0, dx_rot=-5.0, dy_rot=6.0, dz_rot=7.0, L=-1.9458360380198412, tracking_method=Exact())
     b0 = Bunch(collect(transpose(@vars(D10))), p_over_q_ref=p_over_q_ref, species=Species("electron"))
     bl = Beamline([ele_patch], p_over_q_ref=p_over_q_ref, species_ref=Species("electron"))
     track!(b0, bl)
@@ -26,7 +27,7 @@
     @test coeffs_approx_equal(v_expected, b0.coords.v, 5e-10)
 
     # Drift: 
-    ele_drift = LineElement(L=1.0, tracking_method=Exact())   
+    ele_drift = LatElement(L=1.0, tracking_method=Exact())   
     b0 = Bunch(collect(transpose(@vars(D10))), p_over_q_ref=p_over_q_ref, species=Species("electron"))
     bl = Beamline([ele_drift], p_over_q_ref=p_over_q_ref, species_ref=Species("electron"))
     track!(b0, bl)
@@ -34,7 +35,7 @@
     @test coeffs_approx_equal(v_expected, b0.coords.v, 5e-10)
 
     # Thick solenoid:
-    ele_sol = LineElement(L=1.0, Ksol=2.0, tracking_method=Exact())
+    ele_sol = LatElement(L=1.0, Ksol=2.0, tracking_method=Exact(), fringe_at=Fringe.NoEnd)
     b0 = Bunch(collect(transpose(@vars(D10))), p_over_q_ref=p_over_q_ref, species=Species("electron"))
     bl = Beamline([ele_sol], p_over_q_ref=p_over_q_ref, species_ref=Species("electron"))
     track!(b0, bl)
@@ -42,7 +43,7 @@
     @test coeffs_approx_equal(v_expected, b0.coords.v, 5e-10)
 
     # Thick pure bend:
-    ele_bend = LineElement(L=0.5, g_ref=1, Kn0 = 1.001, tracking_method=Exact())
+    ele_bend = LatElement(L=0.5, g_ref=1, Kn0 = 1.001, tracking_method=Exact(), fringe_at=Fringe.NoEnd)
     b0 = Bunch(collect(transpose(@vars(D1))), p_over_q_ref=p_over_q_ref, species=Species("electron"))
     bl = Beamline([ele_bend], p_over_q_ref=p_over_q_ref, species_ref=Species("electron"))
     track!(b0, bl)
@@ -56,7 +57,7 @@
     @test GTPSA.jacobian(b0.coords.v) ≈ M_bend
 
     # Thick pure dipole:
-    ele_thick_dipole = LineElement(L=0.5, Kn0 = 0.001, tracking_method=Exact())
+    ele_thick_dipole = LatElement(L=0.5, Kn0 = 0.001, tracking_method=Exact(), fringe_at=Fringe.NoEnd)
     b0 = Bunch(collect(transpose(@vars(D1))), p_over_q_ref=p_over_q_ref, species=Species("electron"))
     bl = Beamline([ele_thick_dipole], p_over_q_ref=p_over_q_ref, species_ref=Species("electron"))
     track!(b0, bl)
@@ -76,7 +77,7 @@
         0.0000000000000000E+00 0.0000000000000000E+00 0.0000000000000000E+00  0.1000000000000000E+01 0.0000000000000000E+00  0.0000000000000000E+00  
         0.4814390079976891E+00 0.1323261942503324E+00 0.0000000000000000E+00  0.1302787444884016E-03 0.1000000000000000E+01 -0.1960162611913873E-01 
         0.0000000000000000E+00 0.0000000000000000E+00 0.0000000000000000E+00  0.0000000000000000E+00 0.0000000000000000E+00  0.1000000000000000E+01 ]
-    ele_bend = LineElement(L=0.5, g_ref=-1, Kn0=-0.9, tracking_method=Exact())
+    ele_bend = LatElement(L=0.5, g_ref=-1, Kn0=-0.9, tracking_method=Exact(), fringe_at=Fringe.NoEnd)
     ps = [0.1, -7.5e-4, 0.1, -3e-4 , 0.1, -1e-3]
     b0 = Bunch(collect(transpose(@vars(D1) + ps)), p_over_q_ref=p_over_q_ref, species=Species("electron"))
     bl = Beamline([ele_bend], p_over_q_ref=p_over_q_ref, species_ref=Species("electron"))
@@ -92,7 +93,7 @@
         0.0000000000000000E+00  0.0000000000000000E+00 0.0000000000000000E+00  0.1000000000000000E+01 0.0000000000000000E+00  0.0000000000000000E+00  
        -0.6062974306786699E+00 -0.7902999152252140E+00 0.0000000000000000E+00 -0.6712480744321764E+00 0.1000000000000000E+01  0.5734407018255534E+00 
         0.0000000000000000E+00  0.0000000000000000E+00 0.0000000000000000E+00  0.0000000000000000E+00 0.0000000000000000E+00  0.1000000000000000E+01 ]
-    ele_bend = LineElement(L=0.5, g_ref=1, Kn0=1.001, tracking_method=Exact())
+    ele_bend = LatElement(L=0.5, g_ref=1, Kn0=1.001, tracking_method=Exact(), fringe_at=Fringe.NoEnd)
     ps2 = [0.9, 1.05, 0.9, 1.05, 0.9, 1.05]
     b0 = Bunch(collect(transpose(@vars(D1) + ps2)), p_over_q_ref=p_over_q_ref, species=Species("electron"))
     bl = Beamline([ele_bend], p_over_q_ref=p_over_q_ref, species_ref=Species("electron"))
@@ -107,7 +108,7 @@
         0.0000000000000000E+00 0.0000000000000000E+00 0.0000000000000000E+00 0.1000000000000000E+01 0.0000000000000000E+00 0.0000000000000000E+00  
         0.8069636811610714E+00 -0.8167104791884392E+00 0.0000000000000000E+00 0.5347268547649256E-01 0.1000000000000000E+01 -0.2402983153080073E+01 
         0.0000000000000000E+00 0.0000000000000000E+00 0.0000000000000000E+00 0.0000000000000000E+00 0.0000000000000000E+00 0.1000000000000000E+01 ]
-    ele_bend = LineElement(L=2, g_ref=2, Kn0=2, tracking_method=Exact())
+    ele_bend = LatElement(L=2, g_ref=2, Kn0=2, tracking_method=Exact(), fringe_at=Fringe.NoEnd)
     ps3 = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6]
     b0 = Bunch(collect(transpose(@vars(D1) + ps3)), p_over_q_ref=p_over_q_ref, species=Species("electron"))
     bl = Beamline([ele_bend], p_over_q_ref=p_over_q_ref, species_ref=Species("electron"))
@@ -122,7 +123,7 @@
           0.0000000000000000E+00 0.0000000000000000E+00 0.0000000000000000E+00 0.1000000000000000E+01 0.0000000000000000E+00 0.0000000000000000E+00
           -0.6125460308934955E+00 -0.1190612491994672E+01 0.0000000000000000E+00 -0.4582602041770448E+00 0.1000000000000000E+01 0.2646663249372617E+00 
           0.0000000000000000E+00 0.0000000000000000E+00 0.0000000000000000E+00 0.0000000000000000E+00 0.0000000000000000E+00 0.1000000000000000E+01 ]
-    ele_bend = LineElement(L=2, g_ref=0.25, tracking_method=Exact())
+    ele_bend = LatElement(L=2, g_ref=0.25, tracking_method=Exact())
     ps4 = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6]
     b0 = Bunch(collect(transpose(@vars(D1) + ps4)), p_over_q_ref=p_over_q_ref, species=Species("electron"))
     bl = Beamline([ele_bend], p_over_q_ref=p_over_q_ref, species_ref=Species("electron"))
@@ -137,7 +138,7 @@
          0.0000000000000000E+00 0.0000000000000000E+00 0.0000000000000000E+00 0.1000000000000000E+01 0.0000000000000000E+00 0.0000000000000000E+00 
          0.2056963405505985E+00 0.9366074820807051E-01 0.0000000000000000E+00 -0.3362769369682188E+00 0.1000000000000000E+01 0.7363635310971241E-01 
          0.0000000000000000E+00 0.0000000000000000E+00 0.0000000000000000E+00 0.0000000000000000E+00 0.0000000000000000E+00 0.1000000000000000E+01 ]
-    ele_bend = LineElement(L=2, g_ref=-0.1, tracking_method=Exact())
+    ele_bend = LatElement(L=2, g_ref=-0.1, tracking_method=Exact())
     ps5 = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6]
     b0 = Bunch(collect(transpose(@vars(D1) + ps5)), p_over_q_ref=p_over_q_ref, species=Species("electron"))
     bl = Beamline([ele_bend], p_over_q_ref=p_over_q_ref, species_ref=Species("electron"))
@@ -152,7 +153,7 @@
         0.0000000000000000E+00 0.0000000000000000E+00 0.0000000000000000E+00 0.1000000000000000E+01 0.0000000000000000E+00 0.0000000000000000E+00 
         0.0000000000000000E+00 -0.5484469682148775E+00 0.0000000000000000E+00 -0.4202966917108473E+00 0.1000000000000000E+01 0.3052003750819157E+00 
         0.0000000000000000E+00 0.0000000000000000E+00 0.0000000000000000E+00 0.0000000000000000E+00 0.0000000000000000E+00 0.1000000000000000E+01 ]
-    ele_bend = LineElement(L=2, Kn0=-0.3, tracking_method=Exact())
+    ele_bend = LatElement(L=2, Kn0=-0.3, tracking_method=Exact(), fringe_at=Fringe.NoEnd)
     ps6 = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6]
     b0 = Bunch(collect(transpose(@vars(D1) + ps6)), p_over_q_ref=p_over_q_ref, species=Species("electron"))
     bl = Beamline([ele_bend], p_over_q_ref=p_over_q_ref, species_ref=Species("electron"))
@@ -168,7 +169,7 @@
          0.6524885489969529E-15 -0.1392935881676628E+00 0.1130143318219617E-14 0.7416783294715393E+00 0.0000000000000000E+00 0.5092935268428853E+00  
          -0.4446693087233498E+00 -0.1243157144846748E+01 -0.7701898352753723E+00 -0.2245039052845477E+01 0.1000000000000000E+01 0.7179291187108803E+00   
          0.0000000000000000E+00 0.0000000000000000E+00 0.0000000000000000E+00 0.0000000000000000E+00 0.0000000000000000E+00 0.1000000000000000E+01 ] 
-    ele_bend = LineElement(L=2, g_ref=0.3, tilt_ref=pi/3, tracking_method=Exact())
+    ele_bend = LatElement(L=2, g_ref=0.3, tilt_ref=pi/3, tracking_method=Exact())
     ps7 = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6]
     b0 = Bunch(collect(transpose(@vars(D1) + ps7)), p_over_q_ref=p_over_q_ref, species=Species("electron"))
     bl = Beamline([ele_bend], p_over_q_ref=p_over_q_ref, species_ref=Species("electron"))
@@ -183,7 +184,7 @@
          0.1581448440304961E-17 0.2586454382149800E-01 -0.2582701300335780E-01 0.1031795665484240E+01 0.0000000000000000E+00 -0.2069163505719838E+00   
          -0.1254775641797731E-16 -0.1633116441631849E+00 0.2049204134075807E+00 -0.1749967660064938E+00 0.1000000000000000E+01 0.8146308469937176E-01   
          0.0000000000000000E+00 0.0000000000000000E+00 0.0000000000000000E+00 0.0000000000000000E+00 0.0000000000000000E+00 0.1000000000000000E+01 ] 
-    ele_bend = LineElement(L=2, g_ref=0.1, Kn0=0.13, tilt_ref=-pi/2, tracking_method=Exact())
+    ele_bend = LatElement(L=2, g_ref=0.1, Kn0=0.13, tilt_ref=-pi/2, tracking_method=Exact(), fringe_at=Fringe.NoEnd)
     ps8 = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6]
     b0 = Bunch(collect(transpose(@vars(D1) + ps8)), p_over_q_ref=p_over_q_ref, species=Species("electron"))
     bl = Beamline([ele_bend], p_over_q_ref=p_over_q_ref, species_ref=Species("electron"))
@@ -199,7 +200,7 @@
         0.0000000000000000E+00 -0.2369523054950603E-15 0.0000000000000000E+00 0.1000000000000000E+01 0.0000000000000000E+00 0.1762490115442885E-14  
         0.0000000000000000E+00 -0.1922017848558854E+00 0.0000000000000000E+00 -0.5132119901378409E+00 0.1000000000000000E+01 0.1999860793263922E+00  
         0.0000000000000000E+00 0.0000000000000000E+00 0.0000000000000000E+00 0.0000000000000000E+00 0.0000000000000000E+00 0.1000000000000000E+01 ] 
-    ele_bend = LineElement(L=2, Ks0=0.13, tracking_method=Exact())
+    ele_bend = LatElement(L=2, Ks0=0.13, tracking_method=Exact(), fringe_at=Fringe.NoEnd)
     ps9 = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6]
     b0 = Bunch(collect(transpose(@vars(D1) + ps9)), p_over_q_ref=p_over_q_ref, species=Species("electron"))
     bl = Beamline([ele_bend], p_over_q_ref=p_over_q_ref, species_ref=Species("electron"))
@@ -210,7 +211,7 @@
     # Particle lost (does not intersect exit face):
     b0 = Bunch(collect(transpose(@vars(D1))), p_over_q_ref=p_over_q_ref, species=Species("electron"))
     v_init = copy(b0.coords.v)
-    ele_kick = LineElement(L=1.0, Kn0L=1.0, tracking_method=Exact())
+    ele_kick = LatElement(L=1.0, Kn0L=1.0, tracking_method=Exact(), fringe_at=Fringe.NoEnd)
     track!(b0, Beamline([ele_kick], p_over_q_ref=p_over_q_ref, species_ref=Species("electron")))
     @test b0.coords.state[1] == STATE_LOST
     @test v_init == b0.coords.v
@@ -218,7 +219,7 @@
     # Particle lost (abs(px) > pt):
     b0 = Bunch([0.1 0.2 0.3 0.4 0.5 -0.6], p_over_q_ref=p_over_q_ref, species=Species("electron"))
     v_init = copy(b0.coords.v)
-    ele_bend = LineElement(L=1.0, g_ref=0.01, Kn0=0.01, tracking_method=Exact())
+    ele_bend = LatElement(L=1.0, g_ref=0.01, Kn0=0.01, tracking_method=Exact(), fringe_at=Fringe.NoEnd)
     track!(b0, Beamline([ele_bend], p_over_q_ref=p_over_q_ref, species_ref=Species("electron")))
     @test b0.coords.state[1] == STATE_LOST
     @test v_init == b0.coords.v
@@ -226,7 +227,7 @@
     # Particle lost in bend (momentum is too small):
     b0 = Bunch([0.4 0.4 0.4 0.4 0.4 -0.5], p_over_q_ref=p_over_q_ref, species=Species("electron"))
     v_init = copy(b0.coords.v)
-    ele_bend = LineElement(L=1.0, g_ref=0.01, Kn0=0.01, tracking_method=Exact())
+    ele_bend = LatElement(L=1.0, g_ref=0.01, Kn0=0.01, tracking_method=Exact(), fringe_at=Fringe.NoEnd)
     track!(b0, Beamline([ele_bend], p_over_q_ref=p_over_q_ref, species_ref=Species("electron")))
     @test b0.coords.state[1] == STATE_LOST
     @test v_init == b0.coords.v
@@ -234,7 +235,7 @@
     # Particle lost in drift (momentum is too small):
     b0 = Bunch([0.4 0.4 0.4 0.4 0.4 -0.5], p_over_q_ref=p_over_q_ref, species=Species("electron"))
     v_init = copy(b0.coords.v)
-    ele_drift = LineElement(L=1.0, tracking_method=Exact())
+    ele_drift = LatElement(L=1.0, tracking_method=Exact())
     track!(b0, Beamline([ele_drift], p_over_q_ref=p_over_q_ref, species_ref=Species("electron")))
     @test b0.coords.state[1] == STATE_LOST
     @test v_init == b0.coords.v
@@ -242,7 +243,7 @@
     # Particle lost in solenoid (momentum is too small):
     b0 = Bunch([0.4 0.4 0.4 0.4 0.4 -0.5], p_over_q_ref=p_over_q_ref, species=Species("electron"))
     v_init = copy(b0.coords.v)
-    ele_sol = LineElement(L=1.0, Ksol=1.0, tracking_method=Exact())
+    ele_sol = LatElement(L=1.0, Ksol=1.0, tracking_method=Exact(), fringe_at=Fringe.NoEnd)
     track!(b0, Beamline([ele_sol], p_over_q_ref=p_over_q_ref, species_ref=Species("electron")))
     @test b0.coords.state[1] == STATE_LOST
     @test v_init == b0.coords.v
@@ -250,9 +251,9 @@
     # Errors:
     b0 = Bunch(collect(transpose(@vars(D1))), p_over_q_ref=p_over_q_ref, species=Species("electron"))
     v_init = copy(b0.coords.v)
-    ele_patch_bend = LineElement(L=1.0, g_ref=0.01, dy=3.0, dz_rot=0.3, tracking_method=Exact())
-    ele_patch_sol = LineElement(L=1.0, Ksol=1.0, dt=1.0, tracking_method=Exact())
-    ele_bend_quad = LineElement(L=1.0, g_ref=0.01, Kn1=1.0, tracking_method=Exact())
+    ele_patch_bend = LatElement(L=1.0, g_ref=0.01, dy=3.0, dz_rot=0.3, tracking_method=Exact())
+    ele_patch_sol = LatElement(L=1.0, Ksol=1.0, dt=1.0, tracking_method=Exact())
+    ele_bend_quad = LatElement(L=1.0, g_ref=0.01, Kn1=1.0, tracking_method=Exact())
     @test_throws ErrorException track!(b0, Beamline([ele_patch_bend], p_over_q_ref=p_over_q_ref, species_ref=Species("electron")))
     @test_throws ErrorException track!(b0, Beamline([ele_patch_sol],  p_over_q_ref=p_over_q_ref))
     @test_throws ErrorException track!(b0, Beamline([ele_bend_quad],  p_over_q_ref=p_over_q_ref))

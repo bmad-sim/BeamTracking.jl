@@ -10,11 +10,11 @@ function fringe!(i, coords::Coords, a, tilde_m, beta_0, Kn0, w, w_inv, e1, e2, :
     end
 
     if sgn == 1
-      if !(e1 ≈ 0)
+      if !(e1 == 0)
         polar_Y!(i, coords, e1, tilde_m, beta_0, a)
       end
     elseif sgn == -1
-      if !(e2 ≈ 0)
+      if !(e2 == 0)
         exact_wedge!(i, coords, -e2, Kn0, tilde_m, beta_0, a)
       end
     end
@@ -60,11 +60,11 @@ function fringe!(i, coords::Coords, a, tilde_m, beta_0, Kn0, w, w_inv, e1, e2, :
     end
 
     if sgn == -1
-      if !(e2 ≈ 0)
+      if !(e2 == 0)
         polar_Y!(i, coords, e2, tilde_m, beta_0, a)
       end
     elseif sgn == 1
-      if !(e1 ≈ 0)
+      if !(e1 == 0)
         exact_wedge!(i, coords, -e1, Kn0, tilde_m, beta_0, a)
       end
     end

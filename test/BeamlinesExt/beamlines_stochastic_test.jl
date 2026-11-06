@@ -4,70 +4,70 @@ using Random
   Random.seed!(0)
 
   # Here just check that they don't bug out
-  p_over_q_ref = BeamTracking.E_to_R(Species("electron"), 18e9)
+  p_over_q_ref = Beamlines.E_to_R(Species("electron"), 18e9)
   bend = SBend(g = 0.01, L = 2.0, 
-  tracking_method = Symplectic(order = 2, n_steps = 1, 
-  radiation_damping_on = true, radiation_fluctuations_on = true))
+  tracking_method = BendKick(order = 2), n_steps = 1, 
+  rad_damping = true, rad_fluctuations = true)
   line = Beamline([bend], species_ref = Species("electron"), p_over_q_ref = p_over_q_ref)
 
   v0 = [0.01 0.02 0.03 0.04 0.05 0.06]
   b0 = Bunch(copy(v0), species = line.species_ref, p_over_q_ref = line.p_over_q_ref)
   track!(b0, line)
 
-  bend.tracking_method = Symplectic(order = 2, n_steps = 2, 
-  radiation_damping_on = true, radiation_fluctuations_on = true)
+  bend.tracking_method = BendKick(order = 2); bend.n_steps = 2
+  bend.rad_damping = true; bend.rad_fluctuations = true
   b0 = Bunch(copy(v0), species = line.species_ref, p_over_q_ref = line.p_over_q_ref)
   track!(b0, line)
 
-  bend.tracking_method = Symplectic(order = 4, n_steps = 1,
-  radiation_damping_on = true, radiation_fluctuations_on = true)
+  bend.tracking_method = BendKick(order = 4); bend.n_steps = 1
+  bend.rad_damping = true; bend.rad_fluctuations = true
   b0 = Bunch(copy(v0), species = line.species_ref, p_over_q_ref = line.p_over_q_ref)
   track!(b0, line)
 
-  bend.tracking_method = Symplectic(order = 4, n_steps = 2, 
-  radiation_damping_on = true, radiation_fluctuations_on = true)
+  bend.tracking_method = BendKick(order = 4); bend.n_steps = 2
+  bend.rad_damping = true; bend.rad_fluctuations = true
   b0 = Bunch(copy(v0), species = line.species_ref, p_over_q_ref = line.p_over_q_ref)
   track!(b0, line)
 
-  bend.tracking_method = Symplectic(order = 6, n_steps = 1,
-  radiation_damping_on = true, radiation_fluctuations_on = true)
+  bend.tracking_method = BendKick(order = 6); bend.n_steps = 1
+  bend.rad_damping = true; bend.rad_fluctuations = true
   b0 = Bunch(copy(v0), species = line.species_ref, p_over_q_ref = line.p_over_q_ref)
   track!(b0, line)
 
-  bend.tracking_method = Symplectic(order = 6, n_steps = 2, 
-  radiation_damping_on = true, radiation_fluctuations_on = true)
+  bend.tracking_method = BendKick(order = 6); bend.n_steps = 2
+  bend.rad_damping = true; bend.rad_fluctuations = true
   b0 = Bunch(copy(v0), species = line.species_ref, p_over_q_ref = line.p_over_q_ref)
   track!(b0, line)
 
-  bend.tracking_method = Symplectic(order = 8, n_steps = 1, 
-  radiation_damping_on = true, radiation_fluctuations_on = true)
+  bend.tracking_method = BendKick(order = 8); bend.n_steps = 1
+  bend.rad_damping = true; bend.rad_fluctuations = true
   b0 = Bunch(copy(v0), species = line.species_ref, p_over_q_ref = line.p_over_q_ref)
   track!(b0, line)
 
-  bend.tracking_method = Symplectic(order = 8, n_steps = 2, 
-  radiation_damping_on = true, radiation_fluctuations_on = true)
+  bend.tracking_method = BendKick(order = 8); bend.n_steps = 2
+  bend.rad_damping = true; bend.rad_fluctuations = true
   b0 = Bunch(copy(v0), species = line.species_ref, p_over_q_ref = line.p_over_q_ref)
   track!(b0, line)
 
   # Now just check SIMD , if it doesn't bug out
-  bend.tracking_method = Symplectic(order = 8, n_steps = 2, 
-  radiation_damping_on = true, radiation_fluctuations_on = true)
+  bend.tracking_method = BendKick(order = 8); bend.n_steps = 2
+  bend.rad_damping = true; bend.rad_fluctuations = true
   b0 = Bunch(rand(10,6), species = line.species_ref, p_over_q_ref = line.p_over_q_ref)
   track!(b0, line)
 
   # Track TPSA make sure no errors, and equivalent with fluctuations on vs. off
-  bend.tracking_method = Symplectic(order = 2, n_steps = 1, 
-  radiation_damping_on = true, radiation_fluctuations_on = true)
+  bend.tracking_method = BendKick(order = 2); bend.n_steps = 1
+  bend.rad_damping = true; bend.rad_fluctuations = true
   b0 = Bunch(vars(D1), species = line.species_ref, p_over_q_ref = line.p_over_q_ref)
   track!(b0, line)
 
   # Track TPSA make sure no errors
-  bend.tracking_method = Symplectic(order = 2, n_steps = 1, 
-  radiation_damping_on = true, radiation_fluctuations_on = false)
+  bend.tracking_method = BendKick(order = 2); bend.n_steps = 1
+  bend.rad_damping = true; bend.rad_fluctuations = false
   b02 = Bunch(vars(D1), species = line.species_ref, p_over_q_ref = line.p_over_q_ref)
   track!(b02, line)
 
-  @test norm(normTPS.(b0.coords.v - b02.coords.v)) ≈ 0
+  @test norm(normTPS.(b0.coords.v - b02.coords.v)) == 0
 
   # A tilted bend acts as rotating into the bend frame, tracking the untilted bend and rotating
   # back. With the same random numbers this holds for the radiation fluctuations as well.
@@ -86,8 +86,8 @@ using Random
     return [c*v[1]+s*v[3] c*v[2]+s*v[4] -s*v[1]+c*v[3] -s*v[2]+c*v[4] v[5] v[6]]
   end
   function track_seeded(kw, v)
-    tm = Symplectic(order = 2, n_steps = 2, radiation_damping_on = true, radiation_fluctuations_on = true)
-    line = Beamline([LineElement(; L = 2.0, tracking_method = tm, kw...)],
+    tm = haskey(kw, :four_potential) ? Implicit(order = 2) : haskey(kw, :En0) ? Exact() : BendKick(order = 2)
+    line = Beamline([LatElement(; L = 2.0, tracking_method = tm, n_steps = 2, rad_damping = true, rad_fluctuations = true, kw...)],
                     species_ref = Species("electron"), p_over_q_ref = p_over_q_ref)
     b = Bunch(copy(v), species = line.species_ref, p_over_q_ref = line.p_over_q_ref)
     Random.seed!(1)

@@ -28,8 +28,8 @@ end
 
 @testset "RungeKuttaTracking" begin
   using BeamTracking
-  using BeamTracking: Species, massof, chargeof, R_to_beta_gamma, R_to_pc, pc_to_R,
-                      Bunch, STATE_ALIVE, STATE_LOST_PZ, E_CHARGE
+  using BeamTracking: Species, massof, chargeof, Bunch, STATE_ALIVE, STATE_LOST_PZ, E_CHARGE
+  using Beamlines: R_to_beta_gamma, R_to_pc, pc_to_R
   using StaticArrays
 
   # Match the batch tests and the compiler-bug guard in beval: batched
@@ -117,38 +117,20 @@ end
     @test rhs[5] ≈ m^2 * beta0 * Ez * z
   end
 
-  @testset "RungeKutta constructor" begin
-    using BeamTracking: RungeKutta
+  @testset "RK4 constructor" begin
+    # RK4 has no settings: steps are set in the element
+    @test fieldnames(RK4) == ()
+    @test_throws MethodError RK4(em_field=rk_test_uniform_field)
 
-    # Test default constructor (no arguments)
-    rk_default = RungeKutta()
-    @test rk_default.ds_step == 0.2
-    @test rk_default.n_steps == -1
-    @test !rk_default.ibs_damping_on
-    @test !rk_default.ibs_fluctuations_on
+    # ds_step only
+    ele = Drift(L=1.0, tracking_method=RK4(), ds_step=0.1)
+    @test ele.ds_step == 0.1
+    @test ele.n_steps == 10
 
-    # Test constructor with ds_step only
-    rk_ds = RungeKutta(ds_step=0.1)
-    @test rk_ds.ds_step == 0.1
-    @test rk_ds.n_steps == -1
-
-    # Test constructor with n_steps only
-    rk_ns = RungeKutta(n_steps=50)
-    @test rk_ns.ds_step == -1.0
-    @test rk_ns.n_steps == 50
-
-    # Test constructor with both ds_step and n_steps (should error)
-    @test_throws ErrorException RungeKutta(ds_step=0.1, n_steps=50)
-
-    # Test constructor with explicit nothing values (should use defaults)
-    rk_nothing = RungeKutta(ds_step=nothing, n_steps=nothing)
-    @test rk_nothing.ds_step == 0.2
-    @test rk_nothing.n_steps == -1
-
-    @test fieldnames(RungeKutta) == (:ds_step, :n_steps, :ibs_damping_on, :ibs_fluctuations_on)
-    @test RungeKutta(0.1, -1) == rk_ds
-    @test_throws MethodError RungeKutta(em_field=rk_test_uniform_field)
-
+    # n_steps only
+    ele = Drift(L=1.0, tracking_method=RK4(), n_steps=50)
+    @test ele.n_steps == 50
+    @test ele.ds_step == 1.0/50
   end
 
   @testset "Element field function parameters" begin
@@ -158,10 +140,10 @@ end
     group = EMFieldParams(em_field=rk_test_uniform_field,
                                 em_field_params=parameters)
     whole = Quadrupole(L=0.5, Kn1=0.1, EMFieldParams=group,
-                       tracking_method=RungeKutta(n_steps=5))
+                       tracking_method=RK4(), n_steps=5)
     individual = Quadrupole(L=0.5, Kn1=0.1, em_field=rk_test_uniform_field,
                             em_field_params=parameters,
-                            tracking_method=RungeKutta(n_steps=5))
+                            tracking_method=RK4(), n_steps=5)
     @test whole.EMFieldParams === group
     @test whole.em_field === rk_test_uniform_field
     @test whole.EMFieldParams ≈ individual.EMFieldParams
@@ -187,11 +169,11 @@ end
     end
     @test tracked(whole) ≈ tracked(individual)
     empty_group = Quadrupole(L=0.5, Kn1=0.1, EMFieldParams=EMFieldParams(),
-                             tracking_method=RungeKutta(n_steps=5))
-    plain = Quadrupole(L=0.5, Kn1=0.1, tracking_method=RungeKutta(n_steps=5))
+                             tracking_method=RK4(), n_steps=5)
+    plain = Quadrupole(L=0.5, Kn1=0.1, tracking_method=RK4(), n_steps=5)
     @test tracked(empty_group) ≈ tracked(plain)
     disabled_group = Quadrupole(L=0.5, Kn1=0.1, em_field=nothing,
-                                tracking_method=RungeKutta(n_steps=5))
+                                tracking_method=RK4(), n_steps=5)
     @test tracked(disabled_group) ≈ tracked(plain)
 
     # Beamline children inherit the group and see updates on their parent.
@@ -205,7 +187,7 @@ end
       em_field=(x,y,s,t,p) -> begin
         @assert isnothing(p)
         RKCustomField(0.004)(x,y,s,t)
-      end, tracking_method=RungeKutta(n_steps=5))
+      end, tracking_method=RK4(), n_steps=5)
     @test tracked(parameter_free) ≈ tracked(individual)
 
   end
@@ -412,7 +394,7 @@ end
     bunch.coords.v[1, BeamTracking.PXI] = 0.01
 
     drift_ele = Drift(L=1.0)
-    drift_ele.tracking_method = RungeKutta()
+    drift_ele.tracking_method = RK4(); drift_ele.ds_step = 0.2
     drift_line = Beamline([drift_ele], p_over_q_ref=p_over_q_ref, species_ref=species)
 
     track!(bunch, drift_line)
@@ -430,7 +412,7 @@ end
     bunch.coords.v[1, BeamTracking.PXI] = 0.01
 
     sbend_ele = SBend(L=1.0, angle=pi/132)
-    sbend_ele.tracking_method = RungeKutta()
+    sbend_ele.tracking_method = RK4(); sbend_ele.ds_step = 0.2
     sbend_line = Beamline([sbend_ele], p_over_q_ref=p_over_q_ref, species_ref=species)
 
     track!(bunch, sbend_line)
@@ -451,12 +433,12 @@ end
     normalized_element = Quadrupole(
       L=0.5,
       Kn1=normalized_strength,
-      tracking_method=RungeKutta(n_steps=5),
+      tracking_method=RK4(), n_steps=5,
     )
     physical_element = Quadrupole(
       L=0.5,
       Bn1=physical_strength,
-      tracking_method=RungeKutta(n_steps=5),
+      tracking_method=RK4(), n_steps=5,
     )
     normalized_line = Beamline(
       [normalized_element],
@@ -483,7 +465,7 @@ end
     external = (0.0, 0.0, 0.0, 0.0, 0.004, 0.0)
     element = Quadrupole(L=0.5, Kn1=0.2,
       em_field=rk_test_uniform_field, em_field_params=external,
-      tracking_method=RungeKutta(n_steps=5))
+      tracking_method=RK4(), n_steps=5)
     # Independent complete map, without BMultipoleParams, gives the same total field.
     complete_map = (x,y,s,t,p) -> (zero(x), zero(x), zero(x),
                                         p[1]*y, p[1]*x + p[2], zero(x))
@@ -498,7 +480,7 @@ end
       element.Kn1 = strength
       reference = Drift(L=0.5, em_field=complete_map,
         em_field_params=(strength*R, external[5]),
-        tracking_method=RungeKutta(n_steps=5))
+        tracking_method=RK4(), n_steps=5)
       reference_line = Beamline([reference]; p_over_q_ref=R, species_ref=species)
       result = tracked(line)
       @test result ≈ tracked(reference_line)
@@ -517,14 +499,14 @@ end
                   DefExpr{Float64}(c -> c.external), 0.0)
     context_element = Drift(L=0.5, Bn0=DefExpr{Float64}(c -> c.dipole),
       em_field=rk_test_uniform_field, em_field_params=parameters,
-      tracking_method=RungeKutta(n_steps=5))
+      tracking_method=RK4(), n_steps=5)
     context_line = Beamline([context_element]; context, p_over_q_ref=R, species_ref=species)
     for external in (0.004, 0.008)
       context.external = external
       fixed_element = Drift(L=0.5, Bn0=context.dipole,
         em_field=rk_test_uniform_field,
         em_field_params=(0.0, 0.0, 0.0, 0.0, external, 0.0),
-        tracking_method=RungeKutta(n_steps=5))
+        tracking_method=RK4(), n_steps=5)
       fixed_line = Beamline([fixed_element]; p_over_q_ref=R, species_ref=species)
       context_bunch = Bunch(copy(initial); p_over_q_ref=R, species)
       fixed_bunch = Bunch(copy(initial); p_over_q_ref=R, species)
@@ -557,7 +539,7 @@ end
       )
       expected = similar(initial)
       for i in axes(initial, 1)
-        line = Beamline([Drift(L=0.5, Bn0=expected_strengths[i], tracking_method=RungeKutta(n_steps=5))],
+        line = Beamline([Drift(L=0.5, Bn0=expected_strengths[i], tracking_method=RK4(), n_steps=5)],
                         p_over_q_ref=p_over_q_ref, species_ref=species)
         bunch = Bunch(copy(initial[i:i, :]), p_over_q_ref=p_over_q_ref, species=species)
         track!(bunch, line; use_KA=false, use_explicit_SIMD=false)
@@ -569,7 +551,7 @@ end
         end
         line = Beamline([Drift(L=0.5, em_field=functional[1],
                               em_field_params=functional[2],
-                              tracking_method=RungeKutta(n_steps=5))],
+                              tracking_method=RK4(), n_steps=5)],
                         context=context, p_over_q_ref=p_over_q_ref, species_ref=species)
         bunch = Bunch(copy(initial), p_over_q_ref=p_over_q_ref, species=species)
         track!(bunch, line; scalar_params, use_KA, use_explicit_SIMD)
@@ -606,10 +588,10 @@ end
       strength = use_explicit_SIMD ? BatchParam(0.002) : BatchParam([0.002, 0.004])
       line = Beamline([Drift(L=0.5, Bn0=0.001, em_field=evaluator,
                               em_field_params=(strength,),
-                              tracking_method=RungeKutta(n_steps=5))];
+                              tracking_method=RK4(), n_steps=5)];
                       p_over_q_ref=R, species_ref=species)
       reference = Beamline([Drift(L=0.5, Bn0=strength + 0.001,
-                                   tracking_method=RungeKutta(n_steps=5))];
+                                   tracking_method=RK4(), n_steps=5)];
                            p_over_q_ref=R, species_ref=species)
       bunch = Bunch(zeros(Float32, 16, 6); species, p_over_q_ref=R)
       expected = Bunch(zeros(16, 6); species, p_over_q_ref=R)
@@ -634,7 +616,7 @@ end
     element = Drift(
       L=0.5,
       em_field=field_source[1], em_field_params=field_source[2],
-      tracking_method=RungeKutta(n_steps=5),
+      tracking_method=RK4(), n_steps=5,
     )
     line = Beamline([element], p_over_q_ref=p_over_q_ref, species_ref=species)
     simd_bunch = Bunch(copy(initial), p_over_q_ref=p_over_q_ref, species=species)
@@ -659,7 +641,7 @@ end
       fixed_element = Drift(
         L=0.5,
         em_field=fixed_field_source[1], em_field_params=fixed_field_source[2],
-        tracking_method=RungeKutta(n_steps=5),
+        tracking_method=RK4(), n_steps=5,
       )
       fixed_line = Beamline(
         [fixed_element],
@@ -708,12 +690,12 @@ end
     element = Drift(
       L=0.5,
       em_field=field_source[1], em_field_params=field_source[2],
-      tracking_method=RungeKutta(n_steps=5),
+      tracking_method=RK4(), n_steps=5,
     )
     fixed_element = Drift(
       L=0.5,
       em_field=fixed_field_source[1], em_field_params=fixed_field_source[2],
-      tracking_method=RungeKutta(n_steps=5),
+      tracking_method=RK4(), n_steps=5,
     )
     line = Beamline([element], p_over_q_ref=p_over_q_ref, species_ref=species)
     fixed_line = Beamline(
@@ -749,7 +731,7 @@ end
     element = Drift(
       L=0.5,
       em_field=field_source[1], em_field_params=field_source[2],
-      tracking_method=RungeKutta(n_steps=5),
+      tracking_method=RK4(), n_steps=5,
     )
     line = Beamline([element], p_over_q_ref=p_over_q_ref, species_ref=species)
     dynamic_bunch = Bunch(copy(initial), p_over_q_ref=p_over_q_ref, species=species)
@@ -778,7 +760,7 @@ end
       fixed_element = Drift(
         L=0.5,
         em_field=fixed_field_source[1], em_field_params=fixed_field_source[2],
-        tracking_method=RungeKutta(n_steps=5),
+        tracking_method=RK4(), n_steps=5,
       )
       fixed_line = Beamline(
         [fixed_element],
@@ -804,7 +786,7 @@ end
 
     # Test with ds_step
     drift_ds = Drift(L=1.0)
-    drift_ds.tracking_method = RungeKutta(ds_step=0.1)
+    drift_ds.tracking_method = RK4(); drift_ds.ds_step = 0.1
     line_ds = Beamline([drift_ds], p_over_q_ref=p_over_q_ref, species_ref=species)
     bunch_ds = Bunch(zeros(1, 6), p_over_q_ref=p_over_q_ref, species=species)
     bunch_ds.coords.v[1, BeamTracking.PXI] = 0.01
@@ -812,7 +794,7 @@ end
 
     # Test with n_steps
     drift_ns = Drift(L=1.0)
-    drift_ns.tracking_method = RungeKutta(n_steps=10)
+    drift_ns.tracking_method = RK4(); drift_ns.n_steps = 10
     line_ns = Beamline([drift_ns], p_over_q_ref=p_over_q_ref, species_ref=species)
     bunch_ns = Bunch(zeros(1, 6), p_over_q_ref=p_over_q_ref, species=species)
     bunch_ns.coords.v[1, BeamTracking.PXI] = 0.01
@@ -823,8 +805,8 @@ end
   end
 
   @testset "RungeKutta step selection" begin
-    @test BeamTracking.find_steps(RungeKutta(ds_step=0.3), 1.0) == (4, 0.25)
-    @test BeamTracking.find_steps(RungeKutta(n_steps=4), 1.0) == (4, 0.25)
+    @test Drift(L=1.0, ds_step=0.3).n_steps == 4
+    @test Drift(L=1.0, n_steps=4).ds_step == 0.25
   end
 
   @testset "Tilted reference curvature" begin
@@ -858,7 +840,7 @@ end
       push!(ds_values, last_ds_step)
     end
 
-    ele = Drift(L=1.0, tracking_method=RungeKutta(n_steps=4))
+    ele = Drift(L=1.0, tracking_method=RK4(), n_steps=4)
     line = Beamline([ele], p_over_q_ref=p_over_q_ref, species_ref=species)
     bunch = Bunch(zeros(1, 6), p_over_q_ref=p_over_q_ref, species=species,
                   callbacks=(save_position!,))
@@ -876,10 +858,10 @@ end
 
     species = Species("electron")
     E_ref = TimeDependentParam(t -> 1e9 * (1 + 1e6 * t), false)
-    ele = Drift(L=1.0, tracking_method=RungeKutta(n_steps=4))
+    ele = Drift(L=1.0, tracking_method=RK4(), n_steps=4)
     line = Beamline([ele], E_ref=E_ref, species_ref=species)
     p_over_q_ref = line.p_over_q_ref(0.0)
-    beta_gamma_ref = BeamTracking.R_to_beta_gamma(species, p_over_q_ref)
+    beta_gamma_ref = Beamlines.R_to_beta_gamma(species, p_over_q_ref)
     expected_t_ref = 1.0 / BeamTracking.beta_gamma_to_v(beta_gamma_ref)
     expected_p_over_q_ref = line.p_over_q_ref(expected_t_ref)
     bunch = Bunch([0.0 0.01 0.0 0.0 0.0 0.0;
@@ -900,13 +882,13 @@ end
     bunch = Bunch(zeros(1, 6), p_over_q_ref=p_over_q_ref, species=species)
 
     entrance_edge = SBend(L=1.0, g_ref=0.1, e1=0.01,
-                          tracking_method=RungeKutta())
+                          tracking_method=RK4())
     entrance_line = Beamline([entrance_edge], p_over_q_ref=p_over_q_ref,
                              species_ref=species)
     @test_throws ErrorException track!(bunch, entrance_line)
 
     exit_edge = SBend(L=1.0, g_ref=0.1, e2=0.01,
-                      tracking_method=RungeKutta())
+                      tracking_method=RK4())
     exit_line = Beamline([exit_edge], p_over_q_ref=p_over_q_ref,
                          species_ref=species)
     @test_throws ErrorException track!(bunch, exit_line)
@@ -919,7 +901,7 @@ end
 
     # Test zero-length drift should throw an error
     drift_zero = Drift(L=0.0)
-    drift_zero.tracking_method = RungeKutta()
+    drift_zero.tracking_method = RK4()
     line_zero = Beamline([drift_zero], p_over_q_ref=p_over_q_ref, species_ref=species)
     bunch_drift = Bunch(zeros(1, 6), p_over_q_ref=p_over_q_ref, species=species)
     
@@ -927,7 +909,7 @@ end
 
     # Test negative length should also throw an error
     drift_negative = Drift(L=-0.1)
-    drift_negative.tracking_method = RungeKutta()
+    drift_negative.tracking_method = RK4()
     line_negative = Beamline([drift_negative], p_over_q_ref=p_over_q_ref, species_ref=species)
     bunch_negative = Bunch(zeros(1, 6), p_over_q_ref=p_over_q_ref, species=species)
     
@@ -943,7 +925,7 @@ end
     em_field = (x,y,s,t,p) -> p
     results = map(((params, false), (params ./ R, true))) do (parameters, normalized)
       ele = Drift(L=0.2, em_field=em_field, em_field_params=parameters,
-        em_field_normalized=normalized, tracking_method=RungeKutta(n_steps=10))
+        em_field_normalized=normalized, tracking_method=RK4(), n_steps=10)
       line = Beamline([ele]; p_over_q_ref=R, species_ref=species)
       bunch = Bunch(T.([0.001 0.002 -0.003 0.001 0.0 0.01]); p_over_q_ref=R, species=species)
       track!(bunch, line)

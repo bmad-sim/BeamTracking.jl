@@ -9,9 +9,11 @@
        _partials_row(x4), _partials_row(x5), _partials_row(x6))
 
 
-function implicit_integrator!(i, coords::Coords, s, radiation_params, beta_0, tilde_m, a, g, w, w_inv, potential_and_jac::U, potential_params, p_over_q_ref, normalized, implicit_use_newton, L) where {U}
+# s0 is the s of the entrance of the integration within the element (nonzero for a slice of an 
+# element), so that the potential is evaluated at s (and t) from the element entrance
+function implicit_integrator!(i, coords::Coords, s, radiation_params, beta_0, tilde_m, a, g, w, w_inv, potential_and_jac::U, potential_params, p_over_q_ref, normalized, implicit_use_newton, s0, L) where {U}
   @inbounds begin @FastGTPSA begin
-    s += L / 2
+    s = s + L / 2 + s0
 
     if !isnothing(w)
       rotation!(i, coords, w, 0)
@@ -760,8 +762,9 @@ end
 """
 Applies radiation diffusion kick for implicit integrators.
 """
-function stochastic_radiation!(i, coords::Coords, s, ::typeof(implicit_integrator!), backend, q, mc2, E_ref, g, w, w_inv, potential_and_jac::U, potential_params, p_over_q_ref, normalized, L) where {U}
+function stochastic_radiation!(i, coords::Coords, s, ::typeof(implicit_integrator!), backend, q, mc2, E_ref, g, w, w_inv, potential_and_jac::U, potential_params, p_over_q_ref, normalized, s0, L) where {U}
   @inbounds begin
+    s = s + s0 # s from the element entrance (see implicit_integrator!)
     v = coords.v
     if !isnothing(w)
       rotation!(i, coords, w, 0)

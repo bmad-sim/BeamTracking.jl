@@ -879,6 +879,10 @@ zf_mn4  = [ 0., 3.140908277834687e-8, -3.1503450227072763e-8, 3.140908186274627e
     b0 = Bunch([0.01 0.02 0.03 0.04 0.05 0.06], p_over_q_ref=10.0)
     BeamTracking.reference_momentum_shift!(1, b0.coords, 10.0, 10.0, Val{true}())
     @test b0.coords.v ≈ [0.01 0.01 0.03 0.02 0.05 -0.47]
+
+    b0 = Bunch([0.01 0.02 0.03 0.04 0.05 0.06], p_over_q_ref=10.0)
+    BeamTracking.reference_time_shift!(1, b0.coords, 0.5, 0.1)
+    @test b0.coords.v ≈ [0.01 0.02 0.03 0.04 0.05+0.1*1.06/sqrt(1.06^2+0.25) 0.06] # z += beta*c*dt
   end
 
   @testset "Kernels" begin

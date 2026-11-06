@@ -3,11 +3,13 @@ struct TimeFunction{F<:Function}
 end
 (tf::TimeFunction)(t) = tf.f(t)
 
-struct TimeDependentParam
-  f::TimeFunction
+# The TimeFunction type is a type parameter so that operations on and evaluations of a 
+# TimeDependentParam are type stable (closures of statically known types)
+struct TimeDependentParam{F<:TimeFunction}
+  f::F
   _isconst::Bool
-  TimeDependentParam(f::TimeFunction, _isconst) = new(f, _isconst)
-  TimeDependentParam(f::Function, _isconst) = new(TimeFunction(f), _isconst)
+  TimeDependentParam(f::TimeFunction, _isconst) = new{typeof(f)}(f, _isconst)
+  TimeDependentParam(f::Function, _isconst) = TimeDependentParam(TimeFunction(f), _isconst)
 end
 
 # Convenience ctor
@@ -21,7 +23,7 @@ TimeDependentParam(a::Number) = TimeDependentParam((t)->a, true)
 TimeDependentParam(a::TimeDependentParam) = a
 
 # Make these apply via convert
-Base.convert(::Type{D}, a::Number) where {D<:TimeDependentParam} = D((t)->a,true)
+Base.convert(::Type{D}, a::Number) where {D<:TimeDependentParam} = TimeDependentParam((t)->a,true)
 Base.convert(::Type{D}, a::D) where {D<:TimeDependentParam} = a
 
 Base.zero(::TimeDependentParam) = TimeDependentParam((t)->0, true)
@@ -63,7 +65,7 @@ for t = (:unit, :sincu, :sinhc, :sinhcu, :asinc, :asincu, :asinhc, :asinhcu, :er
   end
 end
 
-Base.promote_rule(::Type{TimeDependentParam}, ::Type{U}) where {U<:Number} = TimeDependentParam
+Base.promote_rule(::Type{<:TimeDependentParam}, ::Type{U}) where {U<:Number} = TimeDependentParam
 Base.broadcastable(o::TimeDependentParam) = Ref(o)
 
 Base.isapprox(d::TimeDependentParam, n::Number; kwargs...) = d._isconst ? isapprox(d(0), n) : false
@@ -103,7 +105,22 @@ Base.isinf(d::TimeDependentParam) = d._isconst ? isinf(d(0)) : false
 Base.isnan(d::TimeDependentParam) = d._isconst ? isnan(d(0)) : false
 
 @inline teval(f::TimeFunction, t) = f(t)
-@inline teval(f, t) = f
+@inline teval(f, t) = _reg(f)
+
+# Julia 1.10 codegen gives a field copied from an argument into a tuple containing a SIMD.Vec
+# the alignment of the destination; the merged copies become aligned vector loads (vmovaps)
+# from 8-byte aligned memory, which segfault on x86. `_reg` rebuilds bits values from
+# register values, so they are not copied from memory. Used for the leaves of `teval`/`beval`.
+@static if VERSION < v"1.11"
+  @generated function _reg(x::T) where {T}
+    isprimitivetype(T) && return :(Base.@_inline_meta; Core.Intrinsics.bitcast(T, x))
+    (isbitstype(T) && fieldcount(T) > 0 && !(T <: Function) && !(T <: TimeFunction)) || return :(Base.@_inline_meta; x)
+    fs = [:(_reg(getfield(x, $i))) for i in 1:fieldcount(T)]
+    return Expr(:block, Expr(:meta, :inline), T <: Tuple ? :(tuple($(fs...))) : Expr(:new, T, fs...))
+  end
+else
+  @inline _reg(x) = x
+end
 
 # === THIS BLOCK WAS PARTIALLY WRITTEN BY CLAUDE ===
 # Generated function for arbitrary-length tuples
@@ -111,7 +128,8 @@ Base.isnan(d::TimeDependentParam) = d._isconst ? isnan(d(0)) : false
     N = length(T.parameters)
     # Use getfield with literal integer arguments
     exprs = [:(teval(Base.getfield(f, $i), t)) for i in 1:N]
-    return :(tuple($(exprs...)))
+    # Inline (as the other teval methods), so the tuple of SIMD.Vecs is not returned from a call
+    return Expr(:block, Expr(:meta, :inline), :(tuple($(exprs...))))
 end
 # === END CLAUDE ===
 
@@ -124,7 +142,7 @@ time_lower(tp::T) where {T<:Tuple} = map(ti->time_lower(ti), tp)
   NamedTuple{names}(time_lower(Tuple(nt)))
 
 # Arrays MUST be converted into tuples, for SIMD
-time_lower(tp::SArray{N,TimeDependentParam}) where {N} = time_lower(Tuple(tp))
+time_lower(tp::SArray{N,<:TimeDependentParam}) where {N} = time_lower(Tuple(tp))
 static_timecheck(tp) = false
 static_timecheck(::TimeFunction) = true
 @inline static_timecheck(nt::NamedTuple) = static_timecheck(Tuple(nt))

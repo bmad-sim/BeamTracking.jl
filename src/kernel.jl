@@ -84,7 +84,7 @@ end
 Adapt.@adapt_structure KernelCall
 
 # Store the state of the reference coordinate system
-struct RefState{R,S,T,U,V,W,X,Y}
+struct RefState{R,S,T,U,V,W,X,Y,Z}
   t_enter::S          # Reference time at entrance
   beta_gamma_enter::T # Reference energy at entrance
   t_exit::U           # Reference time at exit
@@ -92,13 +92,14 @@ struct RefState{R,S,T,U,V,W,X,Y}
   L::W                
   g::X                
   ds_step::Y    
-  function RefState{R}(t_enter::S, beta_gamma_enter::T, t_exit::U, beta_gamma_exit::V, L::W, g::X, ds_step::Y) where {R,S,T,U,V,W,X,Y}
-    return new{R,S,T,U,V,W,X,Y}(t_enter, beta_gamma_enter, t_exit, beta_gamma_exit, L, g, ds_step)
+  s0::Z               # s of the entrance within the element (nonzero for a slice of an element), added to the callbacks' s
+  function RefState{R}(t_enter::S, beta_gamma_enter::T, t_exit::U, beta_gamma_exit::V, L::W, g::X, ds_step::Y, s0::Z) where {R,S,T,U,V,W,X,Y,Z}
+    return new{R,S,T,U,V,W,X,Y,Z}(t_enter, beta_gamma_enter, t_exit, beta_gamma_exit, L, g, ds_step, s0)
   end
 end
 
-function RefState{T}(; t_enter, beta_gamma_enter, t_exit=t_enter, beta_gamma_exit=beta_gamma_enter, L=0, g=(0,0), ds_step=0) where {T}
-  return RefState{T}(batch_lower(t_enter), batch_lower(beta_gamma_enter), batch_lower(t_exit), batch_lower(beta_gamma_exit), batch_lower(L), batch_lower(g), batch_lower(ds_step))
+function RefState{T}(; t_enter, beta_gamma_enter, t_exit=t_enter, beta_gamma_exit=beta_gamma_enter, L=0, g=(0,0), ds_step=0, s0=0) where {T}
+  return RefState{T}(batch_lower(t_enter), batch_lower(beta_gamma_enter), batch_lower(t_exit), batch_lower(beta_gamma_exit), batch_lower(L), batch_lower(g), batch_lower(ds_step), batch_lower(s0))
 end
 
 coordstype(::RefState{T}) where {T} = T
@@ -111,7 +112,8 @@ coordstype(::RefState{T}) where {T} = T
     beval(ref.beta_gamma_exit, i, batch_start), 
     beval(ref.L, i, batch_start), 
     beval(ref.g, i, batch_start), 
-    beval(ref.ds_step, i, batch_start)
+    beval(ref.ds_step, i, batch_start),
+    beval(ref.s0, i, batch_start)
   )
 end
 
@@ -189,12 +191,12 @@ _generic_kernel!(i, coords, kc) = __generic_kernel!(i, coords, kc.chain, beval(k
 end
 
 function __generic_kernel_noramp!(i, coords::Coords, chain, ref, batch_start, transforms_out, transforms_in)
-  body_callback = construct_main_callback(coords, batch_start, transforms_out, transforms_in, ref.t_enter, ref.beta_gamma_enter, ref.ds_step, ref.g)
+  body_callback = construct_main_callback(coords, batch_start, transforms_out, transforms_in, ref.t_enter, ref.beta_gamma_enter, ref.ds_step, ref.g, ref.s0)
   body_coords = Coords(coords.state, coords.v, coords.q, coords.weight, body_callback)
   __generic_kernel_noramp_body!(i, body_coords, chain, batch_start, ref.t_enter, ref.beta_gamma_enter)
   # note: t_ref only used by transforms, can pass 0 for t_ref_transform 
   # beta_gamma is like ds_step and g, passed to callback, so that can't be 0
-  exit_callback = construct_main_callback(coords, batch_start, (), (), 0, ref.beta_gamma_exit, ref.ds_step, ref.g)
+  exit_callback = construct_main_callback(coords, batch_start, (), (), 0, ref.beta_gamma_exit, ref.ds_step, ref.g, ref.s0)
   _execute_callbacks(i, coords, exit_callback, ref.L, ref.t_exit)
   return nothing
 end
@@ -223,7 +225,7 @@ function __generic_kernel_ramp!(i, coords::Coords, chain, ref, batch_start, tran
   # note: can pass 0 for t_ref_transform because that is not used now 
   # since transforms are empty tuples at the end (back in global frame)
   # However we do now give the user access to reference energy
-  exit_callback = construct_main_callback(coords, batch_start, (), (), 0, ref.beta_gamma_exit, ref.ds_step, ref.g)
+  exit_callback = construct_main_callback(coords, batch_start, (), (), 0, ref.beta_gamma_exit, ref.ds_step, ref.g, ref.s0)
   _execute_callbacks(i, coords, exit_callback, ref.L, ref.t_exit)
   return nothing
 end
@@ -236,7 +238,7 @@ function process_batch_args(i, args, batch_start)
   end
 end
 
-function process_time_args(i, coords, args, t_ref, beta_gamma_ref)
+@inline function process_time_args(i, coords, args, t_ref, beta_gamma_ref)
   if static_timecheck(args) 
     let t = compute_time(coords.v[i,ZI], coords.v[i,PZI], t_ref, beta_gamma_ref)
       return teval(args, t)
@@ -263,7 +265,7 @@ end
     error("Cannot use both KernelAbstractions (KA) and explicit SIMD")
   end
 #=  
-  if !use_KA && backend isa GPU
+  if !use_KA && !(get_backend(v) isa CPU)
     error("For GPU parallelized kernel launching, KernelAbstractions (KA) must be used")
   end
 =#
@@ -333,7 +335,7 @@ function check_kwargs(mac, kwargs...)
 end
 
 # Also allow launch! on single KernelCalls
-@inline launch!(coords::Coords, kcall::KernelCall; kwargs...) = launch!(coords, KernelChain((kcall,), RefState{eltype(coords.v)}(0,0,0,0,0,0,0)); kwargs...)
+@inline launch!(coords::Coords, kcall::KernelCall; kwargs...) = launch!(coords, KernelChain((kcall,), RefState{eltype(coords.v)}(0,0,0,0,0,0,0,0)); kwargs...)
 
 macro makekernel(args...)
   kwargs = args[1:length(args)-1]

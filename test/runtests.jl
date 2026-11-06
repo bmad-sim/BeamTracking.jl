@@ -136,13 +136,13 @@ function test_map(
   end
 
 
-  #= LineElement tracking test
+  #= LatElement tracking test
     if haskey(kwargs, :p_over_q_ref) && haskey(kwargs, :species)
       p_over_q_ref = kwargs[:p_over_q_ref]
     elseif haskey(kwargs, :E) && haskey(kwargs, :species)
-      p_over_q_ref = BeamTracking.E_to_R(kwargs[:species], kwargs[:E])
+      p_over_q_ref = Beamlines.E_to_R(kwargs[:species], kwargs[:E])
     elseif haskey(kwargs, :p0c) && haskey(kwargs, :species)
-      p_over_q_ref = BeamTracking.E_to_R(kwargs[:species], sqrt(kwargs[:p0c]^2 + massof(kwargs[:species])^2))
+      p_over_q_ref = Beamlines.E_to_R(kwargs[:species], sqrt(kwargs[:p0c]^2 + massof(kwargs[:species])^2))
     else
       error("`p_over_q_ref`, `E` or `p0c`, as well as `species` must both be provided as keyword arguments")
     end
@@ -220,7 +220,8 @@ const TEST_GROUPS = Dict(
              "collective_test.jl",
              "callback_test.jl",
              "ImplicitTracking_test.jl",
-             "RungeKuttaTracking_test.jl"],
+             "RungeKuttaTracking_test.jl",
+             "performance_test.jl"],
   # By far the longest-running group; kept on its own so it does not set the
   # wall-clock floor for everything else.
   "symplectic" => ["BeamlinesExt_symplectic_test.jl"],

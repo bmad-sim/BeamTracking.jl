@@ -1,62 +1,71 @@
-Base.promote_rule(::Type{DefExpr{T}}, ::Type{TimeDependentParam}) where {T} = DefExpr{TimeDependentParam}
+Base.promote_rule(::Type{DefExpr{T}}, ::Type{<:TimeDependentParam}) where {T} = DefExpr{TimeDependentParam}
 Base.promote_rule(::Type{DefExpr{T}}, ::Type{BatchParam}) where {T} = DefExpr{promote_type(BatchParam, T)}
 Beamlines.DefExpr{T}(a::TimeDependentParam) where {T} = DefExpr{T}(()->convert(T,a))
 Beamlines.DefExpr{BatchParam}(a::BatchParam) = DefExpr{BatchParam}(()->a)
 
 """
-    check_bl_bunch!(bunch::Bunch, bl::Beamline, notify::Bool=true)
+    TrackReference
 
-Ensures the Bunch and Beamline have the same species, by setting the 
-Bunch with the Beamline species if not set. 
+The references a `track!` call tracks against, resolved once by `resolve_reference!`:
+
+- `species_ref`: species the Beamline fields and RF settings are designed for
+- `p_over_q_ref`: reference p_over_q_ref the Bunch is tracked with in every element (Number or 
+  TimeDependentParam). This is the Beamline p_over_q_ref times `field_scale` (same magnetic rigidity 
+  magnitude, sign of the Bunch charge), or the Bunch's own if the Beamline has none set.
+- `field_scale`: Beamline p_over_q_ref over the tracking `p_over_q_ref`: +1, or -1 if the Bunch 
+  species has the opposite charge sign of `species_ref`
 """
-function check_bl_bunch!(bunch::Bunch, bl::Beamline, notify::Bool=true)
-  species_ref = Beamlines.trygetproperty(bl, :species_ref)
-  p_over_q_ref = Beamlines.trygetproperty(bl, :p_over_q_ref)
-  return _check_bunch!(bunch, species_ref, p_over_q_ref, notify)
+struct TrackReference{P}
+  species_ref::Species
+  p_over_q_ref::P
+  field_scale::Int
 end
 
-# Ensures the 
-function _check_bunch!(bunch, species_ref, p_over_q_ref, notify::Bool=true)
-  if isnullspecies(bunch.species)
-    if species_ref isa Beamlines.GetError
-      error("Neither the Bunch nor the Beamline has set a species.")
-    else
-      if notify
-        println("Setting bunch.species = $species_ref (reference species from the Beamline)")
-      end
-      setfield!(bunch, :species, species_ref)
-    end
-  elseif !(species_ref isa Beamlines.GetError) && species_ref != bunch.species && notify
-    error("The species of the bunch currently must equal the reference species of the Beamline.")
-  end
+"""
+    resolve_reference!(bunch::Bunch, species_ref, p_over_q_ref, notify::Bool=true) -> TrackReference
 
-  t_ref = bunch.t_ref
-  if isnan(bunch.p_over_q_ref)
-    if p_over_q_ref isa Beamlines.GetError
-      if notify
-        println("
-          WARNING: Both the bunch and beamline do not have any set reference energy. 
-          If any LineElements have unnormalized fields stored as independent variables, 
-          or if there is spin tracking, there will be NaNs.
-        ")
-      end
-      p_over_q_ref = bunch.p_over_q_ref
-    else
-      if notify
-        if p_over_q_ref isa TimeDependentParam
-          println("Setting bunch.p_over_q_ref = $(p_over_q_ref(t_ref)) (reference p_over_q_ref from the Beamline at t_ref = $t_ref)")
-        else
-          println("Setting bunch.p_over_q_ref = $p_over_q_ref (reference p_over_q_ref from the Beamline)")
-        end
-      end
-      if p_over_q_ref isa TimeDependentParam
-        setfield!(bunch, :p_over_q_ref, typeof(bunch.p_over_q_ref)(p_over_q_ref(t_ref)))
-      else
-        setfield!(bunch, :p_over_q_ref, typeof(bunch.p_over_q_ref)(p_over_q_ref))
-      end
+Resolves the reference species and energy between the Bunch and the Beamline. `species_ref` and 
+`p_over_q_ref` are the Beamline's, or `nothing`/`GetError` if not set. If one of the Bunch or 
+Beamline does not have a species or energy set, it is inherited from the other. If both have 
+a reference energy set but they differ, the Bunch is ramped to the Beamline reference energy when 
+entering the first element. If both have a species set but they differ, the fields of the Beamline 
+are held fixed and the Bunch is tracked with the same magnitude of p_over_q_ref (magnetic rigidity) 
+as the Beamline.
+"""
+function resolve_reference!(bunch::Bunch, species_ref, p_over_q_ref, notify::Bool=true)
+  unset(x) = isnothing(x) || x isa Beamlines.GetError
+
+  # Species
+  if isnullspecies(bunch.species)
+    unset(species_ref) && error("Neither the Bunch nor the Beamline has a species set")
+    notify && println("Setting bunch.species = $species_ref (reference species from the Beamline)")
+    setfield!(bunch, :species, species_ref)
+  elseif unset(species_ref)
+    species_ref = bunch.species
+  elseif species_ref != bunch.species
+    unset(p_over_q_ref) && error("The Bunch species ($(bunch.species)) differs from the Beamline reference species ($species_ref), but the Beamline has no reference energy set, so its normalized fields have no physical value")
+    notify && println("Tracking $(bunch.species) through a Beamline with reference species $species_ref: the fields of the Beamline are held fixed")
+  end
+  field_scale = sign(chargeof(bunch.species)) == sign(chargeof(species_ref)) ? 1 : -1
+
+  # Energy
+  if unset(p_over_q_ref)
+    isnan(bunch.p_over_q_ref) && error("Neither the Bunch nor the Beamline has a reference energy set")
+    p_over_q_ref = bunch.p_over_q_ref
+  else
+    # Same magnetic rigidity magnitude as the Beamline, with the sign of the Bunch charge
+    p_over_q_ref = field_scale == 1 ? p_over_q_ref : -p_over_q_ref
+    if isnan(bunch.p_over_q_ref)
+      t_ref = bunch.t_ref
+      p0 = p_over_q_ref isa TimeDependentParam ? p_over_q_ref(t_ref) : p_over_q_ref
+      notify && println("Setting bunch.p_over_q_ref = $p0 (reference p_over_q_ref from the Beamline at t_ref = $t_ref)")
+      setfield!(bunch, :p_over_q_ref, typeof(bunch.p_over_q_ref)(p0))
     end
   end
-  return bunch.species, p_over_q_ref
+  sign(bunch.p_over_q_ref) == sign(chargeof(bunch.species)) || error("bunch.p_over_q_ref = $(bunch.p_over_q_ref) has the wrong sign for species $(bunch.species)")
+  # If both are set but differ, the Bunch is ramped to p_over_q_ref when entering the first element
+
+  return TrackReference(species_ref, p_over_q_ref, field_scale)
 end
 
 #---------------------------------------------------------------------------------------------------
@@ -71,8 +80,12 @@ make_static(a) = a
 #---------------------------------------------------------------------------------------------------
 
 """
-    get_strengths(bm, L, p_over_q_ref) -> Kn, Ks
+    get_strengths(bm, L, p_over_q_ref, field_scale) -> Kn, Ks
 Get non-integrated magnetic multipole strength arrays. Also see get_integrated_strengths.
+
+`p_over_q_ref` is the tracking (Bunch) reference. Unnormalized strengths are divided by it, and
+normalized strengths are multiplied by `field_scale` (see `TrackReference`), so that the physical 
+fields are the same for any tracked species.
 
 (Kn' + im*Ks') = (Kn + im*Ks)*exp(-im*order*tilt)
 
@@ -83,7 +96,7 @@ Ks' = Kn*-sin(order*tilt) + Ks*cos(order*tilt)
 This works for both BMultipole and BMultipoleParams. Branchless bc SIMD -> basically 
 no loss in computing both but benefit of branchless.
 """
-@inline function get_strengths(bm, L, p_over_q_ref)
+@inline function get_strengths(bm, L, p_over_q_ref, field_scale)
   bmn = getfield(bm, :n)
   bms = getfield(bm, :s)
   bmtilt = getfield(bm, :tilt)
@@ -114,14 +127,30 @@ no loss in computing both but benefit of branchless.
   integrated = getfield(bm, :integrated)
   np = @. n*cos(order*tilt) + s*sin(order*tilt)
   sp = @. -n*sin(order*tilt) + s*cos(order*tilt)
-  np = @. ifelse(!normalized, np/p_over_q_ref, np) 
-  sp = @. ifelse(!normalized, sp/p_over_q_ref, sp) 
-  np = @. ifelse(integrated, np/L, np)
-  sp = @. ifelse(integrated, sp/L, sp)
+  # With TimeDependentParams the two sides of an ifelse have different types, so the broadcast would 
+  # build its element type at runtime (slow, especially on Julia >= 1.11). When all orders agree, 
+  # do the same operations without the ifelse (T <: TimeDependentParam constant-folds for numbers)
+  if T <: TimeDependentParam && all(normalized)
+    np = @. np*field_scale
+    sp = @. sp*field_scale
+  elseif T <: TimeDependentParam && !any(normalized)
+    np = @. np/p_over_q_ref
+    sp = @. sp/p_over_q_ref
+  else
+    np = @. ifelse(!normalized, np/p_over_q_ref, np*field_scale)
+    sp = @. ifelse(!normalized, sp/p_over_q_ref, sp*field_scale)
+  end
+  if T <: TimeDependentParam && all(integrated)
+    np = @. np/L
+    sp = @. sp/L
+  elseif !(T <: TimeDependentParam && !any(integrated))
+    np = @. ifelse(integrated, np/L, np)
+    sp = @. ifelse(integrated, sp/L, sp)
+  end
   return np, sp
 end
 
-@inline function get_integrated_strengths(bm, L, p_over_q_ref)
+@inline function get_integrated_strengths(bm, L, p_over_q_ref, field_scale)
   bmn = getfield(bm, :n)
   bms = getfield(bm, :s)
   bmtilt = getfield(bm, :tilt)
@@ -152,10 +181,26 @@ end
   integrated = getfield(bm, :integrated)
   np = @. n*cos(order*tilt) + s*sin(order*tilt)
   sp = @. -n*sin(order*tilt) + s*cos(order*tilt)
-  np = @. ifelse(!normalized, np/p_over_q_ref, np) 
-  sp = @. ifelse(!normalized, sp/p_over_q_ref, sp) 
-  np = @. ifelse(!integrated, np*L, np)
-  sp = @. ifelse(!integrated, sp*L, sp)
+  # With TimeDependentParams the two sides of an ifelse have different types, so the broadcast would 
+  # build its element type at runtime (slow, especially on Julia >= 1.11). When all orders agree, 
+  # do the same operations without the ifelse (T <: TimeDependentParam constant-folds for numbers)
+  if T <: TimeDependentParam && all(normalized)
+    np = @. np*field_scale
+    sp = @. sp*field_scale
+  elseif T <: TimeDependentParam && !any(normalized)
+    np = @. np/p_over_q_ref
+    sp = @. sp/p_over_q_ref
+  else
+    np = @. ifelse(!normalized, np/p_over_q_ref, np*field_scale)
+    sp = @. ifelse(!normalized, sp/p_over_q_ref, sp*field_scale)
+  end
+  if T <: TimeDependentParam && !any(integrated)
+    np = @. np*L
+    sp = @. sp*L
+  elseif !(T <: TimeDependentParam && all(integrated))
+    np = @. ifelse(!integrated, np*L, np)
+    sp = @. ifelse(!integrated, sp*L, sp)
+  end
   return np, sp
 end
 
@@ -189,20 +234,25 @@ end
   integrated = getfield(em, :integrated)
   np = @. n*cos(order*tilt) + s*sin(order*tilt)
   sp = @. -n*sin(order*tilt) + s*cos(order*tilt)
-  np = @. ifelse(integrated, np/L, np)
-  sp = @. ifelse(integrated, sp/L, sp)
+  # With TimeDependentParams the two sides of an ifelse have different types, so the broadcast would 
+  # build its element type at runtime (slow, especially on Julia >= 1.11). When all orders agree, 
+  # do the same operations without the ifelse (T <: TimeDependentParam constant-folds for numbers)
+  if T <: TimeDependentParam && all(integrated)
+    np = @. np/L
+    sp = @. sp/L
+  elseif !(T <: TimeDependentParam && !any(integrated))
+    np = @. ifelse(integrated, np/L, np)
+    sp = @. ifelse(integrated, sp/L, sp)
+  end
   return np, sp
 end
 
 #---------------------------------------------------------------------------------------------------
 
-function rf_omega_calc(rfparams, beamlineparams)
+function rf_omega_calc(rfparams, beamlineparams, ref)
   if rfparams.rate_meaning == RateMeaning.Harmon
-    beamline = beamlineparams.beamline
-    p_over_q_ref = beamline.p_over_q_ref
-    species = beamline.species_ref
-    circumference = beamline.line[end].s_downstream
-    v = R_to_v(species, p_over_q_ref)
+    circumference = beamlineparams.beamline.line[end].s_downstream
+    v = R_to_v(ref.species_ref, ref.field_scale*ref.p_over_q_ref) # Beamline p_over_q_ref
     return 2*pi*rfparams.rate*v/circumference
   else
     return 2*pi*rfparams.rate
@@ -222,24 +272,6 @@ function rf_phi0_calc(rfparams, species)
     return rfparams.phi0 + dphi
   else
     error("RF parameter zero_phase value not set correctly.")
-  end
-end
-
-#---------------------------------------------------------------------------------------------------
-
-function fringe_in(f::Fringe.T)
-  if f == Fringe.BothEnds || f == Fringe.EntranceEnd
-    return Val{true}()
-  else
-    return Val{false}()
-  end
-end
-
-function fringe_out(f::Fringe.T)
-  if f == Fringe.BothEnds || f == Fringe.ExitEnd
-    return Val{true}()
-  else
-    return Val{false}()
   end
 end
 
@@ -264,4 +296,14 @@ function rf_step_calc(n_cells, L_active, rf_omega, L)
   else
     return n_cells, L_act
   end
+end
+
+#---------------------------------------------------------------------------------------------------
+
+function drift_params(species::Species, p_over_q_ref)
+  beta_gamma_0 = R_to_beta_gamma(species, p_over_q_ref)
+  tilde_m = 1/beta_gamma_0
+  gamsqr_0 = @FastGTPSA 1+beta_gamma_0*beta_gamma_0
+  beta_0 = @FastGTPSA beta_gamma_0/sqrt(gamsqr_0)
+  return tilde_m, gamsqr_0, beta_0
 end

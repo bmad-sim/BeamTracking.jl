@@ -13,12 +13,12 @@ end
 =#
 
 @eles begin
-   SNAKE1 = LineElement() #LineElement(transport_map = (v,q) -> (v, snake(q,  pi/4))) 
-   SNAKE2 = LineElement() #LineElement(transport_map = (v,q) -> (v, snake(q, -pi/4))) 
-   SNAKE3 = LineElement() #LineElement(transport_map = (v,q) -> (v, snake(q,  pi/4)))  
-   SNAKE4 = LineElement() #LineElement(transport_map = (v,q) -> (v, snake(q, -pi/4)))  
-   SNAKE5 = LineElement() #LineElement(transport_map = (v,q) -> (v, snake(q,  pi/4))) 
-   SNAKE6 = LineElement() #LineElement(transport_map = (v,q) -> (v, snake(q, -pi/4))) 
+   SNAKE1 = LatElement(tracking_method=Exact()) #LatElement(transport_map = (v,q) -> (v, snake(q,  pi/4))) 
+   SNAKE2 = LatElement(tracking_method=Exact()) #LatElement(transport_map = (v,q) -> (v, snake(q, -pi/4))) 
+   SNAKE3 = LatElement(tracking_method=Exact()) #LatElement(transport_map = (v,q) -> (v, snake(q,  pi/4)))  
+   SNAKE4 = LatElement(tracking_method=Exact()) #LatElement(transport_map = (v,q) -> (v, snake(q, -pi/4)))  
+   SNAKE5 = LatElement(tracking_method=Exact()) #LatElement(transport_map = (v,q) -> (v, snake(q,  pi/4))) 
+   SNAKE6 = LatElement(tracking_method=Exact()) #LatElement(transport_map = (v,q) -> (v, snake(q, -pi/4))) 
 
    begin1 = Marker()
    ip6d = Marker()
