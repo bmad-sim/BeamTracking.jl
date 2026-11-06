@@ -9,7 +9,7 @@ using Random
   # Each slice of an element with n_slices = k is tracked like an element of length L/k, with the
   # fringes only at the element ends, so the element must track exactly like k such elements
   # (including the ramping and the collective effects recomputed at the start of each slice)
-  function test_slices_vs_elements(kw, k; tm=MatrixKick(), ramp=false, species=e, q=nothing, weight=nothing, v=v0)
+  function test_slices_vs_elements(kw, k; tm=MatrixKick(), ramp=false, species=e, q=nothing, weight=nothing, v=v0, trackkw=(;))
     sliced = LatElement(; tracking_method=tm, n_slices=k, n_steps=3, kw...)
     vkw = haskey(kw, :voltage) ? (; voltage=kw.voltage/k) : (;)
     pieces = [LatElement(; tracking_method=tm, n_steps=3, kw..., L=kw.L/k, vkw...,
@@ -17,8 +17,8 @@ using Random
     R = ramp ? R0*(1 + 1e4*Time()) : R0
     b1 = Bunch(copy(v), deepcopy(q), weight; p_over_q_ref=(species == e ? R0 : -R0), species=species)
     b2 = Bunch(copy(v), deepcopy(q), weight; p_over_q_ref=(species == e ? R0 : -R0), species=species)
-    track!(b1, Beamline([sliced]; p_over_q_ref=R, species_ref=e); notify=false)
-    track!(b2, Beamline(pieces; p_over_q_ref=R, species_ref=e); notify=false)
+    track!(b1, Beamline([sliced]; p_over_q_ref=R, species_ref=e); notify=false, trackkw...)
+    track!(b2, Beamline(pieces; p_over_q_ref=R, species_ref=e); notify=false, trackkw...)
     @test b1.coords.v == b2.coords.v
     @test b1.coords.q == b2.coords.q
     @test b1.t_ref == b2.t_ref
@@ -28,6 +28,7 @@ using Random
   rf = (; L=4.0, voltage=3e6, rf_frequency=5e8, zero_phase=PhaseRef.AboveTransition)
   test_slices_vs_elements((; L=2.0, Kn1=0.3, Ks2=0.5), 3)
   test_slices_vs_elements((; L=2.0, Kn1=0.3, Ks2=0.5), 3; ramp=true)
+  test_slices_vs_elements((; L=2.0, Kn1=0.3, Ks2=0.5), 3; ramp=true, trackkw=(; ramp_update_each_particle=true))
   test_slices_vs_elements((; L=2.0, g=0.1, Kn0=0.1, e1=0.05, e2=0.03), 4; tm=BendKick())
   test_slices_vs_elements((; L=1.5, Ksol=0.3, Kn1=0.1), 3; tm=SolenoidKick(), q=repeat([1.0 0 0 0], 50))
   test_slices_vs_elements((; L=0.8, Kn2=1.3), 2; tm=DriftKick())
@@ -36,6 +37,31 @@ using Random
   test_slices_vs_elements(rf, 2; tm=DriftKick(), ramp=true)
   test_slices_vs_elements(rf, 2; tm=DriftKick(), species=Species("positron")) # RF slip
   test_slices_vs_elements((; L=20.0, Kn1=0.01, ibs_model=IBSModel.GaussianDampingOnly), 4; weight=1e10, v=1e-5 .* randn(200, 6))
+
+  # A misaligned element with 2 slices is the same body as 2 elements of length L/2 with the same 
+  # rotation, each with its center offset by the rotated half-length: the center of each half (at 
+  # c = -L/4 and L/4 in the body frame) is at offset + W*(0, 0, c), with W the rotation of the 
+  # misalignment. With x/y offsets and tilt this is bitwise; with z_offset, x_rot and y_rot the 
+  # offsets of the halves and the lever arms in the kernels (lengths ~ L) are rounded differently, 
+  # so they agree to a few ulps of L
+  function test_misaligned_slices_vs_halves(al, test)
+    L = 20.0
+    kw = (; Kn1=0.01, ibs_model=IBSModel.GaussianDampingOnly)
+    wz = BeamTracking.quat_rotate((0.0, 0.0, 1.0), BeamTracking.rot_quaternion(al.x_rot, al.y_rot, al.tilt))
+    sliced = LatElement(; L=L, tracking_method=MatrixKick(), n_steps=3, n_slices=2, kw..., al...)
+    halves = [LatElement(; L=L/2, tracking_method=MatrixKick(), n_steps=3, kw..., fringe_at=fa, x_rot=al.x_rot, y_rot=al.y_rot, tilt=al.tilt,
+                         x_offset=al.x_offset + c*wz[1], y_offset=al.y_offset + c*wz[2], z_offset=al.z_offset + c*(wz[3] - 1)) 
+              for (c, fa) in ((-L/4, Fringe.EntranceEnd), (L/4, Fringe.ExitEnd))]
+    v = 1e-5 .* randn(200, 6)
+    b1 = Bunch(copy(v), nothing, 1e10; p_over_q_ref=R0, species=e)
+    b2 = Bunch(copy(v), nothing, 1e10; p_over_q_ref=R0, species=e)
+    track!(b1, Beamline([sliced]; p_over_q_ref=R0, species_ref=e); notify=false)
+    track!(b2, Beamline(halves; p_over_q_ref=R0, species_ref=e); notify=false)
+    @test test(b1.coords.v, b2.coords.v)
+    @test b1.t_ref == b2.t_ref
+  end
+  test_misaligned_slices_vs_halves((; x_offset=1e-3, y_offset=-2e-3, z_offset=0.0, x_rot=0.0, y_rot=0.0, tilt=0.3), ==)
+  test_misaligned_slices_vs_halves((; x_offset=1e-3, y_offset=-2e-3, z_offset=3e-3, x_rot=2e-3, y_rot=-1e-3, tilt=0.3), (a, b) -> maximum(abs.(a .- b)) <= 4*eps(20.0))
 
   # Without ramping or collective effects, n_slices = k is the same as n_slices = 1 with k times
   # the steps: fringes are only at the element ends, apertures are only checked at the element
