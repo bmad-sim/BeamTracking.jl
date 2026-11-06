@@ -366,7 +366,8 @@ end
   N = length(T.parameters)
   # Use getfield with literal integer arguments
   exprs = [:(beval(Base.getfield(f, $i), t, batch_start)) for i in 1:N]
-  return :(tuple($(exprs...)))
+  # Inline (as teval), so the tuple of SIMD.Vecs is not returned from a call
+  return Expr(:block, Expr(:meta, :inline), :(tuple($(exprs...))))
 end
 # === END CLAUDE ===
 
