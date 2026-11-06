@@ -54,9 +54,6 @@ function _track!(
   batch_start;
   kwargs...
 )
-  # Every element in a Beamline has the same p_over_q_ref (possibly a function of time)
-  p_over_q_ref = ref.p_over_q_ref
-
   # Get the parameter groups in one pass over the element's ParamDict, then its parent's (if it 
   # has InheritParams), etc. A child's parameter group takes precedence over its parent's. This 
   # is the same as ele.<parameter group> for each group, but without hashing a type for each lookup
@@ -171,13 +168,13 @@ function _track!(
     emultipoleparams = scalarize(emultipoleparams)
     emfieldparams = scalarize(emfieldparams)
     ibsparams = scalarize(ibsparams)
-    p_over_q_ref = scalarize(p_over_q_ref)
+    ref = TrackReference(ref.species_ref, scalarize(ref.p_over_q_ref), ref.field_scale)
   end
 
   # Function barrier. The LoweredElement is built after the barrier, where all types are known
   @noinline universal!(bunch, tm, ele, _ConcreteUniversalParams(universalparams), alignmentparams, bendparams, bmultipoleparams, 
                        patchparams, apertureparams, rfparams, beamlineparams, mapparams, fourpotentialparams, emultipoleparams, 
-                       emfieldparams, ibsparams, ref, p_over_q_ref, ramp_particle_energy_without_rf, ramp_update_each_particle, 
+                       emfieldparams, ibsparams, ref, ramp_particle_energy_without_rf, ramp_update_each_particle, 
                        shift_time, batch_start; kwargs...)
 end
 
@@ -200,7 +197,6 @@ function universal!(
   emfieldparams,
   ibsparams,
   ref,
-  p_over_q_ref,
   ::Val{ramp_particle_energy_without_rf}, 
   ::Val{ramp_update_each_particle},
   ::Val{shift_time},
@@ -209,6 +205,8 @@ function universal!(
 ) where {ramp_particle_energy_without_rf, ramp_update_each_particle, shift_time}
   ele = LoweredElement(universalparams, alignmentparams, bendparams, bmultipoleparams, patchparams, apertureparams, rfparams, 
                        beamlineparams, mapparams, fourpotentialparams, emultipoleparams, emfieldparams, ibsparams, ref)
+  # Every element in a Beamline has the same p_over_q_ref (possibly a function of time)
+  p_over_q_ref = ref.p_over_q_ref
 
   L = universalparams.L
 
@@ -254,7 +252,6 @@ function universal!(
 
   # Lower RefState values to coordinates number types
   T = eltype(bunch.coords.v)
-  c_dt_exit = BeamTracking.num_lower(T, C_LIGHT*(t_exit_design - t_exit))
   t_exit_design = BeamTracking.num_lower(T, t_exit_design)
   t_enter = BeamTracking.num_lower(T, t_enter)
   beta_gamma_enter = BeamTracking.num_lower(T, beta_gamma_enter)
@@ -336,7 +333,7 @@ function universal!(
 
   # If the Bunch species differs from the reference species, re-reference z to the design clock
   if shift_time
-    kc = push(kc, make_kernel_call(BeamTracking.reference_time_shift!, (1/beta_gamma_exit, c_dt_exit)))
+    kc = push(kc, make_kernel_call(BeamTracking.reference_time_shift!, (1/beta_gamma_exit, C_LIGHT*(t_exit_design - t_exit))))
   end
   
   # noinline necessary here for small binaries and faster execution

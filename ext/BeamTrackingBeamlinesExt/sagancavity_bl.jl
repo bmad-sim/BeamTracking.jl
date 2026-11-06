@@ -19,7 +19,6 @@ function universal!(
   emfieldparams,
   ibsparams,
   ref,
-  p_over_q_ref,
   ::Val{ramp_particle_energy_without_rf}, 
   ::Val{ramp_update_each_particle},
   ::Val{shift_time},
@@ -38,7 +37,7 @@ function universal!(
   !isactive(emultipoleparams) || error("SaganCavity Tracking through element $(fullele.name) with EMultipoleParams is undefined")
   isactive(rfparams) || error("SaganCavity Tracking through element $(fullele.name) without RFParams is undefined")
 
-  p_over_q_ref = ele.ref.p_over_q_ref
+  p_over_q_ref = ref.p_over_q_ref
   beta_gamma_ref = R_to_beta_gamma(bunch.species, bunch.p_over_q_ref)
 
   # Compute information about reference coordinate system:
