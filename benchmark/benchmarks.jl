@@ -10,9 +10,10 @@ using BeamTracking, Beamlines, BenchmarkTools, Random
 const SUITE = BenchmarkGroup()
 
 const e = Species("electron")
-const ring = include(joinpath(@__DIR__, "..", "test", "lattices", "esr.jl"))
-const ramp_ring = Beamline([deepcopy_no_beamline(ele) for ele in ring.line];
-                           E_ref=Beamlines.R_to_E(e, ring.p_over_q_ref)*(1 + 1e3*Time()), species_ref=e)
+# esr.jl defines the global `ring` itself, so the constant has another name
+const esr = include(joinpath(@__DIR__, "..", "test", "lattices", "esr.jl"))
+const ramp_ring = Beamline([deepcopy_no_beamline(ele) for ele in esr.line];
+                           E_ref=Beamlines.R_to_E(e, esr.p_over_q_ref)*(1 + 1e3*Time()), species_ref=e)
 
 # Elements with n_slices > 1 and the RK4 and Implicit tracking methods
 quadratic_potential(x, y, s, t, k) = ((0.0, 0.0, 0.0, -k*x^2/2), (0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, -k*x, 0.0, 0.0, 0.0))
@@ -36,7 +37,7 @@ benchmark_track(bl, N; kw...) = @benchmarkable track!(b, $bl; $kw...) setup=(b =
 
 SUITE["esr"] = BenchmarkGroup()
 for N in (1, 100, 1000)
-  SUITE["esr"]["static", N] = benchmark_track(ring, N)
+  SUITE["esr"]["static", N] = benchmark_track(esr, N)
 end
 for N in (1, 100)
   SUITE["esr"]["ramp", N] = benchmark_track(ramp_ring, N)
