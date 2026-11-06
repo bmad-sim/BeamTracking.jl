@@ -37,8 +37,8 @@ using Random
   # Upper bounds, ~10% above the allocations on Julia 1.10.13 and 1.13.3 for the ESR (4891 elements).
   # Lower them when the allocations are reduced, and update them for new Julia versions
   if !instrumented
-    bounds = VERSION < v"1.11" ? Dict("static" => 115_000, "ramp" => 123_000, "ramp per particle" => 222_000) :
-                                 Dict("static" => 124_000, "ramp" => 132_000, "ramp per particle" => 311_000)
+    bounds = VERSION < v"1.11" ? Dict("static" => 115_000, "ramp" => 123_000, "ramp per particle" => 143_000) :
+                                 Dict("static" => 124_000, "ramp" => 132_000, "ramp per particle" => 152_000)
     for (name, bound) in bounds
       @test allocs[name] <= bound
     end
@@ -58,7 +58,7 @@ using Random
 
   # Timing ratios on the same machine (with generous margins): ramping the reference energy costs
   # about the same as tracking with a static reference (~1.0 on Julia 1.10 and 1.13), and the per
-  # particle ramp ~3x (1.10) to ~7x (1.13) for one particle
+  # particle ramp ~2x for one particle
   if !instrumented
     function min_time(bl; kw...)
       t = @benchmark(track!(bb, $bl; $kw...), setup=(bb = $bunch($bl, 1); track!(bb, $bl; notify=false, $kw...)), evals=1, samples=20, seconds=10)
@@ -66,6 +66,6 @@ using Random
     end
     t_static = min_time(ring)
     @test min_time(ramp_ring) / t_static < 1.5
-    @test min_time(ramp_ring; ramp_update_each_particle=true) / t_static < 12
+    @test min_time(ramp_ring; ramp_update_each_particle=true) / t_static < 4
   end
 end

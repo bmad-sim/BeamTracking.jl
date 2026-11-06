@@ -238,7 +238,7 @@ function process_batch_args(i, args, batch_start)
   end
 end
 
-function process_time_args(i, coords, args, t_ref, beta_gamma_ref)
+@inline function process_time_args(i, coords, args, t_ref, beta_gamma_ref)
   if static_timecheck(args) 
     let t = compute_time(coords.v[i,ZI], coords.v[i,PZI], t_ref, beta_gamma_ref)
       return teval(args, t)

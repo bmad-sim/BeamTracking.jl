@@ -37,10 +37,17 @@
     custom_parameters = ()
     custom_normalized = ()
   else
-    !ep.em_field_normalized || ele.ref.field_scale == 1 || error("RK4 is not yet compatible with normalized EMFieldParams when the Bunch species has the opposite charge sign of the reference species")
     custom_functions = (ep.em_field,)
     custom_parameters = (ep.em_field_params,)
-    custom_normalized = (ep.em_field_normalized ? Val{true}() : Val{false}(),)
+    # Normalized fields are normalized by the Beamline p_over_q_ref, i.e. the tracking p_over_q_ref
+    # times field_scale: for field_scale = -1, pass the factor -1 (see normalized_field_at)
+    if !ep.em_field_normalized
+      custom_normalized = (Val{false}(),)
+    elseif ele.ref.field_scale == 1
+      custom_normalized = (Val{true}(),)
+    else
+      custom_normalized = (-1.0,)
+    end
   end
 
   species = bunch.species

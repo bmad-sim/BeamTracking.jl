@@ -31,11 +31,16 @@
   end
 
   fpp = ele.fourpotentialparams
-  # Normalized potentials are referenced to the Beamline p_over_q_ref (see field_scale)
-  !fpp.four_potential_normalized || ele.ref.field_scale == 1 || error("Implicit is not yet compatible with normalized FourPotentialParams when the Bunch species has the opposite charge sign of the reference species")
   potential_and_jac = fpp.four_potential
   potential_params = fpp.four_potential_params
   normalized = fpp.four_potential_normalized ? Val{true}() : Val{false}()
+  # Normalized potentials are normalized by the Beamline p_over_q_ref, i.e. the tracking p_over_q_ref
+  # times field_scale. For field_scale = -1, the kernels divide them by -1 (exact) as unnormalized
+  # potentials; p_over_q_ref is used for nothing else below
+  if fpp.four_potential_normalized && ele.ref.field_scale == -1
+    normalized = Val{false}()
+    p_over_q_ref = -1.0
+  end
   use_newton = tm.use_newton ? Val{true}() : Val{false}()
 
   q = chargeof(bunch.species)

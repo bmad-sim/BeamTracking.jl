@@ -113,7 +113,8 @@ Base.isnan(d::TimeDependentParam) = d._isconst ? isnan(d(0)) : false
     N = length(T.parameters)
     # Use getfield with literal integer arguments
     exprs = [:(teval(Base.getfield(f, $i), t)) for i in 1:N]
-    return :(tuple($(exprs...)))
+    # Inline (as the other teval methods), so the tuple of SIMD.Vecs is not returned from a call
+    return Expr(:block, Expr(:meta, :inline), :(tuple($(exprs...))))
 end
 # === END CLAUDE ===
 

@@ -31,7 +31,8 @@ end
     normalized_field_at(field_function, parameters, normalized, x, y, s, t, inv_rigidity)
 
 Evaluate `field_function(x, y, s, t, parameters)`. `normalized` is `Val(true)` for an evaluator that
-already returns normalized fields, and `Val(false)` for physical fields.
+already returns normalized fields, `Val(false)` for physical fields, and a number for fields
+normalized by another rigidity: that rigidity over the tracking one (the fields are multiplied by it).
 
 Parallel tuples of functions, parameters, and flags add contributions after
 normalizing each independently. Empty tuples produce zero field.
@@ -44,6 +45,11 @@ normalizing each independently. Empty tuples produce zero field.
   else
     return scale_field(field, inv_rigidity)
   end
+end
+
+@inline function normalized_field_at(field_function, parameters, normalized::Number,
+                                     x, y, s, t, inv_rigidity)
+  return scale_field(field_function(x, y, s, t, parameters), normalized)
 end
 
 @inline function normalized_field_at(field_functions::Tuple, parameters::Tuple, normalized::Tuple,

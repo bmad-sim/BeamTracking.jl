@@ -68,4 +68,25 @@ end
   @test b1.t_ref ≈ t_d && b2.t_ref ≈ t_pr
   beta = (1 + v0[6])/sqrt((1 + v0[6])^2 + 1/Beamlines.R_to_beta_gamma(pr, R_d)^2)
   @test b1.coords.v[1,5] ≈ b2.coords.v[1,5] + beta*C_LIGHT*(t_d - t_pr)
+
+  # Normalized custom fields (Implicit potentials, RK4 fields) are normalized by the Beamline 
+  # p_over_q_ref, so they track like the physical fields (R times the normalized ones), also for 
+  # a Bunch with the opposite charge sign (and not like the field with the opposite sign)
+  potential(x, y, s, t, k) = ((0.0, -k*y/2, k*x/2, -k*x^2*cos(s)), (0.0, 0.0, 0.0, 0.0, 0.0, -k/2, 0.0, 0.0, k/2, 0.0, 0.0, 0.0, -2*k*x*cos(s), 0.0, k*x^2*sin(s), 0.0))
+  field(x, y, s, t, k) = (k*x*sin(s), k*y*cos(s), 0.0*x, k*y*sin(s), k*x*cos(s), 0.0*x)
+  scaled(f, a) = (x, y, s, t, k) -> map(c -> c isa Tuple ? map(z -> a*z, c) : a*c, f(x, y, s, t, k))
+  R0 = -10.0
+  implicit_ele(f, nrm) = LatElement(L=1.2, four_potential=f, four_potential_params=0.1, four_potential_normalized=nrm, tracking_method=Implicit(), n_steps=5)
+  rk4_ele(f, nrm) = LatElement(L=1.2, em_field=f, em_field_params=0.02, em_field_normalized=nrm, tracking_method=RK4(), n_steps=8)
+  v1 = 1e-3 .* [1.0 0.2 -0.5 0.1 0.3 0.2; -0.3 0.1 0.8 -0.2 0.0 -0.1]
+  for (mk, f) in ((implicit_ele, potential), (rk4_ele, field)), sp in (e, Species("positron"))
+    function trk(ele)
+      b = Bunch(copy(v1); species=sp, p_over_q_ref=(sp == e ? R0 : -R0))
+      track!(b, Beamline([ele]; p_over_q_ref=R0, species_ref=e); notify=false)
+      return b.coords.v
+    end
+    v_normalized = trk(mk(f, true))
+    @test v_normalized ≈ trk(mk(scaled(f, R0), false)) atol=1e-18
+    @test maximum(abs.(v_normalized .- trk(mk(scaled(f, -R0), false)))) > 1e-6
+  end
 end

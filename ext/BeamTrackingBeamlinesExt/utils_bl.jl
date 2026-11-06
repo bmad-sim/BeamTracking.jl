@@ -127,10 +127,26 @@ no loss in computing both but benefit of branchless.
   integrated = getfield(bm, :integrated)
   np = @. n*cos(order*tilt) + s*sin(order*tilt)
   sp = @. -n*sin(order*tilt) + s*cos(order*tilt)
-  np = @. ifelse(!normalized, np/p_over_q_ref, np*field_scale)
-  sp = @. ifelse(!normalized, sp/p_over_q_ref, sp*field_scale)
-  np = @. ifelse(integrated, np/L, np)
-  sp = @. ifelse(integrated, sp/L, sp)
+  # With TimeDependentParams the two sides of an ifelse have different types, so the broadcast would 
+  # build its element type at runtime (slow, especially on Julia >= 1.11). When all orders agree, 
+  # do the same operations without the ifelse (T <: TimeDependentParam constant-folds for numbers)
+  if T <: TimeDependentParam && all(normalized)
+    np = @. np*field_scale
+    sp = @. sp*field_scale
+  elseif T <: TimeDependentParam && !any(normalized)
+    np = @. np/p_over_q_ref
+    sp = @. sp/p_over_q_ref
+  else
+    np = @. ifelse(!normalized, np/p_over_q_ref, np*field_scale)
+    sp = @. ifelse(!normalized, sp/p_over_q_ref, sp*field_scale)
+  end
+  if T <: TimeDependentParam && all(integrated)
+    np = @. np/L
+    sp = @. sp/L
+  elseif !(T <: TimeDependentParam && !any(integrated))
+    np = @. ifelse(integrated, np/L, np)
+    sp = @. ifelse(integrated, sp/L, sp)
+  end
   return np, sp
 end
 
@@ -165,10 +181,26 @@ end
   integrated = getfield(bm, :integrated)
   np = @. n*cos(order*tilt) + s*sin(order*tilt)
   sp = @. -n*sin(order*tilt) + s*cos(order*tilt)
-  np = @. ifelse(!normalized, np/p_over_q_ref, np*field_scale)
-  sp = @. ifelse(!normalized, sp/p_over_q_ref, sp*field_scale)
-  np = @. ifelse(!integrated, np*L, np)
-  sp = @. ifelse(!integrated, sp*L, sp)
+  # With TimeDependentParams the two sides of an ifelse have different types, so the broadcast would 
+  # build its element type at runtime (slow, especially on Julia >= 1.11). When all orders agree, 
+  # do the same operations without the ifelse (T <: TimeDependentParam constant-folds for numbers)
+  if T <: TimeDependentParam && all(normalized)
+    np = @. np*field_scale
+    sp = @. sp*field_scale
+  elseif T <: TimeDependentParam && !any(normalized)
+    np = @. np/p_over_q_ref
+    sp = @. sp/p_over_q_ref
+  else
+    np = @. ifelse(!normalized, np/p_over_q_ref, np*field_scale)
+    sp = @. ifelse(!normalized, sp/p_over_q_ref, sp*field_scale)
+  end
+  if T <: TimeDependentParam && !any(integrated)
+    np = @. np*L
+    sp = @. sp*L
+  elseif !(T <: TimeDependentParam && all(integrated))
+    np = @. ifelse(!integrated, np*L, np)
+    sp = @. ifelse(!integrated, sp*L, sp)
+  end
   return np, sp
 end
 
@@ -202,8 +234,16 @@ end
   integrated = getfield(em, :integrated)
   np = @. n*cos(order*tilt) + s*sin(order*tilt)
   sp = @. -n*sin(order*tilt) + s*cos(order*tilt)
-  np = @. ifelse(integrated, np/L, np)
-  sp = @. ifelse(integrated, sp/L, sp)
+  # With TimeDependentParams the two sides of an ifelse have different types, so the broadcast would 
+  # build its element type at runtime (slow, especially on Julia >= 1.11). When all orders agree, 
+  # do the same operations without the ifelse (T <: TimeDependentParam constant-folds for numbers)
+  if T <: TimeDependentParam && all(integrated)
+    np = @. np/L
+    sp = @. sp/L
+  elseif !(T <: TimeDependentParam && !any(integrated))
+    np = @. ifelse(integrated, np/L, np)
+    sp = @. ifelse(integrated, sp/L, sp)
+  end
   return np, sp
 end
 

@@ -162,7 +162,10 @@ touches both repositories; their versions are coupled (BeamTracking 0.9 needs Be
   physically fixed fields, as in a real machine:
   - It is tracked at the same |Bρ| with the sign of its own charge: `TrackReference.p_over_q_ref` 
     = Beamline R × `field_scale` (±1). Normalized strengths are multiplied by `field_scale`, 
-    unnormalized ones divided by the tracking R (`get_strengths`).
+    unnormalized ones divided by the tracking R (`get_strengths`). For `field_scale == -1`, 
+    normalized custom RK4 fields get the factor `-1.0` in place of `Val(true)` (`normalized_field_at`), 
+    and normalized Implicit potentials go through the unnormalized path with `p_over_q_ref = -1.0` 
+    (exact division; the kernels use `p_over_q_ref` for nothing else). No wrapper types.
   - Everything about the particle uses `bunch.species` (mass, charge, anomaly, radiation, IBS); 
     machine settings use `species_ref` (harmonic RF frequency, RF phase convention, design clock).
   - **Design clock:** `bunch.t_ref` is the time of the reference-species particle. The kernels 
@@ -170,6 +173,9 @@ touches both repositories; their versions are coupled (BeamTracking 0.9 needs Be
     `reference_time_shift!` re-references z to the design clock.
   - **RF slip:** in a cavity the Bunch reference drifts from the design particle by `s*slip`, 
     `slip = 1/v_bunch - 1/v_design` (0 for the same species); `cavity!` uses `t_ref + (s + L/2)*slip`.
+  - SaganCavity: the Bunch reference changes by the same rigidity `dp_over_q_ref` as the design 
+    particle (its own `dE_ref`); the kernels add the slip per drift from the design momenta passed 
+    as `design_params = (mass_d, P0c_d, dE_d)` (`nothing` for the same species).
   - `beta_0` cannot simply be changed instead: `tilde_m` must be the Bunch's, and the high precision 
     z formulas assume `beta_0 = 1/sqrt(1 + tilde_m^2)`.
 
@@ -215,7 +221,10 @@ touches both repositories; their versions are coupled (BeamTracking 0.9 needs Be
   children; every element in a `Beamline` is such a child). Don't use it per element in hot paths.
 - A conditional `push` on a runtime value makes a union of `KernelChain` types; don't stack them. 
   Small `Union{Nothing,T}` are fine but multiply: 4–6 in one tuple is past union splitting.
-- Both sides of ternaries/`ifelse` must have the same type (`zero(eltype(kn))`, not `0`). In 
+- Both sides of ternaries/`ifelse` must have the same type (`zero(eltype(kn))`, not `0`). With 
+  `TimeDependentParam`s they cannot (every operation is a new type): a broadcast `ifelse` over 
+  per-order flags then builds its element type at runtime (~2 µs on 1.10, ~7 µs on 1.13 per 
+  `get_strengths`), so `get_strengths` branches when all orders agree. In 
   kernels, values derived from the particle time are `SIMD.Vec`s: don't mix a scalar and a `Vec` 
   in one `ifelse` (a union that allocates per particle), and keep normalized strengths scalar.
 - `TimeDependentParam{F}`: every operation gives a new concrete type. Use `<:TimeDependentParam` 
@@ -291,11 +300,14 @@ Open PRs: BeamTracking `n-slices` → `main` (restructured extension, species mo
 0.12). The BeamTracking PR needs Beamlines 0.12 registered.
 
 ESR, Julia 1.10, Apple silicon, 1 particle: `main` 18.8 ms → 4.6 ms (103,961 allocations); ramped 
-reference 4.7 ms; per-particle ramp 1/100/1000 particles 17/76/603 ms.
+reference 4.7 ms; per-particle ramp 1/100/1000 particles 9/57/483 ms (Julia 1.13: 9.5 ms for 1).
 
 Open items:
-- On Julia 1.13 the per-particle ramp is ~2x slower relative to static than on 1.10, with 40% 
-  more allocations. Not investigated.
+- CI on `n-slices`: Julia 1.10 x64 (Linux and Windows) segfaulted in the first per-particle ramp 
+  `track!` with 100 particles (the SIMD path), in a `SIMD.Vec` division inside a time function 
+  called from the non-inlined tuple `teval`/`process_time_args`. Not reproducible on Apple silicon 
+  (also not under Rosetta, which does not fault on misaligned loads); suspected Julia 1.10 x86 
+  codegen/alignment. Both are now inlined (bitwise identical, faster); check whether CI passes.
 - Remaining unpacking costs (ESR profile): `deval(::UniversalParams)` ~16%, the 
   `_ConcreteUniversalParams` construction (dynamic type with runtime type parameters) ~11%, 
   `deval(::BMultipoleParams)` array copies ~8%, data-dependent unions after the barrier ~6% (fixing 
@@ -303,10 +315,6 @@ Open items:
 - Per-particle ramp: mostly per-particle evaluation of time-function chains. Making all strengths 
   one common `TimeDependentParam` type halves setup but makes normalized strengths `Vec`s in the 
   kernels (30% slower for 1000 particles), so it was not done.
-- SaganCavity's `universal!` calls an old `alignment` signature (a misaligned SaganCavity errors), 
-  uses `field_scale = 1` and errors for a different species; no slicing.
-- Normalized FourPotential/Implicit potentials and normalized custom RK4 fields are not scaled by 
-  `field_scale` (they error for an opposite-charge Bunch).
 - Possibly: error in `resolve_reference!` for spin tracking of species with a `NaN` anomaly; make 
   `rf_omega_calc` use the evaluated `p_over_q_ref` (behavior change, deferred); 
   `_ConcreteUniversalParams.ds_step::Float64` would fail for a TPS or Dual `L`.
