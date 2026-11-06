@@ -337,12 +337,6 @@ end
 @inline beval(b::_LoweredBatchParam{B}, i, batch_start) where {B} = b.batch[mod1((i+batch_start-1), B)]
 
 @inline function beval(b::_LoweredBatchParam{B}, lane::SIMD.VecRange{N}, batch_start) where {B,N}
-  @static if (VERSION < v"1.11" && Sys.ARCH == :x86_64)
-    error("Julia's explicit SIMD.jl has a compiler bug that appears with batch 
-           parameters on versions < 1.11 AND an x86_64 bit architecture, which we 
-           detected that you have. To get around this, specify the `track!` 
-           keyword argument `use_explicit_SIMD=false`")
-  end
   m = rem(lane2vec(lane)+batch_start-1, B)
   i = vifelse(m == 0, B, m)
   return b.batch[i]
@@ -376,4 +370,4 @@ end
 end
 # === END CLAUDE ===
 
-@inline beval(b, i, batch_start) = b
+@inline beval(b, i, batch_start) = _reg(b) # see `_reg` in time.jl

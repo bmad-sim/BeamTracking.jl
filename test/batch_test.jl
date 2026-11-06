@@ -83,11 +83,7 @@ function test_batch(
   track!(b0_4, bl_4)
 
   # Ensure branchlessness of parameters with explicit SIMD
-  if (VERSION < v"1.11" && Sys.ARCH == :x86_64)
-    use_explicit_SIMD=false
-  else
-    use_explicit_SIMD=true
-  end
+  use_explicit_SIMD=true
   track!(b0_batch, bl_batch; use_explicit_SIMD) 
   
   @test b0_batch.coords.v[1,:]' ≈ b0_1.coords.v
@@ -246,11 +242,7 @@ end
   track!(b0_4, bl_4)
 
   # Ensure branchlessness of parameters with explicit SIMD
-  if (VERSION < v"1.11" && Sys.ARCH == :x86_64)
-    use_explicit_SIMD=false
-  else
-    use_explicit_SIMD=true
-  end
+  use_explicit_SIMD=true
   track!(b0_batch, bl_batch; use_explicit_SIMD) 
   
   @test b0_batch.coords.v[1,:]' ≈ b0_1.coords.v

@@ -105,7 +105,22 @@ Base.isinf(d::TimeDependentParam) = d._isconst ? isinf(d(0)) : false
 Base.isnan(d::TimeDependentParam) = d._isconst ? isnan(d(0)) : false
 
 @inline teval(f::TimeFunction, t) = f(t)
-@inline teval(f, t) = f
+@inline teval(f, t) = _reg(f)
+
+# Julia 1.10 codegen gives a field copied from an argument into a tuple containing a SIMD.Vec
+# the alignment of the destination; the merged copies become aligned vector loads (vmovaps)
+# from 8-byte aligned memory, which segfault on x86. `_reg` rebuilds bits values from
+# register values, so they are not copied from memory. Used for the leaves of `teval`/`beval`.
+@static if VERSION < v"1.11"
+  @generated function _reg(x::T) where {T}
+    isprimitivetype(T) && return :(Base.@_inline_meta; Core.Intrinsics.bitcast(T, x))
+    (isbitstype(T) && fieldcount(T) > 0 && !(T <: Function) && !(T <: TimeFunction)) || return :(Base.@_inline_meta; x)
+    fs = [:(_reg(getfield(x, $i))) for i in 1:fieldcount(T)]
+    return Expr(:block, Expr(:meta, :inline), T <: Tuple ? :(tuple($(fs...))) : Expr(:new, T, fs...))
+  end
+else
+  @inline _reg(x) = x
+end
 
 # === THIS BLOCK WAS PARTIALLY WRITTEN BY CLAUDE ===
 # Generated function for arbitrary-length tuples

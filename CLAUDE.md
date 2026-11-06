@@ -303,11 +303,17 @@ ESR, Julia 1.10, Apple silicon, 1 particle: `main` 18.8 ms → 4.6 ms (103,961 a
 reference 4.7 ms; per-particle ramp 1/100/1000 particles 9/57/483 ms (Julia 1.13: 9.5 ms for 1).
 
 Open items:
-- CI on `n-slices`: Julia 1.10 x64 (Linux and Windows) segfaulted in the first per-particle ramp 
-  `track!` with 100 particles (the SIMD path), in a `SIMD.Vec` division inside a time function 
-  called from the non-inlined tuple `teval`/`process_time_args`. Not reproducible on Apple silicon 
-  (also not under Rosetta, which does not fault on misaligned loads); suspected Julia 1.10 x86 
-  codegen/alignment. Both are now inlined (bitwise identical, faster); check whether CI passes.
+- Julia 1.10 x86-64 segfault with explicit SIMD (per-particle ramp; also batch parameters, which 
+  `beval` already guards): **diagnosed as a Julia 1.10 codegen bug**, fixed in 1.11. Julia's 
+  `emit_memcpy_llvm` ("memcpy_refined" small-copy path) gives the source load the destination's 
+  alignment. Copying scalar fields from an 8-aligned argument (the kernel chain) into a tuple 
+  containing a `Vec` (32-aligned) claims `align 16`; SLP merges two such `double` copies into 
+  `vmovaps xmm, [arg+8]`, which faults (#GP) when the argument is 16-aligned. Any tuple mixing 
+  per-particle `Vec`s with scalars copied from an argument can hit it (`teval`'d args, `beval`'d 
+  args); plain chains have no such loads (IR scan). Whether it faults depends only on field offsets, 
+  so it can appear or vanish with unrelated changes. aarch64 does not fault on misaligned `ldr q`.
+  Base-only reproducer: `consume((x::NTuple{4,VecElement{Float64}}, args[2], args[3]))` in a 
+  `@noinline` function with `args::NTuple{3,Float64}`.
 - Remaining unpacking costs (ESR profile): `deval(::UniversalParams)` ~16%, the 
   `_ConcreteUniversalParams` construction (dynamic type with runtime type parameters) ~11%, 
   `deval(::BMultipoleParams)` array copies ~8%, data-dependent unions after the barrier ~6% (fixing 
