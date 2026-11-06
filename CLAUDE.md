@@ -232,6 +232,18 @@ touches both repositories; their versions are coupled (BeamTracking 0.9 needs Be
   (not `eltype(kn)`); build arrays with `T[T(x) for x in a]`, not `T.(a)` (broadcasting narrows the 
   element type).
 - Kernels must not allocate, and must not loop over heterogeneous tuples with runtime indexing.
+- **Julia 1.10 explicit SIMD codegen bug (x86-64 segfault, fixed in 1.11):** copying scalar fields 
+  of an argument (e.g. the kernel chain, 8-aligned) into a tuple that contains a `Vec` gives the 
+  load the destination's alignment (`emit_memcpy_llvm`, "memcpy_refined"); two merged `double` 
+  copies become `movaps xmm, [arg+8]`, which faults when the argument is 16-aligned. aarch64 does 
+  not fault on misaligned loads, so it only shows on x86 CI, and whether it faults depends on field 
+  offsets (it can appear or vanish with unrelated changes). `_reg` (`src/time.jl`; the identity on 
+  1.11+) rebuilds bits values from registers; the leaves of `teval` and `beval` go through it, so 
+  per-particle time and batch evaluation are safe with explicit SIMD. **Any new code that builds a 
+  tuple of per-particle `Vec`s together with scalars from kernel arguments must do the same.** 
+  Base-only reproducer: `consume((x::NTuple{4,VecElement{Float64}}, args[2], args[3]))` in a 
+  `@noinline` function with `args::NTuple{3,Float64}`; `code_native` on x86 shows 
+  `movaps xmm0, [rdi + 8]`, and `movups` with the fields `bitcast` (as `_reg` does).
 - KernelAbstractions 0.9 and 0.10: in 0.10 `GPU` is a deprecated alias of `Backend` and `CPU` is a 
   `Backend` (PoCL). Dispatch GPU paths on `::Backend` (the `::CPU` methods are more specific); a 
   "GPU" check is `!(backend isa CPU)`.
@@ -303,17 +315,14 @@ ESR, Julia 1.10, Apple silicon, 1 particle: `main` 18.8 ms → 4.6 ms (103,961 a
 reference 4.7 ms; per-particle ramp 1/100/1000 particles 9/57/483 ms (Julia 1.13: 9.5 ms for 1).
 
 Open items:
-- Julia 1.10 x86-64 segfault with explicit SIMD (per-particle ramp; also batch parameters, which 
-  `beval` already guards): **diagnosed as a Julia 1.10 codegen bug**, fixed in 1.11. Julia's 
-  `emit_memcpy_llvm` ("memcpy_refined" small-copy path) gives the source load the destination's 
-  alignment. Copying scalar fields from an 8-aligned argument (the kernel chain) into a tuple 
-  containing a `Vec` (32-aligned) claims `align 16`; SLP merges two such `double` copies into 
-  `vmovaps xmm, [arg+8]`, which faults (#GP) when the argument is 16-aligned. Any tuple mixing 
-  per-particle `Vec`s with scalars copied from an argument can hit it (`teval`'d args, `beval`'d 
-  args); plain chains have no such loads (IR scan). Whether it faults depends only on field offsets, 
-  so it can appear or vanish with unrelated changes. aarch64 does not fault on misaligned `ldr q`.
-  Base-only reproducer: `consume((x::NTuple{4,VecElement{Float64}}, args[2], args[3]))` in a 
-  `@noinline` function with `args::NTuple{3,Float64}`.
+- The Julia 1.10 x86 SIMD segfault is fixed by `_reg` (see "Performance rules"). Two tests still 
+  skip explicit SIMD on 1.10 x86 and can probably be enabled: `batch_simd_supported` in 
+  `test/RungeKuttaTracking_test.jl` and `test/BeamlinesExt/beamlines_ibs_test.jl`.
+- GPU/Float32 gaps (all also on `main`): `zero`/`one(::BatchParam)` use `first(b.batch)`, scalar 
+  indexing that errors for GPU arrays (e.g. `MatrixKick` with a `BatchParam(MtlArray)` strength; 
+  `DriftKick` works); a Float32 `TimeDependentParam` strength with `MatrixKick` and the Float32 
+  per-particle ramp (even with a Float32 `p_over_q_ref` ramp) become Float64 time functions and 
+  fail `num_lower`. Float32 batch gathers with explicit SIMD hit an upstream SIMD.jl bug.
 - Remaining unpacking costs (ESR profile): `deval(::UniversalParams)` ~16%, the 
   `_ConcreteUniversalParams` construction (dynamic type with runtime type parameters) ~11%, 
   `deval(::BMultipoleParams)` array copies ~8%, data-dependent unions after the barrier ~6% (fixing 
