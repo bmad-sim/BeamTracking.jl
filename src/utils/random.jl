@@ -23,7 +23,7 @@ Box-Muller transform.
 This was implemented because CUDA.randn has some horrible 
 compiler bug, but CUDA.rand seems to be ok.
 """
-function gaussian_random(::GPU, sigma1::T1, sigma2::T2) where {T1, T2}
+function gaussian_random(::Backend, sigma1::T1, sigma2::T2) where {T1, T2}
   s, c = sincospi(2 * rand(T1))
   t = sqrt(-2 * log(rand(T2)))
   z0 = c*t*sigma1

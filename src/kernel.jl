@@ -263,7 +263,7 @@ end
     error("Cannot use both KernelAbstractions (KA) and explicit SIMD")
   end
 #=  
-  if !use_KA && backend isa GPU
+  if !use_KA && !(get_backend(v) isa CPU)
     error("For GPU parallelized kernel launching, KernelAbstractions (KA) must be used")
   end
 =#

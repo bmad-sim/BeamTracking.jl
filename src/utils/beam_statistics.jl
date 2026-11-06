@@ -26,7 +26,7 @@ end
 """
 See mean_and_cov, but on the GPU.
 """
-function mean_and_cov(v, w::Union{Number,Nothing}, ::GPU)
+function mean_and_cov(v, w::Union{Number,Nothing}, ::Backend)
   N = size(v, 1)
   mu = mean(v; dims = 1)
   v_c = v .- mu
@@ -38,7 +38,7 @@ end
 """
 See mean_and_cov, but on the GPU.
 """
-function mean_and_cov(v, w, ::GPU)
+function mean_and_cov(v, w, ::Backend)
   W = sum(w)
   mu = (w' * v) ./ W
   v_c = v .- mu
