@@ -148,8 +148,95 @@ using Random
   @test ss_sliced ≈ ss
   @test last(ss_sliced) ≈ 2.0
 
+  # RK4 and Implicit evaluate the fields at s (and the element-local time, which is computed from 
+  # s) from the element entrance, so an element with s- and t-dependent fields tracks the same 
+  # with n_slices = k as with n_slices = 1 and k times the steps, and the same as k elements with 
+  # the fields shifted by s0 and s0/(beta_0*c). If s and t restarted in each slice it would not
+  rk_field(x, y, s, t, p) = (p[1]*x*sin(s) + p[2]*cos(1e8*t), p[1]*y*cos(s), 0.0*x, p[2]*y*sin(s), p[2]*x*cos(s) + p[1]*sin(1e8*t), 0.0*x)
+  function implicit_potential(x, y, s, t, p)
+    a0 = p
+    potential = (a0*BeamTracking.C_LIGHT*sin(x)*cos(y)*sinh(s)*cosh(t), a0*cosh(x)*sin(y)*cos(s)*sinh(t), a0*sinh(x)*cosh(y)*sin(s)*cos(t), a0*cos(x)*sinh(y)*cosh(s)*sin(t))
+    jac = (a0*BeamTracking.C_LIGHT*cos(x)*cos(y)*cosh(t)*sinh(s), -a0*BeamTracking.C_LIGHT*cosh(t)*sin(x)*sin(y)*sinh(s), a0*BeamTracking.C_LIGHT*cos(y)*cosh(s)*cosh(t)*sin(x), a0*BeamTracking.C_LIGHT*cos(y)*sin(x)*sinh(s)*sinh(t),
+           a0*cos(s)*sin(y)*sinh(t)*sinh(x),  a0*cos(s)*cos(y)*cosh(x)*sinh(t), -a0*cosh(x)*sin(s)*sin(y)*sinh(t),  a0*cos(s)*cosh(t)*cosh(x)*sin(y),
+           a0*cos(t)*cosh(x)*cosh(y)*sin(s),  a0*cos(t)*sin(s)*sinh(x)*sinh(y),  a0*cos(s)*cos(t)*cosh(y)*sinh(x), -a0*cosh(y)*sin(s)*sin(t)*sinh(x),
+          -a0*cosh(s)*sin(t)*sin(x)*sinh(y), a0*cos(x)*cosh(s)*cosh(y)*sin(t), a0*cos(x)*sin(t)*sinh(s)*sinh(y), a0*cos(t)*cos(x)*cosh(s)*sinh(y))
+    return potential, jac
+  end
+  bg = Beamlines.R_to_beta_gamma(e, R0)
+  beta_0 = bg/sqrt(1 + bg^2)
+  shifted(f, s0) = (x, y, s, t, p) -> f(x, y, s + s0, t + s0/(beta_0*BeamTracking.C_LIGHT), p)
+  rk4_ele(f=rk_field; L=1.2, kw...) = LatElement(; L=L, Kn1=0.2, em_field=f, em_field_params=(0.01, 0.02), em_field_normalized=true, tracking_method=RK4(), kw...)
+  implicit_ele(f=implicit_potential; L=1.2, kw...) = LatElement(; L=L, four_potential=f, four_potential_params=1e-3, four_potential_normalized=true, tracking_method=Implicit(), kw...)
+  v8 = 1e-3 .* randn(8, 6)
+  q8 = repeat([1.0 0 0 0], 8)
+  function track_eles(eles; q=nothing, callbacks=(), trackkw=(;))
+    b = Bunch(copy(v8), deepcopy(q); p_over_q_ref=R0, species=e, callbacks=callbacks)
+    track!(b, Beamline(collect(eles); p_over_q_ref=R0, species_ref=e); notify=false, trackkw...)
+    return b
+  end
+  maxdiff(a, b) = maximum(abs.(a .- b))
+  for (mk, f, kw) in ((rk4_ele, rk_field, (;)), (implicit_ele, implicit_potential, (;)), (implicit_ele, implicit_potential, (; rad_damping=true)))
+    qq = mk === implicit_ele ? q8 : nothing
+    sliced = track_eles([mk(; n_slices=3, n_steps=3, kw...)]; q=qq)
+    unsliced = track_eles([mk(; n_steps=9, kw...)]; q=qq)
+    L3 = 1.2/3 # Length of each slice
+    pieces = track_eles([mk(shifted(f, (j - 1)*L3); L=L3, n_steps=3, kw..., fringe_at=(j == 1 ? Fringe.EntranceEnd : (j == 3 ? Fringe.ExitEnd : Fringe.NoEnd))) for j in 1:3]; q=qq)
+    restarting = track_eles([mk(; L=L3, n_steps=3, kw...) for _ in 1:3]; q=qq)
+    @test maxdiff(sliced.coords.v, unsliced.coords.v) <= 1e-16
+    @test maxdiff(sliced.coords.v, pieces.coords.v) <= 1e-16
+    @test sliced.t_ref == pieces.t_ref
+    @test maxdiff(restarting.coords.v, unsliced.coords.v) > 1e-5
+    isnothing(qq) || @test maxdiff(sliced.coords.q, unsliced.coords.q) <= 1e-16
+  end
+
+  # Inside the element the scalar potential is in general nonzero at the slice ends (Implicit and 
+  # the Exact electric dipole convert with it there, as for callbacks), so callbacks in a misaligned 
+  # element see the same global coordinates with and without slices
+  function global_callback_coords(ele)
+    rec = Vector{Float64}[]
+    cb = (i, coords, cur_s, cur_t_ref, bg, ds, g, transforms_out!, transforms_in!) -> begin
+      if i == 1
+        transforms_out!(i, coords, cur_s, cur_t_ref)
+        push!(rec, [cur_s, coords.v[i,1], coords.v[i,2], coords.v[i,5], coords.v[i,6]])
+        transforms_in!(i, coords, cur_s, cur_t_ref)
+      end
+      nothing
+    end
+    track_eles([ele]; callbacks=(cb,), trackkw=(; use_explicit_SIMD=false))
+    return reduce(hcat, rec)
+  end
+  @test global_callback_coords(implicit_ele(; n_slices=3, n_steps=2, misaligned...)) ≈ global_callback_coords(implicit_ele(; n_steps=6, misaligned...)) atol=1e-15
+  @test global_callback_coords(rk4_ele(; n_slices=3, n_steps=2, misaligned...)) ≈ global_callback_coords(rk4_ele(; n_steps=6, misaligned...)) atol=1e-15
+
+  # Exact electric dipole: the potential is -kE*x in the frame of the field, so a tilted dipole with 
+  # the particle rotated with it is the same as the untilted dipole, also for the momentum at the 
+  # slice end and for callbacks (the pz below is the same scalar in both)
+  rotated(v, a) = (c = cos(a); sn = sin(a); [c*v[1]-sn*v[3]  c*v[2]-sn*v[4]  sn*v[1]+c*v[3]  sn*v[2]+c*v[4]  v[5]  v[6]])
+  function elsep_midpoint_pz(kw, v0, k, n)
+    pz = Float64[]
+    cb = (i, coords, cur_s, cur_t_ref, bg, ds, g, transforms_out!, transforms_in!) -> begin
+      if abs(cur_s - 1.0) < 1e-12
+        transforms_out!(i, coords, cur_s, cur_t_ref)
+        push!(pz, coords.v[i,6])
+        transforms_in!(i, coords, cur_s, cur_t_ref)
+      end
+      nothing
+    end
+    ele = LatElement(; L=2.0, tracking_method=Exact(), n_slices=k, n_steps=n, fringe_at=Fringe.NoEnd, kw...)
+    b = Bunch(copy(v0); p_over_q_ref=R0, species=e, callbacks=(cb,))
+    track!(b, Beamline([ele]; p_over_q_ref=R0, species_ref=e); notify=false, use_explicit_SIMD=false)
+    return b.coords.v, pz
+  end
+  v1 = [3e-3 1e-4 -2e-3 2e-4 1e-4 1e-4]
+  etilt = 0.7
+  v_untilted, pz_untilted = elsep_midpoint_pz((; En0=2e6), v1, 1, 2)
+  for (k, n) in ((1, 2), (2, 1))
+    v_tilted, pz_tilted = elsep_midpoint_pz((; En0=2e6*cos(etilt), Es0=2e6*sin(etilt)), rotated(v1, -etilt), k, n)
+    @test rotated(v_tilted, etilt) ≈ v_untilted atol=1e-17
+    @test pz_tilted ≈ pz_untilted rtol=1e-14
+  end
+
   # Not supported
-  @test_throws ErrorException track_ele((; L=2.0), 2, 1; tm=RK4())
-  @test_throws ErrorException track_ele((; L=2.0), 2, 1; tm=Implicit())
+  @test_throws ErrorException track_ele((; L=2.0, voltage=1e6, rf_frequency=5e8), 2, 1; tm=SaganCavity())
   @test_throws ErrorException track_ele((; L=2.0, dx=1e-3), 2, 1; tm=Exact())
 end

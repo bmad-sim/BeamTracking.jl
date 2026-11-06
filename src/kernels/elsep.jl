@@ -131,9 +131,15 @@ end
 end
 
 
-function callback_electric!(i, coords, cur_s, cur_t_ref, beta_0, tilde_m, kE, ::Val{in}) where {in}
+function callback_electric!(i, coords, cur_s, cur_t_ref, beta_0, tilde_m, kE, w, ::Val{in}) where {in}
   @inbounds begin @FastGTPSA begin
-    phi = -kE*coords.v[i,XI]
+    # The field is along x in the frame rotated by w (see elsep_rad!), so the potential uses that x
+    if isnothing(w)
+      x = coords.v[i,XI]
+    else
+      x = (1 - 2*(w[QY]*w[QY] + w[QZ]*w[QZ]))*coords.v[i,XI] + 2*(w[QX]*w[QY] - w[QZ]*w[Q0])*coords.v[i,YI]
+    end
+    phi = -kE*x
     if in
       bmad_to_mad!(i, coords, beta_0, tilde_m, phi)
     else

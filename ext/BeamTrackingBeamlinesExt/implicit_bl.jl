@@ -43,12 +43,24 @@
   a = gyromagnetic_anomaly(bunch.species)
   E_ref = mc2/tilde_m/beta_0
   radiation_params = ele.universalparams.rad_damping ? (q, mc2, E_ref) : nothing
-  params = (radiation_params, beta_0, tilde_m, a, g, w, w_inv, potential_and_jac, potential_params, p_over_q_ref, normalized, use_newton)
-  photon_params = isprimitivetype(eltype(bunch.coords.v)) && ele.universalparams.rad_fluctuations ? (BeamTracking.implicit_integrator!, get_backend(bunch.coords.v), q, mc2, E_ref, g, w, w_inv, potential_and_jac, potential_params, p_over_q_ref, normalized) : nothing
+  # The potential is evaluated at s from the element entrance (s0 is nonzero for a slice of the element)
+  s0 = ele.universalparams.s0
+  params = (radiation_params, beta_0, tilde_m, a, g, w, w_inv, potential_and_jac, potential_params, p_over_q_ref, normalized, use_newton, s0)
+  photon_params = isprimitivetype(eltype(bunch.coords.v)) && ele.universalparams.rad_fluctuations ? (BeamTracking.implicit_integrator!, get_backend(bunch.coords.v), q, mc2, E_ref, g, w, w_inv, potential_and_jac, potential_params, p_over_q_ref, normalized, s0) : nothing
 
-  kc = push(kc, make_kernel_call(BeamTracking.bmad_to_mad!, (beta_0, tilde_m, 0)))
+  # The scalar potential is taken as zero at the element ends. At the ends of a slice inside the
+  # element (n_slices > 1) it is in general not, so there convert with it as the callbacks do
+  if ele.universalparams.first_slice
+    kc = push(kc, make_kernel_call(BeamTracking.bmad_to_mad!, (beta_0, tilde_m, 0)))
+  else
+    kc = push(kc, make_kernel_call(BeamTracking.callback_implicit!, (s0, 0, beta_0, tilde_m, potential_and_jac, potential_params, p_over_q_ref, normalized, Val{true}())))
+  end
   kc = push(kc, integration_launcher(BeamTracking.implicit_integrator!, params, photon_params, nothing, tm, ele.universalparams))
-  kc = push(kc, make_kernel_call(BeamTracking.mad_to_bmad!, (beta_0, tilde_m, 0)))
+  if ele.universalparams.last_slice
+    kc = push(kc, make_kernel_call(BeamTracking.mad_to_bmad!, (beta_0, tilde_m, 0)))
+  else
+    kc = push(kc, make_kernel_call(BeamTracking.callback_implicit!, (s0 + ele.universalparams.L_slice, 0, beta_0, tilde_m, potential_and_jac, potential_params, p_over_q_ref, normalized, Val{false}())))
+  end
   kc = push_transforms_out(kc, make_kernel_call(BeamTracking.callback_implicit!, (beta_0, tilde_m, potential_and_jac, potential_params, p_over_q_ref, normalized, Val{false}())))
   kc = push_transforms_in(kc, make_kernel_call(BeamTracking.callback_implicit!, (beta_0, tilde_m, potential_and_jac, potential_params, p_over_q_ref, normalized, Val{true}())))
   return kc

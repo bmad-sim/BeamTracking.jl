@@ -42,11 +42,21 @@
     radiation_params = ele.universalparams.rad_damping ? (q, mc2, E_ref) : nothing
     params = (radiation_params, kE, beta_0, tilde_m, w, w_inv, a)
     photon_params = isprimitivetype(eltype(bunch.coords.v)) && ele.universalparams.rad_fluctuations ? (BeamTracking.exact_elsep!, get_backend(bunch.coords.v), q, mc2, E_ref, kE, w, w_inv) : nothing
-    kc = push(kc, make_kernel_call(BeamTracking.bmad_to_mad!, (beta_0, tilde_m, 0)))
+    # The potential is taken as zero at the element ends. At the ends of a slice inside the element 
+    # (n_slices > 1) it is in general not, so there convert with it as the callbacks do
+    if ele.universalparams.first_slice
+      kc = push(kc, make_kernel_call(BeamTracking.bmad_to_mad!, (beta_0, tilde_m, 0)))
+    else
+      kc = push(kc, make_kernel_call(BeamTracking.callback_electric!, (0, 0, beta_0, tilde_m, kE, w, Val{true}())))
+    end
     kc = push(kc, integration_launcher(BeamTracking.elsep_rad!, params, photon_params, edge_params, tm, ele.universalparams))
-    kc = push(kc, make_kernel_call(BeamTracking.mad_to_bmad!, (beta_0, tilde_m, 0)))
-    kc = push_transforms_out(kc, make_kernel_call(BeamTracking.callback_electric!, (beta_0, tilde_m, kE, Val{false}())))
-    kc = push_transforms_in(kc, make_kernel_call(BeamTracking.callback_electric!, (beta_0, tilde_m, kE, Val{true}())))
+    if ele.universalparams.last_slice
+      kc = push(kc, make_kernel_call(BeamTracking.mad_to_bmad!, (beta_0, tilde_m, 0)))
+    else
+      kc = push(kc, make_kernel_call(BeamTracking.callback_electric!, (0, 0, beta_0, tilde_m, kE, w, Val{false}())))
+    end
+    kc = push_transforms_out(kc, make_kernel_call(BeamTracking.callback_electric!, (beta_0, tilde_m, kE, w, Val{false}())))
+    kc = push_transforms_in(kc, make_kernel_call(BeamTracking.callback_electric!, (beta_0, tilde_m, kE, w, Val{true}())))
     return kc
   end
 

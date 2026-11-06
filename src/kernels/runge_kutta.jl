@@ -259,21 +259,23 @@ end
 
 """
   rk4_kernel!(i, coords, beta_0, tilde_m, charge, p0c, mc2,
-              L, ds_step, n_steps, gx, gy, field_function, field_parameters, field_normalized)
+              L, ds_step, n_steps, gx, gy, field_function, field_parameters, field_normalized, s0=0)
 
-Kernelized RK4 tracking through a concrete electromagnetic field source.
+Kernelized RK4 tracking through a concrete electromagnetic field source. `s0` is the s of the 
+entrance within the element (nonzero for a slice of an element): the fields are evaluated at s 
+(and the element-local time) from the element entrance.
 Compatible with @makekernel and the package's kernel architecture.
 """
 @makekernel function rk4_kernel!(i, coords::Coords, beta_0, tilde_m, charge, p0c, mc2,
                                 L, ds_step, n_steps,
-                                gx, gy, field_function, field_parameters, field_normalized)
+                                gx, gy, field_function, field_parameters, field_normalized, s0=0)
   s = zero(L)
   electric_scale = charge / p0c
   magnetic_scale = electric_scale * c_light(typeof(p0c))
   reference = _rk_reference_factors(beta_0, tilde_m)
 
   for step in 1:n_steps
-    _rk4_step!(coords, i, s, ds_step, field_function, field_parameters, field_normalized, tilde_m, beta_0, gx, gy, magnetic_scale, reference)
+    _rk4_step!(coords, i, s0 + s, ds_step, field_function, field_parameters, field_normalized, tilde_m, beta_0, gx, gy, magnetic_scale, reference)
     s += ds_step
 
     # The common path performs the final callback after exit processing.

@@ -51,9 +51,10 @@
   n_steps = ele.universalparams.n_steps
   ds_step = ele.universalparams.ds_step
 
+  # The fields are evaluated at s from the element entrance (s0 is nonzero for a slice of the element)
   params = (beta_0, tilde_m, charge, p0c, mc2, L, ds_step, n_steps, gx, gy,
             (multipole_functions..., custom_functions...),
             (multipole_parameters..., custom_parameters...),
-            (multipole_normalized..., custom_normalized...))
+            (multipole_normalized..., custom_normalized...), ele.universalparams.s0)
   return push(kc, make_kernel_call(BeamTracking.rk4_kernel!, params))
 end

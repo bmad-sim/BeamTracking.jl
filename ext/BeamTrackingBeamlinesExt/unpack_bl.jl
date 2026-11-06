@@ -215,9 +215,8 @@ function _track!(
                          emfieldparams, ibsparams, ref, ramp_particle_energy_without_rf, ramp_update_each_particle,
                          shift_time, batch_start; kwargs...)
   else
-    # Each slice is tracked separately (see _SliceUniversalParams). The kernels of these tracking
-    # methods use s (and the time) from the element entrance for the fields
-    !(tm isa Union{RK4,Implicit,SaganCavity}) || error("$(nameof(typeof(tm))) is not compatible with elements with n_slices > 1. Try n_slices = 1 instead")
+    # Each slice is tracked separately (see _SliceUniversalParams)
+    !(tm isa SaganCavity) || error("SaganCavity is not compatible with elements with n_slices > 1. Try n_slices = 1 instead")
     isnothing(patchparams) || error("Elements with n_slices > 1 are not compatible with PatchParams. Try n_slices = 1 instead")
     isnothing(mapparams) || error("Elements with n_slices > 1 are not compatible with MapParams. Try n_slices = 1 instead")
     for k in 1:n_slices
