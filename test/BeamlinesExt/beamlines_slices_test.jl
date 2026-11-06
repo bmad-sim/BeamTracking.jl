@@ -63,6 +63,45 @@ using Random
   test_misaligned_slices_vs_halves((; x_offset=1e-3, y_offset=-2e-3, z_offset=0.0, x_rot=0.0, y_rot=0.0, tilt=0.3), ==)
   test_misaligned_slices_vs_halves((; x_offset=1e-3, y_offset=-2e-3, z_offset=3e-3, x_rot=2e-3, y_rot=-1e-3, tilt=0.3), (a, b) -> maximum(abs.(a .- b)) <= 4*eps(20.0))
 
+  # Same for a misaligned bend. The misalignment is the rigid motion x -> C + d + W*(x - C) in the 
+  # untilted frame at the arc midpoint, with C the chord midpoint, d the offsets and W the rotation. 
+  # The untilted frame at the arc midpoint of each half (sigma = -L/4, L/4 from the arc midpoint) 
+  # is y -> P + Q*y (reference orbit P, rotation Q by g*sigma about (sin(tilt_ref), -cos(tilt_ref), 0)), 
+  # so each half has the rotation Q'*W*Q and the offsets Q'*(C + d + W*(P - C) - P) - C_h + Q'*W*Q*C_h
+  qmat(q) = hcat(collect(BeamTracking.quat_rotate((1.0, 0, 0), q)), collect(BeamTracking.quat_rotate((0, 1.0, 0), q)), collect(BeamTracking.quat_rotate((0, 0, 1.0), q)))
+  chord_mid(L, g, st, ct) = (f = -L^2*g*BeamTracking.one_cos_norm(L*g/2)/4; [f*ct, f*st, 0.0])
+  function misaligned_bend_halves_test(tilt_ref)
+    L, g = 4.0, 0.1
+    al = (; x_offset=1e-3, y_offset=-2e-3, z_offset=3e-3, x_rot=2e-3, y_rot=-1e-3, tilt=0.3)
+    st, ct = sincos(tilt_ref)
+    W = qmat(BeamTracking.rot_quaternion(al.x_rot, al.y_rot, al.tilt))
+    C = chord_mid(L, g, st, ct)
+    halves_al = map((-L/4, L/4)) do sigma
+      P = [-ct, -st, 0.0]*(1 - cos(g*sigma))/g + [0, 0, 1.0]*sin(g*sigma)/g
+      Q = qmat((cos(g*sigma/2), sin(g*sigma/2)*st, -sin(g*sigma/2)*ct, 0.0))
+      Ch = chord_mid(L/2, g, st, ct)
+      Wh = Q'*W*Q
+      dh = Q'*(C + [al.x_offset, al.y_offset, al.z_offset] + W*(P - C) - P) - Ch + Wh*Ch
+      # Angles of Wh = R_y(y_rot)*R_x(x_rot)*R_z(tilt) (see rot_quaternion)
+      x_rot = asin(-Wh[2,3])
+      y_rot = atan(Wh[1,3], Wh[3,3])
+      M = qmat(BeamTracking.rot_quaternion(x_rot, 0, 0))'*qmat(BeamTracking.rot_quaternion(0, y_rot, 0))'*Wh
+      (; x_offset=dh[1], y_offset=dh[2], z_offset=dh[3], x_rot, y_rot, tilt=atan(M[2,1], M[1,1]))
+    end
+    kw = (; g=g, Kn0=g, tilt_ref=tilt_ref, e1=0.05, e2=0.03, Kn2=0.5, ibs_model=IBSModel.GaussianDampingOnly)
+    sliced = LatElement(; L=L, tracking_method=BendKick(), n_steps=3, n_slices=2, kw..., al...)
+    halves = [LatElement(; L=L/2, tracking_method=BendKick(), n_steps=3, kw..., halves_al[j]..., fringe_at=(j == 1 ? Fringe.EntranceEnd : Fringe.ExitEnd)) for j in 1:2]
+    v = 1e-5 .* randn(200, 6)
+    b1 = Bunch(copy(v), nothing, 1e10; p_over_q_ref=R0, species=e)
+    b2 = Bunch(copy(v), nothing, 1e10; p_over_q_ref=R0, species=e)
+    track!(b1, Beamline([sliced]; p_over_q_ref=R0, species_ref=e); notify=false)
+    track!(b2, Beamline(halves; p_over_q_ref=R0, species_ref=e); notify=false)
+    @test maximum(abs.(b1.coords.v .- b2.coords.v)) <= 4*eps(L)
+    @test b1.t_ref == b2.t_ref
+  end
+  misaligned_bend_halves_test(0.0)
+  misaligned_bend_halves_test(0.4)
+
   # Without ramping or collective effects, n_slices = k is the same as n_slices = 1 with k times
   # the steps: fringes are only at the element ends, apertures are only checked at the element
   # ends, and misalignments transform out and back in at each slice end
