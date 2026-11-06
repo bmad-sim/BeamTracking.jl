@@ -72,7 +72,8 @@ end
 
 #---------------------------------------------------------------------------------------------------
 
-@inline function alignment(kc, alignmentparams, bendparams, L, entering)
+# s: position of the face (entrance at s = 0, exit at s = L, or a slice end) within the element
+@inline function alignment(kc, alignmentparams, bendparams, L, s, entering)
   if isnothing(alignmentparams); return kc; end
 
   x_off = alignmentparams.x_offset
@@ -87,7 +88,7 @@ end
   if !isnothing(bendparams) # && (bendparams.g_ref != 0 || bendparams.tilt_ref != 0)
     if entering
       mid_r, mid_q, st, ct = BeamTracking.coord_alignment_bend_mid(x_off, y_off, z_off, x_rot, y_rot, tilt, bendparams.g_ref, bendparams.tilt_ref, L)
-      kc = push(kc, make_kernel_call(BeamTracking.track_coord_bend_transform_at_s!, (mid_r, mid_q, st, ct, bendparams.g_ref, L, 0, Val{true}())))
+      kc = push(kc, make_kernel_call(BeamTracking.track_coord_bend_transform_at_s!, (mid_r, mid_q, st, ct, bendparams.g_ref, L, s, Val{true}())))
       kc = push_transforms_in(kc, make_kernel_call(
           BeamTracking.callback_coord_bend_transform_at_s!, (mid_r, mid_q, st, ct,  bendparams.g_ref, L, Val{true}())
         )
@@ -95,7 +96,7 @@ end
       return kc
     else
       mid_r, mid_q, st, ct = BeamTracking.coord_alignment_bend_mid(x_off, y_off, z_off, x_rot, y_rot, tilt, bendparams.g_ref, bendparams.tilt_ref, L)
-      kc = push(kc, make_kernel_call(BeamTracking.track_coord_bend_transform_at_s!, (mid_r, mid_q, st, ct, bendparams.g_ref, L, L, Val{false}())))
+      kc = push(kc, make_kernel_call(BeamTracking.track_coord_bend_transform_at_s!, (mid_r, mid_q, st, ct, bendparams.g_ref, L, s, Val{false}())))
       kc = push_transforms_out(kc, make_kernel_call(
           BeamTracking.callback_coord_bend_transform_at_s!, (mid_r, mid_q, st, ct,  bendparams.g_ref, L, Val{false}())
         )
@@ -104,14 +105,14 @@ end
     end
   else
     if entering
-      kc = push(kc, make_kernel_call(BeamTracking.track_alignment_straight_at_s!, (x_off, y_off, z_off, x_rot, y_rot, tilt, ele_orient, L, 0, Val{true}())))
+      kc = push(kc, make_kernel_call(BeamTracking.track_alignment_straight_at_s!, (x_off, y_off, z_off, x_rot, y_rot, tilt, ele_orient, L, s, Val{true}())))
       kc = push_transforms_in(kc, make_kernel_call(
           BeamTracking.callback_alignment_straight_at_s!, (x_off, y_off, z_off, x_rot, y_rot, tilt, ele_orient, L, Val{true}())
         )
       )
       return kc
     else
-      kc = push(kc, make_kernel_call(BeamTracking.track_alignment_straight_at_s!, (x_off, y_off, z_off, x_rot, y_rot, tilt, ele_orient, L, L, Val{false}())))
+      kc = push(kc, make_kernel_call(BeamTracking.track_alignment_straight_at_s!, (x_off, y_off, z_off, x_rot, y_rot, tilt, ele_orient, L, s, Val{false}())))
       kc = push_transforms_out(kc, make_kernel_call(
           BeamTracking.callback_alignment_straight_at_s!, (x_off, y_off, z_off, x_rot, y_rot, tilt, ele_orient, L, Val{false}())
         )

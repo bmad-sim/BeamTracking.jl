@@ -8,6 +8,7 @@
   include("BeamlinesExt/beamlines_ibs_test.jl")
   include("BeamlinesExt/beamlines_context_test.jl")
   include("BeamlinesExt/beamlines_ignore_params_test.jl")
+  include("BeamlinesExt/beamlines_slices_test.jl")
 
   #------------------------------------------------------------------------------------------------
 

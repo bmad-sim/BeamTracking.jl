@@ -20,8 +20,44 @@ struct _ConcreteUniversalParams{A,F,RD,RF}
   end
 end
 
-Base.getproperty(up::_ConcreteUniversalParams{A,F,RD,RF}, key::Symbol) where {A,F,RD,RF} = 
-  key === :fringe_at ? F : key === :rad_damping ? RD : key === :rad_fluctuations ? RF : getfield(up, key)
+# An element with n_slices == 1 is a single slice (s0, L_slice, first_slice and last_slice are
+# compile-time constants, see _SliceUniversalParams)
+Base.getproperty(up::_ConcreteUniversalParams{A,F,RD,RF}, key::Symbol) where {A,F,RD,RF} =
+  key === :fringe_at ? F : key === :rad_damping ? RD : key === :rad_fluctuations ? RF :
+  key === :s0 ? 0 : key === :L_slice ? getfield(up, :L) : key === :first_slice ? true : key === :last_slice ? true : getfield(up, key)
+
+# Slice k of an element with n_slices > 1. Each slice is tracked by its own universal! (and launch!)
+# like an element of length L_slice = L/n_slices starting at s0, so the reference energy is ramped
+# and collective effects are recomputed at the start of each slice. L is still the element length
+# (strengths are per element length), n_steps and ds_step are per slice, and fringe_at (F) only
+# includes the element entrance in the first slice and the element exit in the last slice. FIRST
+# and LAST are the first_slice and last_slice properties.
+struct _SliceUniversalParams{A,F,RD,RF,FIRST,LAST}
+  L::A
+  n_steps::Int
+  ds_step::Float64
+  n_slices::Int
+  s0::A
+  L_slice::A
+  function _SliceUniversalParams(up::UniversalParams, k::Int)
+    L = float(up.L)
+    n_steps = up.n_steps
+    n_slices = up.n_slices
+    L_slice = L / n_slices
+    ds_step = L_slice / n_steps
+    s0 = (k - 1)*L_slice
+    first_slice = k == 1
+    last_slice = k == n_slices
+    fringe_in = first_slice && (up.fringe_at == Fringe.BothEnds || up.fringe_at == Fringe.EntranceEnd)
+    fringe_out = last_slice && (up.fringe_at == Fringe.BothEnds || up.fringe_at == Fringe.ExitEnd)
+    fringe_at = fringe_in ? (fringe_out ? Fringe.BothEnds : Fringe.EntranceEnd) : (fringe_out ? Fringe.ExitEnd : Fringe.NoEnd)
+    return new{typeof(L),fringe_at,up.rad_damping,up.rad_fluctuations,first_slice,last_slice}(L, n_steps, ds_step, n_slices, s0, L_slice)
+  end
+end
+
+Base.getproperty(up::_SliceUniversalParams{A,F,RD,RF,FIRST,LAST}, key::Symbol) where {A,F,RD,RF,FIRST,LAST} =
+  key === :fringe_at ? F : key === :rad_damping ? RD : key === :rad_fluctuations ? RF :
+  key === :first_slice ? FIRST : key === :last_slice ? LAST : getfield(up, key)
 
 Base.@kwdef struct LoweredElement{A,B,C,D,E,F,G,H,I,J,K,L,M,N}
   universalparams::A
@@ -172,10 +208,25 @@ function _track!(
   end
 
   # Function barrier. The LoweredElement is built after the barrier, where all types are known
-  @noinline universal!(bunch, tm, ele, _ConcreteUniversalParams(universalparams), alignmentparams, bendparams, bmultipoleparams, 
-                       patchparams, apertureparams, rfparams, beamlineparams, mapparams, fourpotentialparams, emultipoleparams, 
-                       emfieldparams, ibsparams, ref, ramp_particle_energy_without_rf, ramp_update_each_particle, 
-                       shift_time, batch_start; kwargs...)
+  n_slices = (universalparams::UniversalParams).n_slices
+  if n_slices == 1
+    @noinline universal!(bunch, tm, ele, _ConcreteUniversalParams(universalparams), alignmentparams, bendparams, bmultipoleparams,
+                         patchparams, apertureparams, rfparams, beamlineparams, mapparams, fourpotentialparams, emultipoleparams,
+                         emfieldparams, ibsparams, ref, ramp_particle_energy_without_rf, ramp_update_each_particle,
+                         shift_time, batch_start; kwargs...)
+  else
+    # Each slice is tracked separately (see _SliceUniversalParams). The kernels of these tracking
+    # methods use s (and the time) from the element entrance for the fields
+    !(tm isa Union{RK4,Implicit,SaganCavity}) || error("$(nameof(typeof(tm))) is not compatible with elements with n_slices > 1. Try n_slices = 1 instead")
+    isnothing(patchparams) || error("Elements with n_slices > 1 are not compatible with PatchParams. Try n_slices = 1 instead")
+    isnothing(mapparams) || error("Elements with n_slices > 1 are not compatible with MapParams. Try n_slices = 1 instead")
+    for k in 1:n_slices
+      @noinline universal!(bunch, tm, ele, _SliceUniversalParams(universalparams, k), alignmentparams, bendparams, bmultipoleparams,
+                           patchparams, apertureparams, rfparams, beamlineparams, mapparams, fourpotentialparams, emultipoleparams,
+                           emfieldparams, ibsparams, ref, ramp_particle_energy_without_rf, ramp_update_each_particle,
+                           shift_time, batch_start; kwargs...)
+    end
+  end
 end
 
 # Step 2: Push particles through -----------------------------------------
@@ -209,10 +260,9 @@ function universal!(
   p_over_q_ref = ref.p_over_q_ref
 
   L = universalparams.L
-
-  if universalparams.n_slices != 1
-    error("Elements with n_slices > 1 not yet supported")
-  end
+  # The slice of the element tracked here (the whole element if n_slices == 1)
+  s0 = universalparams.s0
+  L_slice = universalparams.L_slice
 
   # Compute information about reference coordinate system:
   t_enter = bunch.t_ref
@@ -229,10 +279,10 @@ function universal!(
   # reference energy, which time dependent parameters and RF are timed against. t_exit is the time
   # of the Bunch reference particle, which the kernels' z is measured against. The two differ only
   # if the Bunch species differs from the reference species, in which case z is re-referenced to 
-  # the design clock at the end of the element.
-  t_exit = bunch.t_ref + L / beta_gamma_to_v(beta_gamma_enter)
+  # the design clock at the end of the element (slice).
+  t_exit = bunch.t_ref + L_slice / beta_gamma_to_v(beta_gamma_enter)
   if shift_time
-    t_exit_design = bunch.t_ref + L / R_to_v(ele.ref.species_ref, ele.ref.field_scale*p_over_q_ref_enter)
+    t_exit_design = bunch.t_ref + L_slice / R_to_v(ele.ref.species_ref, ele.ref.field_scale*p_over_q_ref_enter)
   else
     t_exit_design = t_exit
   end
@@ -255,9 +305,10 @@ function universal!(
     beta_gamma_enter = BeamTracking.num_lower(T, beta_gamma_enter),
     t_exit = BeamTracking.num_lower(T, t_exit),
     beta_gamma_exit = BeamTracking.num_lower(T, beta_gamma_exit),
-    L = BeamTracking.num_lower(T, L),
+    L = BeamTracking.num_lower(T, L_slice),
     g = BeamTracking.num_lower(T, g),
     ds_step = BeamTracking.num_lower(T, ds_step),
+    s0 = BeamTracking.num_lower(T, s0),
   )
 
   # Current KernelChain length is 11 because we have up to
@@ -267,8 +318,8 @@ function universal!(
   # and 1 to update the particles' reference time
   kc = KernelChain(Val{11}(), refstate, batch_start)
   
-  if !isnothing(ibsparams) && ibsparams.ibs_model != IBSModel.None && L > 0
-    kc = @inline(ibs_kick(kc, bunch, ibsparams, bendparams, L))
+  if !isnothing(ibsparams) && ibsparams.ibs_model != IBSModel.None && L_slice > 0
+    kc = @inline(ibs_kick(kc, bunch, ibsparams, bendparams, L_slice))
   end
 
   ramp_per_particle = p_over_q_ref isa TimeDependentParam && ramp_update_each_particle
@@ -288,40 +339,43 @@ function universal!(
     end
   end
 
-  # Entrance aperture and alignment
+  # Entrance aperture (only at the element entrance) and alignment (at the slice entrance)
+  entrance_apertureparams = universalparams.first_slice ? apertureparams : nothing
   if !isnothing(alignmentparams)
-    if !isnothing(apertureparams)
-      if apertureparams.aperture_shifts_with_body
-        kc = @inline(alignment(kc, alignmentparams, bendparams, L, true))
-        kc = @inline(aperture(kc, apertureparams, true))
+    if !isnothing(entrance_apertureparams)
+      if entrance_apertureparams.aperture_shifts_with_body
+        kc = @inline(alignment(kc, alignmentparams, bendparams, L, s0, true))
+        kc = @inline(aperture(kc, entrance_apertureparams, true))
       else
-        kc = @inline(aperture(kc, apertureparams, true))
-        kc = @inline(alignment(kc, alignmentparams, bendparams, L, true))
+        kc = @inline(aperture(kc, entrance_apertureparams, true))
+        kc = @inline(alignment(kc, alignmentparams, bendparams, L, s0, true))
       end
     else
-      kc = @inline(alignment(kc, alignmentparams, bendparams, L, true))
+      kc = @inline(alignment(kc, alignmentparams, bendparams, L, s0, true))
     end
-  elseif !isnothing(apertureparams)
-    kc = @inline(aperture(kc, apertureparams, true))
+  elseif !isnothing(entrance_apertureparams)
+    kc = @inline(aperture(kc, entrance_apertureparams, true))
   end
 
   kc = @inline fringe_body_fringe(tm, kc, p_over_q_ref, bunch, ele)
 
-  # Exit aperture and alignment
+  # Exit aperture (only at the element exit) and alignment (at the slice exit)
+  exit_apertureparams = universalparams.last_slice ? apertureparams : nothing
+  s_exit = universalparams.last_slice ? L : s0 + L_slice
   if !isnothing(alignmentparams)
-    if !isnothing(apertureparams)
-      if apertureparams.aperture_shifts_with_body
-        kc = @inline(aperture(kc, apertureparams, false))
-        kc = @inline(alignment(kc, alignmentparams, bendparams, L, false))
+    if !isnothing(exit_apertureparams)
+      if exit_apertureparams.aperture_shifts_with_body
+        kc = @inline(aperture(kc, exit_apertureparams, false))
+        kc = @inline(alignment(kc, alignmentparams, bendparams, L, s_exit, false))
       else
-        kc = @inline(alignment(kc, alignmentparams, bendparams, L, false))
-        kc = @inline(aperture(kc, apertureparams, false))
+        kc = @inline(alignment(kc, alignmentparams, bendparams, L, s_exit, false))
+        kc = @inline(aperture(kc, exit_apertureparams, false))
       end
     else
-      kc = @inline(alignment(kc, alignmentparams, bendparams, L, false))
+      kc = @inline(alignment(kc, alignmentparams, bendparams, L, s_exit, false))
     end
-  elseif !isnothing(apertureparams)
-    kc = @inline(aperture(kc, apertureparams, false))
+  elseif !isnothing(exit_apertureparams)
+    kc = @inline(aperture(kc, exit_apertureparams, false))
   end
 
   # If ramping, now need to uniformly ramp all particles to same reference energy

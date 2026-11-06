@@ -28,7 +28,8 @@ end
   L = universalparams.L
   n_steps = universalparams.n_steps
   ds_step = universalparams.ds_step
-  @assert ds_step ≈ L / n_steps "Inconsistent ds_step/n_steps: !(ds_step ≈ L / n_steps) -> !($ds_step ≈ $L / $n_steps) "
+  L_slice = universalparams.L_slice # L, or the length of a slice of the element
+  @assert ds_step ≈ L_slice / n_steps "Inconsistent ds_step/n_steps: !(ds_step ≈ L_slice / n_steps) -> !($ds_step ≈ $L_slice / $n_steps) "
   fin  = fringe_in(universalparams.fringe_at)
   fout = fringe_out(universalparams.fringe_at)
   if order == 2
