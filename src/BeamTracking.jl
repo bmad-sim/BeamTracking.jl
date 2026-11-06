@@ -1,6 +1,5 @@
 module BeamTracking
-using AcceleratorSimUtils,
-      GTPSA,
+using GTPSA,
       ReferenceFrameRotations,
       StaticArrays, 
       SIMD,

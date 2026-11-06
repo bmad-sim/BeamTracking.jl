@@ -10,7 +10,7 @@ end
 @testset "BeamlinesReference" begin
   e = Species("electron")
   p = Species("positron")
-  R = BeamTracking.E_to_R(e, 1e9) # Signed: negative for electrons
+  R = Beamlines.E_to_R(e, 1e9) # Signed: negative for electrons
   v0 = [1e-3 2e-4 -5e-4 1e-4 1e-3 1e-3]
 
   # Species and energy unset in the Bunch are inherited from the Beamline
@@ -57,15 +57,15 @@ end
   # the same fields, but z and t_ref are referenced to the deuteron (design) clock
   d = Species("deuteron")
   pr = Species("proton")
-  R_d = BeamTracking.E_to_R(d, 3e9)
+  R_d = Beamlines.E_to_R(d, 3e9)
   bl_d = Beamline([Quadrupole(L=0.5, Kn1=0.3), Drift(L=1.0)]; species_ref=d, p_over_q_ref=R_d)
   bl_pr = Beamline([Quadrupole(L=0.5, Kn1=0.3), Drift(L=1.0)]; species_ref=pr, p_over_q_ref=R_d)
   b1 = Bunch(copy(v0); species=pr); track!(b1, bl_d; notify=false)
   b2 = Bunch(copy(v0); species=pr); track!(b2, bl_pr; notify=false)
   @test b1.coords.v[:, [1,2,3,4,6]] ≈ b2.coords.v[:, [1,2,3,4,6]]
-  t_d = 1.5/BeamTracking.R_to_v(d, R_d)
-  t_pr = 1.5/BeamTracking.R_to_v(pr, R_d)
+  t_d = 1.5/Beamlines.R_to_v(d, R_d)
+  t_pr = 1.5/Beamlines.R_to_v(pr, R_d)
   @test b1.t_ref ≈ t_d && b2.t_ref ≈ t_pr
-  beta = (1 + v0[6])/sqrt((1 + v0[6])^2 + 1/BeamTracking.R_to_beta_gamma(pr, R_d)^2)
+  beta = (1 + v0[6])/sqrt((1 + v0[6])^2 + 1/Beamlines.R_to_beta_gamma(pr, R_d)^2)
   @test b1.coords.v[1,5] ≈ b2.coords.v[1,5] + beta*C_LIGHT*(t_d - t_pr)
 end

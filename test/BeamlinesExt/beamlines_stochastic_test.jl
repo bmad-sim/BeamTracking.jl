@@ -4,7 +4,7 @@ using Random
   Random.seed!(0)
 
   # Here just check that they don't bug out
-  p_over_q_ref = BeamTracking.E_to_R(Species("electron"), 18e9)
+  p_over_q_ref = Beamlines.E_to_R(Species("electron"), 18e9)
   bend = SBend(g = 0.01, L = 2.0, 
   tracking_method = BendKick(order = 2), n_steps = 1, 
   rad_damping = true, rad_fluctuations = true)

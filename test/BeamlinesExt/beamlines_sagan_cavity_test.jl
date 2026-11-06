@@ -37,11 +37,11 @@ qout5 = [0.9957322482368662 0.07718724537569223 -0.05056522513866194 0.001605297
 qout6 = [0.9907268064380208 -0.12175040740909787 0.060305653940766195 0.0006792669694700435]
 qout7 = [0.9945900636739683 0.09519284014707527 -0.040806404330128124 -0.00798534854536703]
 
-R0 = BT.E_to_R(species, E0)
+R0 = Beamlines.E_to_R(species, E0)
 
 @testset "SaganCavity" begin
   ele = sc1
-  b1 = Bunch(deepcopy(v1), deepcopy(quat1), species=species, p_over_q_ref = BT.E_to_R(species, ele.E_ref-ele.dE_ref))
+  b1 = Bunch(deepcopy(v1), deepcopy(quat1), species=species, p_over_q_ref = Beamlines.E_to_R(species, ele.E_ref-ele.dE_ref))
   track!(b1, ele)
   if printit; println(b1.coords.q); end
   @test b1.coords.v ≈ out1
@@ -49,7 +49,7 @@ R0 = BT.E_to_R(species, E0)
   @test b1.t_ref ≈ 6.671281911876738e-9
 
   ele = sc2
-  b1 = Bunch(deepcopy(v1), deepcopy(quat1), species=species, p_over_q_ref = BT.E_to_R(species, ele.E_ref-ele.dE_ref))
+  b1 = Bunch(deepcopy(v1), deepcopy(quat1), species=species, p_over_q_ref = Beamlines.E_to_R(species, ele.E_ref-ele.dE_ref))
   track!(b1, ele)
   if printit; println(b1.coords.q); end
   @test b1.coords.v ≈ out2
@@ -57,7 +57,7 @@ R0 = BT.E_to_R(species, E0)
   @test b1.t_ref ≈ 6.6712819105865366e-9
 
   ele = sc3
-  b1 = Bunch(deepcopy(v1), deepcopy(quat1), species=species, p_over_q_ref = BT.E_to_R(species, ele.E_ref-ele.dE_ref))
+  b1 = Bunch(deepcopy(v1), deepcopy(quat1), species=species, p_over_q_ref = Beamlines.E_to_R(species, ele.E_ref-ele.dE_ref))
   track!(b1, ele)
   if printit; println(b1.coords.q); end
   @test b1.coords.v ≈ out3
@@ -65,7 +65,7 @@ R0 = BT.E_to_R(species, E0)
   @test b1.t_ref == 0
 
   ele = sc4
-  b1 = Bunch(deepcopy(v1), deepcopy(quat1), species=species, p_over_q_ref = BT.E_to_R(species, ele.E_ref-ele.dE_ref))
+  b1 = Bunch(deepcopy(v1), deepcopy(quat1), species=species, p_over_q_ref = Beamlines.E_to_R(species, ele.E_ref-ele.dE_ref))
   track!(b1, ele)
   if printit; println(b1.coords.q); end
   @test b1.coords.v ≈ out4
@@ -73,7 +73,7 @@ R0 = BT.E_to_R(species, E0)
   @test b1.t_ref == 0
 
   ele = sc5
-  b1 = Bunch(deepcopy(v1), deepcopy(quat1), species=species, p_over_q_ref = BT.E_to_R(species, ele.E_ref-ele.dE_ref))
+  b1 = Bunch(deepcopy(v1), deepcopy(quat1), species=species, p_over_q_ref = Beamlines.E_to_R(species, ele.E_ref-ele.dE_ref))
   track!(b1, ele)
   if printit; println(b1.coords.v); end
   if printit; println(b1.coords.q); end
@@ -82,7 +82,7 @@ R0 = BT.E_to_R(species, E0)
   @test b1.t_ref ≈ 6.671281910560153e-9
 
   ele = sc6
-  b1 = Bunch(deepcopy(v1), deepcopy(quat1), species=species, p_over_q_ref = BT.E_to_R(species, ele.E_ref-ele.dE_ref))
+  b1 = Bunch(deepcopy(v1), deepcopy(quat1), species=species, p_over_q_ref = Beamlines.E_to_R(species, ele.E_ref-ele.dE_ref))
   track!(b1, ele)
   if printit; println(b1.coords.v); end
   if printit; println(b1.coords.q); end
@@ -91,7 +91,7 @@ R0 = BT.E_to_R(species, E0)
   @test b1.t_ref ≈ 6.6712819100116676e-9
 
   ele = sc7
-  b1 = Bunch(deepcopy(v1), deepcopy(quat1), species=species, p_over_q_ref = BT.E_to_R(species, ele.E_ref-ele.dE_ref))
+  b1 = Bunch(deepcopy(v1), deepcopy(quat1), species=species, p_over_q_ref = Beamlines.E_to_R(species, ele.E_ref-ele.dE_ref))
   track!(b1, ele)
   if printit; println(b1.coords.v); end
   if printit; println(b1.coords.q); end
@@ -107,14 +107,14 @@ end
   # The reference time is accumulated through a SaganCavity (not reset)
   t0 = 1e-6
   ele = sc1
-  b1 = Bunch(deepcopy(v1), deepcopy(quat1), species=species, p_over_q_ref = BT.E_to_R(species, ele.E_ref-ele.dE_ref))
+  b1 = Bunch(deepcopy(v1), deepcopy(quat1), species=species, p_over_q_ref = Beamlines.E_to_R(species, ele.E_ref-ele.dE_ref))
   b1.t_ref = t0
   track!(b1, ele)
   @test b1.coords.v ≈ out1
   @test b1.t_ref ≈ t0 + 6.671281911876738e-9
 
   ele = sc3 # L = 0
-  b1 = Bunch(deepcopy(v1), deepcopy(quat1), species=species, p_over_q_ref = BT.E_to_R(species, ele.E_ref-ele.dE_ref))
+  b1 = Bunch(deepcopy(v1), deepcopy(quat1), species=species, p_over_q_ref = Beamlines.E_to_R(species, ele.E_ref-ele.dE_ref))
   b1.t_ref = t0
   track!(b1, ele)
   @test b1.coords.v ≈ out3
@@ -138,7 +138,7 @@ end
                        tracking_method = SaganCavity(n_cells = 2))
   bs = map((sc_bend, sc_nobend)) do sc
     ele = Branch([Marker(E_ref = E0, species_ref = species), sc]).beamlines[2].line[1]
-    b = Bunch(deepcopy(v1), deepcopy(quat1), species=species, p_over_q_ref = BT.E_to_R(species, ele.E_ref-ele.dE_ref))
+    b = Bunch(deepcopy(v1), deepcopy(quat1), species=species, p_over_q_ref = Beamlines.E_to_R(species, ele.E_ref-ele.dE_ref))
     track!(b, ele)
     return b
   end

@@ -1,5 +1,6 @@
 using BeamTracking: C_LIGHT, Species, chargeof, massof, gyromagnetic_anomaly, 
-E_to_R, E_to_v, implicit_integrator!, order_eight_integrator! 
+implicit_integrator!, order_eight_integrator! 
+using Beamlines: E_to_R, E_to_v
 
 
 function sol(x, y, s, t, Ksol)

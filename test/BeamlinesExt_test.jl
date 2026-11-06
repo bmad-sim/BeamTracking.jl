@@ -15,7 +15,7 @@
   @testset "Exact" begin
     p0c = 10e6
     # E to p_over_q_ref
-    p_over_q_ref = BeamTracking.E_to_R(Species("electron"), sqrt(p0c^2 + massof(Species("electron"))^2))
+    p_over_q_ref = Beamlines.E_to_R(Species("electron"), sqrt(p0c^2 + massof(Species("electron"))^2))
     
     # Patch:
     ele_patch = LatElement(dt=1e-9, dx=2.0, dy=3.0, dz=4.0, dx_rot=-5.0, dy_rot=6.0, dz_rot=7.0, L=-1.9458360380198412, tracking_method=Exact())

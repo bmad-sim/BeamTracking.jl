@@ -28,8 +28,8 @@ end
 
 @testset "RungeKuttaTracking" begin
   using BeamTracking
-  using BeamTracking: Species, massof, chargeof, R_to_beta_gamma, R_to_pc, pc_to_R,
-                      Bunch, STATE_ALIVE, STATE_LOST_PZ, E_CHARGE
+  using BeamTracking: Species, massof, chargeof, Bunch, STATE_ALIVE, STATE_LOST_PZ, E_CHARGE
+  using Beamlines: R_to_beta_gamma, R_to_pc, pc_to_R
   using StaticArrays
 
   # Match the batch tests and the compiler-bug guard in beval: batched
@@ -861,7 +861,7 @@ end
     ele = Drift(L=1.0, tracking_method=RK4(), n_steps=4)
     line = Beamline([ele], E_ref=E_ref, species_ref=species)
     p_over_q_ref = line.p_over_q_ref(0.0)
-    beta_gamma_ref = BeamTracking.R_to_beta_gamma(species, p_over_q_ref)
+    beta_gamma_ref = Beamlines.R_to_beta_gamma(species, p_over_q_ref)
     expected_t_ref = 1.0 / BeamTracking.beta_gamma_to_v(beta_gamma_ref)
     expected_p_over_q_ref = line.p_over_q_ref(expected_t_ref)
     bunch = Bunch([0.0 0.01 0.0 0.0 0.0 0.0;

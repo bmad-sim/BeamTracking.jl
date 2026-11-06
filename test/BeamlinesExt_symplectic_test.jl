@@ -19,7 +19,7 @@
 
     p0c = 10e6
     # E to p_over_q_ref
-    p_over_q_ref = BeamTracking.E_to_R(Species("electron"), sqrt(p0c^2 + massof(Species("electron"))^2))
+    p_over_q_ref = Beamlines.E_to_R(Species("electron"), sqrt(p0c^2 + massof(Species("electron"))^2))
 
     # Thin straight pure dipole:
     ele = LatElement(L=0.0, Kn0L=0.1, tracking_method=Exact())
@@ -279,7 +279,7 @@
     # every multipole by 0.37 equals rotating the coordinates by -0.37, tracking the untilted element
     # and rotating back
     rot_xy(v, a) = [cos(a)*v[1]-sin(a)*v[3] cos(a)*v[2]-sin(a)*v[4] sin(a)*v[1]+cos(a)*v[3] sin(a)*v[2]+cos(a)*v[4] v[5] v[6]]
-    R_5GeV = BeamTracking.E_to_R(Species("electron"), 5e9)
+    R_5GeV = Beamlines.E_to_R(Species("electron"), 5e9)
     v = [0.013 0.021 -0.009 -0.017 0.025 0.08]
     tm = BendKick()
     for (k, tilts) in (((Kn0=0.3, Kn2=0.8), (tilt0=0.37, tilt2=0.37)), ((Kn0=0.3,), (tilt0=0.37,)))
