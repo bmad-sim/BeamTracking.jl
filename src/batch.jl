@@ -76,8 +76,8 @@ Base.eltype(b::BatchParam) = eltype(b.batch)
 
 (::Type{T})(b::BatchParam) where {T<:Number} = BatchParam(T.(b.batch))
 
-Base.zero(b::BatchParam) = BatchParam(zero(first(b.batch)))
-Base.one(b::BatchParam)  = BatchParam(one(first(b.batch))) 
+Base.zero(b::BatchParam) = BatchParam(zero(eltype(b.batch))) # no indexing (GPU arrays)
+Base.one(b::BatchParam)  = BatchParam(one(eltype(b.batch)))
 
 
 function batch_num_lower(batch, num_or_array)
