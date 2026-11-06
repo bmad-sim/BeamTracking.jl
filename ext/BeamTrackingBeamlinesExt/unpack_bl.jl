@@ -250,24 +250,26 @@ function universal!(
     p_over_q_ref_exit = p_over_q_ref
   end
 
-  # Lower RefState values to coordinates number types
+  # Lower RefState values to coordinates number types. Only the RefState gets the lowered values:
+  # everything else below is computed at full precision (e.g. differences of nearly equal times
+  # and energies, and bunch.t_ref), and push lowers the kernel arguments itself
   T = eltype(bunch.coords.v)
-  t_exit_design = BeamTracking.num_lower(T, t_exit_design)
-  t_enter = BeamTracking.num_lower(T, t_enter)
-  beta_gamma_enter = BeamTracking.num_lower(T, beta_gamma_enter)
-  t_exit  = BeamTracking.num_lower(T, t_exit)
-  beta_gamma_exit  = BeamTracking.num_lower(T, beta_gamma_exit)
-  L = BeamTracking.num_lower(T, L)
-  g = BeamTracking.num_lower(T, g)
-  ds_step = BeamTracking.num_lower(T, ds_step)
-  p_over_q_ref = BeamTracking.num_lower(T, p_over_q_ref)
+  refstate = RefState{T}(;
+    t_enter = BeamTracking.num_lower(T, t_enter),
+    beta_gamma_enter = BeamTracking.num_lower(T, beta_gamma_enter),
+    t_exit = BeamTracking.num_lower(T, t_exit),
+    beta_gamma_exit = BeamTracking.num_lower(T, beta_gamma_exit),
+    L = BeamTracking.num_lower(T, L),
+    g = BeamTracking.num_lower(T, g),
+    ds_step = BeamTracking.num_lower(T, ds_step),
+  )
 
   # Current KernelChain length is 11 because we have up to
   # 2 aperture, 2 alignment, 1 body kernel, 1 IBS kernel,
   # 2 kernels to update the particles' reference energy,
   # 2 for coordinate conversion with implicit,
   # and 1 to update the particles' reference time
-  kc = KernelChain(Val{11}(), RefState{T}(; t_enter, beta_gamma_enter, t_exit, beta_gamma_exit, L, g, ds_step), batch_start)
+  kc = KernelChain(Val{11}(), refstate, batch_start)
   
   if !isnothing(ibsparams) && ibsparams.ibs_model != IBSModel.None && L > 0
     kc = @inline(ibs_kick(kc, bunch, ibsparams, bendparams, L))
