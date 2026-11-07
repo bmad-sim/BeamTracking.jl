@@ -35,6 +35,7 @@ function universal!(
   !isactive(fourpotentialparams) || error("SaganCavity Tracking through element $(fullele.name) with FourPotentialParams is undefined")
   !isactive(emultipoleparams) || error("SaganCavity Tracking through element $(fullele.name) with EMultipoleParams is undefined")
   isactive(rfparams) || error("SaganCavity Tracking through element $(fullele.name) without RFParams is undefined")
+  universalparams.n_steps == 1 || error("SaganCavity is not compatible with elements with n_steps > 1 (its kicks are set by n_cells). Try n_steps = 1 instead")
 
   p_over_q_ref = ref.p_over_q_ref
   beta_gamma_ref = R_to_beta_gamma(bunch.species, bunch.p_over_q_ref)

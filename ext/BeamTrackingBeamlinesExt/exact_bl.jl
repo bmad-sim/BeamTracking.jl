@@ -13,6 +13,7 @@
 
   if !isnothing(ele.patchparams)
     # Patch
+    ele.universalparams.n_steps == 1 || error("Elements with n_steps > 1 are not compatible with PatchParams (a patch is one step). Try n_steps = 1 instead")
     pp = ele.patchparams
     winv = inv_rot_quaternion(pp.dx_rot, pp.dy_rot, pp.dz_rot)
     return push(kc, make_kernel_call(BeamTracking.patch!, (beta_0, gamsqr_0, tilde_m, pp.dt, pp.dx, pp.dy, pp.dz, winv, L)))
@@ -20,6 +21,7 @@
 
   if !isnothing(ele.mapparams)
     # User-supplied map, which is in the coordinates of the reference species
+    ele.universalparams.n_steps == 1 || error("Elements with n_steps > 1 are not compatible with MapParams (a map is one step). Try n_steps = 1 instead")
     bunch.species == ele.ref.species_ref || error("Exact is not compatible with elements containing MapParams when the Bunch species ($(bunch.species)) differs from the reference species ($(ele.ref.species_ref))")
     return push(kc, make_kernel_call(BeamTracking.map!, (ele.mapparams.transport_map, ele.mapparams.transport_map_params, L)))
   end
