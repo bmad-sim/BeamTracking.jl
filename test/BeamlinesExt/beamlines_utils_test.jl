@@ -90,3 +90,26 @@ end
     @test maximum(abs.(v_normalized .- trk(mk(scaled(f, -R0), false)))) > 1e-6
   end
 end
+
+@testset "Differentiable element length" begin
+  # A Dual or TPS element length (with a Bunch t_ref of the same type, as the reference time 
+  # depends on it) gives the derivative of the tracking with respect to it
+  e = Species("electron")
+  R = Beamlines.E_to_R(e, 10e9)
+  v0 = [1e-3 2e-3 -1e-3 1e-3 0 1e-3]
+  function trk(L; kw...)
+    bl = Beamline([Quadrupole(L=L, Kn1=0.3; kw...), Drift(L=L)]; p_over_q_ref=R, species_ref=e)
+    b = Bunch(v0 .+ zero(L); species=e, p_over_q_ref=R, t_ref=zero(L))
+    track!(b, bl)
+    return b.coords.v
+  end
+  h = 1e-6
+  for n_slices in (1, 2)
+    dual = ForwardDiff.derivative(L -> trk(L; n_slices), 1.0)
+    @test dual ≈ (trk(1.0 + h; n_slices) .- trk(1.0 - h; n_slices)) ./ (2h) rtol=1e-7
+  end
+  d = Descriptor(1, 1)
+  tps = trk(1.0 + TPS64(@vars(d)[1]))
+  @test GTPSA.scalar.(tps) == trk(1.0)
+  @test [t[1] for t in tps] ≈ ForwardDiff.derivative(trk, 1.0) rtol=1e-12
+end

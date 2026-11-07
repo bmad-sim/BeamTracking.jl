@@ -32,10 +32,6 @@ end
   using Beamlines: R_to_beta_gamma, R_to_pc, pc_to_R
   using StaticArrays
 
-  # Match the batch tests and the compiler-bug guard in beval: batched
-  # explicit SIMD is unsupported on Julia < 1.11 with x86_64 CPUs.
-  batch_simd_supported = !(VERSION < v"1.11" && Sys.ARCH == :x86_64)
-
   # Helper function to setup tracking parameters
   function setup_particle(pc=1e9)  # pc in eV, default corresponds to 1 GeV
     species = Species("electron")
@@ -546,9 +542,6 @@ end
         expected[i, :] .= bunch.coords.v[1, :]
       end
       for (use_KA, use_explicit_SIMD) in ((false, false), (false, true), (true, false))
-        if strength isa DefExpr{BatchParam} && use_explicit_SIMD && !batch_simd_supported
-          continue
-        end
         line = Beamline([Drift(L=0.5, em_field=functional[1],
                               em_field_params=functional[2],
                               tracking_method=RK4(), n_steps=5)],
@@ -567,7 +560,7 @@ end
       beta_0, tilde_m, charge, p0c, mc2, 0.5, 0.1, 5, 0.0, 0.0, field_source..., Val(false),
     ))
     bunch = Bunch(copy(initial), p_over_q_ref=p_over_q_ref, species=species)
-    for simd in (batch_simd_supported ? (false, true) : (false,))
+    for simd in (false, true)
       @test @ballocated(BeamTracking.launch!($bunch.coords, $call;
                        use_KA=false, use_explicit_SIMD=$simd)) == 0
     end
@@ -583,9 +576,7 @@ end
       (v, v, v, v, v + p[1], v)
     end
     for (use_KA, use_explicit_SIMD) in ((false, false), (false, true), (true, false))
-      # Float32 batch gathers currently hit an upstream SIMD pointer-cast bug.
-      # Cover SIMD with static parameters and batches on scalar/KA paths.
-      strength = use_explicit_SIMD ? BatchParam(0.002) : BatchParam([0.002, 0.004])
+      strength = BatchParam([0.002, 0.004])
       line = Beamline([Drift(L=0.5, Bn0=0.001, em_field=evaluator,
                               em_field_params=(strength,),
                               tracking_method=RK4(), n_steps=5)];
@@ -622,7 +613,7 @@ end
     simd_bunch = Bunch(copy(initial), p_over_q_ref=p_over_q_ref, species=species)
     ka_bunch = Bunch(copy(initial), p_over_q_ref=p_over_q_ref, species=species)
 
-    track!(simd_bunch, line; use_KA=false, use_explicit_SIMD=batch_simd_supported)
+    track!(simd_bunch, line; use_KA=false, use_explicit_SIMD=true)
     track!(ka_bunch, line; use_KA=true, use_explicit_SIMD=false)
 
     expected = similar(initial)
@@ -665,7 +656,7 @@ end
     for batch_start in (2, length(batch_fields) + 2)
       shifted = expected[[mod1(i + batch_start - 1, length(batch_fields))
                           for i in axes(initial, 1)], :]
-      for (use_KA, use_explicit_SIMD) in ((false, false), (false, batch_simd_supported), (true, false))
+      for (use_KA, use_explicit_SIMD) in ((false, false), (false, true), (true, false))
         bunch = Bunch(copy(initial), p_over_q_ref=p_over_q_ref, species=species)
         track!(bunch, line; batch_start, use_KA, use_explicit_SIMD)
         @test bunch.coords.v ≈ shifted

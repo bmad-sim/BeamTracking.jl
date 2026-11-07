@@ -24,7 +24,7 @@
   radiation_params = ele.universalparams.rad_damping ? (q, mc2, E_ref) : nothing
 
   if !isnothing(ele.rfparams)
-    omega = rf_omega_calc(ele.rfparams, ele.beamlineparams, ele.ref)
+    omega = rf_omega_calc(ele.rfparams, ele.beamlineparams, ele.ref, p_over_q_ref)
     t_ref = (rf_phi0_calc(ele.rfparams, ele.ref.species_ref) - pi/2)/omega
     # RF phase is locked to the reference species: slip is the extra time per length the Bunch 
     # reference particle takes over the reference species particle (0 if same species)

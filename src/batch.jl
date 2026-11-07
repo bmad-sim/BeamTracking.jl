@@ -339,7 +339,8 @@ end
 @inline function beval(b::_LoweredBatchParam{B}, lane::SIMD.VecRange{N}, batch_start) where {B,N}
   m = rem(lane2vec(lane)+batch_start-1, B)
   i = vifelse(m == 0, B, m)
-  return b.batch[i]
+  # SIMD.jl's gather fails for 32-bit indices (an invalid cast to 64-bit pointers), so gather with Int
+  return b.batch[convert(SIMD.Vec{N,Int}, i)]
 end
 
 """
