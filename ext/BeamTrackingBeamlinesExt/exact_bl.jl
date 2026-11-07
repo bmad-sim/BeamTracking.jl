@@ -1,5 +1,6 @@
-@inline function fringe_body_fringe(tm::Exact, kc, p_over_q_ref, bunch, ele)
+@inline function fringe_body_fringe(tm::Exact, kc, bunch, ele)
   L = ele.universalparams.L
+  p_over_q_ref = ele.ref.p_over_q_ref
   isnothing(ele.emfieldparams) || error("Exact is not compatible with elements containing EMFieldParams. Try RK4 instead")
   isnothing(ele.fourpotentialparams) || error("Exact is not compatible with elements containing FourPotentialParams. Try Implicit instead")
   isnothing(ele.rfparams) || error("Exact is not compatible with elements containing RFParams. Try SolenoidKick or DriftKick instead")

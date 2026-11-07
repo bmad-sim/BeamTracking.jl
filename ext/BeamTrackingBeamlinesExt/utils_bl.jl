@@ -249,12 +249,10 @@ end
 
 #---------------------------------------------------------------------------------------------------
 
-# p_over_q_ref is the tracking p_over_q_ref (evaluated at the element entrance unless ramping per 
-# particle, as everywhere in the element)
-function rf_omega_calc(rfparams, beamlineparams, ref, p_over_q_ref)
+function rf_omega_calc(rfparams, beamlineparams, ref)
   if rfparams.rate_meaning == RateMeaning.Harmon
     circumference = beamlineparams.beamline.line[end].s_downstream
-    v = R_to_v(ref.species_ref, ref.field_scale*p_over_q_ref) # Beamline p_over_q_ref
+    v = R_to_v(ref.species_ref, ref.field_scale*ref.p_over_q_ref) # Beamline p_over_q_ref
     return 2*pi*rfparams.rate*v/circumference
   else
     return 2*pi*rfparams.rate
@@ -267,9 +265,9 @@ function rf_phi0_calc(rfparams, species)
   dphi = chargeof(species) > 0 ? 0 : pi
 
   if rfparams.zero_phase == PhaseRef.BelowTransition
-    return rfparams.phi0 + pi/2 + dphi
-  elseif rfparams.zero_phase == PhaseRef.AboveTransition
     return rfparams.phi0 - pi/2 + dphi
+  elseif rfparams.zero_phase == PhaseRef.AboveTransition
+    return rfparams.phi0 + pi/2 + dphi
   elseif rfparams.zero_phase == PhaseRef.Accelerating
     return rfparams.phi0 + dphi
   else

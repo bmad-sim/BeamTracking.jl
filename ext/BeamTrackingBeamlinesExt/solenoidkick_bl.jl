@@ -1,5 +1,6 @@
-@inline function fringe_body_fringe(tm::SolenoidKick, kc, p_over_q_ref, bunch, ele)
+@inline function fringe_body_fringe(tm::SolenoidKick, kc, bunch, ele)
   L = ele.universalparams.L
+  p_over_q_ref = ele.ref.p_over_q_ref
   isnothing(ele.emultipoleparams) || error("SolenoidKick is not compatible with elements containing EMultipoleParams. For an electric dipole, try Exact instead")
   isnothing(ele.bendparams) || error("SolenoidKick is not compatible with elements containing BendParams. Try BendKick instead")
   isnothing(ele.mapparams) || error("SolenoidKick is not compatible with elements containing MapParams. Try Exact instead")
@@ -24,8 +25,10 @@
   radiation_params = ele.universalparams.rad_damping ? (q, mc2, E_ref) : nothing
 
   if !isnothing(ele.rfparams)
-    omega = rf_omega_calc(ele.rfparams, ele.beamlineparams, ele.ref, p_over_q_ref)
-    t_ref = (rf_phi0_calc(ele.rfparams, ele.ref.species_ref) - pi/2)/omega
+    omega = rf_omega_calc(ele.rfparams, ele.beamlineparams, ele.ref)
+    # The kick is sin(omega*(t_ref + dt)) = cos(rf_phi0_calc + omega*dt), dt the arrival time after the 
+    # reference particle, as in SaganCavity (-3pi/2 = pi/2 mod 2pi keeps the phase small for the zero crossings)
+    t_ref = (rf_phi0_calc(ele.rfparams, ele.ref.species_ref) - 3pi/2)/omega
     # RF phase is locked to the reference species: slip is the extra time per length the Bunch 
     # reference particle takes over the reference species particle (0 if same species)
     slip = 1/R_to_v(bunch.species, p_over_q_ref) - 1/R_to_v(ele.ref.species_ref, ele.ref.field_scale*p_over_q_ref)

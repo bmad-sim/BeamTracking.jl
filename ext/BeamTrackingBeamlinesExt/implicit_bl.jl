@@ -1,5 +1,6 @@
-@inline function fringe_body_fringe(tm::Implicit, kc, p_over_q_ref, bunch, ele)
+@inline function fringe_body_fringe(tm::Implicit, kc, bunch, ele)
   L = ele.universalparams.L
+  p_over_q_ref = ele.ref.p_over_q_ref
   isnothing(ele.bmultipoleparams) || error("Implicit is not compatible with elements containing BMultipoleParams. Include the multipole fields in the FourPotentialParams instead")
   isnothing(ele.emultipoleparams) || error("Implicit is not compatible with elements containing EMultipoleParams. Include the multipole fields in the FourPotentialParams instead")
   isnothing(ele.rfparams) || error("Implicit is not compatible with elements containing RFParams. Try SolenoidKick or DriftKick instead")

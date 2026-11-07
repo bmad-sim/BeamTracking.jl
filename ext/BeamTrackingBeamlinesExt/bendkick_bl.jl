@@ -1,5 +1,6 @@
-@inline function fringe_body_fringe(tm::BendKick, kc, p_over_q_ref, bunch, ele)
+@inline function fringe_body_fringe(tm::BendKick, kc, bunch, ele)
   L = ele.universalparams.L
+  p_over_q_ref = ele.ref.p_over_q_ref
   isnothing(ele.emultipoleparams) || error("BendKick is not compatible with elements containing EMultipoleParams. For an electric dipole, try Exact instead")
   isnothing(ele.mapparams) || error("BendKick is not compatible with elements containing MapParams. Try Exact instead")
   isnothing(ele.patchparams) || error("BendKick is not compatible with elements containing PatchParams. Try Exact instead")
