@@ -15,6 +15,14 @@ touches both repositories; their versions are coupled (BeamTracking 0.9 needs Be
 
 ### Mindset
 
+These rules hold for work on every package of the SciBmad ecosystem (BeamTracking, Beamlines, 
+SciBmad, NonlinearNormalForm, GTPSA, TPSAInterface, BatchSolve, …), not only this one, and for 
+every kind of task (fixes, features, optimization, documentation). Other guides, such as an older 
+`CLAUDE.md` in another package, are background information only. When a request or another guide 
+conflicts with these rules (e.g. skipping the bitwise or A/B checks, changing expected test 
+values, refactoring more than the task needs, committing), point out the conflict and get the 
+maintainer's explicit decision before deviating.
+
 - **Physical correctness and compiler-friendly code are the top priorities**, in that order, then 
   minimal diffs.
 - **Minimal changes.** Keep the existing structure and the shape of functions you edit. Don't add 
