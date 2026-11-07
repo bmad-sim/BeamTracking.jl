@@ -1,8 +1,10 @@
 # Working on BeamTracking.jl
-Guide for contributors and AI coding agents (`CLAUDE.md` imports this file). Read all of it before changing 
-code. It covers how to work here, the architecture of the Beamlines extension, the 
-physics conventions, the performance rules, how to verify changes, and the current status. Keep it up to date: when a session settles 
-something (a convention, a pitfall, a measured result, an open question), add it here.
+
+Guide for contributors and AI coding agents (`CLAUDE.md` imports this file). Read all of it before 
+changing code. It covers how to work here, the architecture of the Beamlines extension, the physics 
+conventions, the performance rules, how to verify changes, and the current status. Keep it up to 
+date: when a session settles something (a convention, a pitfall, a measured result, an open 
+question), add it here.
 
 BeamTracking.jl contains the tracking kernels and, in `ext/BeamTrackingBeamlinesExt/`, the code that 
 tracks a `Bunch` through a [Beamlines.jl](https://github.com/bmad-sim/Beamlines.jl) `Beamline` or 
@@ -30,6 +32,11 @@ touches both repositories; their versions are coupled (BeamTracking 0.9 needs Be
 - **Find root causes.** A test that fails after a refactor may be an outdated test or a real bug; 
   find out which before changing either. If a change would affect physics results or behavior 
   beyond the task, describe the issue and the reasoning to the maintainer before making it.
+- **References are not ground truth.** Bmad, the docstrings and the existing tests can be wrong or 
+  disagree with each other (Bmad's lcavity and rfcavity use opposite RF time directions). Settle a 
+  convention by a physics argument checked numerically (e.g. the RF zero crossings by the stability 
+  of ESR's one-turn longitudinal map), find out where each hard-coded test value came from (`git log -S`), 
+  and say which source you rely on and why.
 - **Use controls.** An equivalence test is only meaningful if a plausible mistake breaks it: also 
   run a negative control (e.g. the wrong rotation convention, `s` restarting per slice) and show 
   that it fails by a large margin.
@@ -39,21 +46,44 @@ touches both repositories; their versions are coupled (BeamTracking 0.9 needs Be
 - **Report concisely**: what changed, what it bought, what was verified and how, what is left. 
   Flag anything surprising found along the way (bugs elsewhere, performance oddities) without 
   necessarily fixing it.
+- **PR descriptions** (when asked): a Markdown file outside the repository covering everything on the 
+  branch relative to `main` (`git log main..HEAD` plus uncommitted changes), with the sections Summary, 
+  Breaking/Behavior changes (each quantified), Fixes, Internal changes, Tests, Verification, Open. 
+  Only claim test runs that have finished.
 
 ### Environment
 
-- Develop with a scratch environment that `Pkg.develop`s local clones of BeamTracking, Beamlines 
-  and AtomicAndPhysicalConstants and adds the test dependencies (BenchmarkTools, JET, GTPSA, 
-  StaticArrays, ReferenceFrameRotations, SIMD, KernelAbstractions, ForwardDiff, Distributions, 
-  Test). Run tests from that environment:
-  `BEAMTRACKING_TEST_GROUP=<core|symplectic|batch_time> julia --project=<env> -e 'using Pkg; Pkg.test("BeamTracking")'`.
-  (With unregistered Beamlines versions, `Pkg.test()` from the repo's own project cannot resolve 
-  Beamlines.) To run single files, include `test/runtests.jl`'s header with a different file list.
+- Keep scripts, environments, logs and serialized results outside the repository (a scratch 
+  directory); they are not kept between sessions, so recreate them as below.
+- Develop with a scratch environment that `Pkg.develop`s the local clones (`~/.julia/dev/BeamTracking`, 
+  `~/.julia/dev/Beamlines`, and AtomicAndPhysicalConstants if it is checked out) and adds the test 
+  dependencies (BenchmarkTools, JET, GTPSA, StaticArrays, ReferenceFrameRotations, SIMD, 
+  KernelAbstractions, ForwardDiff, Distributions, LinearAlgebra, Profile, Test). Use one 
+  environment per Julia version (e.g. `<env>` for 1.10 and `<env13>` for 1.13). Run tests from it:
+  `BEAMTRACKING_TEST_GROUP=<core|symplectic|batch_time> julia --project=<env> -e 'using Pkg; Pkg.test("BeamTracking")'`
+  (no group: all of them). With unregistered Beamlines versions, `Pkg.test()` from the repo's own 
+  project cannot resolve Beamlines.
+- Single test files: run this script as `julia --project=<env> runsome.jl BeamlinesExt/beamlines_utils_test.jl …` 
+  (paths relative to `test/`; it keeps the header of `test/runtests.jl`). A failing top-level 
+  `@testset` stops the rest of its file, so for a negative control run the testset of interest alone.
+  ```julia
+  cd(joinpath(ENV["HOME"], ".julia/dev/BeamTracking/test"))
+  src = read("runtests.jl", String)
+  src = replace(src, "foreach(include, TEST_FILES)" => "foreach(f->include(joinpath(@__DIR__, f)), $(repr(ARGS)))")
+  include_string(Main, src, joinpath(pwd(), "runtests.jl"))
+  ```
+- Julia versions (`juliaup`): `+lts` (1.10, aarch64), `+release` (1.13), `+1.10.13~x64` (x86-64 under 
+  Rosetta: shows x86 `code_native`, e.g. for the 1.10 SIMD bug below, but is no substitute for x86 CI).
+- GPU (Apple silicon): an environment with Metal.jl; track a Float32 `Bunch(MtlArray(v))` and compare 
+  with the same Bunch on the CPU (agreement ~1e-8 is expected). Metal has no Float64, so any Float64 
+  constant reaching a kernel fails ("unsupported use of double value").
 - CI (`.github/workflows/CI.yml`) runs Julia `lts` (1.10) and `1` (latest release) on Linux, macOS 
   and Windows, x64 and aarch64, sharded into the three test groups. Check changes on both Julia 
   versions when allocations, inference or timings matter (`juliaup`, e.g. `julia +release`).
 - Reference source for the upstream packages: `git clone --depth 1` of `bmad-sim/BeamTracking.jl`, 
-  `bmad-sim/Beamlines.jl`, `bmad-sim/AtomicAndPhysicalConstants.jl`. Local branches may be ahead.
+  `bmad-sim/Beamlines.jl`, `bmad-sim/AtomicAndPhysicalConstants.jl`. Local branches may be ahead. 
+  Bmad's Fortran source (`bmad-sim/bmad-ecosystem`, e.g. `bmad/low_level/track_a_rfcavity.f90`, 
+  `track_a_lcavity.f90`) is the reference for Bmad conventions (see "References are not ground truth").
 - Error message style: `"<Method> is not compatible with elements containing <XParams>. Try <Other> instead"`.
 
 ## Architecture of `ext/BeamTrackingBeamlinesExt/`
@@ -90,7 +120,7 @@ touches both repositories; their versions are coupled (BeamTracking 0.9 needs Be
    - `tm = universalparams.tracking_method` (error if `nothing`).
    - With `n_slices == 1`, calls `@noinline universal!(bunch, tm, ele, _ConcreteUniversalParams(universalparams), <groups positionally>, ref, <Vals>, batch_start)`; 
      otherwise calls it once per slice with `_SliceUniversalParams(universalparams, k)` (see "Slices").
-3. `universal!` (after the barrier, all types known) builds `LoweredElement` from the groups, then:
+3. `universal!` (after the barrier, all types known):
    - Evaluates `p_over_q_ref` at `bunch.t_ref` (a number; time dependent references are only kept 
      as functions for the per-particle ramp) and computes the reference times and energies at full 
      precision. **Only the `RefState` gets values lowered** to the coordinate number type 
@@ -216,7 +246,10 @@ touches both repositories; their versions are coupled (BeamTracking 0.9 needs Be
   `s0`, `L_slice`, and `fringe_at` reduced to the element ends. `_ConcreteUniversalParams`'s 
   `getproperty` returns the constants `s0 = 0`, `L_slice = L`, `first_slice = last_slice = true`, 
   so the `n_slices = 1` code is unchanged.
-- RF needs no `s0`: the per-slice time shift re-aligns z with the design clock, so the slip restarts.
+- RF needs no `s0`: the kick phase is relative to the reference particle at the kick, and the 
+  per-slice time shift re-aligns z with the design clock, so the slip restarts. Verified for all 
+  `zero_phase`s, `phi0 ≠ 0`, DriftKick/SolenoidKick and a different species (sliced == pieces, 
+  bitwise; the energy gain is independent of `n_slices`).
 - Not supported: SaganCavity; elements with `PatchParams` or `MapParams`.
 
 ### Misalignment geometry (verified)
@@ -281,10 +314,16 @@ touches both repositories; their versions are coupled (BeamTracking 0.9 needs Be
 
 ### Correctness
 
-- **Bitwise checks against the previous state:** before a change, track a fixed bunch (e.g. 
-  `Bunch([1e-3 1e-4 -1e-3 2e-4 1e-3 1e-4; -2e-3 0 1e-3 -1e-4 0 -2e-4])` two ESR turns, plus 
-  Float32, a different species, a ramped ring) and `serialize` `coords.v` and `t_ref`; compare 
-  bitwise after. Use `git stash`/copies of single files to get the "before" results.
+- **Bitwise checks against the previous state:** a script that tracks a fixed bunch, e.g. 
+  `v0 = [1e-3 1e-4 -1e-3 2e-4 1e-3 1e-4; -2e-3 0 1e-3 -1e-4 0 -2e-4]`, two turns through 
+  ESR (`include("test/lattices/esr.jl")`) in Float64 and Float32 and as positrons; through a ramped 
+  ring (`E_ref = E*(1 + a*Time())`) for both species with `ramp_update_each_particle` false and 
+  true; and through short lines with time dependent strengths (uniform, mixed normalized/unnormalized, 
+  mixed integrated, with DriftKick and MatrixKick); plus the cavities of 
+  `test/lattices/sagan_cavity_lat.jl` and the batch tests when relevant. It `serialize`s every 
+  `(coords.v, t_ref)` to a file given as argument. Run it before (`git stash`, or `git stash push -- <dir>`, 
+  then `git stash pop`) and after, and compare with `isequal` per case. Commits by the maintainer 
+  between rounds are the "before" state.
 - **Equivalence tests** are the strongest physics checks, e.g. `test/BeamlinesExt/beamlines_slices_test.jl`: 
   an element with `n_slices = k` tracks bitwise like k elements of length `L/k`; a misaligned 
   element like adjusted halves; s/t-dependent fields like elements with shifted fields; a tilted 
