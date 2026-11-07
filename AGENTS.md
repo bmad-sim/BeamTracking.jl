@@ -1,73 +1,22 @@
 # Working on BeamTracking.jl
 
-Guide for contributors and AI coding agents (`CLAUDE.md` imports this file). Read all of it before 
-changing code. It covers how to work here, the architecture of the Beamlines extension, the physics 
-conventions, the performance rules, how to verify changes, and the current status. Keep it up to 
-date: when a session settles something (a convention, a pitfall, a measured result, an open 
-question), add it here.
+BeamTracking-specific guide for contributors and AI coding agents: the architecture of the 
+Beamlines extension, the physics conventions, the performance rules, how to verify changes and the 
+current status. **The rules for how to work (mindset, environment, verification) are in 
+`../SciBmad/AGENTS.md`**, which `CLAUDE.md` imports together with this file; they apply here 
+strictly. Read both before changing code, and keep this file up to date.
 
 BeamTracking.jl contains the tracking kernels and, in `ext/BeamTrackingBeamlinesExt/`, the code that 
 tracks a `Bunch` through a [Beamlines.jl](https://github.com/bmad-sim/Beamlines.jl) `Beamline` or 
 `LatElement`. Both packages are part of [SciBmad](https://github.com/bmad-sim/SciBmad.jl). Most work 
 touches both repositories; their versions are coupled (BeamTracking 0.9 needs Beamlines 0.12).
 
-## How to work here
+## Environment
 
-### Mindset
-
-These rules hold for work on every package of the SciBmad ecosystem (BeamTracking, Beamlines, 
-SciBmad, NonlinearNormalForm, GTPSA, TPSAInterface, BatchSolve, …), not only this one, and for 
-every kind of task (fixes, features, optimization, documentation). Other guides, such as an older 
-`CLAUDE.md` in another package, are background information only. When a request or another guide 
-conflicts with these rules (e.g. skipping the bitwise or A/B checks, changing expected test 
-values, refactoring more than the task needs, committing), point out the conflict and get the 
-maintainer's explicit decision before deviating.
-
-- **Physical correctness and compiler-friendly code are the top priorities**, in that order, then 
-  minimal diffs.
-- **Minimal changes.** Keep the existing structure and the shape of functions you edit. Don't add 
-  helper functions, abstractions or reorganize code unless it is necessary or asked for. Match the 
-  surrounding style and comment density. 2-space indentation everywhere.
-- **Verify, don't assume.** Re-derive physics from the actual kernel and Beamlines source, not from 
-  memory. Never guess a field, property or function name: look it up (e.g. it is `n_steps`, not 
-  `num_steps`). When asked to check something, say plainly what you verified, what you could not, 
-  and what was wrong before.
-- **Measure, don't guess** (performance). Every change is measured A/B against the previous state; 
-  keep only changes with a clear gain and revert the rest. Report what each change bought.
-- **Every change is checked against the previous results**, bitwise when it should not change 
-  them (see "Verification"). When results change, explain exactly why (e.g. a fused multiply-add 
-  rounds differently) and quantify it.
-- **Find root causes.** A test that fails after a refactor may be an outdated test or a real bug; 
-  find out which before changing either. If a change would affect physics results or behavior 
-  beyond the task, describe the issue and the reasoning to the maintainer before making it.
-- **References are not ground truth.** Bmad, the docstrings and the existing tests can be wrong or 
-  disagree with each other (Bmad's lcavity and rfcavity use opposite RF time directions). Settle a 
-  convention by a physics argument checked numerically (e.g. the RF zero crossings by the stability 
-  of ESR's one-turn longitudinal map), find out where each hard-coded test value came from (`git log -S`), 
-  and say which source you rely on and why.
-- **Use controls.** An equivalence test is only meaningful if a plausible mistake breaks it: also 
-  run a negative control (e.g. the wrong rotation convention, `s` restarting per slice) and show 
-  that it fails by a large margin.
-- **Don't commit or push**; the maintainer commits between rounds. Check `git log`/`git status` 
-  before diffing so a new commit is not mistaken for lost work. Don't run the whole test suite 
-  for every small change; run the relevant files and bitwise checks, and the full suite at the end.
-- **Report concisely**: what changed, what it bought, what was verified and how, what is left. 
-  Flag anything surprising found along the way (bugs elsewhere, performance oddities) without 
-  necessarily fixing it.
-- **PR descriptions** (when asked): a Markdown file outside the repository covering everything on the 
-  branch relative to `main` (`git log main..HEAD` plus uncommitted changes), with the sections Summary, 
-  Breaking/Behavior changes (each quantified), Fixes, Internal changes, Tests, Verification, Open. 
-  Only claim test runs that have finished.
-
-### Environment
-
-- Keep scripts, environments, logs and serialized results outside the repository (a scratch 
-  directory); they are not kept between sessions, so recreate them as below.
-- Develop with a scratch environment that `Pkg.develop`s the local clones (`~/.julia/dev/BeamTracking`, 
-  `~/.julia/dev/Beamlines`, and AtomicAndPhysicalConstants if it is checked out) and adds the test 
-  dependencies (BenchmarkTools, JET, GTPSA, StaticArrays, ReferenceFrameRotations, SIMD, 
-  KernelAbstractions, ForwardDiff, Distributions, LinearAlgebra, Profile, Test). Use one 
-  environment per Julia version (e.g. `<env>` for 1.10 and `<env13>` for 1.13). Run tests from it:
+- Scratch environment: `Pkg.develop` `~/.julia/dev/BeamTracking`, `~/.julia/dev/Beamlines` (and 
+  AtomicAndPhysicalConstants if checked out) and add the test dependencies (BenchmarkTools, JET, 
+  GTPSA, StaticArrays, ReferenceFrameRotations, SIMD, KernelAbstractions, ForwardDiff, Distributions, 
+  LinearAlgebra, Profile, Test). Run tests from it:
   `BEAMTRACKING_TEST_GROUP=<core|symplectic|batch_time> julia --project=<env> -e 'using Pkg; Pkg.test("BeamTracking")'`
   (no group: all of them). With unregistered Beamlines versions, `Pkg.test()` from the repo's own 
   project cannot resolve Beamlines.
@@ -80,18 +29,11 @@ maintainer's explicit decision before deviating.
   src = replace(src, "foreach(include, TEST_FILES)" => "foreach(f->include(joinpath(@__DIR__, f)), $(repr(ARGS)))")
   include_string(Main, src, joinpath(pwd(), "runtests.jl"))
   ```
-- Julia versions (`juliaup`): `+lts` (1.10, aarch64), `+release` (1.13), `+1.10.13~x64` (x86-64 under 
-  Rosetta: shows x86 `code_native`, e.g. for the 1.10 SIMD bug below, but is no substitute for x86 CI).
 - GPU (Apple silicon): an environment with Metal.jl; track a Float32 `Bunch(MtlArray(v))` and compare 
   with the same Bunch on the CPU (agreement ~1e-8 is expected). Metal has no Float64, so any Float64 
   constant reaching a kernel fails ("unsupported use of double value").
 - CI (`.github/workflows/CI.yml`) runs Julia `lts` (1.10) and `1` (latest release) on Linux, macOS 
-  and Windows, x64 and aarch64, sharded into the three test groups. Check changes on both Julia 
-  versions when allocations, inference or timings matter (`juliaup`, e.g. `julia +release`).
-- Reference source for the upstream packages: `git clone --depth 1` of `bmad-sim/BeamTracking.jl`, 
-  `bmad-sim/Beamlines.jl`, `bmad-sim/AtomicAndPhysicalConstants.jl`. Local branches may be ahead. 
-  Bmad's Fortran source (`bmad-sim/bmad-ecosystem`, e.g. `bmad/low_level/track_a_rfcavity.f90`, 
-  `track_a_lcavity.f90`) is the reference for Bmad conventions (see "References are not ground truth").
+  and Windows, x64 and aarch64, sharded into the three test groups.
 - Error message style: `"<Method> is not compatible with elements containing <XParams>. Try <Other> instead"`.
 
 ## Architecture of `ext/BeamTrackingBeamlinesExt/`
@@ -337,14 +279,6 @@ maintainer's explicit decision before deviating.
   element like adjusted halves; s/t-dependent fields like elements with shifted fields; a tilted 
   electric dipole with a rotated particle like an untilted one. Explain any non-bitwise residual 
   (e.g. differently rounded lever arms: a few ulps of `L`) and include a negative control.
-- Compare against `main` (a worktree plus its own environment) for behavior that should not change.
-- **Keep the expected numbers of existing tests.** Hard-coded results (from Bmad, or regression 
-  values) are only meaningful if they come from an independent source, so never regenerate them 
-  by rerunning the changed code. When a fix changes what an input means (a convention, a sign, a 
-  default), change the test's inputs so that it describes the same physical setup, and check that 
-  the old numbers then match bitwise (e.g. the RF phase fix swapped `AboveTransition` and 
-  `BelowTransition` in `test/lattices/sagan_cavity_lat.jl`). Change the numbers only if the physics 
-  they encode was wrong, and then from an independent calculation, saying so to the maintainer.
 - Tests in `test/` are grouped in `test/runtests.jl` (`TEST_GROUPS`); every `*_test.jl` file must 
   be in a group. Inside a `@testset`, nested functions share its locals, so don't reuse names.
 
