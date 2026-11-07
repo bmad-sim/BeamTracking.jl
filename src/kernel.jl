@@ -26,7 +26,8 @@ end
 @inline num_lower(::Type{T}, nt::NamedTuple{names}) where {T<:Union{Float32,Float16},names} =
   NamedTuple{names}(num_lower(T, Tuple(nt)))
 function num_lower(::Type{T}, tf::TimeFunction) where {T<:Union{Float32,Float16}}
-  S = typeof(tf(0))
+  tf = lower_captured(T, tf)
+  S = typeof(tf(zero(T))) # the kernels evaluate it at times of type T
   if S != T
     error("
       Failure to lower TimeFunction with output type $S to $T: if you are ramping
@@ -35,6 +36,25 @@ function num_lower(::Type{T}, tf::TimeFunction) where {T<:Union{Float32,Float16}
     ")
   end
   return tf
+end
+
+# Operations on TimeDependentParams capture their numbers (e.g. Float64 lattice parameters and 
+# species constants) in closures. Rebuild the closures of a TimeFunction with the captured Float64 
+# numbers lowered to T once here, so that it is evaluated in T (e.g. Metal has no Float64). A
+# closure's type parameters are the types of its captured values (and static parameters, e.g. N 
+# of literal_pow); a function that is not such a closure is kept
+lowered_type(::Type{T}, ::Type{Float64}) where {T} = T
+lowered_type(::Type{T}, ::Type{TimeFunction{F}}) where {T,F} = TimeFunction{lowered_type(T, F)}
+function lowered_type(::Type{T}, ::Type{F}) where {T,F}
+  F <: Function && isconcretetype(F) && fieldcount(F) > 0 || return F
+  G = F.name.wrapper{map(p -> p isa Type ? lowered_type(T, p) : p, F.parameters)...}
+  return fieldtypes(G) == map(FT -> lowered_type(T, FT), fieldtypes(F)) ? G : F
+end
+@generated function lower_captured(::Type{T}, f::F) where {T,F}
+  F === Float64 && return :(T(f))
+  G = lowered_type(T, F)
+  G === F && return :f
+  return Expr(:new, G, [:(lower_captured(T, getfield(f, $i))) for i in 1:fieldcount(F)]...)
 end
 
 function num_lower(::Type{T}, b::BatchParam) where {T<:Union{Float32,Float16}}

@@ -3,8 +3,8 @@ const btbl = Base.get_extension(BeamTracking, :BeamTrackingBeamlinesExt)
 @testset "BeamlinesUtils" begin
   @test btbl.rf_phi0_calc(RFParams(phi0 = 0.1), Species("electron")) ≈ 0.1 + pi
   @test btbl.rf_phi0_calc(RFParams(phi0 = 0.1, zero_phase = PhaseRef.Accelerating), Species("positron")) ≈ 0.1
-  @test btbl.rf_phi0_calc(RFParams(phi0 = 0.1, zero_phase = PhaseRef.BelowTransition), Species("positron")) ≈ 0.1 + 0.5*pi
-  @test btbl.rf_phi0_calc(RFParams(phi0 = 0.1, zero_phase = PhaseRef.AboveTransition), Species("electron")) ≈ 0.1 - 0.5*pi + pi
+  @test btbl.rf_phi0_calc(RFParams(phi0 = 0.1, zero_phase = PhaseRef.BelowTransition), Species("positron")) ≈ 0.1 - 0.5*pi
+  @test btbl.rf_phi0_calc(RFParams(phi0 = 0.1, zero_phase = PhaseRef.AboveTransition), Species("electron")) ≈ 0.1 + 0.5*pi + pi
 end
 
 @testset "BeamlinesReference" begin
@@ -88,5 +88,48 @@ end
     v_normalized = trk(mk(f, true))
     @test v_normalized ≈ trk(mk(scaled(f, R0), false)) atol=1e-18
     @test maximum(abs.(v_normalized .- trk(mk(scaled(f, -R0), false)))) > 1e-6
+  end
+end
+
+@testset "Differentiable element length" begin
+  # A Dual or TPS element length (with a Bunch t_ref of the same type, as the reference time 
+  # depends on it) gives the derivative of the tracking with respect to it
+  e = Species("electron")
+  R = Beamlines.E_to_R(e, 10e9)
+  v0 = [1e-3 2e-3 -1e-3 1e-3 0 1e-3]
+  function trk(L; kw...)
+    bl = Beamline([Quadrupole(L=L, Kn1=0.3; kw...), Drift(L=L)]; p_over_q_ref=R, species_ref=e)
+    b = Bunch(v0 .+ zero(L); species=e, p_over_q_ref=R, t_ref=zero(L))
+    track!(b, bl)
+    return b.coords.v
+  end
+  h = 1e-6
+  for n_slices in (1, 2)
+    dual = ForwardDiff.derivative(L -> trk(L; n_slices), 1.0)
+    @test dual ≈ (trk(1.0 + h; n_slices) .- trk(1.0 - h; n_slices)) ./ (2h) rtol=1e-7
+  end
+  d = Descriptor(1, 1)
+  tps = trk(1.0 + TPS64(@vars(d)[1]))
+  @test GTPSA.scalar.(tps) == trk(1.0)
+  @test [t[1] for t in tps] ≈ ForwardDiff.derivative(trk, 1.0) rtol=1e-12
+end
+
+@testset "RF phase convention" begin
+  # Same convention for every cavity tracking method: Accelerating accelerates the reference 
+  # particle, and at the zero crossings a late particle (z < 0) loses energy above transition 
+  # and gains energy below transition (the stable crossings)
+  for spn in ("electron", "positron", "proton"), tm in (SaganCavity(), SolenoidKick(), DriftKick())
+    sp = Species(spn)
+    R = Beamlines.E_to_R(sp, 10e9)
+    dpz = map((PhaseRef.Accelerating, PhaseRef.AboveTransition, PhaseRef.BelowTransition)) do zp
+      bl = Beamline([Drift(L = 0.5), RFCavity(L = 0.1, voltage = 5e6, rf_frequency = 5e8, zero_phase = zp, tracking_method = tm)]; 
+                    p_over_q_ref = R, species_ref = sp)
+      b = Bunch([0 0 0 0 0 0.0; 0 0 0 0 -0.02 0]; species = sp, p_over_q_ref = R)
+      track!(b, bl.line[2]; notify = false)
+      b.coords.v[:, 6]
+    end
+    @test dpz[1][1] ≈ 5e6/10e9 rtol = 2e-2
+    @test dpz[2][2] < -1e-5
+    @test dpz[3][2] > 1e-5
   end
 end

@@ -3,7 +3,7 @@
 struct _ConcreteUniversalParams{A,F,RD,RF}
   L::A
   n_steps::Int
-  ds_step::Float64
+  ds_step::A
   n_slices::Int
   fringe_at::Fringe.T
   rad_damping::Bool
@@ -35,7 +35,7 @@ Base.getproperty(up::_ConcreteUniversalParams{A,F,RD,RF}, key::Symbol) where {A,
 struct _SliceUniversalParams{A,F,RD,RF,FIRST,LAST}
   L::A
   n_steps::Int
-  ds_step::Float64
+  ds_step::A
   n_slices::Int
   s0::A
   L_slice::A
@@ -253,8 +253,6 @@ function universal!(
   batch_start;
   kwargs...
 ) where {ramp_particle_energy_without_rf, ramp_update_each_particle, shift_time}
-  ele = LoweredElement(universalparams, alignmentparams, bendparams, bmultipoleparams, patchparams, apertureparams, rfparams, 
-                       beamlineparams, mapparams, fourpotentialparams, emultipoleparams, emfieldparams, ibsparams, ref)
   # Every element in a Beamline has the same p_over_q_ref (possibly a function of time)
   p_over_q_ref = ref.p_over_q_ref
 
@@ -281,7 +279,7 @@ function universal!(
   # the design clock at the end of the element (slice).
   t_exit = bunch.t_ref + L_slice / beta_gamma_to_v(beta_gamma_enter)
   if shift_time
-    t_exit_design = bunch.t_ref + L_slice / R_to_v(ele.ref.species_ref, ele.ref.field_scale*p_over_q_ref_enter)
+    t_exit_design = bunch.t_ref + L_slice / R_to_v(ref.species_ref, ref.field_scale*p_over_q_ref_enter)
   else
     t_exit_design = t_exit
   end
@@ -356,7 +354,12 @@ function universal!(
     kc = @inline(aperture(kc, entrance_apertureparams, true))
   end
 
-  kc = @inline fringe_body_fringe(tm, kc, p_over_q_ref, bunch, ele)
+  # ele.ref has the tracking p_over_q_ref of the element body: evaluated at the entrance, except 
+  # with the per-particle ramp
+  ele = LoweredElement(universalparams, alignmentparams, bendparams, bmultipoleparams, patchparams, apertureparams, rfparams, 
+                       beamlineparams, mapparams, fourpotentialparams, emultipoleparams, emfieldparams, ibsparams, 
+                       TrackReference(ref.species_ref, p_over_q_ref, ref.field_scale))
+  kc = @inline fringe_body_fringe(tm, kc, bunch, ele)
 
   # Exit aperture (only at the element exit) and alignment (at the slice exit)
   exit_apertureparams = universalparams.last_slice ? apertureparams : nothing

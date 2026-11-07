@@ -1,5 +1,6 @@
-@inline function fringe_body_fringe(tm::RK4, kc, p_over_q_ref, bunch, ele)
+@inline function fringe_body_fringe(tm::RK4, kc, bunch, ele)
   L = ele.universalparams.L
+  p_over_q_ref = ele.ref.p_over_q_ref
   isnothing(bunch.coords.q) || error("RK4 is not compatible with spin tracking")
   L > 0 || error("RK4 is not compatible with zero or negative length elements. Try Exact instead")
   isnothing(ele.patchparams) || error("RK4 is not compatible with elements containing PatchParams. Try Exact instead")

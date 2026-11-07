@@ -225,3 +225,32 @@ end
 =#
   
 end
+@testset "Float32 time dependence" begin
+  # Float64 numbers captured by time functions are lowered with them, so Float32 tracking evaluates 
+  # them in Float32 (also through literal_pow, whose closure has the static parameter N)
+  tf = BeamTracking.time_lower(sqrt((0.3 + 1e5*Time())^2 + 0.2*Time()))
+  tf32 = BeamTracking.num_lower(Float32, tf)
+  @test tf32(1f-6) isa Float32
+  @test tf32(1f-6) ≈ tf(1e-6) rtol=1e-6
+  @test BeamTracking.num_lower(Float64, tf) === tf
+
+  # Float32 tracking of a lattice with Float64 time dependent strengths (MatrixKick with a time 
+  # dependent tilt, BendKick, DriftKick) and a per-particle ramp agrees with Float64 tracking
+  e = Species("electron")
+  R = Beamlines.E_to_R(e, 10e9)
+  lat() = [Quadrupole(L=0.5, Kn1=-0.2 + 1e5*Time(), Ks1=0.05), Drift(L=1.0), 
+           SBend(L=1.0, g=0.01, Kn1=0.01*(1 + 1e5*Time())), Sextupole(L=0.2, Kn2=1.0 + 1e5*Time())]
+  v0 = 1e-3 .* [1 2 -1 0.5 3 1; -2 0 1 -1 0 -2; 0.5 -1 2 1 -3 0.5; 1 1 1 1 1 1]
+  for (kw, p_over_q_ref) in (((;), R), ((; ramp_update_each_particle=true), R*(1 + 1e4*Time())))
+    bl = Beamline(lat(); p_over_q_ref, species_ref=e)
+    b64 = Bunch(copy(v0); species=e, p_over_q_ref=R)
+    track!(b64, bl; kw...)
+    for use_explicit_SIMD in (false, true)
+      b32 = Bunch(Float32.(v0); species=e, p_over_q_ref=Float32(R))
+      track!(b32, bl; use_explicit_SIMD, kw...)
+      @test eltype(b32.coords.v) == Float32
+      @test maximum(abs.(b32.coords.v .- b64.coords.v)) < 1e-6
+      @test maximum(abs.(b64.coords.v .- v0)) > 1e-3 # the lattice does something
+    end
+  end
+end
