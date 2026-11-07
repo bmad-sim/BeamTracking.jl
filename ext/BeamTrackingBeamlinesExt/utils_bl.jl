@@ -249,10 +249,12 @@ end
 
 #---------------------------------------------------------------------------------------------------
 
-function rf_omega_calc(rfparams, beamlineparams, ref)
+# p_over_q_ref is the tracking p_over_q_ref (evaluated at the element entrance unless ramping per 
+# particle, as everywhere in the element)
+function rf_omega_calc(rfparams, beamlineparams, ref, p_over_q_ref)
   if rfparams.rate_meaning == RateMeaning.Harmon
     circumference = beamlineparams.beamline.line[end].s_downstream
-    v = R_to_v(ref.species_ref, ref.field_scale*ref.p_over_q_ref) # Beamline p_over_q_ref
+    v = R_to_v(ref.species_ref, ref.field_scale*p_over_q_ref) # Beamline p_over_q_ref
     return 2*pi*rfparams.rate*v/circumference
   else
     return 2*pi*rfparams.rate

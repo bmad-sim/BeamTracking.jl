@@ -103,7 +103,9 @@ touches both repositories; their versions are coupled (BeamTracking 0.9 needs Be
      species only).
    - `@noinline launch!(bunch.coords, kc)`, then sets `bunch.t_ref` and `bunch.p_over_q_ref`.
    - `ref` (`TrackReference`) is the only source of the tracking `p_over_q_ref`. The `p_over_q_ref` 
-     argument of `fringe_body_fringe` is that value evaluated at the element entrance.
+     argument of `fringe_body_fringe` is that value evaluated at the element entrance, except with 
+     the per-particle ramp, where it is the `TimeDependentParam` (so everything derived from it, 
+     e.g. `drift_params` and `omega`, is evaluated per particle).
 
 ### `fringe_body_fringe` conventions
 
@@ -118,7 +120,7 @@ touches both repositories; their versions are coupled (BeamTracking 0.9 needs Be
   part of the fringe, so they follow `fringe_at`.
 - Strengths: `get_strengths(ele.bmultipoleparams, L, p_over_q_ref, ele.ref.field_scale)` with the 
   **element** length `L` (integrated strengths are per element length, also in a slice).
-- RF: `omega = rf_omega_calc(ele.rfparams, ele.beamlineparams, ele.ref)`, `t_ref = (rf_phi0_calc(ele.rfparams, ele.ref.species_ref) - pi/2)/omega`, 
+- RF: `omega = rf_omega_calc(ele.rfparams, ele.beamlineparams, ele.ref, p_over_q_ref)`, `t_ref = (rf_phi0_calc(ele.rfparams, ele.ref.species_ref) - pi/2)/omega`, 
   cavity params `(radiation_params, beta_0, gamsqr_0, tilde_m, a, omega, t_ref, slip, E0_normalized, Ksol_or_nothing, Val{sol}(), mm, kn, ks)`. 
   Write the `Ksol`/`Val` pair as an `if`/`else` with literal `Val{true}()`/`Val{false}()`.
 - `radiation_params = ele.universalparams.rad_damping ? (q, mc2, E_ref) : nothing`; `photon_params` 
@@ -146,6 +148,12 @@ touches both repositories; their versions are coupled (BeamTracking 0.9 needs Be
   shadows `Base.fma`).
 - `TimeDependentParam{F<:TimeFunction}` is parametric, so operations on it build closures of known 
   types and evaluation is type stable (see "Performance rules").
+- Float32/Float16 tracking: `num_lower(T, ::TimeFunction)` rebuilds the closure tree with the 
+  captured Float64 numbers (lattice values, species constants) converted to `T` (`lower_captured`; 
+  a closure's type parameters are its captured values' types, plus static parameters such as 
+  `literal_pow`'s `N`), so time functions are evaluated in `T` (Metal has no Float64). It is never 
+  called for Float64, and converting at evaluation instead (in the closures) would still put 
+  Float64 constants into GPU kernels. `num_lower` probes the output type at `zero(T)`.
 
 ## Physics conventions
 
@@ -307,22 +315,24 @@ touches both repositories; their versions are coupled (BeamTracking 0.9 needs Be
 
 ## Status (Nov 2026)
 
-Open PRs: BeamTracking `n-slices` → `main` (restructured extension, species model, performance, 
-`n_slices`, performance tests and benchmarks) and Beamlines `newuniversal` → `main` (Beamlines 
-0.12). The BeamTracking PR needs Beamlines 0.12 registered.
+The restructured extension (`n-slices`) and Beamlines 0.12 are merged. Branch `followups2`: 
+Float32 time dependence and batches (also on Metal), Dual/TPS element lengths, `rf_omega_calc` 
+with the evaluated `p_over_q_ref`, tests with explicit SIMD on Julia 1.10 x86.
 
 ESR, Julia 1.10, Apple silicon, 1 particle: `main` 18.8 ms → 4.6 ms (103,961 allocations); ramped 
 reference 4.7 ms; per-particle ramp 1/100/1000 particles 9/57/483 ms (Julia 1.13: 9.5 ms for 1).
 
 Open items:
-- The Julia 1.10 x86 SIMD segfault is fixed by `_reg` (see "Performance rules"). Two tests still 
-  skip explicit SIMD on 1.10 x86 and can probably be enabled: `batch_simd_supported` in 
-  `test/RungeKuttaTracking_test.jl` and `test/BeamlinesExt/beamlines_ibs_test.jl`.
-- GPU/Float32 gaps (all also on `main`): `zero`/`one(::BatchParam)` use `first(b.batch)`, scalar 
-  indexing that errors for GPU arrays (e.g. `MatrixKick` with a `BatchParam(MtlArray)` strength; 
-  `DriftKick` works); a Float32 `TimeDependentParam` strength with `MatrixKick` and the Float32 
-  per-particle ramp (even with a Float32 `p_over_q_ref` ramp) become Float64 time functions and 
-  fail `num_lower`. Float32 batch gathers with explicit SIMD hit an upstream SIMD.jl bug.
+- RF sign: with the same `zero_phase`/`phi0`, the DriftKick/SolenoidKick cavity (`cavity_kick!`) 
+  and SaganCavity give opposite energy changes, for every `zero_phase` and species (also before 
+  the restructuring). E.g. `Accelerating`, `phi0 = 0`: SaganCavity accelerates the reference 
+  particle by V, `cavity_kick!` decelerates it (`sin` of `rf_phi0_calc - pi/2` times 
+  `E0_normalized = V/L/p_over_q_ref`). Only `AboveTransition` DriftKick/SolenoidKick maps are 
+  checked against Bmad. Needs a decision on the convention.
+- SaganCavity does not support a ramped reference (`rf_step_calc` rounds a time dependent 
+  `omega`, and the reference energy change between Beamlines would need ramp semantics).
+- IBS with explicit SIMD on Julia 1.10 x86 was disabled in its test (commit "Fix SIMD bug", no 
+  reason given) and is enabled again on `followups2`: check CI.
 - Remaining unpacking costs (ESR profile): `deval(::UniversalParams)` ~16%, the 
   `_ConcreteUniversalParams` construction (dynamic type with runtime type parameters) ~11%, 
   `deval(::BMultipoleParams)` array copies ~8%, data-dependent unions after the barrier ~6% (fixing 
@@ -330,8 +340,8 @@ Open items:
 - Per-particle ramp: mostly per-particle evaluation of time-function chains. Making all strengths 
   one common `TimeDependentParam` type halves setup but makes normalized strengths `Vec`s in the 
   kernels (30% slower for 1000 particles), so it was not done.
-- Possibly: error in `resolve_reference!` for spin tracking of species with a `NaN` anomaly; make 
-  `rf_omega_calc` use the evaluated `p_over_q_ref` (behavior change, deferred); 
-  `_ConcreteUniversalParams.ds_step::Float64` would fail for a TPS or Dual `L`.
-- `main` and the restructured code differ by ~4e-11 in z after one ESR turn from a nonzero start; 
-  predates the performance work, not investigated.
+- Possibly: error in `resolve_reference!` for spin tracking of species with a `NaN` anomaly.
+- The pre-restructuring code differs from the current one by ~2e-10 after one ESR turn from a 
+  nonzero start: only in the RF cavities, which it integrated at order 2 (`SciBmadStandard`); 
+  `RFCavity` now defaults to `SolenoidKick` (order 4). With `DriftKick(order=2)` the results are 
+  bitwise equal; order 4 is converged to ~1e-17 per cavity, order 2 was off by ~1e-11.

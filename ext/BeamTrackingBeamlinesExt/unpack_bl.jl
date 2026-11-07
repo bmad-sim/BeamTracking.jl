@@ -3,7 +3,7 @@
 struct _ConcreteUniversalParams{A,F,RD,RF}
   L::A
   n_steps::Int
-  ds_step::Float64
+  ds_step::A
   n_slices::Int
   fringe_at::Fringe.T
   rad_damping::Bool
@@ -35,7 +35,7 @@ Base.getproperty(up::_ConcreteUniversalParams{A,F,RD,RF}, key::Symbol) where {A,
 struct _SliceUniversalParams{A,F,RD,RF,FIRST,LAST}
   L::A
   n_steps::Int
-  ds_step::Float64
+  ds_step::A
   n_slices::Int
   s0::A
   L_slice::A
