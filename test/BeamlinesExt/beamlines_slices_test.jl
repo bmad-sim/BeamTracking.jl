@@ -239,4 +239,19 @@ using Random
   # Not supported
   @test_throws ErrorException track_ele((; L=2.0, voltage=1e6, rf_frequency=5e8), 2, 1; tm=SaganCavity())
   @test_throws ErrorException track_ele((; L=2.0, dx=1e-3), 2, 1; tm=Exact())
+  # Elements tracked in one step error for n_steps > 1, so n_slices*n_steps is always the number of
+  # steps (and of callbacks, which e.g. SciBmad's twiss relies on)
+  count_cb(n) = ((i, coords, s, t, bg, ds, g, o!, in!) -> (n[] += 1; nothing),)
+  for kw in ((; L=2.0, dx=1e-3), (; L=2.0, transport_map=(v, q) -> (v, q)))
+    @test_throws "n_steps > 1" track_ele(kw, 1, 2; tm=Exact())
+    ncb = Ref(0)
+    track_ele(kw, 1, 1; tm=Exact(), callbacks=count_cb(ncb), trackkw=(; use_explicit_SIMD=false)) # one call per particle
+    @test ncb[] == size(v0, 1)
+  end
+  sagan(n_steps) = Beamline([Drift(L=0.5), RFCavity(L=2.0, voltage=1e6, rf_frequency=5e8, tracking_method=SaganCavity(n_cells=3),
+                             n_steps=n_steps)]; p_over_q_ref=R0, species_ref=e).line[2]
+  @test_throws "n_steps > 1" track!(Bunch(copy(v0); p_over_q_ref=R0, species=e), sagan(2); notify=false)
+  ncb = Ref(0)
+  track!(Bunch(copy(v0); p_over_q_ref=R0, species=e, callbacks=count_cb(ncb)), sagan(1); notify=false, use_explicit_SIMD=false)
+  @test ncb[] == size(v0, 1)
 end
