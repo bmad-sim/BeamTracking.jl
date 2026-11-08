@@ -21,7 +21,7 @@ function fringe!(i, coords::Coords, a, tilde_m, beta_0, Kn0, w, w_inv, e1, e2, :
 
     if !isnothing(coords.q)
       b_vec = (0, 0, sgn*v[i,YI]*Kn0)
-      rotate_spin_field!(i, coords, a, 0, tilde_m, 0, 0, (0, 0, 0), b_vec, 1/2)
+      rotate_spin_field!(i, coords, a, 0, tilde_m, 0, 0, (0, 0, 0), b_vec, one_half(eltype(coords.v)))
     end
     
     ps2 = rel_p*rel_p - v[i,PXI]*v[i,PXI] - v[i,PYI]*v[i,PYI]
@@ -56,7 +56,7 @@ function fringe!(i, coords::Coords, a, tilde_m, beta_0, Kn0, w, w_inv, e1, e2, :
 
     if !isnothing(coords.q)
       b_vec = (0, 0, sgn*v[i,YI]*Kn0)
-      rotate_spin_field!(i, coords, a, 0, tilde_m, 0, 0, (0, 0, 0), b_vec, 1/2)
+      rotate_spin_field!(i, coords, a, 0, tilde_m, 0, 0, (0, 0, 0), b_vec, one_half(eltype(coords.v)))
     end
 
     if sgn == -1
@@ -110,14 +110,14 @@ function fringe!(i, coords::Coords, a, tilde_m, Ksol, Kn0, Ks0, Kn1, Ks1, Kn2, K
         bz += sgn*v[i,YI]*Kn0 + sgn*v[i,XI]*Ks0
       end
       if !isnothing(Kn1) & !isnothing(Ks1)
-        bz += sgn*v[i,XI]*v[i,YI]*Kn1 + sgn/2*(v[i,XI]*v[i,XI] - v[i,YI]*v[i,YI])*Ks1
+        bz += sgn*v[i,XI]*v[i,YI]*Kn1 + sgn*(v[i,XI]*v[i,XI] - v[i,YI]*v[i,YI])*Ks1/2
       end
       if !isnothing(Kn2) & !isnothing(Ks2)
         x2 = v[i,XI]*v[i,XI]
         y2 = v[i,YI]*v[i,YI]
         bz += sgn*v[i,YI]*(x2 - y2/3)*Kn2 + sgn*v[i,XI]*(x2/3 - y2)*Ks2
       end
-      rotate_spin_field!(i, coords, a, 0, tilde_m, ax, ay, (0, 0, 0), (bx, by, bz), 1/2)
+      rotate_spin_field!(i, coords, a, 0, tilde_m, ax, ay, (0, 0, 0), (bx, by, bz), one_half(eltype(coords.v)))
     end
 
     # Multipole orbit
@@ -214,14 +214,14 @@ function fringe!(i, coords::Coords, a, tilde_m, Ksol, Kn0, Ks0, Kn1, Ks1, Kn2, K
         bz += sgn*v[i,YI]*Kn0 + sgn*v[i,XI]*Ks0
       end
       if !isnothing(Kn1) & !isnothing(Ks1)
-        bz += sgn*v[i,XI]*v[i,YI]*Kn1 + sgn/2*(v[i,XI]*v[i,XI] - v[i,YI]*v[i,YI])*Ks1
+        bz += sgn*v[i,XI]*v[i,YI]*Kn1 + sgn*(v[i,XI]*v[i,XI] - v[i,YI]*v[i,YI])*Ks1/2
       end
       if !isnothing(Kn2) & !isnothing(Ks2)
         x2 = v[i,XI]*v[i,XI]
         y2 = v[i,YI]*v[i,YI]
         bz += sgn*v[i,YI]*(x2 - y2/3)*Kn2 + sgn*v[i,XI]*(x2/3 - y2)*Ks2
       end
-      rotate_spin_field!(i, coords, a, 0, tilde_m, ax, ay, (0, 0, 0), (bx, by, bz), 1/2)
+      rotate_spin_field!(i, coords, a, 0, tilde_m, ax, ay, (0, 0, 0), (bx, by, bz), one_half(eltype(coords.v)))
     end
   end end
   return nothing
@@ -249,10 +249,10 @@ function fringe!(i, coords::Coords, a, tilde_m, kE, w, w_inv, ::Val{sgn}) where 
       end
 
       mad_to_bmad!(i, coords, beta_0, tilde_m, phi_in)
-      rotate_spin_field!(i, coords, a, 0, tilde_m, 0, 0, e_vec, (0, 0, 0), 1/2)
+      rotate_spin_field!(i, coords, a, 0, tilde_m, 0, 0, e_vec, (0, 0, 0), one_half(eltype(coords.v)))
       bmad_to_mad!(i, coords, beta_0, tilde_m, phi_in)
       mad_to_bmad!(i, coords, beta_0, tilde_m, phi_out)
-      rotate_spin_field!(i, coords, a, 0, tilde_m, 0, 0, e_vec, (0, 0, 0), 1/2)
+      rotate_spin_field!(i, coords, a, 0, tilde_m, 0, 0, e_vec, (0, 0, 0), one_half(eltype(coords.v)))
       bmad_to_mad!(i, coords, beta_0, tilde_m, phi_out)
 
       if !isnothing(w_inv)
