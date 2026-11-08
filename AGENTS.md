@@ -368,7 +368,7 @@ and batches, also on Metal; Dual/TPS element lengths; one RF phase convention fo
 methods) are merged. Branch `noinline2`: integrators with one kernel call site (`integrate_steps!`, 
 see "Performance rules"); it replaces the old `noinline` branch (PR #365).
 
-ESR, Julia 1.10, Apple silicon, 1 particle: `main` 18.8 ms → 4.6 ms (103,961 allocations); ramped 
+ESR, Julia 1.10, Apple silicon, 1 particle: `main` 18.8 ms → 3.9 ms (81,438 allocations); ramped 
 reference 4.7 ms; per-particle ramp 1/100/1000 particles 9/57/483 ms (Julia 1.13: 9.5 ms for 1).
 
 Open items:
@@ -380,10 +380,11 @@ Open items:
   it is 245 MB), the rest is SciBmad's own workload.
 - Radiation fluctuations (`rad_fluctuations`) allocate 4 times per particle without explicit SIMD 
   (also on `main` before `noinline2`).
-- Remaining unpacking costs (ESR profile): `deval(::UniversalParams)` ~16%, the 
-  `_ConcreteUniversalParams` construction (dynamic type with runtime type parameters) ~11%, 
-  `deval(::BMultipoleParams)` array copies ~8%, data-dependent unions after the barrier ~6% (fixing 
-  them must not slow down general multipoles), the barrier dispatch ~5%.
+- Remaining unpacking costs (ESR profile): the `_ConcreteUniversalParams` construction (dynamic 
+  type with runtime type parameters) ~11%, data-dependent unions after the barrier ~6% (fixing 
+  them must not slow down general multipoles), the barrier dispatch ~5%. `deval` of a parameter 
+  group without any `DefExpr` returns the group itself (~4 ns; it used to rebuild it, 50 ns for 
+  `UniversalParams` and array copies for `BMultipoleParams`).
 - Per-particle ramp: mostly per-particle evaluation of time-function chains. Making all strengths 
   one common `TimeDependentParam` type halves setup but makes normalized strengths `Vec`s in the 
   kernels (30% slower for 1000 particles), so it was not done.
