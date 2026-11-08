@@ -131,9 +131,9 @@ end
   y2 = apertureparams.y2_limit
 
   if entering && apertureparams.aperture_at == ApertureAt.Exit
-      return kc
+    return kc
   elseif !entering && apertureparams.aperture_at == ApertureAt.Entrance
-      return kc
+    return kc
   elseif apertureparams.aperture_shape == ApertureShape.Elliptical
     if any(isinf, (x1, x2, y1, y2))
       error("Invalid ApertureParams limits for elliptical aperture: check if all limits have been set")

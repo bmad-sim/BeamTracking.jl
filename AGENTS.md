@@ -355,7 +355,19 @@ touches both repositories; their versions are coupled (BeamTracking 0.9 needs Be
 - Every element in a `Beamline` is an `InheritParams` child of the element it was made from. 
   Setting a property on a child writes to the shared parent; only a group put in the child's 
   `pdict` overrides.
-- `BMultipoleParams{T,N}` stores `SizedVector`s; `deval` copies them.
+- `BMultipoleParams{T,N}` stores `SizedVector`s with one eltype for all strengths and tilts, so 
+  once one is a `DefExpr{T}`, the constant ones are wrapped as `DefExpr`s of the promoted type. 
+  `DefExpr(f)` infers `T` with `Base.promote_op` (so `DefExpr(()->a)` with a non-`const` global `a`, 
+  or `DefExpr(c->c.k)`, is a `DefExpr{Any}`, and makes them all `DefExpr{Any}`); with an explicit 
+  `DefExpr{Float64}(…)` (or an inferable return type) they are all `DefExpr{Float64}`. `deval` of 
+  a group with `DefExpr`s builds a new group (copying such arrays); of a group without any, it 
+  returns the group itself (statically for concretely typed fields, by an `isa DefExpr` check for 
+  untyped ones), so never mutate a `deval`ed group.
+- `rawget(ele_or_group, key)` (exported, like `deval`) returns an independent variable as stored 
+  (e.g. the `DefExpr`), defined per parameter group with a default for `AbstractParams`; dependent 
+  ones (e.g. `Kn1L`/`Bn1` when `Kn1` was set last, `ds_step` when `n_steps` was set, `E_ref` when 
+  `p_over_q_ref` was set, `s`) error and name the independent variable. A raw dependent quantity 
+  would be stale as soon as another independent variable it uses changes (e.g. `p_over_q_ref` for `Bn1`).
 - Energy conversions (`E_to_R`, `R_to_v`, `pc_to_R`, delta conversions, …) are in Beamlines 
   (unexported). BeamTracking only has `beta_gamma_to_v`.
 - AtomicAndPhysicalConstants: `gyromagnetic_anomaly` is `NaN` for atomic species (spin tracking 
