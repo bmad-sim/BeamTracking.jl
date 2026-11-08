@@ -96,6 +96,11 @@ Ks' = Kn*-sin(order*tilt) + Ks*cos(order*tilt)
 This works for both BMultipole and BMultipoleParams. Branchless bc SIMD -> basically 
 no loss in computing both but benefit of branchless.
 """
+# True if the dipole (first entry of bm) has no skew component in the bend frame. ks[1] == 0 
+# is false for a time dependent ks[1], which it is (even if zero) whenever Kn0 is, so check the 
+# stored values then
+no_skew_dipole(bm, ks) = ks[1] == 0 || (getfield(bm, :s)[1] == 0 && getfield(bm, :tilt)[1] == 0)
+
 @inline function get_strengths(bm, L, p_over_q_ref, field_scale)
   bmn = getfield(bm, :n)
   bms = getfield(bm, :s)

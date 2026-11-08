@@ -76,7 +76,7 @@
   else
     g = ele.bendparams.g_ref
     ntilt = -ele.bendparams.tilt_ref
-    !has_dipole || ks[1] == 0 || error("BendKick is not currently compatible in an element with both BendParams and a skew dipole multipole")
+    !has_dipole || no_skew_dipole(ele.bmultipoleparams, ks) || error("BendKick is not currently compatible in an element with both BendParams and a skew dipole multipole")
     has_dipole && length(mm) == 1 || @warn "Straight multipoles are being used in a curved reference system. Maxwell's equations in free space are not satisfied." maxlog=1
     Kn0 = has_dipole ? kn[1] : zero(kn[1])
     w = ntilt == 0 ? nothing : rot_quaternion(0, 0, ntilt)

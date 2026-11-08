@@ -104,7 +104,7 @@
     mm = ele.bmultipoleparams.order
     length(mm) == 1 && first(mm) == 1 || error("Exact only supports BendParams with a pure dipole BMultipoleParams. Try BendKick instead")
     kn, ks = get_strengths(ele.bmultipoleparams, L, p_over_q_ref, ele.ref.field_scale)
-    ks[1] == 0 || error("Exact is not currently compatible in an element with both BendParams and a skew dipole multipole")
+    no_skew_dipole(ele.bmultipoleparams, ks) || error("Exact is not currently compatible in an element with both BendParams and a skew dipole multipole")
     Kn0 = kn[1]
     edge_params = (a, tilde_m, beta_0, Kn0, w, w_inv, ele.bendparams.e1, ele.bendparams.e2)
     params = (radiation_params, tilde_m, beta_0, a, g, w, w_inv, Kn0, mm, kn, ks)

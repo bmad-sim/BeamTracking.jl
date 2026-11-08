@@ -113,6 +113,10 @@ touches both repositories; their versions are coupled (BeamTracking 0.9 needs Be
   Write the `Ksol`/`Val` pair as an `if`/`else` with literal `Val{true}()`/`Val{false}()`.
 - `radiation_params = ele.universalparams.rad_damping ? (q, mc2, E_ref) : nothing`; `photon_params` 
   only if `isprimitivetype(eltype(bunch.coords.v)) && rad_fluctuations`.
+- A `TimeDependentParam` compares equal to a number only if it is constant (`_isconst`), and any 
+  operation with a non-constant one gives a non-constant one: once `Kn0` depends on time, so does 
+  the rotated skew dipole `ks[1]`, even when zero. Checks for zero (e.g. the skew dipole in a bend, 
+  `no_skew_dipole`) must then look at the stored values.
 - `SolenoidKick` on an element without a solenoid prepends a zero solenoid component 
   (`pushfirst(mm, 0)`, `pushfirst(kn, zero(kn[1]))`).
 - Implicit and the Exact electric dipole are wrapped in `bmad_to_mad!`/`mad_to_bmad!` with the 
