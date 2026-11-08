@@ -28,7 +28,8 @@ using Random
 
   # The kernels do not allocate, so the allocations of track! (setting up the kernels of each
   # element) do not depend on the number of particles
-  cases = (("static", ring, (;)), ("ramp", ramp_ring, (;)), ("ramp per particle", ramp_ring, (; ramp_update_each_particle=true)), ("slices", sliced_line, (;)))
+  cases = (("static", ring, (;)), ("static without explicit SIMD", ring, (; use_explicit_SIMD=false)), ("ramp", ramp_ring, (;)),
+           ("ramp per particle", ramp_ring, (; ramp_update_each_particle=true)), ("slices", sliced_line, (;)))
   allocs = Dict(name => allocations(bl, 1; kw...) for (name, bl, kw) in cases)
   for (name, bl, kw) in cases
     @test allocations(bl, 100; kw...) == allocs[name]

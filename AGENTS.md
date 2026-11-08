@@ -116,7 +116,9 @@ touches both repositories; their versions are coupled (BeamTracking 0.9 needs Be
 - `KernelChain` holds a tuple of `KernelCall`s and a `RefState` (`t_enter, beta_gamma_enter, t_exit, beta_gamma_exit, L, g, ds_step, s0`). 
   `push` returns a new chain type. `make_kernel_call` time- and batch-lowers arguments; `_push` 
   `num_lower`s them to the coordinate type.
-- Integrators call `ker(i, coords, s, params..., ds_step)` with `s` from the launch entrance. 
+- The `order_*_integrator!`s only build the tuple of substep lengths of their scheme; 
+  `integrate_steps!` (fringes, steps, radiation, callbacks) calls `ker(i, coords, s, params..., w)` 
+  for each substep `w`, with `s` from the launch entrance. 
   Callbacks get `s0 + s` (`construct_main_callback`), i.e. from the element entrance.
 - `compute_dt_ref` uses `find_tilde_m(ker)`, the position of the argument named `tilde_m`.
 - Field kernels that depend on `s` take the element-relative offset: `rk4_kernel!(…, s0=0)` and 
@@ -246,6 +248,28 @@ touches both repositories; their versions are coupled (BeamTracking 0.9 needs Be
   (not `eltype(kn)`); build arrays with `T[T(x) for x in a]`, not `T.(a)` (broadcasting narrows the 
   element type).
 - Kernels must not allocate, and must not loop over heterogeneous tuples with runtime indexing.
+- **Compile time and code size.** The kernels (`@makekernel`) and the helpers they call are 
+  `@inline`, so each is compiled into every call site, in every kernel chain type, for every 
+  coordinate type (explicit SIMD and scalar paths, Float32, Dual, TPS with `@FastGTPSA`). Never 
+  write the same kernel call several times in a row: loop over a tuple of what changes instead, so 
+  there is one call site. The integrators used to write out every substep (up to 70 copies of the 
+  kernel for order 10), which made the SciBmad precompile workload take 167 s and 12 GB of memory 
+  and produced a 745 MB binary; with `integrate_steps!` (one call site, not inlined, so shared by 
+  all chains) it is 72 s, 8.6 GB and 315 MB, the first `track!` through ESR compiles in 4.5 s 
+  instead of 7.8 s (20 s → 4.6 s for a line with every tracking method), bitwise identical and 
+  equally fast with explicit SIMD and on Metal.
+- Removing `@inline` from the kernels themselves was tested (old PR #365 and again): the scalar 
+  (no explicit SIMD) path becomes 2x slower and the explicit SIMD path ~7% slower, so the kernels 
+  stay inlined. Without explicit SIMD the single call site costs ~10% on ESR (its alternating 
+  quadrupoles; sextupoles and single quadrupoles got faster); writing the last step separately 
+  only recovers part of it and costs compile time, so it was not done. `launch!` must stay 
+  `@inline` (~1 ms per ESR turn otherwise).
+- **Function arguments of non-inlined methods:** Julia does not specialize on a `Function` 
+  argument that is only passed on or splatted (`ker(i, coords, params...)` is not a direct call); 
+  it compiles the method for `::Function` and dispatches dynamically, here per particle (allocations 
+  per particle, ~2x slower). Declare such arguments `ker::K` with `where {K}`. Inlined methods are 
+  not affected, which is how it stays hidden until something is not inlined. The allocation test 
+  in `test/performance_test.jl` (1 vs 100 particles, with and without explicit SIMD) catches it.
 - **Julia 1.10 explicit SIMD codegen bug (x86-64 segfault, fixed in 1.11):** copying scalar fields 
   of an argument (e.g. the kernel chain, 8-aligned) into a tuple that contains a `Vec` gives the 
   load the destination's alignment (`emit_memcpy_llvm`, "memcpy_refined"); two merged `double` 
@@ -300,6 +324,13 @@ touches both repositories; their versions are coupled (BeamTracking 0.9 needs Be
   Julia version (update them when allocations drop or for new Julia versions), JET `@test_opt` on 
   a drift's `universal!`, and timing ratios on the same machine. It cannot catch a uniform slowdown 
   with unchanged allocations; that needs a same-machine comparison of absolute timings:
+- Compile cost (for changes to inlining, kernels or the kernel chain): the time of the first 
+  `track!` in a fresh process (ESR, and a line with every tracking method), and the SciBmad 
+  precompile workload with `precompile_workload = true` in a separate environment whose compiled 
+  caches go to a scratch depot (`JULIA_DEPOT_PATH=<scratch depot>:~/.julia`, delete 
+  `<scratch depot>/compiled` before each run), under `/usr/bin/time -l` (wall time, maximum 
+  resident set size) plus the size of `compiled/v1.10/SciBmad/*.dylib`. Do not turn the workload 
+  on in the environments used otherwise.
 - `benchmark/benchmarks.jl` (`SUITE`, BenchmarkTools) and `.github/workflows/Benchmark.yml` 
   (AirspeedVelocity.jl: PR vs base on the same runner, results in the job summary). Locally: 
   `include("benchmark/benchmarks.jl"); run(SUITE)`.
@@ -326,10 +357,10 @@ touches both repositories; their versions are coupled (BeamTracking 0.9 needs Be
 
 ## Status (Nov 2026)
 
-The restructured extension (`n-slices`) and Beamlines 0.12 are merged. Branch `followups2`: 
-Float32 time dependence and batches (also on Metal), Dual/TPS element lengths, `rf_omega_calc` 
-with the evaluated `p_over_q_ref` (in `ele.ref`), one RF phase convention for all cavity methods, 
-tests with explicit SIMD on Julia 1.10 x86.
+The restructured extension (`n-slices`), Beamlines 0.12 and `followups2` (Float32 time dependence 
+and batches, also on Metal; Dual/TPS element lengths; one RF phase convention for all cavity 
+methods) are merged. Branch `noinline2`: integrators with one kernel call site (`integrate_steps!`, 
+see "Performance rules"); it replaces the old `noinline` branch (PR #365).
 
 ESR, Julia 1.10, Apple silicon, 1 particle: `main` 18.8 ms → 4.6 ms (103,961 allocations); ramped 
 reference 4.7 ms; per-particle ramp 1/100/1000 particles 9/57/483 ms (Julia 1.13: 9.5 ms for 1).
@@ -337,8 +368,12 @@ reference 4.7 ms; per-particle ramp 1/100/1000 particles 9/57/483 ms (Julia 1.13
 Open items:
 - SaganCavity does not support a ramped reference (`rf_step_calc` rounds a time dependent 
   `omega`, and the reference energy change between Beamlines would need ramp semantics).
-- IBS with explicit SIMD on Julia 1.10 x86 was disabled in its test (commit "Fix SIMD bug", no 
-  reason given) and is enabled again on `followups2`: check CI.
+- Further compile-size reductions (not done): every kernel chain is compiled twice for primitive 
+  types (explicit SIMD loop and the scalar remainder loop); the remainder could use a masked SIMD 
+  step. Of the 315 MB SciBmad binary, at most ~70 MB is tracking code (with no kernel inlined at all 
+  it is 245 MB), the rest is SciBmad's own workload.
+- Radiation fluctuations (`rad_fluctuations`) allocate 4 times per particle without explicit SIMD 
+  (also on `main` before `noinline2`).
 - Remaining unpacking costs (ESR profile): `deval(::UniversalParams)` ~16%, the 
   `_ConcreteUniversalParams` construction (dynamic type with runtime type parameters) ~11%, 
   `deval(::BMultipoleParams)` array copies ~8%, data-dependent unions after the barrier ~6% (fixing 
