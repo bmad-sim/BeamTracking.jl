@@ -160,6 +160,11 @@ function universal!(
   @noinline launch!(coords, kc; kwargs...)
   
   bunch.t_ref = t_exit_design
+  # The kernel shifts the particles to the exit reference momentum, so the Bunch must be at it too, or 
+  # the next element shifts them again. (A time-dependent reference was set by the Ramping block above.)
+  if !(p_over_q_ref isa TimeDependentParam)
+    bunch.p_over_q_ref = p_over_q_ref
+  end
   
   return nothing
 end
