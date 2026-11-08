@@ -2,26 +2,33 @@
 # ===============  I N T E G R A T O R S  ===============
 #
 
-@inline function order_two_integrator!(i, coords::Coords, ker, params, photon_params, ds_step, n_steps, edge_params, ::Val{fringe_in}, ::Val{fringe_out}, use_optimized_schemes, L) where {fringe_in, fringe_out}
+# Tracks n_steps integration steps, each made of the substeps of lengths ws (the scheme of the
+# integrator), with the fringes, radiation and callbacks. `ker` has a single call site, so it is
+# inlined once: written out per substep it was inlined at every substep (up to 70 copies of the
+# kernel for order 10), which multiplied the compile time and the size of the compiled code.
+# `ker::K` forces specialization on the kernel (it is not called directly, only splatted)
+function integrate_steps!(i, coords::Coords, ker::K, params, photon_params, ds_step, n_steps, edge_params, ::Val{fringe_in}, ::Val{fringe_out}, ws) where {K, fringe_in, fringe_out}
   @inbounds begin
     if !isnothing(edge_params) && fringe_in
       fringe!(i, coords, edge_params..., Val{1}())
     end
-    s = 0
+    s = zero(first(ws))
     if !isnothing(photon_params)
       stochastic_radiation!(i, coords, s, photon_params..., ds_step / 2)
     end
-    for step in 1:(n_steps-1)
-      ker(i, coords, s, params..., ds_step)
-      s += ds_step
-      if !isnothing(photon_params)
-        stochastic_radiation!(i, coords, s, photon_params..., ds_step)
+    for step in 1:n_steps
+      for w in ws
+        ker(i, coords, s, params..., w)
+        s += w
       end
-      dt_ref = compute_dt_ref(s, ker, params)
-      execute_callbacks(i, coords, s, dt_ref)
+      if step < n_steps
+        if !isnothing(photon_params)
+          stochastic_radiation!(i, coords, s, photon_params..., ds_step)
+        end
+        dt_ref = compute_dt_ref(s, ker, params)
+        execute_callbacks(i, coords, s, dt_ref)
+      end
     end
-    ker(i, coords, s, params..., ds_step)
-    s += ds_step
     if !isnothing(photon_params)
       stochastic_radiation!(i, coords, s, photon_params..., ds_step / 2)
     end
@@ -32,6 +39,9 @@
   return nothing
 end
 
+@inline function order_two_integrator!(i, coords::Coords, ker, params, photon_params, ds_step, n_steps, edge_params, fringe_in, fringe_out, use_optimized_schemes, L)
+  return integrate_steps!(i, coords, ker, params, photon_params, ds_step, n_steps, edge_params, fringe_in, fringe_out, (ds_step,))
+end
 
 @inline @generated function order_four_integrator!(i, coords::Coords{<:Any,V}, ker, params, photon_params, ds_step, n_steps, edge_params, ::Val{fringe_in}, ::Val{fringe_out}, ::Val{use_optimized_schemes}, L) where {V, fringe_in, fringe_out, use_optimized_schemes}
   if use_optimized_schemes
@@ -51,59 +61,16 @@ end
     c = T.(c)
   end
   return quote
-    @inbounds begin
+    if use_optimized_schemes
       w0 = $(c[1]) * ds_step
       w1 = $(c[2]) * ds_step
-      if !isnothing(edge_params) && fringe_in
-        fringe!(i, coords, edge_params..., Val{1}())
-      end
-      s = 0
-      if !isnothing(photon_params)
-        stochastic_radiation!(i, coords, s, photon_params..., ds_step / 2)
-      end
-      for step in 1:(n_steps-1)
-        if use_optimized_schemes
-          ker(i, coords, s, params..., w1)
-          s += w1
-        end
-        ker(i, coords, s, params..., w1)
-        s += w1
-        ker(i, coords, s, params..., w0)
-        s += w0
-        ker(i, coords, s, params..., w1)
-        s += w1
-        if use_optimized_schemes
-          ker(i, coords, s, params..., w1)
-          s += w1
-        end
-        if !isnothing(photon_params)
-          stochastic_radiation!(i, coords, s, photon_params..., ds_step)
-        end
-        dt_ref = compute_dt_ref(s, ker, params)
-        execute_callbacks(i, coords, s, dt_ref)
-      end
-      if use_optimized_schemes
-        ker(i, coords, s, params..., w1)
-        s += w1
-      end
-      ker(i, coords, s, params..., w1)
-      s += w1
-      ker(i, coords, s, params..., w0)
-      s += w0
-      ker(i, coords, s, params..., w1)
-      s += w1
-      if use_optimized_schemes
-        ker(i, coords, s, params..., w1)
-        s += w1
-      end
-      if !isnothing(photon_params)
-        stochastic_radiation!(i, coords, s, photon_params..., ds_step / 2)
-      end
-      if !isnothing(edge_params) && fringe_out
-        fringe!(i, coords, edge_params..., Val{-1}())
-      end
+      ws = (w1, w1, w0, w1, w1)
+    else
+      w0 = $(c[1]) * ds_step
+      w1 = $(c[2]) * ds_step
+      ws = (w1, w0, w1)
     end
-    return nothing
+    integrate_steps!(i, coords, ker, params, photon_params, ds_step, n_steps, edge_params, Val{fringe_in}(), Val{fringe_out}(), ws)
   end
 end
 
@@ -136,103 +103,23 @@ end
     c = T.(c)
   end
   return quote
-    @inbounds begin
-      if use_optimized_schemes
-        w0 = $(c[1]) * ds_step
-        w1 = $(c[2]) * ds_step
-        w2 = $(c[3]) * ds_step
-        w3 = $(c[4]) * ds_step
-        w4 = $(c[5]) * ds_step
-        w5 = $(c[6]) * ds_step
-        w6 = $(c[7]) * ds_step
-      else
-        w0 = $(c[1]) * ds_step
-        w1 = $(c[2]) * ds_step
-        w2 = $(c[3]) * ds_step
-        w3 = $(c[4]) * ds_step
-      end
-      if !isnothing(edge_params)  && fringe_in
-        fringe!(i, coords, edge_params..., Val{1}())
-      end
-      s = 0
-      if !isnothing(photon_params)
-        stochastic_radiation!(i, coords, s, photon_params..., ds_step / 2)
-      end
-      for step in 1:(n_steps-1)
-        if use_optimized_schemes
-          ker(i, coords, s, params..., w6)
-          s += w6
-          ker(i, coords, s, params..., w5)
-          s += w5
-          ker(i, coords, s, params..., w4)
-          s += w4
-        end
-        ker(i, coords, s, params..., w3)
-        s += w3
-        ker(i, coords, s, params..., w2)
-        s += w2
-        ker(i, coords, s, params..., w1)
-        s += w1
-        ker(i, coords, s, params..., w0)
-        s += w0
-        ker(i, coords, s, params..., w1)
-        s += w1
-        ker(i, coords, s, params..., w2)
-        s += w2
-        ker(i, coords, s, params..., w3)
-        s += w3
-        if use_optimized_schemes
-          ker(i, coords, s, params..., w4)
-          s += w4
-          ker(i, coords, s, params..., w5)
-          s += w5
-          ker(i, coords, s, params..., w6)
-          s += w6
-        end
-        if !isnothing(photon_params)
-          stochastic_radiation!(i, coords, s, photon_params..., ds_step)
-        end
-        dt_ref = compute_dt_ref(s, ker, params)
-        execute_callbacks(i, coords, s, dt_ref)
-      end
-      if use_optimized_schemes
-        ker(i, coords, s, params..., w6)
-        s += w6
-        ker(i, coords, s, params..., w5)
-        s += w5
-        ker(i, coords, s, params..., w4)
-        s += w4
-      end
-      ker(i, coords, s, params..., w3)
-      s += w3
-      ker(i, coords, s, params..., w2)
-      s += w2
-      ker(i, coords, s, params..., w1)
-      s += w1
-      ker(i, coords, s, params..., w0)
-      s += w0
-      ker(i, coords, s, params..., w1)
-      s += w1
-      ker(i, coords, s, params..., w2)
-      s += w2
-      ker(i, coords, s, params..., w3)
-      s += w3
-      if use_optimized_schemes
-        ker(i, coords, s, params..., w4)
-        s += w4
-        ker(i, coords, s, params..., w5)
-        s += w5
-        ker(i, coords, s, params..., w6)
-        s += w6
-      end
-      if !isnothing(photon_params)
-        stochastic_radiation!(i, coords, s, photon_params..., ds_step / 2)
-      end
-      if !isnothing(edge_params) && fringe_out
-        fringe!(i, coords, edge_params..., Val{-1}())
-      end
+    if use_optimized_schemes
+      w0 = $(c[1]) * ds_step
+      w1 = $(c[2]) * ds_step
+      w2 = $(c[3]) * ds_step
+      w3 = $(c[4]) * ds_step
+      w4 = $(c[5]) * ds_step
+      w5 = $(c[6]) * ds_step
+      w6 = $(c[7]) * ds_step
+      ws = (w6, w5, w4, w3, w2, w1, w0, w1, w2, w3, w4, w5, w6)
+    else
+      w0 = $(c[1]) * ds_step
+      w1 = $(c[2]) * ds_step
+      w2 = $(c[3]) * ds_step
+      w3 = $(c[4]) * ds_step
+      ws = (w3, w2, w1, w0, w1, w2, w3)
     end
-    return nothing
+    integrate_steps!(i, coords, ker, params, photon_params, ds_step, n_steps, edge_params, Val{fringe_in}(), Val{fringe_out}(), ws)
   end
 end
 
@@ -267,149 +154,37 @@ end
         NaN
     )
   end
-  
+
   T = ForwardDiff.valtype(eltype(V))
   if T == Float16 || T == Float32
     c = T.(c)
   end
   return quote
-    @inbounds begin
-      if use_optimized_schemes
-        w0 = $(c[1]) * ds_step
-        w1 = $(c[2]) * ds_step
-        w2 = $(c[3]) * ds_step
-        w3 = $(c[4]) * ds_step
-        w4 = $(c[5]) * ds_step
-        w5 = $(c[6]) * ds_step
-        w6 = $(c[7]) * ds_step
-        w7 = $(c[8]) * ds_step
-        w8 = $(c[9]) * ds_step
-        w9 = $(c[10]) * ds_step
-        w10= $(c[11]) * ds_step
-      else
-        w0 = $(c[1]) * ds_step
-        w1 = $(c[2]) * ds_step
-        w2 = $(c[3]) * ds_step
-        w3 = $(c[4]) * ds_step
-        w4 = $(c[5]) * ds_step
-        w5 = $(c[6]) * ds_step
-        w6 = $(c[7]) * ds_step
-        w7 = $(c[8]) * ds_step
-      end
-      if !isnothing(edge_params) && fringe_in
-        fringe!(i, coords, edge_params..., Val{1}())
-      end
-      s = 0
-      if !isnothing(photon_params)
-        stochastic_radiation!(i, coords, s, photon_params..., ds_step / 2)
-      end
-      for step in 1:(n_steps-1)
-        if use_optimized_schemes
-          ker(i, coords, s, params..., w10)
-          s += w10
-          ker(i, coords, s, params..., w9)
-          s += w9
-          ker(i, coords, s, params..., w8)
-          s += w8
-        end
-        ker(i, coords, s, params..., w7)
-        s += w7
-        ker(i, coords, s, params..., w6)
-        s += w6
-        ker(i, coords, s, params..., w5)
-        s += w5
-        ker(i, coords, s, params..., w4)
-        s += w4
-        ker(i, coords, s, params..., w3)
-        s += w3
-        ker(i, coords, s, params..., w2)
-        s += w2
-        ker(i, coords, s, params..., w1)
-        s += w1
-        ker(i, coords, s, params..., w0)
-        s += w0
-        ker(i, coords, s, params..., w1) 
-        s += w1
-        ker(i, coords, s, params..., w2)
-        s += w2
-        ker(i, coords, s, params..., w3)
-        s += w3
-        ker(i, coords, s, params..., w4)
-        s += w4
-        ker(i, coords, s, params..., w5)
-        s += w5
-        ker(i, coords, s, params..., w6)
-        s += w6
-        ker(i, coords, s, params..., w7)
-        s += w7
-        if use_optimized_schemes
-          ker(i, coords, s, params..., w8)
-          s += w8
-          ker(i, coords, s, params..., w9)
-          s += w9
-          ker(i, coords, s, params..., w10)
-          s += w10
-        end
-        if !isnothing(photon_params)
-          stochastic_radiation!(i, coords, s, photon_params..., ds_step)
-        end
-        dt_ref = compute_dt_ref(s, ker, params)
-        execute_callbacks(i, coords, s, dt_ref)
-      end
-      if use_optimized_schemes
-        ker(i, coords, s, params..., w10)
-        s += w10
-        ker(i, coords, s, params..., w9)
-        s += w9
-        ker(i, coords, s, params..., w8)
-        s += w8
-      end
-      ker(i, coords, s, params..., w7)
-      s += w7
-      ker(i, coords, s, params..., w6)
-      s += w6
-      ker(i, coords, s, params..., w5)
-      s += w5
-      ker(i, coords, s, params..., w4)
-      s += w4
-      ker(i, coords, s, params..., w3)
-      s += w3
-      ker(i, coords, s, params..., w2)
-      s += w2
-      ker(i, coords, s, params..., w1)
-      s += w1
-      ker(i, coords, s, params..., w0)
-      s += w0
-      ker(i, coords, s, params..., w1) 
-      s += w1
-      ker(i, coords, s, params..., w2)
-      s += w2
-      ker(i, coords, s, params..., w3)
-      s += w3
-      ker(i, coords, s, params..., w4)
-      s += w4
-      ker(i, coords, s, params..., w5)
-      s += w5
-      ker(i, coords, s, params..., w6)
-      s += w6
-      ker(i, coords, s, params..., w7)
-      s += w7
-      if use_optimized_schemes
-        ker(i, coords, s, params..., w8)
-        s += w8
-        ker(i, coords, s, params..., w9)
-        s += w9
-        ker(i, coords, s, params..., w10)
-        s += w10
-      end
-      if !isnothing(photon_params)
-        stochastic_radiation!(i, coords, s, photon_params..., ds_step / 2)
-      end
-      if !isnothing(edge_params) && fringe_out
-        fringe!(i, coords, edge_params..., Val{-1}())
-      end
+    if use_optimized_schemes
+      w0 = $(c[1]) * ds_step
+      w1 = $(c[2]) * ds_step
+      w2 = $(c[3]) * ds_step
+      w3 = $(c[4]) * ds_step
+      w4 = $(c[5]) * ds_step
+      w5 = $(c[6]) * ds_step
+      w6 = $(c[7]) * ds_step
+      w7 = $(c[8]) * ds_step
+      w8 = $(c[9]) * ds_step
+      w9 = $(c[10]) * ds_step
+      w10 = $(c[11]) * ds_step
+      ws = (w10, w9, w8, w7, w6, w5, w4, w3, w2, w1, w0, w1, w2, w3, w4, w5, w6, w7, w8, w9, w10)
+    else
+      w0 = $(c[1]) * ds_step
+      w1 = $(c[2]) * ds_step
+      w2 = $(c[3]) * ds_step
+      w3 = $(c[4]) * ds_step
+      w4 = $(c[5]) * ds_step
+      w5 = $(c[6]) * ds_step
+      w6 = $(c[7]) * ds_step
+      w7 = $(c[8]) * ds_step
+      ws = (w7, w6, w5, w4, w3, w2, w1, w0, w1, w2, w3, w4, w5, w6, w7)
     end
-    return nothing
+    integrate_steps!(i, coords, ker, params, photon_params, ds_step, n_steps, edge_params, Val{fringe_in}(), Val{fringe_out}(), ws)
   end
 end
 
@@ -440,186 +215,25 @@ end
     c = T.(c)
   end
   return quote
-    @inbounds begin
-      w0  = $(c[1]) * ds_step
-      w1  = $(c[2]) * ds_step
-      w2  = $(c[3]) * ds_step
-      w3  = $(c[4]) * ds_step
-      w4  = $(c[5]) * ds_step
-      w5  = $(c[6]) * ds_step
-      w6  = $(c[7]) * ds_step
-      w7  = $(c[8]) * ds_step
-      w8  = $(c[9]) * ds_step
-      w9  = $(c[10])* ds_step
-      w10 = $(c[11])* ds_step
-      w11 = $(c[12])* ds_step
-      w12 = $(c[13])* ds_step
-      w13 = $(c[14])* ds_step
-      w14 = $(c[15])* ds_step
-      w15 = $(c[16])* ds_step
-      w16 = $(c[17])* ds_step
-      w17 = $(c[18])* ds_step
-      if !isnothing(edge_params) && fringe_in
-        fringe!(i, coords, edge_params..., Val{1}())
-      end
-      s = 0
-      if !isnothing(photon_params)
-        stochastic_radiation!(i, coords, s, photon_params..., ds_step / 2)
-      end
-      for step in 1:(n_steps-1)
-        ker(i, coords, s, params..., w17)
-        s += w17
-        ker(i, coords, s, params..., w16)
-        s += w16
-        ker(i, coords, s, params..., w15)
-        s += w15
-        ker(i, coords, s, params..., w14)
-        s += w14
-        ker(i, coords, s, params..., w13)
-        s += w13
-        ker(i, coords, s, params..., w12)
-        s += w12
-        ker(i, coords, s, params..., w11)
-        s += w11
-        ker(i, coords, s, params..., w10)
-        s += w10
-        ker(i, coords, s, params..., w9)
-        s += w9
-        ker(i, coords, s, params..., w8)
-        s += w8
-        ker(i, coords, s, params..., w7)
-        s += w7
-        ker(i, coords, s, params..., w6)
-        s += w6
-        ker(i, coords, s, params..., w5)
-        s += w5
-        ker(i, coords, s, params..., w4)
-        s += w4
-        ker(i, coords, s, params..., w3)
-        s += w3
-        ker(i, coords, s, params..., w2)
-        s += w2
-        ker(i, coords, s, params..., w1)
-        s += w1
-        ker(i, coords, s, params..., w0)
-        s += w0
-        ker(i, coords, s, params..., w1)
-        s += w1
-        ker(i, coords, s, params..., w2)
-        s += w2
-        ker(i, coords, s, params..., w3)
-        s += w3
-        ker(i, coords, s, params..., w4)
-        s += w4
-        ker(i, coords, s, params..., w5)
-        s += w5
-        ker(i, coords, s, params..., w6)
-        s += w6
-        ker(i, coords, s, params..., w7)
-        s += w7
-        ker(i, coords, s, params..., w8)
-        s += w8
-        ker(i, coords, s, params..., w9)
-        s += w9
-        ker(i, coords, s, params..., w10)
-        s += w10
-        ker(i, coords, s, params..., w11)
-        s += w11
-        ker(i, coords, s, params..., w12)
-        s += w12
-        ker(i, coords, s, params..., w13)
-        s += w13
-        ker(i, coords, s, params..., w14)
-        s += w14
-        ker(i, coords, s, params..., w15)
-        s += w15
-        ker(i, coords, s, params..., w16)
-        s += w16
-        ker(i, coords, s, params..., w17)
-        s += w17
-        if !isnothing(photon_params)
-          stochastic_radiation!(i, coords, s, photon_params..., ds_step)
-        end
-        dt_ref = compute_dt_ref(s, ker, params)
-        execute_callbacks(i, coords, s, dt_ref)
-      end
-      ker(i, coords, s, params..., w17)
-      s += w17
-      ker(i, coords, s, params..., w16)
-      s += w16
-      ker(i, coords, s, params..., w15)
-      s += w15
-      ker(i, coords, s, params..., w14)
-      s += w14
-      ker(i, coords, s, params..., w13)
-      s += w13
-      ker(i, coords, s, params..., w12)
-      s += w12
-      ker(i, coords, s, params..., w11)
-      s += w11
-      ker(i, coords, s, params..., w10)
-      s += w10
-      ker(i, coords, s, params..., w9)
-      s += w9
-      ker(i, coords, s, params..., w8)
-      s += w8
-      ker(i, coords, s, params..., w7)
-      s += w7
-      ker(i, coords, s, params..., w6)
-      s += w6
-      ker(i, coords, s, params..., w5)
-      s += w5
-      ker(i, coords, s, params..., w4)
-      s += w4
-      ker(i, coords, s, params..., w3)
-      s += w3
-      ker(i, coords, s, params..., w2)
-      s += w2
-      ker(i, coords, s, params..., w1)
-      s += w1
-      ker(i, coords, s, params..., w0)
-      s += w0
-      ker(i, coords, s, params..., w1)
-      s += w1
-      ker(i, coords, s, params..., w2)
-      s += w2
-      ker(i, coords, s, params..., w3)
-      s += w3
-      ker(i, coords, s, params..., w4)
-      s += w4
-      ker(i, coords, s, params..., w5)
-      s += w5
-      ker(i, coords, s, params..., w6)
-      s += w6
-      ker(i, coords, s, params..., w7)
-      s += w7
-      ker(i, coords, s, params..., w8)
-      s += w8
-      ker(i, coords, s, params..., w9)
-      s += w9
-      ker(i, coords, s, params..., w10)
-      s += w10
-      ker(i, coords, s, params..., w11)
-      s += w11
-      ker(i, coords, s, params..., w12)
-      s += w12
-      ker(i, coords, s, params..., w13)
-      s += w13
-      ker(i, coords, s, params..., w14)
-      s += w14
-      ker(i, coords, s, params..., w15)
-      s += w15
-      ker(i, coords, s, params..., w16)
-      s += w16
-      ker(i, coords, s, params..., w17)
-      s += w17
-      if !isnothing(photon_params)
-        stochastic_radiation!(i, coords, s, photon_params..., ds_step / 2)
-      end
-      if !isnothing(edge_params) && fringe_out
-        fringe!(i, coords, edge_params..., Val{-1}())
-      end
-    end
-    return nothing
+    w0 = $(c[1]) * ds_step
+    w1 = $(c[2]) * ds_step
+    w2 = $(c[3]) * ds_step
+    w3 = $(c[4]) * ds_step
+    w4 = $(c[5]) * ds_step
+    w5 = $(c[6]) * ds_step
+    w6 = $(c[7]) * ds_step
+    w7 = $(c[8]) * ds_step
+    w8 = $(c[9]) * ds_step
+    w9 = $(c[10]) * ds_step
+    w10 = $(c[11]) * ds_step
+    w11 = $(c[12]) * ds_step
+    w12 = $(c[13]) * ds_step
+    w13 = $(c[14]) * ds_step
+    w14 = $(c[15]) * ds_step
+    w15 = $(c[16]) * ds_step
+    w16 = $(c[17]) * ds_step
+    w17 = $(c[18]) * ds_step
+    ws = (w17, w16, w15, w14, w13, w12, w11, w10, w9, w8, w7, w6, w5, w4, w3, w2, w1, w0, w1, w2, w3, w4, w5, w6, w7, w8, w9, w10, w11, w12, w13, w14, w15, w16, w17)
+    integrate_steps!(i, coords, ker, params, photon_params, ds_step, n_steps, edge_params, Val{fringe_in}(), Val{fringe_out}(), ws)
   end
 end
