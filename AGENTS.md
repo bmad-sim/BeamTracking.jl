@@ -30,8 +30,14 @@ touches both repositories; their versions are coupled (BeamTracking 0.9 needs Be
   include_string(Main, src, joinpath(pwd(), "runtests.jl"))
   ```
 - GPU (Apple silicon): an environment with Metal.jl; track a Float32 `Bunch(MtlArray(v))` and compare 
-  with the same Bunch on the CPU (agreement ~1e-8 is expected). Metal has no Float64, so any Float64 
-  constant reaching a kernel fails ("unsupported use of double value").
+  with the same Bunch on the CPU; both should be about equally far from a Float64 run (Float32 
+  rounding, e.g. ~1e-8 for one pass, ~1e-6 in z after 10 turns with RF). Test with `spin=true` too. 
+  Metal has no Float64, so any Float64 constant reaching a kernel fails ("unsupported use of double 
+  value"). Integer division is one: `1/2` and `sgn/2` are Float64. Write `x/2`, or for a standalone 
+  constant a `@generated` function returning the literal in the coordinate precision, like 
+  `c_light(T)` and `one_half(T)` in `src/utils/float32.jl` (`1//2` fails with SIMD `Vec`s). 
+  To find the source, print `(e[1], e[2])` for `e in err.errors` of the `InvalidIRError` (the 
+  message's own stack trace stops at "multiple call sites").
 - CI (`.github/workflows/CI.yml`) runs Julia `lts` (1.10) and `1` (latest release) on Linux, macOS 
   and Windows, x64 and aarch64, sharded into the three test groups.
 - Error message style: `"<Method> is not compatible with elements containing <XParams>. Try <Other> instead"`.

@@ -7,6 +7,15 @@
   return :($c)
 end
 
+@generated function one_half(::Type{T}) where {T}
+  h = 1/2
+  TS = ForwardDiff.valtype(T)
+  if TS == Float32 || TS == Float16
+    h = TS(h)
+  end
+  return :($h)
+end
+
 function float_type(::Type{T}) where {T}
   TS = ForwardDiff.valtype(T)
   if TS == Float32 || TS == Float16
