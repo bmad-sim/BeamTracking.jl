@@ -52,7 +52,9 @@ touches both repositories; their versions are coupled (BeamTracking 0.9 needs Be
   `get_e_strengths`, `rf_omega_calc`, `rf_phi0_calc`, `rf_step_calc`, `drift_params(species, p_over_q_ref) -> (tilde_m, gamsqr_0, beta_0)`.
 - `unpack_bl.jl`: `_ConcreteUniversalParams`, `_SliceUniversalParams`, `LoweredElement`, `_track!` 
   (dynamic layer), `universal!` (after the function barrier).
-- `general_bl.jl`: `ibs_kick`, `alignment(kc, alignmentparams, bendparams, L, s, entering)`, `aperture`.
+- `general_bl.jl`: `ibs_kick`, `alignment(kc, alignmentparams, bendparams, L, s, entering)`, `aperture`. 
+  `ibs_kick` computes the bunch statistics and the number of particles from the live particles 
+  only (`weights` zero for lost ones; `w`/`w_inv` there are the bend tilt rotations).
 - `symplectic_bl.jl`: `fringe_in`/`fringe_out`, `integration_launcher(ker, params, photon_params, edge_params, tm, universalparams)` 
   (for `AbstractSymplectic` and `Exact`; picks `order_{two,…,ten}_integrator!` statically).
 - One file per tracking method, each defining `fringe_body_fringe(tm, kc, bunch, ele)`: 

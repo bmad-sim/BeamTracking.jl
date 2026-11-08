@@ -15,19 +15,19 @@
   log_m = log(massof(bunch.species)) - 2*log_c_light
   log_q = log(abs(chargeof(bunch.species)))
   log_k = log_m + 2*log_q - log(4*pi*EPS_0)
-  if isnothing(bunch.coords.weight)
-    log_N = log(size(bunch.coords.v, 1))
-  elseif bunch.coords.weight isa Number
-    log_N = log(bunch.coords.weight) + log(size(bunch.coords.v, 1))
-  else
-    log_N = log(sum(bunch.coords.weight))
-  end
+  # Lost particles do not count (their coordinates are frozen where they were lost)
+  T = eltype(bunch.coords.v)
+  weights = (bunch.coords.state .== BeamTracking.STATE_ALIVE) .*
+            (isnothing(bunch.coords.weight) ? one(T) : bunch.coords.weight isa Number ? T(bunch.coords.weight) : bunch.coords.weight)
+  W = sum(weights)
+  iszero(W) && return kc
+  log_N = log(W)
   tilde_m, gamsqr_0, _ = drift_params(bunch.species, bunch.p_over_q_ref)
   log_p0 = log_m + log_c_light - log(tilde_m)
   gamma_0 = sqrt(gamsqr_0)
   backend = get_backend(bunch.coords.v)
 
-  means, sigma = mean_and_cov(bunch.coords.v, bunch.coords.weight, backend)
+  means, sigma = mean_and_cov(bunch.coords.v, weights, backend)
   sigma = Symmetric(sigma)
   sigma_inv = inv(sigma)
   log_b_min = log(4) + log_k - log(sigma[2,2] + sigma[4,4] + sigma[6,6]/gamsqr_0) - 2*log_p0
