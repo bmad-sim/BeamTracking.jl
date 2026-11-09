@@ -20,18 +20,22 @@ struct _ConcreteUniversalParams{A,F,RD,RF}
   end
 end
 
-# An element with n_slices == 1 is a single slice (s0, L_slice, first_slice and last_slice are
-# compile-time constants, see _SliceUniversalParams)
+# An element with n_slices == 1 is a single slice (s0, L_slice, s_end, first_slice, last_slice and 
+# element_fringe_at are compile-time constants or fields, see _SliceUniversalParams)
 Base.getproperty(up::_ConcreteUniversalParams{A,F,RD,RF}, key::Symbol) where {A,F,RD,RF} =
   key === :fringe_at ? F : key === :rad_damping ? RD : key === :rad_fluctuations ? RF :
-  key === :s0 ? 0 : key === :L_slice ? getfield(up, :L) : key === :first_slice ? true : key === :last_slice ? true : getfield(up, key)
+  key === :s0 ? 0 : key === :L_slice ? getfield(up, :L) : key === :s_end ? getfield(up, :L) : 
+  key === :first_slice ? true : key === :last_slice ? true : key === :element_fringe_at ? F : getfield(up, key)
 
 # Slice k of an element with n_slices > 1. Each slice is tracked by its own universal! (and launch!)
 # like an element of length L_slice = L/n_slices starting at s0, so the reference energy is ramped
 # and collective effects are recomputed at the start of each slice. L is still the element length
 # (strengths are per element length), n_steps and ds_step are per slice, and fringe_at (F) only
 # includes the element entrance in the first slice and the element exit in the last slice. FIRST
-# and LAST are the first_slice and last_slice properties.
+# and LAST are the first_slice and last_slice properties. s_end is the end of the slice: the s0 of 
+# the next slice exactly (or L), so that every position belongs to exactly one slice. 
+# element_fringe_at is the element's fringe_at, for SaganCavity, whose fringes need not be at the 
+# element ends.
 struct _SliceUniversalParams{A,F,RD,RF,FIRST,LAST}
   L::A
   n_steps::Int
@@ -39,6 +43,8 @@ struct _SliceUniversalParams{A,F,RD,RF,FIRST,LAST}
   n_slices::Int
   s0::A
   L_slice::A
+  s_end::A
+  element_fringe_at::Fringe.T
   function _SliceUniversalParams(up::UniversalParams, k::Int)
     L = float(up.L)
     n_steps = up.n_steps
@@ -46,12 +52,13 @@ struct _SliceUniversalParams{A,F,RD,RF,FIRST,LAST}
     L_slice = L / n_slices
     ds_step = L_slice / n_steps
     s0 = (k - 1)*L_slice
+    s_end = k == n_slices ? L : k*L_slice
     first_slice = k == 1
     last_slice = k == n_slices
     fringe_in = first_slice && (up.fringe_at == Fringe.BothEnds || up.fringe_at == Fringe.EntranceEnd)
     fringe_out = last_slice && (up.fringe_at == Fringe.BothEnds || up.fringe_at == Fringe.ExitEnd)
     fringe_at = fringe_in ? (fringe_out ? Fringe.BothEnds : Fringe.EntranceEnd) : (fringe_out ? Fringe.ExitEnd : Fringe.NoEnd)
-    return new{typeof(L),fringe_at,up.rad_damping,up.rad_fluctuations,first_slice,last_slice}(L, n_steps, ds_step, n_slices, s0, L_slice)
+    return new{typeof(L),fringe_at,up.rad_damping,up.rad_fluctuations,first_slice,last_slice}(L, n_steps, ds_step, n_slices, s0, L_slice, s_end, up.fringe_at)
   end
 end
 
@@ -216,7 +223,6 @@ function _track!(
                          shift_time, batch_start; kwargs...)
   else
     # Each slice is tracked separately (see _SliceUniversalParams)
-    !(tm isa SaganCavity) || error("SaganCavity is not compatible with elements with n_slices > 1. Try n_slices = 1 instead")
     isnothing(patchparams) || error("Elements with n_slices > 1 are not compatible with PatchParams. Try n_slices = 1 instead")
     isnothing(mapparams) || error("Elements with n_slices > 1 are not compatible with MapParams. Try n_slices = 1 instead")
     for k in 1:n_slices

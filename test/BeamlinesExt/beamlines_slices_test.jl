@@ -237,7 +237,6 @@ using Random
   end
 
   # Not supported
-  @test_throws ErrorException track_ele((; L=2.0, voltage=1e6, rf_frequency=5e8), 2, 1; tm=SaganCavity())
   @test_throws ErrorException track_ele((; L=2.0, dx=1e-3), 2, 1; tm=Exact())
   # Elements tracked in one step error for n_steps > 1, so n_slices*n_steps is always the number of
   # steps (and of callbacks, which e.g. SciBmad's twiss relies on)

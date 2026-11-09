@@ -201,14 +201,27 @@ touches both repositories; their versions are coupled (BeamTracking 0.9 needs Be
   in the first slice, the exit ones only in the last; misalignments transform in at the slice 
   entrance and out at its exit, so the Bunch is in the lab frame between slices.
 - `_SliceUniversalParams{A,F,RD,RF,FIRST,LAST}` has the element `L`, per-slice `n_steps`/`ds_step`, 
-  `s0`, `L_slice`, and `fringe_at` reduced to the element ends. `_ConcreteUniversalParams`'s 
-  `getproperty` returns the constants `s0 = 0`, `L_slice = L`, `first_slice = last_slice = true`, 
-  so the `n_slices = 1` code is unchanged.
+  `s0`, `L_slice`, `s_end` (exactly the next slice's `s0`, or `L`), `fringe_at` reduced to the element 
+  ends and the element's own `element_fringe_at`. `_ConcreteUniversalParams`'s `getproperty` returns 
+  the constants `s0 = 0`, `L_slice = s_end = L`, `first_slice = last_slice = true`, 
+  `element_fringe_at = fringe_at`, so the `n_slices = 1` code is unchanged.
 - RF needs no `s0`: the kick phase is relative to the reference particle at the kick, and the 
   per-slice time shift re-aligns z with the design clock, so the slip restarts. Verified for all 
   `zero_phase`s, `phi0 ≠ 0`, DriftKick/SolenoidKick and a different species (sliced == pieces, 
   bitwise; the energy gain is independent of `n_slices`).
-- Not supported: SaganCavity; elements with `PatchParams` or `MapParams`.
+- **SaganCavity** slices are cuts through the one cavity, not smaller cavities: its kicks (fixed by 
+  `n_cells`, which counts cells of the whole element, and `L_active`), fringes and drifts stay where 
+  they are, and each slice tracks those in its window (`sagan_window`; a kick or fringe at `s` is in 
+  the slice with `s0 <= s < s_end`). A drift that crosses a cut is split, with its half kicks 
+  (ponderomotive, multipole) kept at its ends at full strength, so slicing never changes the cavity: 
+  `n_slices = k` equals `n_slices = 1` to ~1e-15, bitwise when every cut is on a kick, and 
+  `n_slices = 1` is bitwise as before (`beamlines_sagan_cavity_test.jl`, "SaganCavitySlices"). The 
+  kernels apply the reference energy steps of the kicks before the window to `P0c` only; 
+  `sagan_window_ref` gives the reference time and energies of the window, and the Bunch leaves each 
+  slice at the reference energy reached there. SaganCavity honors the element's `fringe_at` (its 
+  fringes are at the ends of the active region, which can be inside a slice). Not supported with a 
+  time dependent reference.
+- Not supported: elements with `PatchParams` or `MapParams`.
 - The number of integrator steps (and of callbacks) of an element is always `n_slices*n_steps`: 
   elements tracked in one step (patches, maps, SaganCavity, whose kicks are set by `n_cells`) 
   error for `n_steps > 1`, and Beamlines forces `n_steps = n_slices = 1` for zero length. SciBmad's 
