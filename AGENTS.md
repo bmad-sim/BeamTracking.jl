@@ -106,6 +106,13 @@ touches both repositories; their versions are coupled (BeamTracking 0.9 needs Be
 - Straight `edge_params`: `(a, tilde_m, Ksol, Kn0, Ks0, Kn1, Ks1, Kn2, Ks2)` (absent entries 
   `nothing`). Bend `edge_params`: `(a, tilde_m, beta_0, Kn0, w, w_inv, e1, e2)`. Edge angles are 
   part of the fringe, so they follow `fringe_at`.
+- The straight hard-edge fringe (`fringe!` in `src/kernels/fringe.jl`, PTC's multipole fringe) 
+  takes the field coefficients of `(x + i*y)^n`, i.e. `Kn/n!`: `Kn2/2` for sextupoles, in the 
+  orbit and the spin (`bz` is the jump of the scalar potential, `(Kn/n!)/(n+1) Im[(x+i*y)^(n+1)]`). 
+  It used `Kn2` like Bmad (whose `hard_multipole_edge_kick` uses `k2` for sextupoles but `Kn/n!` 
+  for `sad_mult`): twice the fringe. Checked against Xsuite and MAD-NG (orbit, to 1e-18) and the 
+  zero-edge-length limit of a Maxwell-consistent soft-edge sextupole with Thomas-BMT (orbit, 
+  dominant spin rotation; tested in `BeamlinesExt_symplectic_test.jl`).
 - Strengths: `get_strengths(ele.bmultipoleparams, L, p_over_q_ref, ele.ref.field_scale)` with the 
   **element** length `L` (integrated strengths are per element length, also in a slice).
 - RF: `omega = rf_omega_calc(ele.rfparams, ele.beamlineparams, ele.ref)`, `t_ref = (rf_phi0_calc(ele.rfparams, ele.ref.species_ref) - 3pi/2)/omega` (see "RF phase"), 
@@ -140,6 +147,11 @@ touches both repositories; their versions are coupled (BeamTracking 0.9 needs Be
   particle at the kick (`t = t_ref - τ/c` after `bmad_to_mad!`).
 - `reference_momentum_shift!`/`reference_time_shift!` use `muladd` (never a local `fma` that 
   shadows `Base.fma`).
+- `sincu`/`sinhcu` (`src/utils/math_simd.jl`): Taylor series through `x^8` for `|x| < 0.1`, 
+  `sin(x)/x` above, for every float type; within 1 eps (Float64, Float32) and ForwardDiff 
+  derivatives to ~1e-14 (those of `sin(x)/x` cancel near 0). TPS arguments use GTPSA's own 
+  `sincu`. A series to `x^2` below 0.004 had been off by up to 2e-12 (bends and coordinate 
+  transforms with small angles; it made exact bends depend on `n_steps` at 1e-12).
 - `TimeDependentParam{F<:TimeFunction}` is parametric, so operations on it build closures of known 
   types and evaluation is type stable (see "Performance rules").
 - Float32/Float16 tracking: `num_lower(T, ::TimeFunction)` rebuilds the closure tree with the 

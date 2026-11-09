@@ -27,14 +27,12 @@ isinf_imag(x::Number) = isfinite(real(x)) && isinf(imag(x))
 Compute the unnormalized sinc function ``\\operatorname{sincu}(x) = \\sin(x) / (x)`` 
 with accuracy near the origin.
 """
-@generated function sincu(x::T) where {T}
-  TS = ForwardDiff.valtype(T)
-  if TS == Float16 || TS == Float32
-    threshold = (120*eps(TS))^(1//4)
-  else
-    threshold = 0.004
-  end
-  return :(vifelse(abs(x) > $threshold, sin(x)/x, 1-x^2/6))
+function sincu(x)
+  # Taylor series through x^8 for |x| < 0.1: its error x^10/39916800 is below eps(Float64)/2,
+  # and its derivatives (ForwardDiff) stay accurate where those of sin(x)/x cancel
+  x2 = x*x
+  s = 1 - x2/6*(1 - x2/20*(1 - x2/42*(1 - x2/72)))
+  return vifelse(abs(x) < one(x)/10, s, sin(x)/x)
 end
 
 
@@ -44,14 +42,11 @@ end
 Compute the unnormalized sinhc function ``\\operatorname{sinhcu}(x) = \\sinh(x) / (x)`` 
 with accuracy near the origin.
 """
-@generated function sinhcu(x::T) where {T}
-  TS = ForwardDiff.valtype(T)
-  if TS == Float16 || TS == Float32
-    threshold = (120*eps(TS))^(1//4)
-  else
-    threshold = 0.004
-  end
-  return :(vifelse(abs(x) > $threshold, sinh(x)/x, 1+x^2/6))
+function sinhcu(x)
+  # Taylor series through x^8 for |x| < 0.1, as in sincu
+  x2 = x*x
+  s = 1 + x2/6*(1 + x2/20*(1 + x2/42*(1 + x2/72)))
+  return vifelse(abs(x) < one(x)/10, s, sinh(x)/x)
 end
 
 
