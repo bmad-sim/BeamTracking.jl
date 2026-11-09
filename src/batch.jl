@@ -61,8 +61,8 @@ end
 
 # Necessary for GPU compatibility if batch is a GPU array
 function Adapt.adapt_structure(to, lbp::_LoweredBatchParam{N}) where {N}
-    batch = Adapt.adapt_structure(to, lbp.batch)
-    return _LoweredBatchParam{N}(batch)
+  batch = Adapt.adapt_structure(to, lbp.batch)
+  return _LoweredBatchParam{N}(batch)
 end
 
 # BatchParam will act like a number
@@ -150,7 +150,7 @@ function _batch_mul(batch_a, batch_b)
     if batch_b == 0 # mul by 0 gives 0 -> make scalar
       return BatchParam(0f0)
     elseif batch_b ≈ 1 # mul by 1 gives identity
-        return BatchParam(batch_a)
+      return BatchParam(batch_a)
     else
       let b = batch_num_lower(batch_a, batch_b)
         return BatchParam(map((ai)->*(ai, b), batch_a))
@@ -181,7 +181,7 @@ function _batch_div(batch_a, batch_b)
     if batch_b == 0 # div by 0 gives Inf -> make scalar
       return BatchParam(Inf32)
     elseif batch_b ≈ 1 # div by 1 gives identity
-        return BatchParam(batch_a)
+      return BatchParam(batch_a)
     else
       let b = batch_num_lower(batch_a, batch_b)
         return BatchParam(map((ai)->/(ai, b), batch_a))

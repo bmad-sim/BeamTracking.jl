@@ -79,6 +79,11 @@ make_static(a) = a
 
 #---------------------------------------------------------------------------------------------------
 
+# True if the dipole (first entry of bm) has no skew component in the bend frame. ks[1] == 0 
+# is false for a time dependent ks[1], which it is (even if zero) whenever Kn0 is, so check the 
+# stored values then
+no_skew_dipole(bm, ks) = ks[1] == 0 || (getfield(bm, :s)[1] == 0 && getfield(bm, :tilt)[1] == 0)
+
 """
     get_strengths(bm, L, p_over_q_ref, field_scale) -> Kn, Ks
 Get non-integrated magnetic multipole strength arrays. Also see get_integrated_strengths.

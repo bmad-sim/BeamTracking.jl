@@ -91,11 +91,11 @@ function Base.$t(t1::TimeDependentParam, a::Number)
 end
 
 function Base.$t(a::Number, t1::TimeDependentParam)
-    if t1._isconst
-    return ($t)(a, t1(0))
-  else
-    return false
-  end
+  if t1._isconst
+  return ($t)(a, t1(0))
+else
+  return false
+end
 end
 
 end

@@ -52,7 +52,9 @@ touches both repositories; their versions are coupled (BeamTracking 0.9 needs Be
   `get_e_strengths`, `rf_omega_calc`, `rf_phi0_calc`, `rf_step_calc`, `drift_params(species, p_over_q_ref) -> (tilde_m, gamsqr_0, beta_0)`.
 - `unpack_bl.jl`: `_ConcreteUniversalParams`, `_SliceUniversalParams`, `LoweredElement`, `_track!` 
   (dynamic layer), `universal!` (after the function barrier).
-- `general_bl.jl`: `ibs_kick`, `alignment(kc, alignmentparams, bendparams, L, s, entering)`, `aperture`.
+- `general_bl.jl`: `ibs_kick`, `alignment(kc, alignmentparams, bendparams, L, s, entering)`, `aperture`. 
+  `ibs_kick` computes the bunch statistics and the number of particles from the live particles 
+  only (`weights` zero for lost ones; `w`/`w_inv` there are the bend tilt rotations).
 - `symplectic_bl.jl`: `fringe_in`/`fringe_out`, `integration_launcher(ker, params, photon_params, edge_params, tm, universalparams)` 
   (for `AbstractSymplectic` and `Exact`; picks `order_{two,…,ten}_integrator!` statically).
 - One file per tracking method, each defining `fringe_body_fringe(tm, kc, bunch, ele)`: 
@@ -111,6 +113,10 @@ touches both repositories; their versions are coupled (BeamTracking 0.9 needs Be
   Write the `Ksol`/`Val` pair as an `if`/`else` with literal `Val{true}()`/`Val{false}()`.
 - `radiation_params = ele.universalparams.rad_damping ? (q, mc2, E_ref) : nothing`; `photon_params` 
   only if `isprimitivetype(eltype(bunch.coords.v)) && rad_fluctuations`.
+- A `TimeDependentParam` compares equal to a number only if it is constant (`_isconst`), and any 
+  operation with a non-constant one gives a non-constant one: once `Kn0` depends on time, so does 
+  the rotated skew dipole `ks[1]`, even when zero. Checks for zero (e.g. the skew dipole in a bend, 
+  `no_skew_dipole`) must then look at the stored values.
 - `SolenoidKick` on an element without a solenoid prepends a zero solenoid component 
   (`pushfirst(mm, 0)`, `pushfirst(kn, zero(kn[1]))`).
 - Implicit and the Exact electric dipole are wrapped in `bmad_to_mad!`/`mad_to_bmad!` with the 
@@ -171,7 +177,9 @@ touches both repositories; their versions are coupled (BeamTracking 0.9 needs Be
     `slip = 1/v_bunch - 1/v_design` (0 for the same species); `cavity!` uses `t_ref + (s + L/2)*slip`.
   - SaganCavity: the Bunch reference changes by the same rigidity `dp_over_q_ref` as the design 
     particle (its own `dE_ref`); the kernels add the slip per drift from the design momenta passed 
-    as `design_params = (mass_d, P0c_d, dE_d)` (`nothing` for the same species).
+    as `design_params = (mass_d, P0c_d, dE_d)` (`nothing` for the same species). Its `universal!` 
+    stores the exit reference in `bunch.p_over_q_ref` after the launch, as the general one does 
+    (it never did: with `dE_ref ≠ 0` the next Beamline then ramped the Bunch a second time).
   - `beta_0` cannot simply be changed instead: `tilde_m` must be the Bunch's, and the high precision 
     z formulas assume `beta_0 = 1/sqrt(1 + tilde_m^2)`.
 
@@ -355,7 +363,19 @@ touches both repositories; their versions are coupled (BeamTracking 0.9 needs Be
 - Every element in a `Beamline` is an `InheritParams` child of the element it was made from. 
   Setting a property on a child writes to the shared parent; only a group put in the child's 
   `pdict` overrides.
-- `BMultipoleParams{T,N}` stores `SizedVector`s; `deval` copies them.
+- `BMultipoleParams{T,N}` stores `SizedVector`s with one eltype for all strengths and tilts, so 
+  once one is a `DefExpr{T}`, the constant ones are wrapped as `DefExpr`s of the promoted type. 
+  `DefExpr(f)` infers `T` with `Base.promote_op` (so `DefExpr(()->a)` with a non-`const` global `a`, 
+  or `DefExpr(c->c.k)`, is a `DefExpr{Any}`, and makes them all `DefExpr{Any}`); with an explicit 
+  `DefExpr{Float64}(…)` (or an inferable return type) they are all `DefExpr{Float64}`. `deval` of 
+  a group with `DefExpr`s builds a new group (copying such arrays); of a group without any, it 
+  returns the group itself (statically for concretely typed fields, by an `isa DefExpr` check for 
+  untyped ones), so never mutate a `deval`ed group.
+- `rawget(ele_or_group, key)` (exported, like `deval`) returns an independent variable as stored 
+  (e.g. the `DefExpr`), defined per parameter group with a default for `AbstractParams`; dependent 
+  ones (e.g. `Kn1L`/`Bn1` when `Kn1` was set last, `ds_step` when `n_steps` was set, `E_ref` when 
+  `p_over_q_ref` was set, `s`) error and name the independent variable. A raw dependent quantity 
+  would be stale as soon as another independent variable it uses changes (e.g. `p_over_q_ref` for `Bn1`).
 - Energy conversions (`E_to_R`, `R_to_v`, `pc_to_R`, delta conversions, …) are in Beamlines 
   (unexported). BeamTracking only has `beta_gamma_to_v`.
 - AtomicAndPhysicalConstants: `gyromagnetic_anomaly` is `NaN` for atomic species (spin tracking 
@@ -368,7 +388,7 @@ and batches, also on Metal; Dual/TPS element lengths; one RF phase convention fo
 methods) are merged. Branch `noinline2`: integrators with one kernel call site (`integrate_steps!`, 
 see "Performance rules"); it replaces the old `noinline` branch (PR #365).
 
-ESR, Julia 1.10, Apple silicon, 1 particle: `main` 18.8 ms → 4.6 ms (103,961 allocations); ramped 
+ESR, Julia 1.10, Apple silicon, 1 particle: `main` 18.8 ms → 3.9 ms (81,438 allocations); ramped 
 reference 4.7 ms; per-particle ramp 1/100/1000 particles 9/57/483 ms (Julia 1.13: 9.5 ms for 1).
 
 Open items:
@@ -380,10 +400,11 @@ Open items:
   it is 245 MB), the rest is SciBmad's own workload.
 - Radiation fluctuations (`rad_fluctuations`) allocate 4 times per particle without explicit SIMD 
   (also on `main` before `noinline2`).
-- Remaining unpacking costs (ESR profile): `deval(::UniversalParams)` ~16%, the 
-  `_ConcreteUniversalParams` construction (dynamic type with runtime type parameters) ~11%, 
-  `deval(::BMultipoleParams)` array copies ~8%, data-dependent unions after the barrier ~6% (fixing 
-  them must not slow down general multipoles), the barrier dispatch ~5%.
+- Remaining unpacking costs (ESR profile): the `_ConcreteUniversalParams` construction (dynamic 
+  type with runtime type parameters) ~11%, data-dependent unions after the barrier ~6% (fixing 
+  them must not slow down general multipoles), the barrier dispatch ~5%. `deval` of a parameter 
+  group without any `DefExpr` returns the group itself (~4 ns; it used to rebuild it, 50 ns for 
+  `UniversalParams` and array copies for `BMultipoleParams`).
 - Per-particle ramp: mostly per-particle evaluation of time-function chains. Making all strengths 
   one common `TimeDependentParam` type halves setup but makes normalized strengths `Vec`s in the 
   kernels (30% slower for 1000 particles), so it was not done.

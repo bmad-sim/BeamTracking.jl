@@ -43,61 +43,61 @@ end # function multipole_kick!()
 # small performance benefit for unrolling and using for loops.
 @generated function normalized_field(ms, knl, ksl, x, y, excluding)
     # Compute the promoted type at compile time
-    N = length(ms) # ms will always be StaticArray - Int array of the indicies
-    # If anything is a SIMD Vec, make output be that
-    simd = nothing
-    _process_arg(_t) = (_t <: SIMD.Vec ? (simd = length(_t); eltype(_t)) : _t)
-    knltype = knl <: NTuple || knl <: SArray ? _process_arg(eltype(knl)) : promote_type(ntuple(i -> _process_arg(fieldtype(knl, i)), N)...)
-    ksltype = ksl <: NTuple || ksl <: SArray ? _process_arg(eltype(ksl)) : promote_type(ntuple(i -> _process_arg(fieldtype(ksl, i)), N)...)
-    T = promote_type(_process_arg(x), _process_arg(y), knltype, ksltype)
-    if !isnothing(simd)
-      @assert T <: SIMD.ScalarTypes "Something went really wrong! Submit an issue please"
-      T = SIMD.Vec{simd, T}
-    end
-    quote
-        $(if T <: TPS
-            # Get output type in a GTPSA-friendly way
-            # Needed bc if dynamic descriptor resolution then don't know which 
-            quote
-              on = one(first(knl))*one(first(ksl))*one(x)*one(y)
-              zer = zero(on)
-            end
-          else
-            quote
-              on = one($T)
-              zer = zero($T)
-            end
-          end
-        )
-        knl_0::$T = zer
-        ksl_0::$T = zer
-        add = (ms[$N] != excluding && ms[$N] > 0)
-        by::$T = vifelse(add, knl[$N] * on, knl_0)
-        bx::$T = vifelse(add, ksl[$N] * on, ksl_0)
-
-        $([quote
-            curknl = knl[$j] * on
-            curksl = ksl[$j] * on
-            for m in ms[$(j+1)]-1:-1:max(ms[$j], 1)
-                t  = (by * x - bx * y) / m
-                bx = (by * y + bx * x) / m
-                by = t
-                if m == ms[$j]
-                  by += vifelse(ms[$j] != excluding, curknl, knl_0)
-                  bx += vifelse(ms[$j] != excluding, curksl, ksl_0)
-                end
-            end
-        end for j in N-1:-1:1]...)
-
-
-        # final recurrence from ms[1] down to 1
-        for m in ms[1]-1:-1:1
-            t  = (by * x - bx * y) / m
-            bx = (by * y + bx * x) / m
-            by = t
+  N = length(ms) # ms will always be StaticArray - Int array of the indicies
+  # If anything is a SIMD Vec, make output be that
+  simd = nothing
+  _process_arg(_t) = (_t <: SIMD.Vec ? (simd = length(_t); eltype(_t)) : _t)
+  knltype = knl <: NTuple || knl <: SArray ? _process_arg(eltype(knl)) : promote_type(ntuple(i -> _process_arg(fieldtype(knl, i)), N)...)
+  ksltype = ksl <: NTuple || ksl <: SArray ? _process_arg(eltype(ksl)) : promote_type(ntuple(i -> _process_arg(fieldtype(ksl, i)), N)...)
+  T = promote_type(_process_arg(x), _process_arg(y), knltype, ksltype)
+  if !isnothing(simd)
+    @assert T <: SIMD.ScalarTypes "Something went really wrong! Submit an issue please"
+    T = SIMD.Vec{simd, T}
+  end
+  quote
+    $(if T <: TPS
+        # Get output type in a GTPSA-friendly way
+        # Needed bc if dynamic descriptor resolution then don't know which 
+        quote
+          on = one(first(knl))*one(first(ksl))*one(x)*one(y)
+          zer = zero(on)
         end
+      else
+        quote
+          on = one($T)
+          zer = zero($T)
+        end
+      end
+    )
+    knl_0::$T = zer
+    ksl_0::$T = zer
+    add = (ms[$N] != excluding && ms[$N] > 0)
+    by::$T = vifelse(add, knl[$N] * on, knl_0)
+    bx::$T = vifelse(add, ksl[$N] * on, ksl_0)
 
-        return bx, by
+    $([quote
+        curknl = knl[$j] * on
+        curksl = ksl[$j] * on
+        for m in ms[$(j+1)]-1:-1:max(ms[$j], 1)
+          t  = (by * x - bx * y) / m
+          bx = (by * y + bx * x) / m
+          by = t
+          if m == ms[$j]
+            by += vifelse(ms[$j] != excluding, curknl, knl_0)
+            bx += vifelse(ms[$j] != excluding, curksl, ksl_0)
+          end
+        end
+    end for j in N-1:-1:1]...)
+
+
+    # final recurrence from ms[1] down to 1
+    for m in ms[1]-1:-1:1
+      t  = (by * x - bx * y) / m
+      bx = (by * y + bx * x) / m
+      by = t
     end
+
+    return bx, by
+  end
 end
 # === END CLAUDE ===
