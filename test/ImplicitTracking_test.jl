@@ -42,12 +42,12 @@ function crazy(x, y, s, t, p)
 end
 
 function crazy_unnormalized(x, y, s, t, p_over_q_ref)
-    potential = (C_LIGHT*sin(x)*cos(y)*sinh(s)*cosh(t), cosh(x)*sin(y)*cos(s)*sinh(t), sinh(x)*cosh(y)*sin(s)*cos(t), cos(x)*sinh(y)*cosh(s)*sin(t))
-    jac = (C_LIGHT*cos(x)*cos(y)*cosh(t)*sinh(s), -C_LIGHT*cosh(t)*sin(x)*sin(y)*sinh(s), C_LIGHT*cos(y)*cosh(s)*cosh(t)*sin(x), C_LIGHT*cos(y)*sin(x)*sinh(s)*sinh(t),
-           cos(s)*sin(y)*sinh(t)*sinh(x),  cos(s)*cos(y)*cosh(x)*sinh(t), -cosh(x)*sin(s)*sin(y)*sinh(t),  cos(s)*cosh(t)*cosh(x)*sin(y),
-           cos(t)*cosh(x)*cosh(y)*sin(s),  cos(t)*sin(s)*sinh(x)*sinh(y),  cos(s)*cos(t)*cosh(y)*sinh(x), -cosh(y)*sin(s)*sin(t)*sinh(x),
-          -cosh(s)*sin(t)*sin(x)*sinh(y),  cos(x)*cosh(s)*cosh(y)*sin(t),  cos(x)*sin(t)*sinh(s)*sinh(y),  cos(t)*cos(x)*cosh(s)*sinh(y))
-    return p_over_q_ref .* potential, p_over_q_ref .* jac
+  potential = (C_LIGHT*sin(x)*cos(y)*sinh(s)*cosh(t), cosh(x)*sin(y)*cos(s)*sinh(t), sinh(x)*cosh(y)*sin(s)*cos(t), cos(x)*sinh(y)*cosh(s)*sin(t))
+  jac = (C_LIGHT*cos(x)*cos(y)*cosh(t)*sinh(s), -C_LIGHT*cosh(t)*sin(x)*sin(y)*sinh(s), C_LIGHT*cos(y)*cosh(s)*cosh(t)*sin(x), C_LIGHT*cos(y)*sin(x)*sinh(s)*sinh(t),
+         cos(s)*sin(y)*sinh(t)*sinh(x),  cos(s)*cos(y)*cosh(x)*sinh(t), -cosh(x)*sin(s)*sin(y)*sinh(t),  cos(s)*cosh(t)*cosh(x)*sin(y),
+         cos(t)*cosh(x)*cosh(y)*sin(s),  cos(t)*sin(s)*sinh(x)*sinh(y),  cos(s)*cos(t)*cosh(y)*sinh(x), -cosh(y)*sin(s)*sin(t)*sinh(x),
+        -cosh(s)*sin(t)*sin(x)*sinh(y),  cos(x)*cosh(s)*cosh(y)*sin(t),  cos(x)*sin(t)*sinh(s)*sinh(y),  cos(t)*cos(x)*cosh(s)*sinh(y))
+  return p_over_q_ref .* potential, p_over_q_ref .* jac
 end
 
 

@@ -887,57 +887,57 @@ zf_mn4  = [ 0., 3.140908277834687e-8, -3.1503450227072763e-8, 3.140908186274627e
 
   @testset "Kernels" begin
     function patch_args(::Type{T}) where {T}
-        p0c = T(10e6)
-        mc2 = T(massof(Species("electron")))
-        tilde_m = mc2/p0c
-        gamsqr_0 = 1 + 1/tilde_m^2
-        beta_0 = 1/sqrt(1 + tilde_m^2)
-        dt = T(1e-9)
-        dx = T(2)
-        dy = T(3)
-        dz = T(4)
-        winv = BeamTracking.inv_rot_quaternion(T(-5),T(6),T(7))
-        w31 = 2*(winv[QX]*winv[QZ] - winv[QY]*winv[Q0])
-        w32 = 2*(winv[QY]*winv[QZ] + winv[QX]*winv[Q0])
-        w33 = 1 - 2*(winv[QX]^2 + winv[QY]^2)
-        L = w31*dx + w32*dy + w33*dz
-        return beta_0, gamsqr_0, tilde_m, dt, dx, dy, dz, winv, L
+      p0c = T(10e6)
+      mc2 = T(massof(Species("electron")))
+      tilde_m = mc2/p0c
+      gamsqr_0 = 1 + 1/tilde_m^2
+      beta_0 = 1/sqrt(1 + tilde_m^2)
+      dt = T(1e-9)
+      dx = T(2)
+      dy = T(3)
+      dz = T(4)
+      winv = BeamTracking.inv_rot_quaternion(T(-5),T(6),T(7))
+      w31 = 2*(winv[QX]*winv[QZ] - winv[QY]*winv[Q0])
+      w32 = 2*(winv[QY]*winv[QZ] + winv[QX]*winv[Q0])
+      w33 = 1 - 2*(winv[QX]^2 + winv[QY]^2)
+      L = w31*dx + w32*dy + w33*dz
+      return beta_0, gamsqr_0, tilde_m, dt, dx, dy, dz, winv, L
     end
 
     function patch_norot_args(::Type{T}) where {T}
-        p0c = T(10e6)
-        mc2 = T(massof(Species("electron")))
-        tilde_m = mc2/p0c
-        gamsqr_0 = 1 + 1/tilde_m^2
-        beta_0 = 1/sqrt(1 + tilde_m^2)
-        dt = T(4e-9)
-        dx = T(1)
-        dy = T(2)
-        dz = T(3)
-        L = dz
-        return beta_0, gamsqr_0, tilde_m, dt, dx, dy, dz, nothing, L
+      p0c = T(10e6)
+      mc2 = T(massof(Species("electron")))
+      tilde_m = mc2/p0c
+      gamsqr_0 = 1 + 1/tilde_m^2
+      beta_0 = 1/sqrt(1 + tilde_m^2)
+      dt = T(4e-9)
+      dx = T(1)
+      dy = T(2)
+      dz = T(3)
+      L = dz
+      return beta_0, gamsqr_0, tilde_m, dt, dx, dy, dz, nothing, L
     end
 
     function drift_args(::Type{T}) where {T}
-        L = T(1)
-        p0c = T(10e6)
-        mc2 = T(massof(Species("electron")))
-        tilde_m = mc2/p0c
-        gamsqr_0 = 1 + 1/tilde_m^2
-        beta_0 = 1/sqrt(1 + tilde_m^2)
-        return T(0), beta_0, gamsqr_0, tilde_m, L
+      L = T(1)
+      p0c = T(10e6)
+      mc2 = T(massof(Species("electron")))
+      tilde_m = mc2/p0c
+      gamsqr_0 = 1 + 1/tilde_m^2
+      beta_0 = 1/sqrt(1 + tilde_m^2)
+      return T(0), beta_0, gamsqr_0, tilde_m, L
     end
     
     function solenoid_args(::Type{T}) where {T}
-        L = T(1)
-        ks = T(2)
-        p0c = T(10e6)
-        mc2 = T(massof(Species("electron")))
-        tilde_m = mc2/p0c
-        gamsqr_0 = 1 + 1/tilde_m^2
-        beta_0 = 1/sqrt(1 + tilde_m^2)
-        a = T(gyromagnetic_anomaly(Species("electron")))
-        return ks, beta_0, gamsqr_0, tilde_m, a, L
+      L = T(1)
+      ks = T(2)
+      p0c = T(10e6)
+      mc2 = T(massof(Species("electron")))
+      tilde_m = mc2/p0c
+      gamsqr_0 = 1 + 1/tilde_m^2
+      beta_0 = 1/sqrt(1 + tilde_m^2)
+      a = T(gyromagnetic_anomaly(Species("electron")))
+      return ks, beta_0, gamsqr_0, tilde_m, a, L
     end
 
     # Scalar parameters

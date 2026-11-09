@@ -254,3 +254,27 @@ end
     end
   end
 end
+
+@testset "Time dependent dipole in a bend" begin
+  # A time dependent dipole strength in a bend tracks each particle like the constant strength at 
+  # its own time (its rotated skew strength is time dependent too, but zero)
+  e = Species("electron")
+  R = Beamlines.E_to_R(e, 1e9)
+  t0 = 1e-3
+  f(t) = 0.01 + 1e7*(t - t0) # Changes by ~10% over the bunch
+  v0 = [1e-3 1e-4 -1e-3 2e-4 1e-2 1e-3; -2e-3 0 1e-3 -1e-4 -3e-2 -2e-3]
+  beta_gamma = abs(R)*BeamTracking.C_LIGHT/massof(e)
+  for tm in (BendKick(), Exact())
+    bend(Kn0) = Beamline([SBend(L=1.0, g_ref=0.01, Kn0=Kn0, tracking_method=tm)]; p_over_q_ref=R, species_ref=e)
+    b = Bunch(copy(v0); species=e, p_over_q_ref=R, t_ref=t0)
+    track!(b, bend(f(Time())))
+    for i in 1:size(v0, 1)
+      bi = Bunch(v0[i:i,:]; species=e, p_over_q_ref=R, t_ref=t0)
+      track!(bi, bend(f(BeamTracking.compute_time(v0[i,5], v0[i,6], t0, beta_gamma))))
+      @test bi.coords.v ≈ b.coords.v[i:i,:] atol=1e-17
+    end
+    b0 = Bunch(copy(v0); species=e, p_over_q_ref=R, t_ref=t0)
+    track!(b0, bend(f(t0)))
+    @test maximum(abs.(b0.coords.v .- b.coords.v)) > 1e-4 # the time dependence matters
+  end
+end

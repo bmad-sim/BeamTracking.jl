@@ -163,19 +163,19 @@ function coeffs_approx_equal(v_expected, v_calculated, ϵ)
   n = GTPSA.numcoefs(v_expected[1])
   all_ok = true
   for i in 1:length(v_expected)
-      for j in 0:n-1
-          c1, c2 = v_expected[i][j], v_calculated[i][j]
-          if abs(c1 - c2) > max(ϵ, ϵ * (abs(c1) + abs(c2)))
-              println("Coefficients not equal: v_expected[$i][$j] = $c1, v_calculated[$i][$j] = $c2")
-              println("Difference: $(abs(c1 - c2))")
-              println("Tolerance:  $(max(ϵ, ϵ * (abs(c1) + abs(c2))))")
-              all_ok = false
-              break
-          end
+    for j in 0:n-1
+      c1, c2 = v_expected[i][j], v_calculated[i][j]
+      if abs(c1 - c2) > max(ϵ, ϵ * (abs(c1) + abs(c2)))
+        println("Coefficients not equal: v_expected[$i][$j] = $c1, v_calculated[$i][$j] = $c2")
+        println("Difference: $(abs(c1 - c2))")
+        println("Tolerance:  $(max(ϵ, ϵ * (abs(c1) + abs(c2))))")
+        all_ok = false
+        break
       end
-      if !all_ok
-          break
-      end
+    end
+    if !all_ok
+      break
+    end
   end
   return all_ok
 end
@@ -190,17 +190,17 @@ function quaternion_coeffs_approx_equal(q_expected, q_calculated, ϵ)
       v_expected = getfield(q_expected, cname)
       v_calculated = sgn * getfield(q_calculated, cname)
       for j in 0:n-1
-          c1, c2 = v_expected[j], v_calculated[j]
-          if abs(c1 - c2) > max(ϵ, ϵ * (abs(c1) + abs(c2)))
-              println("Coefficients not equal: expected $cname[$j] = $c1, got $cname[$j] = $c2")
-              println("Difference: $(abs(c1 - c2))")
-              println("Tolerance:  $(max(ϵ, ϵ * (abs(c1) + abs(c2))))")
-              all_ok = false
-              break
-          end
+        c1, c2 = v_expected[j], v_calculated[j]
+        if abs(c1 - c2) > max(ϵ, ϵ * (abs(c1) + abs(c2)))
+          println("Coefficients not equal: expected $cname[$j] = $c1, got $cname[$j] = $c2")
+          println("Difference: $(abs(c1 - c2))")
+          println("Tolerance:  $(max(ϵ, ϵ * (abs(c1) + abs(c2))))")
+          all_ok = false
+          break
+        end
       end
       if !all_ok
-          break
+        break
       end
   end
   return all_ok
@@ -233,10 +233,10 @@ const GROUP_ORDER = ["core", "symplectic", "batch_time"]
 
 # A test file that belongs to no group would silently stop running in CI.
 let assigned = reduce(vcat, (TEST_GROUPS[g] for g in GROUP_ORDER)),
-    on_disk = filter(f -> endswith(f, "_test.jl"), readdir(@__DIR__))
-  unassigned = setdiff(on_disk, assigned)
-  isempty(unassigned) ||
-    error("test file(s) not assigned to a group in runtests.jl: " * join(sort(unassigned), ", "))
+  on_disk = filter(f -> endswith(f, "_test.jl"), readdir(@__DIR__))
+unassigned = setdiff(on_disk, assigned)
+isempty(unassigned) ||
+  error("test file(s) not assigned to a group in runtests.jl: " * join(sort(unassigned), ", "))
 end
 
 const GROUP = get(ENV, "BEAMTRACKING_TEST_GROUP", "all")

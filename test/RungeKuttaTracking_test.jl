@@ -364,21 +364,21 @@ end
       (v, v, v, v, v, v + t)
     end, nothing)
     for T in (Float32, Float64), (use_KA, use_explicit_SIMD) in
-        ((false, false), (false, true), (true, false))
-      initial = zeros(T, 8, 6)
-      initial[:, 5] .= T(0.2)
-      initial[:, 6] .= T.((-1, -2, Inf, -Inf, NaN, 0, 0, 0))
-      initial[6, 2] = T(0.01)
-      bunch = Bunch(copy(initial); species, p_over_q_ref=R)
-      bunch.coords.state[8] = BeamTracking.STATE_LOST_POS_X
-      call = BeamTracking.make_kernel_call(BeamTracking.rk4_kernel!,
-        (T(beta0), T(m), T(charge), T(pc), T(mc2), T(0.1), T(0.01), 10,
-         zero(T), zero(T), field_source..., Val(false)))
-      BeamTracking.launch!(bunch.coords, call; use_KA, use_explicit_SIMD)
-      @test bunch.coords.state == [STATE_LOST_PZ, STATE_LOST_PZ, STATE_LOST_PZ,
-        STATE_LOST_PZ, STATE_LOST_PZ, STATE_ALIVE, STATE_ALIVE, BeamTracking.STATE_LOST_POS_X]
-      @test isequal(bunch.coords.v[[1, 2, 3, 4, 5, 8], :], initial[[1, 2, 3, 4, 5, 8], :])
-      @test all(isfinite, bunch.coords.v[6:7, :])
+      ((false, false), (false, true), (true, false))
+    initial = zeros(T, 8, 6)
+    initial[:, 5] .= T(0.2)
+    initial[:, 6] .= T.((-1, -2, Inf, -Inf, NaN, 0, 0, 0))
+    initial[6, 2] = T(0.01)
+    bunch = Bunch(copy(initial); species, p_over_q_ref=R)
+    bunch.coords.state[8] = BeamTracking.STATE_LOST_POS_X
+    call = BeamTracking.make_kernel_call(BeamTracking.rk4_kernel!,
+      (T(beta0), T(m), T(charge), T(pc), T(mc2), T(0.1), T(0.01), 10,
+       zero(T), zero(T), field_source..., Val(false)))
+    BeamTracking.launch!(bunch.coords, call; use_KA, use_explicit_SIMD)
+    @test bunch.coords.state == [STATE_LOST_PZ, STATE_LOST_PZ, STATE_LOST_PZ,
+      STATE_LOST_PZ, STATE_LOST_PZ, STATE_ALIVE, STATE_ALIVE, BeamTracking.STATE_LOST_POS_X]
+    @test isequal(bunch.coords.v[[1, 2, 3, 4, 5, 8], :], initial[[1, 2, 3, 4, 5, 8], :])
+    @test all(isfinite, bunch.coords.v[6:7, :])
     end
   end
 

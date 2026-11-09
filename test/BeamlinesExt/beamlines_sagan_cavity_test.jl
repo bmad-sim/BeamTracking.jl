@@ -159,6 +159,24 @@ end
   @test b1.coords.v == b2.coords.v
   @test b1.coords.q == b2.coords.q
 
+  # After a cavity with an energy change, the Bunch reference is the exit reference of the cavity, 
+  # so the next Beamline does not ramp the Bunch again (a drift leaves pz unchanged), also for a 
+  # species other than the reference species
+  for sp in (species, Species("muon"))
+    sc = RFCavity(L = 2.0, voltage = 0.2*E0, rf_frequency = 1e9, dE_ref = 0.1*E0, 
+                  tracking_method = SaganCavity(n_cells = 2))
+    br = Branch([Beamline([Drift(L = 1.0)]; E_ref = E0, species_ref = species), Beamline([sc]), 
+                 Beamline([Drift(L = 1.0)])])
+    b = Bunch(deepcopy(v1), deepcopy(quat1), species = sp, 
+              p_over_q_ref = br.beamlines[1].p_over_q_ref)
+    track!(b, br.beamlines[1]; notify = false)
+    track!(b, br.beamlines[2]; notify = false)
+    @test b.p_over_q_ref == br.beamlines[2].p_over_q_ref
+    pz = b.coords.v[6]
+    track!(b, br.beamlines[3]; notify = false)
+    @test b.coords.v[6] == pz
+  end
+
   # A Bunch species other than the reference species: a species identical to the electron except 
   # for its name tracks exactly like the electron (with the reference energy change, RF phase and 
   # design clock of a different species)
