@@ -324,6 +324,18 @@
     @test GTPSA.jacobian(b0.coords.v) ≈ v_expected
     @test GTPSA.jacobian(b0.coords.q) ≈ q_expected
 
+    # Pure quadrupole (MK), many short steps: rounding stays at the level of Float64 (the same
+    # tracking in BigFloat), as it did not when cos(sqrt(k1)*ds) rounded near 1 (5e-13 here)
+    R18 = Beamlines.pc_to_R(Species("electron"), 18e9)
+    vq = Matrix{Float64}[]
+    for T in (Float64, BigFloat)
+      ele = LatElement(L=0.4, Kn1=0.28, tracking_method=MatrixKick(order=8), n_steps=1024)
+      b0 = Bunch(T.([1e-3 1e-4 5e-4 -1e-4 0.0 5e-4]), p_over_q_ref=R18, species=Species("electron"))
+      track!(b0, Beamline([ele], p_over_q_ref=R18, species_ref=Species("electron")))
+      push!(vq, Float64.(b0.coords.v[:, 1:4]))
+    end
+    @test maximum(abs.(vq[1] .- vq[2]) ./ [1e-3 1e-4 5e-4 1e-4]) < 5e-14
+
     # Skew quadrupole (MK):
     ele = LatElement(L=2.0, Kn1=0.1, tilt1=pi/4, tracking_method=MatrixKick(order=6), n_steps=2, fringe_at=Fringe.NoEnd)
     v = [0.01 0.02 0.03 0.04 0.05 0.06] .+ collect(transpose(@vars(D1)))

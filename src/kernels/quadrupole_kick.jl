@@ -96,15 +96,23 @@ s: element length
   yp = v[i,PYI] / rel_p  # y'
   arg = k1*s*s/rel_p
 
-  sinecu,  cosine  = sincos_quaternion( arg)
-  shinecu, coshine = sincos_quaternion(-arg)
-  cx = vifelse(focus, cosine,  coshine)
-  cy = vifelse(focus, coshine, cosine)
+  # From half angles, so that cos - 1 and cosh - 1 stay accurate for short steps (a cosine
+  # rounded near 1 is a systematic error in the focusing, the same in every turn)
+  sinecu4,  cosine4  = sincos_quaternion( arg/4)
+  shinecu4, coshine4 = sincos_quaternion(-arg/4)
+  sinecu  = sinecu4*cosine4
+  shinecu = shinecu4*coshine4
+  cosm1   = -arg*sinecu4*sinecu4/2
+  coshm1  =  arg*shinecu4*shinecu4/2
+  cxm1 = vifelse(focus, cosm1,  coshm1)
+  cym1 = vifelse(focus, coshm1, cosm1)
+  cx = 1 + cxm1
+  cy = 1 + cym1
   sx = vifelse(focus, sinecu,  shinecu)
   sy = vifelse(focus, shinecu, sinecu)
 
-  new_px = v[i,PXI] * cx - k1 * v[i,XI] * s * sx
-  new_py = v[i,PYI] * cy + k1 * v[i,YI] * s * sy
+  new_px = v[i,PXI] + v[i,PXI] * cxm1 - k1 * v[i,XI] * s * sx
+  new_py = v[i,PYI] + v[i,PYI] * cym1 + k1 * v[i,YI] * s * sy
   new_z  = v[i,ZI]  - (s / 4) * (  xp * xp * (1 + sx * cx)
                                     + yp * yp * (1 + sy * cy)
                                     + k1 / rel_p
@@ -112,8 +120,8 @@ s: element length
                                           - v[i,YI]*v[i,YI] * (1 - sy * cy) )
                                   ) + arg * (v[i,XI] * xp * sx * sx
                                   - v[i,YI] * yp * sy * sy) / 2
-  new_x  = v[i,XI] * cx + xp * s * sx
-  new_y  = v[i,YI] * cy + yp * s * sy
+  new_x  = v[i,XI] + v[i,XI] * cxm1 + xp * s * sx
+  new_y  = v[i,YI] + v[i,YI] * cym1 + yp * s * sy
   v[i,PXI] = vifelse(alive, new_px, v[i,PXI])
   v[i,PYI] = vifelse(alive, new_py, v[i,PYI])
   v[i,ZI]  = vifelse(alive, new_z,  v[i,ZI])
