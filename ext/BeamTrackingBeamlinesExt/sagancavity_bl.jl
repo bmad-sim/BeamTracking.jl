@@ -160,6 +160,10 @@ function universal!(
   @noinline launch!(coords, kc; kwargs...)
   
   bunch.t_ref = t_exit_design
+  # The coordinates are now relative to this Beamline's reference (after the energy change dE_ref)
+  if !(p_over_q_ref isa TimeDependentParam)
+    bunch.p_over_q_ref = p_over_q_ref
+  end
   
   return nothing
 end

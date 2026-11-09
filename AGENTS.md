@@ -177,7 +177,9 @@ touches both repositories; their versions are coupled (BeamTracking 0.9 needs Be
     `slip = 1/v_bunch - 1/v_design` (0 for the same species); `cavity!` uses `t_ref + (s + L/2)*slip`.
   - SaganCavity: the Bunch reference changes by the same rigidity `dp_over_q_ref` as the design 
     particle (its own `dE_ref`); the kernels add the slip per drift from the design momenta passed 
-    as `design_params = (mass_d, P0c_d, dE_d)` (`nothing` for the same species).
+    as `design_params = (mass_d, P0c_d, dE_d)` (`nothing` for the same species). Its `universal!` 
+    stores the exit reference in `bunch.p_over_q_ref` after the launch, as the general one does 
+    (it never did: with `dE_ref ≠ 0` the next Beamline then ramped the Bunch a second time).
   - `beta_0` cannot simply be changed instead: `tilde_m` must be the Bunch's, and the high precision 
     z formulas assume `beta_0 = 1/sqrt(1 + tilde_m^2)`.
 
