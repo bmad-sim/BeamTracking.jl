@@ -236,4 +236,22 @@ end
     @test vs[1] == vs[2]
     @test maximum(abs.(vs[1] .- vs[3])) > 1e-4
   end
+
+  # The Bunch leaves an accelerating cavity at the exit reference momentum, so a following Drift 
+  # does not shift the particles again (on crest with voltage == dE_ref, pz stays ~0)
+  let e = Species("electron")
+    br = Branch([Marker(E_ref = 1e9, species_ref = e), Drift(L = 1.0),
+                 RFCavity(L = 2.0, voltage = 2e8, rf_frequency = 1e9, dE_ref = 2e8, tracking_method = SaganCavity(n_cells = 4)),
+                 Drift(L = 1.0)])
+    cav_bl = br.beamlines[2]
+    b = Bunch([0 0 0 0 0 0.0]; species = e, p_over_q_ref = br.beamlines[1].p_over_q_ref)
+    track!(b, br.beamlines[1]; notify = false)
+    track!(b, cav_bl.line[1]; notify = false)
+    @test b.p_over_q_ref == cav_bl.p_over_q_ref
+    pz_cavity = b.coords.v[6]
+    @test abs(pz_cavity) < 1e-12
+    track!(b, cav_bl.line[2]; notify = false)
+    @test b.coords.v[6] == pz_cavity
+    @test b.p_over_q_ref == cav_bl.p_over_q_ref
+  end
 end
