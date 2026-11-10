@@ -39,6 +39,7 @@ include("types.jl")
 include("time.jl")
 include("batch.jl")
 include("callbacks.jl")
+include("collective_effects.jl")
 include("kernels/ramp_P0.jl")
 include("kernel.jl")
 

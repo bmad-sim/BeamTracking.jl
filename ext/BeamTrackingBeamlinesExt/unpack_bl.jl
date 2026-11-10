@@ -87,7 +87,10 @@ function _track!(
   ramp_update_each_particle::Val,
   shift_time::Val,
   rf_on,
-  batch_start;
+  batch_start,
+  effects::Tuple=(),
+  states::Tuple=(),
+  ix::Int=0;
   kwargs...
 )
   # Get the parameter groups in one pass over the element's ParamDict, then its parent's (if it 
@@ -210,6 +213,11 @@ function _track!(
   # Function barrier. The LoweredElement is built after the barrier, where all types are known
   n_slices = (universalparams::UniversalParams).n_slices
   if n_slices == 1
+    if !isempty(effects)
+      L = float((universalparams::UniversalParams).L)
+      BeamTracking.apply_effects!(effects, states, bunch, ele,
+        BeamTracking.SlicePoint(ix, 1, 1, zero(L), L, L))
+    end
     @noinline universal!(bunch, tm, ele, _ConcreteUniversalParams(universalparams), alignmentparams, bendparams, bmultipoleparams,
                          patchparams, apertureparams, rfparams, beamlineparams, mapparams, fourpotentialparams, emultipoleparams,
                          emfieldparams, ibsparams, ref, ramp_particle_energy_without_rf, ramp_update_each_particle,
@@ -220,7 +228,13 @@ function _track!(
     isnothing(patchparams) || error("Elements with n_slices > 1 are not compatible with PatchParams. Try n_slices = 1 instead")
     isnothing(mapparams) || error("Elements with n_slices > 1 are not compatible with MapParams. Try n_slices = 1 instead")
     for k in 1:n_slices
-      @noinline universal!(bunch, tm, ele, _SliceUniversalParams(universalparams, k), alignmentparams, bendparams, bmultipoleparams,
+      up_k = _SliceUniversalParams(universalparams, k)
+      if !isempty(effects)
+        BeamTracking.apply_effects!(effects, states, bunch, ele,
+          BeamTracking.SlicePoint(ix, k, n_slices, up_k.s0,
+                                  up_k.L_slice, up_k.L))
+      end
+      @noinline universal!(bunch, tm, ele, up_k, alignmentparams, bendparams, bmultipoleparams,
                            patchparams, apertureparams, rfparams, beamlineparams, mapparams, fourpotentialparams, emultipoleparams,
                            emfieldparams, ibsparams, ref, ramp_particle_energy_without_rf, ramp_update_each_particle,
                            shift_time, batch_start; kwargs...)
