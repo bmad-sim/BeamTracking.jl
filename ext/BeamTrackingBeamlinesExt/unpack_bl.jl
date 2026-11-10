@@ -13,15 +13,14 @@ struct _SliceUniversalParams{A,F,RD,RF,FIRST,LAST}
   n_slices::Int
   s0::A
   L_slice::A
+  # With the type parameters given (see _whole_element)
+  _SliceUniversalParams{A,F,RD,RF,FIRST,LAST}(L, n_steps, ds_step, n_slices, s0, L_slice) where {A,F,RD,RF,FIRST,LAST} =
+    new{A,F,RD,RF,FIRST,LAST}(L, n_steps, ds_step, n_slices, s0, L_slice)
   function _SliceUniversalParams(up::UniversalParams, k::Int)
     L = float(up.L)
     n_steps = up.n_steps
     n_slices = up.n_slices
-    if n_slices == 1
-      # The whole element: fewer type parameters to compute at run time (as in _track!, before the
-      # function barrier); without this path track! is 5% slower for one particle on ESR
-      return new{typeof(L),up.fringe_at,up.rad_damping,up.rad_fluctuations,true,true}(L, n_steps, L / n_steps, 1, zero(L), L)
-    end
+    n_slices == 1 && return _whole_element(L, n_steps, up.fringe_at, up.rad_damping, up.rad_fluctuations)
     L_slice = L / n_slices
     ds_step = L_slice / n_steps
     s0 = (k - 1)*L_slice
@@ -32,6 +31,21 @@ struct _SliceUniversalParams{A,F,RD,RF,FIRST,LAST}
     fringe_at = fringe_in ? (fringe_out ? Fringe.BothEnds : Fringe.EntranceEnd) : (fringe_out ? Fringe.ExitEnd : Fringe.NoEnd)
     return new{typeof(L),fringe_at,up.rad_damping,up.rad_fluctuations,first_slice,last_slice}(L, n_steps, ds_step, n_slices, s0, L_slice)
   end
+end
+
+# The whole element (k = 1 of 1, n_slices == 1), with its type parameters compile-time constants in
+# each branch. Built from the run-time values of fringe_at, rad_damping and rad_fluctuations, the
+# type would be looked up in Julia's type cache at every element (~150 ns per element vs ~120 ns
+# for _ConcreteUniversalParams, which it replaces, with two fewer type parameters). The most common
+# case (both fringes, no radiation) is tested first
+@eval function _whole_element(L::A, n_steps, fringe_at, rad_damping, rad_fluctuations) where {A}
+  $(let ex = :(error("Unknown fringe_at = ", fringe_at))
+      for F in (Fringe.ExitEnd, Fringe.EntranceEnd, Fringe.NoEnd, Fringe.BothEnds), RD in (true, false), RF in (true, false)
+        ex = :(fringe_at == $F && rad_damping == $RD && rad_fluctuations == $RF ?
+               _SliceUniversalParams{A,$F,$RD,$RF,true,true}(L, n_steps, L / n_steps, 1, zero(L), L) : $ex)
+      end
+      ex
+    end)
 end
 
 # The first slice starts at s0 = 0 and a single slice is the whole element (L_slice = L): returned

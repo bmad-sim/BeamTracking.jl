@@ -296,9 +296,14 @@ touches both repositories; their versions are coupled (BeamTracking 0.9 needs Be
   bitwise). Write the conditions as nested ternaries on the type parameters 
   (`key === :s0 ? (FIRST ? 0 : getfield(up, :s0)) : …`): with `key === :s0 && FIRST ? 0 : …` 
   `s0` was inferred `Union{Int, Float64}` and the `KernelChain` was boxed (+0.7 MB per ESR turn). 
-  Cost: `track!` 4% slower for one particle on ESR (3.85 -> 4.00 ms; 6% without the 
-  single-slice path in the constructor), probably the run-time type with six parameters; none 
-  for prepared tracking or 100+ particles.
+  A whole element's struct is built by `_whole_element`, which branches on `fringe_at`, 
+  `rad_damping` and `rad_fluctuations` (16 cases) so that each branch builds a type known at 
+  compile time: built from those run-time values, the type is looked up in Julia's type cache at 
+  every element, and the lookup grows with the number of type parameters (`_ConcreteUniversalParams` 
+  124 ns per element, with `FIRST`/`LAST` 144-152 ns, `_whole_element` 24 ns). `track!` for one 
+  particle on ESR: 3.78-3.82 ms with `_ConcreteUniversalParams`, 3.89-4.36 with the run-time 
+  slice type, 3.16-3.20 ms now (allocations 3.36 -> 3.26 MB); compile time unchanged; results 
+  bitwise equal (38 cases, ESR and sliced-FODO `twiss`/`track`).
 - RF needs no `s0`: the kick phase is relative to the reference particle at the kick, and the 
   per-slice time shift re-aligns z with the design clock, so the slip restarts. Verified for all 
   `zero_phase`s, `phi0 ≠ 0`, DriftKick/SolenoidKick and a different species (sliced == pieces, 
@@ -546,8 +551,8 @@ and batches, also on Metal; Dual/TPS element lengths; one RF phase convention fo
 methods) are merged. Branch `noinline2`: integrators with one kernel call site (`integrate_steps!`, 
 see "Performance rules"); it replaces the old `noinline` branch (PR #365).
 
-ESR, Julia 1.10, Apple M4, per turn (Nov 2026, branch `prepare`): `track!` 1 particle 4.0 ms 
-(81,438 allocations); prepared (`prepare`, as SciBmad's `track`/`dynamic_aperture` use it) 1/10/
+ESR, Julia 1.10, Apple M4, per turn (Nov 2026, branch `prepare`): `track!` 1 particle 3.2 ms 
+(3.26 MB allocated); prepared (`prepare`, as SciBmad's `track`/`dynamic_aperture` use it) 1/10/
 100/1000 particles 0.50/1.3/8.0/75 ms (Float32 1000: 36 ms), ramp 1.0 ms, per-particle ramp 1.7 ms 
 for one particle. Older: `main` 18.8 ms → 3.9 ms (`noinline2`)
 
@@ -560,7 +565,7 @@ Open items:
   it is 245 MB), the rest is SciBmad's own workload.
 - Radiation fluctuations (`rad_fluctuations`) allocate 4 times per particle without explicit SIMD 
   (also on `main` before `noinline2`).
-- Remaining unpacking costs (ESR profile): the `_SliceUniversalParams` construction (dynamic 
+- Remaining unpacking costs (ESR profile, before `_whole_element`, which removed most of the first): the `_SliceUniversalParams` construction (dynamic 
   type with runtime type parameters) ~11%, data-dependent unions after the barrier ~6% (fixing 
   them must not slow down general multipoles), the barrier dispatch ~5%. `deval` of a parameter 
   group without any `DefExpr` returns the group itself (~4 ns; it used to rebuild it, 50 ns for 
