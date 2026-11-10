@@ -342,6 +342,12 @@ touches both repositories; their versions are coupled (BeamTracking 0.9 needs Be
   A/B script for another machine: `~/scibmad-benchmarks/lane-width/` (`run_lanes.jl`; with 
   `-C haswell` an AVX-512 machine runs AVX2 code, and HostCPUFeatures reports the AVX2 width 
   because it follows Julia's CPU target). GitHub's ubuntu runners (Benchmark.yml) are x86 too.
+  Don't use `-C haswell` under WSL: it recompiles every package for that target and killed WSL 
+  (and HostCPUFeatures warned it kept stale feature flags).
+  Measured on x86 (the maintainer's laptop under WSL; Julia sees AVX2, native 4 Float64 / 8 
+  Float32), best of 2 runs: Float64 1000 particles 151 -> 122 ms (1.24x), 100: 16.0 -> 13.7; 
+  Float32 1000: 65 -> 48 ms (1.35x), 100: 9.8 -> 8.0; 1-31 particles equal within noise or faster 
+  (largest slowdown +5% at Float32 9 particles; the two native runs differed by up to 20%).
 - `benchmark/benchmarks.jl` has prepared tracking (`SUITE["esr prepared"]`, Float64 and Float32, 
   1/2/10/15/100/1000 particles; only on revisions that have `prepare`) and counts that do not 
   fill the SIMD vectors (2, 10, 15; Float32 15). `test/performance_test.jl` checks that prepared 
