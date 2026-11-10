@@ -19,10 +19,9 @@ using Random
   ]; p_over_q_ref=p_over_q_ref, species_ref=e)
 
   # Prepared once, tracks bitwise like track!(bunch, bl) at every turn
-  function test_prepared(bl, mk; turns=20, n_at_call=0, kw...)
+  function test_prepared(bl, mk; turns=20, kw...)
     b1 = mk(); b2 = mk()
     chains = btbl.prepare(b2, bl; notify=false, kw...)
-    @test count(c -> c.kc isa btbl.PreParameter, chains) == n_at_call
     for t in 1:turns
       track!(b1, bl; notify=false, kw...)
       track!(b2, chains)
@@ -46,15 +45,22 @@ using Random
   bl6 = lat2.beamlines[4]
   R6 = bl6.p_over_q_ref
   test_prepared(bl6, () -> Bunch(copy(v0), copy(q0); species=species, p_over_q_ref=R6))
-  # Built at every call: a time dependent reference energy (every chain), IBS
+  # A time dependent reference energy: its value at each element is evaluated at the call, and
+  # everything computed from it (every strength without the per-particle ramp)
   ramp = ring(R*(1 + 1e3*Time()))
-  test_prepared(ramp, () -> Bunch(copy(v0)); n_at_call=7)
-  test_prepared(ramp, () -> Bunch(copy(v0)); n_at_call=7, ramp_update_each_particle=true)
+  test_prepared(ramp, () -> Bunch(copy(v0)))
+  test_prepared(ramp, () -> Bunch(Float32.(v0)))
+  test_prepared(ramp, () -> Bunch(copy(v0)); ramp_update_each_particle=true)
+  test_prepared(ramp, () -> Bunch(Float32.(v0)); ramp_update_each_particle=true)
   ibs = Beamline([LatElement(L=1.0, Kn1=0.3, tracking_method=MatrixKick(order=4)),
                   LatElement(L=2.0, tracking_method=DriftKick(),
                              ibs_model=IBSModel.GaussianDampingOnly),
                   LatElement(L=1.0, Kn1=-0.3, tracking_method=MatrixKick(order=4))];
                  p_over_q_ref=R, species_ref=e)
   vi = randn(MersenneTwister(1), 20, 6) .* [1e-4 1e-5 1e-5 1e-6 1e-3 1e-4]
-  test_prepared(ibs, () -> Bunch(copy(vi); p_over_q_ref=R, species=e); n_at_call=1)
+  test_prepared(ibs, () -> Bunch(copy(vi); p_over_q_ref=R, species=e))
+  # IBS and a time dependent reference energy (the statistics use the reference at the call)
+  ibs_ramp = Beamline([LatElement(L=2.0, tracking_method=DriftKick(), ibs_model=IBSModel.GaussianDampingOnly)];
+                      p_over_q_ref=R*(1 + 1e3*Time()), species_ref=e)
+  test_prepared(ibs_ramp, () -> Bunch(copy(vi)))
 end

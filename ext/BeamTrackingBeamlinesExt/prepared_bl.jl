@@ -5,16 +5,63 @@
 # times (e.g. turns of a ring) with track!(bunch, chains).
 
 using BeamTracking: num_lower, time_lower, batch_lower
+using StaticArrays: StaticArray
 
-# f(bunch, args...) is the value at the call. f captures nothing (a captured variable can be boxed,
-# and a captured type is stored as a DataType), so that it is type stable
-struct PreParameter{F,A}
-  f::F
-  args::A
+# g(bunch) is the value at the call. Like TimeDependentParam, it is a closure that calls the closures
+# of the PreParameters it is computed from directly (a value computed from PreParameters is one):
+# evaluating nested PreParameters through one recursive method would defeat type inference (a
+# prepared ramp was 10x slower). Captured values must be concrete: a captured type is a DataType,
+# and a captured variable assigned twice is boxed
+struct PreParameter{G}
+  g::G
 end
 
-process_preparameter(p::PreParameter, bunch) = p.f(bunch, p.args...)
+# f(bunch, args...), where the arguments that are PreParameters are evaluated at the call
+PreParameter(f, args::Tuple) = (let f = f, gs = map(_getter, args); PreParameter(bunch -> f(bunch, map(g -> g(bunch), gs)...)) end)
+_getter(a::PreParameter) = a.g
+_getter(a) = (let a = a; bunch -> a end)
+
+process_preparameter(p::PreParameter, bunch) = p.g(bunch)
+# Inside the arguments of a kernel (e.g. a tuple of parameters or a vector of strengths), only if
+# the type contains a PreParameter
+process_preparameter(a::Union{Tuple,NamedTuple,StaticArray}, bunch) =
+  has_preparameter(typeof(a)) ? map(x -> process_preparameter(x, bunch), a) : a
 process_preparameter(a, bunch) = a
+
+# A compile-time constant (otherwise every argument of every chain is inspected at every call)
+@generated has_preparameter(::Type{T}) where {T} = _has_preparameter(T)
+_has_preparameter(T) = T <: PreParameter ||
+  (T <: Union{Tuple,NamedTuple} && isconcretetype(T) && any(_has_preparameter, fieldtypes(T))) ||
+  (T <: StaticArray && _has_preparameter(eltype(T)))
+
+# Arithmetic as for TimeDependentParam: a value computed from a PreParameter is one, e.g. every
+# strength computed from the reference momentum at the element when it is time dependent (without
+# the per-particle ramp). Comparisons are errors: a decision that depends on the call cannot be
+# made when preparing
+for op in (:+, :-, :*, :/, :^)
+  @eval begin
+    Base.$op(a::PreParameter, b::PreParameter) = (let ga = a.g, gb = b.g; PreParameter(bunch -> $op(ga(bunch), gb(bunch))) end)
+    Base.$op(a::PreParameter, b) = (let ga = a.g, b = b; PreParameter(bunch -> $op(ga(bunch), b)) end)
+    Base.$op(a, b::PreParameter) = (let a = a, gb = b.g; PreParameter(bunch -> $op(a, gb(bunch))) end)
+  end
+end
+# (Base has ^(x, ::Integer) for any x)
+Base.:^(a::PreParameter, b::Integer) = (let ga = a.g, b = b; PreParameter(bunch -> ga(bunch)^b) end)
+Base.literal_pow(::typeof(^), a::PreParameter, ::Val{N}) where {N} =
+  (let ga = a.g; PreParameter(bunch -> Base.literal_pow(^, ga(bunch), Val{N}())) end)
+for f in (:+, :-, :sqrt, :exp, :log, :sin, :cos, :tan, :sinh, :cosh, :tanh, :inv, :asin, :acos, :atan,
+          :float, :abs, :sign, :conj)
+  @eval Base.$f(a::PreParameter) = (let ga = a.g; PreParameter(bunch -> $f(ga(bunch))) end)
+end
+BeamTracking.atan2(a::PreParameter, b) = (let ga = a.g, b = b; PreParameter(bunch -> BeamTracking.atan2(ga(bunch), b)) end)
+BeamTracking.atan2(a, b::PreParameter) = (let a = a, gb = b.g; PreParameter(bunch -> BeamTracking.atan2(a, gb(bunch))) end)
+Base.broadcastable(a::PreParameter) = Ref(a)
+for op in (:(<), :(<=), :isless, :(==), :isapprox)
+  @eval Base.$op(::PreParameter, ::Any; kw...) = error("A value that depends on the call cannot be compared when preparing")
+  @eval Base.$op(::Any, ::PreParameter; kw...) = error("A value that depends on the call cannot be compared when preparing")
+end
+# Lowered to the coordinates' number type at the call (as RefState fields and kernel arguments are)
+BeamTracking.num_lower(::Type, a::PreParameter) = (let ga = a.g; PreParameter(b -> num_lower(eltype(b.coords.v), ga(b))) end)
 
 # kc is the KernelChain, or a PreParameter whose value is the PreKernelChain (a chain built at the
 # call, see universal!). After the launch, bunch.t_ref increases by dt and bunch.p_over_q_ref is
@@ -27,15 +74,18 @@ end
 
 # The PreParameters are lowered as the RefState constructor, and make_kernel_call and push, lower
 # what universal! passes there
+# (also a tuple of parameters or a vector of strengths that contains PreParameters; the number type
+# is that of the coordinates, which the RefState has, not captured: a captured type is a DataType)
+process_field(a, bunch) = has_preparameter(typeof(a)) ? batch_lower(process_preparameter(a, bunch)) : a
+process_arg(a, bunch) = has_preparameter(typeof(a)) ?
+  num_lower(eltype(bunch.coords.v), time_lower(batch_lower(process_preparameter(a, bunch)))) : a
+
 function process_preparameters(kc::KernelChain, bunch)
   T = BeamTracking.coordstype(kc.ref)
-  field(a) = a isa PreParameter ? batch_lower(process_preparameter(a, bunch)) : a
-  arg(a) = a isa PreParameter ?
-    num_lower(T, time_lower(batch_lower(process_preparameter(a, bunch)))) : a
-  call(c) = BeamTracking.KernelCall(c.kernel, map(arg, c.args))
+  call(c) = BeamTracking.KernelCall(c.kernel, map(a -> process_arg(a, bunch), c.args))
   r = kc.ref
   fields = (r.t_enter, r.beta_gamma_enter, r.t_exit, r.beta_gamma_exit, r.L, r.g, r.ds_step, r.s0)
-  ref = RefState{T}(map(field, fields)...)
+  ref = RefState{T}(map(a -> process_field(a, bunch), fields)...)
   return KernelChain(map(call, kc.chain), ref, kc.batch_start, map(call, kc.transforms_out),
                      map(call, kc.transforms_in))
 end
@@ -51,28 +101,22 @@ end
 # copied out of p, which is boxed in the Vector of chains (each 8% slower for one particle on ESR)
 function run!(bunch::Bunch, p::PreKernelChain; kwargs...)
   kc = process_preparameters(p.kc, bunch)
+  dt = process_preparameter(p.dt, bunch)
+  p_over_q_ref_exit = process_preparameter(p.p_over_q_ref_exit, bunch)
   # noinline necessary here for small binaries and faster execution
   @noinline launch!(bunch.coords, kc; kwargs...)
-  bunch.t_ref = bunch.t_ref + p.dt
-  bunch.p_over_q_ref = p.p_over_q_ref_exit
+  bunch.t_ref = bunch.t_ref + dt
+  bunch.p_over_q_ref = p_over_q_ref_exit
   return nothing
 end
 
-run!(bunch::Bunch, p::PreKernelChain{<:PreParameter}; kwargs...) =
-  run!(bunch, process_preparameter(p.kc, bunch); kwargs...)
-
-# track!: a chain built at the call is run at once (the others are run by universal! itself)
-push_chain!(target::Bunch, bunch, pc; kwargs...) = run!(target, pc; kwargs...)
-
-# A chain built at the call (see universal!) is returned to run!
-push_chain!(::Nothing, bunch, pc; kwargs...) = pc
 
 # prepare: the chain is stored, and the next element is built for the reference momentum after
-# this one, unless this one is built at the call (which leaves the reference momentum unchanged
-# when it is not time dependent)
+# this one, unless that is only known at the call (with a time dependent reference energy, where
+# the next element only uses it at the call too)
 function push_chain!(chains::Vector, bunch, pc)
   push!(chains, pc)
-  isnothing(pc.p_over_q_ref_exit) || (bunch.p_over_q_ref = pc.p_over_q_ref_exit)
+  pc.p_over_q_ref_exit isa PreParameter || (bunch.p_over_q_ref = pc.p_over_q_ref_exit)
   return nothing
 end
 

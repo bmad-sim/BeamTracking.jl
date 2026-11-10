@@ -57,6 +57,11 @@ if isdefined(BTBL, :prepare) && isdefined(BTBL, :PreKernelChain)
     chains = BTBL.prepare(make_bunch(esr, N, T), esr; notify=false)
     SUITE["esr prepared"][string(T), N] = @benchmarkable track!(b, $chains) setup=(b = make_bunch($esr, $N, $T)) evals=1
   end
+  # A time dependent reference energy (the reference at each element evaluated at the call)
+  for N in (1, 100), (name, upd) in (("ramp", false), ("ramp per particle", true))
+    chains = BTBL.prepare(make_bunch(ramp_ring, N), ramp_ring; notify=false, ramp_update_each_particle=upd)
+    SUITE["esr prepared"][name, N] = @benchmarkable track!(b, $chains) setup=(b = make_bunch($ramp_ring, $N)) evals=1
+  end
 end
 
 SUITE["elements"] = BenchmarkGroup()

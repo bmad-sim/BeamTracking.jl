@@ -23,10 +23,9 @@ function universal!(
   ::Val{ramp_update_each_particle},
   ::Val{shift_time},
   batch_start,
-  sink,
-  ::Val{at_call}=Val{false}();
+  sink;
   kwargs...
-) where {ramp_particle_energy_without_rf, ramp_update_each_particle, shift_time, at_call}
+) where {ramp_particle_energy_without_rf, ramp_update_each_particle, shift_time}
   ele = LoweredElement(universalparams, alignmentparams, bendparams, bmultipoleparams, patchparams, apertureparams, rfparams, 
                        beamlineparams, mapparams, fourpotentialparams, emultipoleparams, emfieldparams, ibsparams, ref)
   L = ele.universalparams.L
@@ -40,15 +39,10 @@ function universal!(
   universalparams.n_steps == 1 || error("SaganCavity is not compatible with elements with n_steps > 1 (its kicks are set by n_cells). Try n_steps = 1 instead")
 
   p_over_q_ref = ref.p_over_q_ref
-  # With a time dependent reference energy the chain is built at the call (see unpack_bl.jl)
-  if !at_call && p_over_q_ref isa TimeDependentParam
-    args = (tm, fullele, universalparams, alignmentparams, bendparams, bmultipoleparams,
-            patchparams, apertureparams, rfparams, beamlineparams, mapparams, fourpotentialparams,
-            emultipoleparams, emfieldparams, ibsparams, ref, Val{ramp_particle_energy_without_rf}(),
-            Val{ramp_update_each_particle}(), Val{shift_time}(), batch_start, nothing, Val{true}())
-    pc = PreKernelChain(PreParameter(universal!, args), nothing, nothing)
-    return push_chain!(sink, bunch, pc; kwargs...)
-  end
+  # A ramped reference is not supported by SaganCavity (see "Status" in AGENTS.md); when preparing it
+  # would also need the reference momentum at the call
+  !(sink isa Bunch) && p_over_q_ref isa TimeDependentParam &&
+    error("SaganCavity with a time dependent reference energy is not supported by prepared tracking")
   beta_gamma_ref = R_to_beta_gamma(bunch.species, bunch.p_over_q_ref)
 
   # Compute information about reference coordinate system:

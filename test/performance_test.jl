@@ -54,7 +54,7 @@ using Random
   up = Beamlines.deval(ele.UniversalParams, bl.context)
   blp = Beamlines.deval(ele.BeamlineParams, bl.context)
   ref = ext.TrackReference(e, -10.0, 1)
-  @test_opt target_modules=(ext, BeamTracking) ext.universal!(b, ele.tracking_method, ele, ext._ConcreteUniversalParams(up), nothing, nothing, nothing,
+  @test_opt target_modules=(ext, BeamTracking) ext.universal!(b, ele.tracking_method, ele, ext._SliceUniversalParams(up, 1), nothing, nothing, nothing,
                                                                nothing, nothing, nothing, blp, nothing, nothing, nothing, nothing, nothing, ref, Val(false), Val(false), Val(false), 1, b)
 
   # Timing ratios on the same machine (with generous margins): ramping the reference energy costs
@@ -84,5 +84,21 @@ using Random
   if !instrumented
     t = @benchmark(track!(bb, $chains), setup=(bb = $bunch($ring, 1)), evals=1, samples=20, seconds=10)
     @test minimum(t).time / t_static < 0.4
+  end
+  # With a time dependent reference energy too (the reference at each element is evaluated at the
+  # call, the elements are lowered once): faster than track! of a static line for one particle
+  # (0.25x and 0.42x with the per-particle ramp on Apple M4)
+  for upd in (false, true)
+    rchains = ext.prepare(bunch(ramp_ring, 1), ramp_ring; notify=false, ramp_update_each_particle=upd)
+    function ramp_allocations(N)
+      b = bunch(ramp_ring, N)
+      track!(b, rchains)
+      return @allocations track!(b, rchains)
+    end
+    @test ramp_allocations(100) == ramp_allocations(1)
+    if !instrumented
+      t = @benchmark(track!(bb, $rchains), setup=(bb = $bunch($ramp_ring, 1)), evals=1, samples=20, seconds=10)
+      @test minimum(t).time / t_static < 0.8
+    end
   end
 end

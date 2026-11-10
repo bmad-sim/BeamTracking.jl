@@ -1,37 +1,11 @@
-# fringe_at, rad_damping and rad_fluctuations are also type parameters, and getproperty returns 
-# those, so that they are known to the compiler after the function barrier
-struct _ConcreteUniversalParams{A,F,RD,RF}
-  L::A
-  n_steps::Int
-  ds_step::A
-  n_slices::Int
-  fringe_at::Fringe.T
-  rad_damping::Bool
-  rad_fluctuations::Bool
-  function _ConcreteUniversalParams(up::UniversalParams)
-    L = float(up.L)
-    n_steps = up.n_steps
-    ds_step = L / n_steps # actual ds_step, not fake one
-    n_slices = up.n_slices
-    fringe_at = up.fringe_at
-    rad_damping = up.rad_damping
-    rad_fluctuations = up.rad_fluctuations
-    return new{typeof(L),fringe_at,rad_damping,rad_fluctuations}(L, n_steps, ds_step, n_slices, fringe_at, rad_damping, rad_fluctuations)
-  end
-end
-
-# An element with n_slices == 1 is a single slice (s0, L_slice, first_slice and last_slice are
-# compile-time constants, see _SliceUniversalParams)
-Base.getproperty(up::_ConcreteUniversalParams{A,F,RD,RF}, key::Symbol) where {A,F,RD,RF} =
-  key === :fringe_at ? F : key === :rad_damping ? RD : key === :rad_fluctuations ? RF :
-  key === :s0 ? 0 : key === :L_slice ? getfield(up, :L) : key === :first_slice ? true : key === :last_slice ? true : getfield(up, key)
-
-# Slice k of an element with n_slices > 1. Each slice is tracked by its own universal! (and launch!)
-# like an element of length L_slice = L/n_slices starting at s0, so the reference energy is ramped
-# and collective effects are recomputed at the start of each slice. L is still the element length
-# (strengths are per element length), n_steps and ds_step are per slice, and fringe_at (F) only
-# includes the element entrance in the first slice and the element exit in the last slice. FIRST
-# and LAST are the first_slice and last_slice properties.
+# Slice k of an element (k = 1 of 1 for an element with n_slices == 1). Each slice is tracked by its
+# own universal! (and launch!) like an element of length L_slice = L/n_slices starting at s0, so the
+# reference energy is ramped and collective effects are recomputed at the start of each slice. L is
+# still the element length (strengths are per element length), n_steps and ds_step are per slice,
+# and fringe_at (F) only includes the element entrance in the first slice and the element exit in
+# the last slice. fringe_at, rad_damping, rad_fluctuations, and FIRST and LAST (the first_slice and
+# last_slice properties) are type parameters, and getproperty returns those, so that they are known
+# to the compiler after the function barrier.
 struct _SliceUniversalParams{A,F,RD,RF,FIRST,LAST}
   L::A
   n_steps::Int
@@ -43,6 +17,11 @@ struct _SliceUniversalParams{A,F,RD,RF,FIRST,LAST}
     L = float(up.L)
     n_steps = up.n_steps
     n_slices = up.n_slices
+    if n_slices == 1
+      # The whole element: fewer type parameters to compute at run time (as in _track!, before the
+      # function barrier); without this path track! is 5% slower for one particle on ESR
+      return new{typeof(L),up.fringe_at,up.rad_damping,up.rad_fluctuations,true,true}(L, n_steps, L / n_steps, 1, zero(L), L)
+    end
     L_slice = L / n_slices
     ds_step = L_slice / n_steps
     s0 = (k - 1)*L_slice
@@ -55,9 +34,13 @@ struct _SliceUniversalParams{A,F,RD,RF,FIRST,LAST}
   end
 end
 
+# The first slice starts at s0 = 0 and a single slice is the whole element (L_slice = L): returned
+# as such, so that an element with n_slices == 1 sees the constant 0 and L itself (not 0.0, or L/1, a
+# new TPS for a TPS length)
 Base.getproperty(up::_SliceUniversalParams{A,F,RD,RF,FIRST,LAST}, key::Symbol) where {A,F,RD,RF,FIRST,LAST} =
   key === :fringe_at ? F : key === :rad_damping ? RD : key === :rad_fluctuations ? RF :
-  key === :first_slice ? FIRST : key === :last_slice ? LAST : getfield(up, key)
+  key === :first_slice ? FIRST : key === :last_slice ? LAST : key === :s0 ? (FIRST ? 0 : getfield(up, :s0)) :
+  key === :L_slice ? (FIRST && LAST ? getfield(up, :L) : getfield(up, :L_slice)) : getfield(up, key)
 
 Base.@kwdef struct LoweredElement{A,B,C,D,E,F,G,H,I,J,K,L,M,N}
   universalparams::A
@@ -209,23 +192,18 @@ function _track!(
   end
 
   # Function barrier. The LoweredElement is built after the barrier, where all types are known
+  # Each slice is tracked separately (see _SliceUniversalParams)
   n_slices = (universalparams::UniversalParams).n_slices
-  if n_slices == 1
-    @noinline universal!(bunch, tm, ele, _ConcreteUniversalParams(universalparams), alignmentparams, bendparams, bmultipoleparams,
-                         patchparams, apertureparams, rfparams, beamlineparams, mapparams, fourpotentialparams, emultipoleparams,
-                         emfieldparams, ibsparams, ref, ramp_particle_energy_without_rf, ramp_update_each_particle,
-                         shift_time, batch_start, sink; kwargs...)
-  else
-    # Each slice is tracked separately (see _SliceUniversalParams)
+  if n_slices > 1
     !(tm isa SaganCavity) || error("SaganCavity is not compatible with elements with n_slices > 1. Try n_slices = 1 instead")
     isnothing(patchparams) || error("Elements with n_slices > 1 are not compatible with PatchParams. Try n_slices = 1 instead")
     isnothing(mapparams) || error("Elements with n_slices > 1 are not compatible with MapParams. Try n_slices = 1 instead")
-    for k in 1:n_slices
-      @noinline universal!(bunch, tm, ele, _SliceUniversalParams(universalparams, k), alignmentparams, bendparams, bmultipoleparams,
-                           patchparams, apertureparams, rfparams, beamlineparams, mapparams, fourpotentialparams, emultipoleparams,
-                           emfieldparams, ibsparams, ref, ramp_particle_energy_without_rf, ramp_update_each_particle,
-                           shift_time, batch_start, sink; kwargs...)
-    end
+  end
+  for k in 1:n_slices
+    @noinline universal!(bunch, tm, ele, _SliceUniversalParams(universalparams, k), alignmentparams, bendparams, bmultipoleparams,
+                         patchparams, apertureparams, rfparams, beamlineparams, mapparams, fourpotentialparams, emultipoleparams,
+                         emfieldparams, ibsparams, ref, ramp_particle_energy_without_rf, ramp_update_each_particle,
+                         shift_time, batch_start, sink; kwargs...)
   end
 end
 
@@ -252,10 +230,9 @@ function universal!(
   ::Val{ramp_update_each_particle},
   ::Val{shift_time},
   batch_start,
-  sink,
-  ::Val{at_call}=Val{false}();
+  sink;
   kwargs...
-) where {ramp_particle_energy_without_rf, ramp_update_each_particle, shift_time, at_call}
+) where {ramp_particle_energy_without_rf, ramp_update_each_particle, shift_time}
   # Every element in a Beamline has the same p_over_q_ref (possibly a function of time)
   p_over_q_ref = ref.p_over_q_ref
 
@@ -264,23 +241,23 @@ function universal!(
   s0 = universalparams.s0
   L_slice = universalparams.L_slice
 
-  # A chain that depends on the Bunch at the call beyond bunch.t_ref (a time dependent reference
-  # energy, IBS) is built at the call, by this universal! with at_call = true
+  # When preparing (sink is not the Bunch tracked), what depends on the Bunch at the call is a
+  # PreParameter (see prepared_bl.jl): bunch.t_ref, the reference momentum of the Bunch, and with a
+  # time dependent reference energy the reference momentum at the element and everything computed
+  # from it (e.g. every strength without the per-particle ramp)
+  preparing = !(sink isa Bunch)
   ibs = !isnothing(ibsparams) && ibsparams.ibs_model != IBSModel.None && L_slice > 0
-  if !at_call && (p_over_q_ref isa TimeDependentParam || ibs)
-    args = (tm, fullele, universalparams, alignmentparams, bendparams, bmultipoleparams,
-            patchparams, apertureparams, rfparams, beamlineparams, mapparams, fourpotentialparams,
-            emultipoleparams, emfieldparams, ibsparams, ref, Val{ramp_particle_energy_without_rf}(),
-            Val{ramp_update_each_particle}(), Val{shift_time}(), batch_start, nothing, Val{true}())
-    pc = PreKernelChain(PreParameter(universal!, args), nothing, nothing)
-    return push_chain!(sink, bunch, pc; kwargs...)
-  end
+  ramp_per_particle = p_over_q_ref isa TimeDependentParam && ramp_update_each_particle
 
   # Compute information about reference coordinate system:
   t_enter = bunch.t_ref
   # Evaluate p_over_q_ref first and convert the number: TimeDependentParams of the energy are 
   # only needed for per-particle ramping
-  p_over_q_ref_enter = p_over_q_ref isa TimeDependentParam ? p_over_q_ref(t_enter) : p_over_q_ref
+  if p_over_q_ref isa TimeDependentParam
+    p_over_q_ref_enter = preparing ? PreParameter((b, p) -> p(b.t_ref), (p_over_q_ref,)) : p_over_q_ref(t_enter)
+  else
+    p_over_q_ref_enter = p_over_q_ref
+  end
   beta_gamma_enter = R_to_beta_gamma(bunch.species, p_over_q_ref_enter)
   g = isnothing(bendparams) ? (0,0) : reverse((bendparams.g_ref .* sincos(bendparams.tilt_ref)))
   ds_step = universalparams.ds_step
@@ -294,12 +271,16 @@ function universal!(
   # the design clock at the end of the element (slice).
   dt = L_slice / beta_gamma_to_v(beta_gamma_enter)
   dt_design = shift_time ? L_slice / R_to_v(ref.species_ref, ref.field_scale*p_over_q_ref_enter) : dt
-  t_exit_design = bunch.t_ref + dt_design
 
-  if p_over_q_ref isa TimeDependentParam && ramp_update_each_particle
+  if ramp_per_particle
     # In the number type of bunch.p_over_q_ref, so that the particles are ramped to exactly the
     # reference momentum the Bunch stores after the element
-    p_over_q_ref_exit = convert(typeof(bunch.p_over_q_ref), p_over_q_ref(t_exit_design))
+    if preparing
+      p_over_q_ref_exit = PreParameter((b, p, dtd) -> convert(typeof(b.p_over_q_ref), p(b.t_ref + dtd)),
+                                       (p_over_q_ref, dt_design))
+    else
+      p_over_q_ref_exit = convert(typeof(bunch.p_over_q_ref), p_over_q_ref(bunch.t_ref + dt_design))
+    end
     beta_gamma_exit = R_to_beta_gamma(bunch.species, p_over_q_ref_exit)
   else
     # Don't ramp at end of element if !ramp_update_each_particle
@@ -331,11 +312,16 @@ function universal!(
   kc = KernelChain(Val{11}(), refstate, batch_start)
   
   if ibs
-    kc = @inline(ibs_kick(kc, bunch, ibsparams, bendparams, L_slice))
+    kc = @inline(ibs_kick(kc, bunch, ibsparams, bendparams, L_slice, preparing))
   end
 
-  ramp_per_particle = p_over_q_ref isa TimeDependentParam && ramp_update_each_particle
-  bunch_beta_gamma = R_to_beta_gamma(bunch.species, bunch.p_over_q_ref)
+  # With a time dependent reference energy, the reference momentum of the Bunch at the element is
+  # only known at the call (it is that after the previous element)
+  if preparing && p_over_q_ref isa TimeDependentParam
+    bunch_beta_gamma = PreParameter(b -> R_to_beta_gamma(b.species, b.p_over_q_ref), ())
+  else
+    bunch_beta_gamma = R_to_beta_gamma(bunch.species, bunch.p_over_q_ref)
+  end
   # Reference energy as a function of time, evaluated per particle in the ramp kernels
   beta_gamma_enter_t = ramp_per_particle ? R_to_beta_gamma(bunch.species, p_over_q_ref) : nothing
 
@@ -350,10 +336,18 @@ function universal!(
     # by exactly the change of that stored value, so that their coordinates are always relative to
     # it: an approximate comparison here skipped slow ramps (below 1.5e-8 per element, 3.4e-4 with a
     # Float32 reference) but stored them anyway, so they were lost
-    p_over_q_ref_new = convert(typeof(bunch.p_over_q_ref), p_over_q_ref_enter)
-    if p_over_q_ref_new != bunch.p_over_q_ref
+    if p_over_q_ref isa PreParameter
+      # Prepared with a time dependent reference energy: whether it changes is only known at the call,
+      # so the shift is always there (reference_momentum_shift! skips a zero shift)
+      p_over_q_ref_new = PreParameter((b, p) -> convert(typeof(b.p_over_q_ref), p(b.t_ref)), (ref.p_over_q_ref,))
       dbeta_gamma = R_to_beta_gamma(bunch.species, p_over_q_ref_new) - bunch_beta_gamma
       kc = push(kc, make_kernel_call(BeamTracking.reference_momentum_shift!, (bunch_beta_gamma, dbeta_gamma, Val{!ramp_particle_energy_without_rf}())))
+    else
+      p_over_q_ref_new = convert(typeof(bunch.p_over_q_ref), p_over_q_ref_enter)
+      if p_over_q_ref_new != bunch.p_over_q_ref
+        dbeta_gamma = R_to_beta_gamma(bunch.species, p_over_q_ref_new) - bunch_beta_gamma
+        kc = push(kc, make_kernel_call(BeamTracking.reference_momentum_shift!, (bunch_beta_gamma, dbeta_gamma, Val{!ramp_particle_energy_without_rf}())))
+      end
     end
   end
 
@@ -420,9 +414,12 @@ function universal!(
   # depends on values, e.g. whether the reference momentum changes): it is passed on alone, as a
   # PreKernelChain it would be boxed again at every call (0.6 ms more per ESR turn)
   if sink isa Bunch
+    # (with the per-particle ramp these depend on bunch.t_ref before it changes)
+    dt_now = process_preparameter(dt_design, sink)
+    p_over_q_ref_now = process_preparameter(p_over_q_ref_exit, sink)
     @noinline run_chain!(sink, kc; kwargs...)
-    sink.t_ref = sink.t_ref + dt_design
-    sink.p_over_q_ref = p_over_q_ref_exit
+    sink.t_ref = sink.t_ref + dt_now
+    sink.p_over_q_ref = p_over_q_ref_now
     return nothing
   end
   return push_chain!(sink, bunch, PreKernelChain(kc, dt_design, p_over_q_ref_exit))
