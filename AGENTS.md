@@ -52,6 +52,9 @@ touches both repositories; their versions are coupled (BeamTracking 0.9 needs Be
   `get_e_strengths`, `rf_omega_calc`, `rf_phi0_calc`, `rf_step_calc`, `drift_params(species, p_over_q_ref) -> (tilde_m, gamsqr_0, beta_0)`.
 - `unpack_bl.jl`: `_ConcreteUniversalParams`, `_SliceUniversalParams`, `LoweredElement`, `_track!` 
   (dynamic layer), `universal!` (after the function barrier).
+- `prepared_bl.jl`: prepared tracking (see "Prepared tracking"): `PreParameter`, `pre`, 
+  `process_preparameter(s)`, `PreKernelChain`, `PreparedBeamline`, `prepare`, and 
+  `track!(bunch, ::PreparedBeamline)`. Not exported.
 - `general_bl.jl`: `ibs_kick`, `alignment(kc, alignmentparams, bendparams, L, s, entering)`, `aperture`. 
   `ibs_kick` computes the bunch statistics and the number of particles from the live particles 
   only (`weights` zero for lost ones; `w`/`w_inv` there are the bend tilt rotations).
@@ -76,7 +79,7 @@ touches both repositories; their versions are coupled (BeamTracking 0.9 needs Be
      essential**, see "Performance rules"), `deval`s each group, replaces inactive groups and 
      `RFParams` with `rf_on = false` by `nothing`, optionally scalarizes (also `ref`).
    - `tm = universalparams.tracking_method` (error if `nothing`).
-   - With `n_slices == 1`, calls `@noinline universal!(bunch, tm, ele, _ConcreteUniversalParams(universalparams), <groups positionally>, ref, <Vals>, batch_start)`; 
+   - With `n_slices == 1`, calls `@noinline universal!(bunch, tm, ele, _ConcreteUniversalParams(universalparams), <groups positionally>, ref, <Vals>, batch_start, rec)`; 
      otherwise calls it once per slice with `_SliceUniversalParams(universalparams, k)` (see "Slices").
 3. `universal!` (after the barrier, all types known):
    - Evaluates `p_over_q_ref` at `bunch.t_ref` (a number; time dependent references are only kept 
@@ -213,6 +216,27 @@ touches both repositories; their versions are coupled (BeamTracking 0.9 needs Be
 - Before `followups2`, SaganCavity had the zero crossings swapped and DriftKick/SolenoidKick 
   decelerated at `Accelerating`. The SaganCavity tests swap `AboveTransition`/`BelowTransition` 
   in their lattice instead, so they keep their numbers.
+
+### Prepared tracking
+
+- `prepare(bunch, bl; <track! keywords without the launch! ones>)` (extension, not exported) runs 
+  `_track!` of every element with `rec = Any[]` (the last positional argument of `_track!` and 
+  `universal!`; `nothing` when tracking): `universal!` builds its chain as usual and pushes a 
+  `PreKernelChain(kc, t_ref_exit, p_over_q_ref_exit)` instead of launching. `track!(bunch, pbl)` 
+  then evaluates the `PreParameter`s of each chain and launches it (0.54 ms per ESR turn for one 
+  particle vs 3.6 ms; bitwise equal to `track!` per turn; tested with a negative control).
+- A value that depends on the Bunch at the call is written `pre(rec, (b, args...) -> ..., bunch, 
+  args...)`: evaluated at once when tracking, a `PreParameter(f, args)` when preparing. `f` must 
+  capture nothing: a captured type is stored as a `DataType` (runtime dispatch, 2.4x slower plain 
+  `track!`, caught by the JET test of `universal!`) and a variable assigned in two branches is 
+  boxed. `f` returns what the code passes there; `process_preparameters` lowers it as the 
+  `RefState` constructor (`batch_lower`) or `make_kernel_call` and `push` (`num_lower`, 
+  `time_lower`, `batch_lower`) would.
+- Deferred so far: `bunch.t_ref` (`RefState` `t_enter`/`t_exit`, the `reference_time_shift!` 
+  argument, the exit `t_ref`). Not supported yet (errors when preparing): a time dependent 
+  `p_over_q_ref` and IBS. The `Bunch` tracked must have the prepared species, `p_over_q_ref` and 
+  array type (checked). Compile: `prepare` compiles `universal!` again for `rec` (+0.55 s on ESR 
+  after a first `track!` of 4.3 s); the launched chains are the same types as with `track!`.
 
 ### Slices (`n_slices > 1`)
 

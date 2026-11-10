@@ -87,7 +87,8 @@ function _track!(
   ramp_update_each_particle::Val,
   shift_time::Val,
   rf_on,
-  batch_start;
+  batch_start,
+  rec;
   kwargs...
 )
   # Get the parameter groups in one pass over the element's ParamDict, then its parent's (if it 
@@ -213,7 +214,7 @@ function _track!(
     @noinline universal!(bunch, tm, ele, _ConcreteUniversalParams(universalparams), alignmentparams, bendparams, bmultipoleparams,
                          patchparams, apertureparams, rfparams, beamlineparams, mapparams, fourpotentialparams, emultipoleparams,
                          emfieldparams, ibsparams, ref, ramp_particle_energy_without_rf, ramp_update_each_particle,
-                         shift_time, batch_start; kwargs...)
+                         shift_time, batch_start, rec; kwargs...)
   else
     # Each slice is tracked separately (see _SliceUniversalParams)
     !(tm isa SaganCavity) || error("SaganCavity is not compatible with elements with n_slices > 1. Try n_slices = 1 instead")
@@ -223,7 +224,7 @@ function _track!(
       @noinline universal!(bunch, tm, ele, _SliceUniversalParams(universalparams, k), alignmentparams, bendparams, bmultipoleparams,
                            patchparams, apertureparams, rfparams, beamlineparams, mapparams, fourpotentialparams, emultipoleparams,
                            emfieldparams, ibsparams, ref, ramp_particle_energy_without_rf, ramp_update_each_particle,
-                           shift_time, batch_start; kwargs...)
+                           shift_time, batch_start, rec; kwargs...)
     end
   end
 end
@@ -250,7 +251,8 @@ function universal!(
   ::Val{ramp_particle_energy_without_rf}, 
   ::Val{ramp_update_each_particle},
   ::Val{shift_time},
-  batch_start;
+  batch_start,
+  rec;
   kwargs...
 ) where {ramp_particle_energy_without_rf, ramp_update_each_particle, shift_time}
   # Every element in a Beamline has the same p_over_q_ref (possibly a function of time)
@@ -277,12 +279,9 @@ function universal!(
   # of the Bunch reference particle, which the kernels' z is measured against. The two differ only
   # if the Bunch species differs from the reference species, in which case z is re-referenced to 
   # the design clock at the end of the element (slice).
-  t_exit = bunch.t_ref + L_slice / beta_gamma_to_v(beta_gamma_enter)
-  if shift_time
-    t_exit_design = bunch.t_ref + L_slice / R_to_v(ref.species_ref, ref.field_scale*p_over_q_ref_enter)
-  else
-    t_exit_design = t_exit
-  end
+  dt = L_slice / beta_gamma_to_v(beta_gamma_enter)
+  dt_design = shift_time ? L_slice / R_to_v(ref.species_ref, ref.field_scale*p_over_q_ref_enter) : dt
+  t_exit_design = bunch.t_ref + dt_design
 
   if p_over_q_ref isa TimeDependentParam && ramp_update_each_particle
     p_over_q_ref_exit = p_over_q_ref(t_exit_design)
@@ -293,14 +292,22 @@ function universal!(
     beta_gamma_exit = beta_gamma_enter
   end
 
+  # When preparing (rec is a Vector, see prepared_bl.jl), only bunch.t_ref may differ at the calls
+  ibs = !isnothing(ibsparams) && ibsparams.ibs_model != IBSModel.None && L_slice > 0
+  if !isnothing(rec) && (p_over_q_ref isa TimeDependentParam || ibs)
+    error("A time dependent reference energy and intra-beam scattering are not supported by " *
+          "prepared tracking yet")
+  end
+
   # Lower RefState values to coordinates number types. Only the RefState gets the lowered values:
   # everything else below is computed at full precision (e.g. differences of nearly equal times
   # and energies, and bunch.t_ref), and push lowers the kernel arguments itself
   T = eltype(bunch.coords.v)
   refstate = RefState{T}(;
-    t_enter = BeamTracking.num_lower(T, t_enter),
+    t_enter = pre(rec, b -> BeamTracking.num_lower(eltype(b.coords.v), b.t_ref), bunch),
     beta_gamma_enter = BeamTracking.num_lower(T, beta_gamma_enter),
-    t_exit = BeamTracking.num_lower(T, t_exit),
+    t_exit = pre(rec, (b, dt) -> BeamTracking.num_lower(eltype(b.coords.v), b.t_ref + dt),
+                 bunch, dt),
     beta_gamma_exit = BeamTracking.num_lower(T, beta_gamma_exit),
     L = BeamTracking.num_lower(T, L_slice),
     g = BeamTracking.num_lower(T, g),
@@ -389,11 +396,19 @@ function universal!(
 
   # If the Bunch species differs from the reference species, re-reference z to the design clock
   if shift_time
-    kc = push(kc, make_kernel_call(BeamTracking.reference_time_shift!, (1/beta_gamma_exit, C_LIGHT*(t_exit_design - t_exit))))
+    # C_LIGHT*(t_exit_design - t_exit)
+    c_dt = pre(rec, (b, dt, dt_design) -> C_LIGHT*((b.t_ref + dt_design) - (b.t_ref + dt)),
+               bunch, dt, dt_design)
+    kc = push(kc, make_kernel_call(BeamTracking.reference_time_shift!, (1/beta_gamma_exit, c_dt)))
   end
   
-  # noinline necessary here for small binaries and faster execution
-  @noinline launch!(bunch.coords, kc; kwargs...)
+  if isnothing(rec)
+    # noinline necessary here for small binaries and faster execution
+    @noinline launch!(bunch.coords, kc; kwargs...)
+  else
+    t_ref_exit = pre(rec, (b, dt_design) -> b.t_ref + dt_design, bunch, dt_design)
+    push!(rec, PreKernelChain(kc, t_ref_exit, p_over_q_ref_exit))
+  end
 
   # Update reference time
   bunch.t_ref = t_exit_design
