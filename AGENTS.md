@@ -292,6 +292,25 @@ touches both repositories; their versions are coupled (BeamTracking 0.9 needs Be
 
 ## Performance rules
 
+- Transcendental functions (`sqrt`, `sin`, `cos`, `sinh`, `cosh`, …) of a SIMD `Vec` run lane by 
+  lane (not vectorized) and are slow per particle too. Where the argument is small, a Taylor series 
+  in Horner form (`x*(one(x)/n)` folds to a constant of the number type) behind `all(abs(x) < r)` 
+  (one compare, plus one reduction for a `Vec`; a plain branch per thread on GPUs) is faster and as 
+  accurate: `sincos_quaternion` (MatrixKick, spin) through x^10 for |x| < 1, 0.76 eps max vs 1.35 
+  for the functions, derivatives 3e-16 vs 1e-8 (the old small-x branch). Gain: ESR prepared 
+  1000 particles 217 -> 163 ms, the benchmark's 1-particle setting 1.80 -> 1.30 ms; compile time 
+  unchanged; Float32 and Metal errors statistically unchanged (RMS over 100 particles). Test the 
+  series against BigFloat with a negative control on a coefficient whose term is above round-off.
+- The exact bend (`bend_kick.jl`) uses `asin_s`, `sincos_s`, `sin_s`, `atan2_s` (`math_simd.jl`), 
+  series for floats and `Vec`s of them only (TPS and Duals keep the functions): ESR prepared 
+  10-1000 particles 8-10% faster, one particle unchanged within noise (A/B with a series for `Vec`s 
+  only: same); Float64 results change by 4e-15 after 2 ESR turns; Metal and CPU agree better 
+  (same polynomial instead of two math libraries). Without 64-byte lanes the gain is about half 
+  of the first round's (-15%), where the per-lane functions cost more.
+- The series' branch on GPUs: a GPU group (warp) pays both paths only if its particles straddle 
+  the threshold. Measured on Metal (10^7 threads, `sincos_quaternion`): uniform small arguments 
+  2x faster, uniform large +4%, alternating per thread (worst case) +20%. ESR on Metal is 
+  dominated by the ~4900 kernel launches per turn (10^4 and 10^5 particles take about as long).
 - `_track!` is dynamic; `universal!` is behind a `@noinline` function barrier. Anything fixed for 
   a whole `track!` call that changes types crosses the barrier as a `Val`, built once per call. 
   Never build `Val{runtime_bool}()`: use `cond ? Val{true}() : Val{false}()`.

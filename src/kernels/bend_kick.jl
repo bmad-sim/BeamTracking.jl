@@ -107,10 +107,10 @@ Tracks a particle through a sector bend via exact tracking.
   coords.state[i] = vifelse(!good_arg & alive, STATE_LOST, coords.state[i])
   alive = (coords.state[i] == STATE_ALIVE)
 
-  phi1 = theta + asin(vifelse(good_arg, arg, arg_0))
+  phi1 = theta + asin_s(vifelse(good_arg, arg, arg_0))
   gp = Kn0 / pt
   h = 1 + g*v[i,XI] 
-  splus, cplus = sincos(phi1)
+  splus, cplus = sincos_s(phi1)
   sinc_theta = sincu(theta)
   cosc_theta = one_cos_norm(theta)
   sin_theta = theta*sinc_theta
@@ -137,11 +137,11 @@ Tracks a particle through a sector bend via exact tracking.
   xi = vifelse(!good_gp | pos_cplus, xi1, xi2)
 
   negative_Lcv = sgn*(L*sinc_theta + v[i,XI]*sin_theta) 
-  thetap = 2*(phi1 - sgn*atan2(xi, negative_Lcv)) 
+  thetap = 2*(phi1 - sgn*atan2_s(xi, negative_Lcv)) 
   Lp = sgn*sqrt(negative_Lcv*negative_Lcv + xi*xi)/sincu(thetap/2) 
 
   new_x = v[i,XI]*cos_theta - L*L*g*cosc_theta + xi
-  new_px = pt*sin(phi1 - thetap)
+  new_px = pt*sin_s(phi1 - thetap)
   new_y = v[i,YI] + v[i,PYI]*Lp/pt
   new_z = v[i,ZI] - rel_p*Lp/pt + L*rel_p/sqrt(tilde_m*tilde_m + rel_p*rel_p)/beta_0
   v[i,XI]  = vifelse(alive, new_x,  v[i,XI])
@@ -175,7 +175,7 @@ Tracks a particle through a sector bend via exact tracking.
 
     theta_0 = zero(theta - factor)
     angle = vifelse(alive, (theta - factor)/2, theta_0)
-    s, c = sincos(angle)
+    s, c = sincos_s(angle)
     q2 = (c, theta_0, s, theta_0)
     q3 = quat_mul(q2, q1)
     q4 = quat_mul(q3, q[i,Q0], q[i,QX], q[i,QY], q[i,QZ])
