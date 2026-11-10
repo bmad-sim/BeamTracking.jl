@@ -52,9 +52,9 @@ touches both repositories; their versions are coupled (BeamTracking 0.9 needs Be
   `get_e_strengths`, `rf_omega_calc`, `rf_phi0_calc`, `rf_step_calc`, `drift_params(species, p_over_q_ref) -> (tilde_m, gamsqr_0, beta_0)`.
 - `unpack_bl.jl`: `_ConcreteUniversalParams`, `_SliceUniversalParams`, `LoweredElement`, `_track!` 
   (dynamic layer), `universal!` (after the function barrier).
-- `prepared_bl.jl`: prepared tracking (see "Prepared tracking"): `PreParameter`, `pre`, 
-  `process_preparameter(s)`, `PreKernelChain`, `PreparedBeamline`, `prepare`, and 
-  `track!(bunch, ::PreparedBeamline)`. Not exported.
+- `prepared_bl.jl`: kernel chains (see "Kernel chains and prepared tracking"): `PreParameter`, 
+  `PreKernelChain`, `process_preparameter(s)`, `run_chain!`, `run!`, `push_chain!`, `prepare`, 
+  `track!(bunch, ::Vector{PreKernelChain})`. Not exported.
 - `general_bl.jl`: `ibs_kick`, `alignment(kc, alignmentparams, bendparams, L, s, entering)`, `aperture`. 
   `ibs_kick` computes the bunch statistics and the number of particles from the live particles 
   only (`weights` zero for lost ones; `w`/`w_inv` there are the bend tilt rotations).
@@ -79,7 +79,7 @@ touches both repositories; their versions are coupled (BeamTracking 0.9 needs Be
      essential**, see "Performance rules"), `deval`s each group, replaces inactive groups and 
      `RFParams` with `rf_on = false` by `nothing`, optionally scalarizes (also `ref`).
    - `tm = universalparams.tracking_method` (error if `nothing`).
-   - With `n_slices == 1`, calls `@noinline universal!(bunch, tm, ele, _ConcreteUniversalParams(universalparams), <groups positionally>, ref, <Vals>, batch_start, rec)`; 
+   - With `n_slices == 1`, calls `@noinline universal!(bunch, tm, ele, _ConcreteUniversalParams(universalparams), <groups positionally>, ref, <Vals>, batch_start, sink)`; 
      otherwise calls it once per slice with `_SliceUniversalParams(universalparams, k)` (see "Slices").
 3. `universal!` (after the barrier, all types known):
    - Evaluates `p_over_q_ref` at `bunch.t_ref` (a number; time dependent references are only kept 
@@ -91,7 +91,9 @@ touches both repositories; their versions are coupled (BeamTracking 0.9 needs Be
      (`reference_momentum_shift!`), entrance aperture/alignment, `fringe_body_fringe`, exit 
      aperture/alignment, exit ramp (per-particle ramp only), `reference_time_shift!` (different 
      species only). The `LoweredElement` is built just before `fringe_body_fringe`.
-   - `@noinline launch!(bunch.coords, kc)`, then sets `bunch.t_ref` and `bunch.p_over_q_ref`.
+   - Tracking (`sink` is the Bunch): `@noinline run_chain!(bunch, kc)` (evaluates the `PreParameter`s, 
+     launches), then sets `bunch.t_ref` and `bunch.p_over_q_ref`. Otherwise `push_chain!(sink, …)` 
+     (see "Kernel chains and prepared tracking").
    - `ref` (`TrackReference`) is the only source of the tracking `p_over_q_ref`. In 
      `fringe_body_fringe`, `ele.ref.p_over_q_ref` is that value evaluated at the element entrance, 
      except with the per-particle ramp, where it is the `TimeDependentParam` (so everything derived 
@@ -217,26 +219,45 @@ touches both repositories; their versions are coupled (BeamTracking 0.9 needs Be
   decelerated at `Accelerating`. The SaganCavity tests swap `AboveTransition`/`BelowTransition` 
   in their lattice instead, so they keep their numbers.
 
-### Prepared tracking
+### Kernel chains and prepared tracking
 
-- `prepare(bunch, bl; <track! keywords without the launch! ones>)` (extension, not exported) runs 
-  `_track!` of every element with `rec = Any[]` (the last positional argument of `_track!` and 
-  `universal!`; `nothing` when tracking): `universal!` builds its chain as usual and pushes a 
-  `PreKernelChain(kc, t_ref_exit, p_over_q_ref_exit)` instead of launching. `track!(bunch, pbl)` 
-  then evaluates the `PreParameter`s of each chain and launches it (0.54 ms per ESR turn for one 
-  particle vs 3.6 ms; bitwise equal to `track!` per turn; tested with a negative control).
-- A value that depends on the Bunch at the call is written `pre(rec, (b, args...) -> ..., bunch, 
-  args...)`: evaluated at once when tracking, a `PreParameter(f, args)` when preparing. `f` must 
-  capture nothing: a captured type is stored as a `DataType` (runtime dispatch, 2.4x slower plain 
-  `track!`, caught by the JET test of `universal!`) and a variable assigned in two branches is 
-  boxed. `f` returns what the code passes there; `process_preparameters` lowers it as the 
-  `RefState` constructor (`batch_lower`) or `make_kernel_call` and `push` (`num_lower`, 
-  `time_lower`, `batch_lower`) would.
-- Deferred so far: `bunch.t_ref` (`RefState` `t_enter`/`t_exit`, the `reference_time_shift!` 
-  argument, the exit `t_ref`). Not supported yet (errors when preparing): a time dependent 
-  `p_over_q_ref` and IBS. The `Bunch` tracked must have the prepared species, `p_over_q_ref` and 
-  array type (checked). Compile: `prepare` compiles `universal!` again for `rec` (+0.55 s on ESR 
-  after a first `track!` of 4.3 s); the launched chains are the same types as with `track!`.
+- `universal!` builds the chain of an element (slice) and passes it to `sink`: the Bunch tracked 
+  (`track!`: launched at once with `run_chain!`, then the Bunch's `t_ref` and `p_over_q_ref` are 
+  set, as before), a `Vector` (`prepare`: stored as `PreKernelChain(kc, dt, p_over_q_ref_exit)`; 
+  the copy of the Bunch used for building gets `p_over_q_ref_exit`, so the next element is built 
+  for it), or `nothing` (returned). `track!(bunch, chains)` runs the stored chains: `run!` 
+  evaluates the `PreParameter`s, launches, then `t_ref += dt` and sets `p_over_q_ref`.
+- What depends on the Bunch at the call is a `PreParameter(f, args)` in the chain, evaluated as 
+  `f(bunch, args...)` just before the launch: `bunch.t_ref` (`RefState` `t_enter`/`t_exit`, the 
+  `reference_time_shift!` argument). `f` returns what the code passes there; 
+  `process_preparameters` lowers it as the `RefState` constructor (`batch_lower`) or 
+  `make_kernel_call` and `push` (`num_lower`, `time_lower`, `batch_lower`) would. `f` captures 
+  nothing (data in `args`, the number type from `b.coords.v`): a captured type is stored as a 
+  `DataType` (runtime dispatch, 2.4x slower `track!`, caught by the JET test of `universal!`) and a 
+  variable assigned in two branches is boxed.
+- A chain that depends on the call beyond `t_ref` (a time dependent `p_over_q_ref`, which enters 
+  every strength through the lowering, and IBS, computed from the Bunch) is built at the call: 
+  `universal!` with `at_call = false` returns `PreKernelChain(PreParameter(universal!, args), 
+  nothing, nothing)`, whose `PreParameter` is `universal!` itself with `at_call = true` and sink 
+  `nothing`. So the lowering code needs nothing else for them.
+- Performance pitfalls (each measured): the type of `kc` is not inferred for most element shapes 
+  (6 of 9 on ESR; it depends on values, e.g. whether the reference momentum changes), so the chain 
+  must leave `universal!` through one dynamic call; wrapping it in a `PreKernelChain` for that 
+  (instead of `run_chain!(bunch, kc)`) boxed it again (+0.6 ms per ESR turn). In `run!`, `p.kc` 
+  passed to a call is copied out of the boxed `p`, and a call with keyword arguments is not 
+  inlined (`run_chain!` there: 1.77 MB and 8% more per turn), so `run!` launches itself.
+- Results: `track!` is bitwise equal to before the change (38 cases incl. ramps, IBS, SaganCavity, 
+  other species, Float32, spin) and as fast (3.80 vs 3.77 ms per ESR turn, one particle); 
+  prepared 0.59 ms. Compile: first `track!` on ESR 4.55 -> 4.8 s; `prepare` compiles `universal!` 
+  for the `Vector` sink (+0.5 s).
+- Reference momentum changes: the particles are shifted by exactly the change of the value the 
+  Bunch stores (`convert(typeof(bunch.p_over_q_ref), …)`; shifted iff it changes; the per-particle 
+  ramp ends at the stored value; SaganCavity's ramp the same). An approximate comparison 
+  (`≈`, 1.5e-8 per element, 3.4e-4 for a Float32 reference) used to skip slow ramp steps while 
+  storing them: a 3.3e-6 ramp over 1000 drifts was lost, every Float32 ramp below 3.4e-4 per 
+  element was lost, and the Float32 per-particle ramp drifted (26% there). Test "Slow reference 
+  momentum ramp" (`time_test.jl`; 6 of 12 fail without the fix); a Float32 ramp now agrees with 
+  Float64 to 1.6e-8 (8.3e-6 before); everything else is bitwise unchanged (38 cases).
 
 ### Slices (`n_slices > 1`)
 

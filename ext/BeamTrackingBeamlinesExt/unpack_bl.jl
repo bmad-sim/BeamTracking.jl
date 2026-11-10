@@ -88,7 +88,7 @@ function _track!(
   shift_time::Val,
   rf_on,
   batch_start,
-  rec;
+  sink;
   kwargs...
 )
   # Get the parameter groups in one pass over the element's ParamDict, then its parent's (if it 
@@ -214,7 +214,7 @@ function _track!(
     @noinline universal!(bunch, tm, ele, _ConcreteUniversalParams(universalparams), alignmentparams, bendparams, bmultipoleparams,
                          patchparams, apertureparams, rfparams, beamlineparams, mapparams, fourpotentialparams, emultipoleparams,
                          emfieldparams, ibsparams, ref, ramp_particle_energy_without_rf, ramp_update_each_particle,
-                         shift_time, batch_start, rec; kwargs...)
+                         shift_time, batch_start, sink; kwargs...)
   else
     # Each slice is tracked separately (see _SliceUniversalParams)
     !(tm isa SaganCavity) || error("SaganCavity is not compatible with elements with n_slices > 1. Try n_slices = 1 instead")
@@ -224,12 +224,12 @@ function _track!(
       @noinline universal!(bunch, tm, ele, _SliceUniversalParams(universalparams, k), alignmentparams, bendparams, bmultipoleparams,
                            patchparams, apertureparams, rfparams, beamlineparams, mapparams, fourpotentialparams, emultipoleparams,
                            emfieldparams, ibsparams, ref, ramp_particle_energy_without_rf, ramp_update_each_particle,
-                           shift_time, batch_start, rec; kwargs...)
+                           shift_time, batch_start, sink; kwargs...)
     end
   end
 end
 
-# Step 2: Push particles through -----------------------------------------
+# Step 2: Build the kernel chain and pass it to sink (see prepared_bl.jl) ----
 function universal!(
   bunch,
   tm,
@@ -252,9 +252,10 @@ function universal!(
   ::Val{ramp_update_each_particle},
   ::Val{shift_time},
   batch_start,
-  rec;
+  sink,
+  ::Val{at_call}=Val{false}();
   kwargs...
-) where {ramp_particle_energy_without_rf, ramp_update_each_particle, shift_time}
+) where {ramp_particle_energy_without_rf, ramp_update_each_particle, shift_time, at_call}
   # Every element in a Beamline has the same p_over_q_ref (possibly a function of time)
   p_over_q_ref = ref.p_over_q_ref
 
@@ -262,6 +263,18 @@ function universal!(
   # The slice of the element tracked here (the whole element if n_slices == 1)
   s0 = universalparams.s0
   L_slice = universalparams.L_slice
+
+  # A chain that depends on the Bunch at the call beyond bunch.t_ref (a time dependent reference
+  # energy, IBS) is built at the call, by this universal! with at_call = true
+  ibs = !isnothing(ibsparams) && ibsparams.ibs_model != IBSModel.None && L_slice > 0
+  if !at_call && (p_over_q_ref isa TimeDependentParam || ibs)
+    args = (tm, fullele, universalparams, alignmentparams, bendparams, bmultipoleparams,
+            patchparams, apertureparams, rfparams, beamlineparams, mapparams, fourpotentialparams,
+            emultipoleparams, emfieldparams, ibsparams, ref, Val{ramp_particle_energy_without_rf}(),
+            Val{ramp_update_each_particle}(), Val{shift_time}(), batch_start, nothing, Val{true}())
+    pc = PreKernelChain(PreParameter(universal!, args), nothing, nothing)
+    return push_chain!(sink, bunch, pc; kwargs...)
+  end
 
   # Compute information about reference coordinate system:
   t_enter = bunch.t_ref
@@ -284,7 +297,9 @@ function universal!(
   t_exit_design = bunch.t_ref + dt_design
 
   if p_over_q_ref isa TimeDependentParam && ramp_update_each_particle
-    p_over_q_ref_exit = p_over_q_ref(t_exit_design)
+    # In the number type of bunch.p_over_q_ref, so that the particles are ramped to exactly the
+    # reference momentum the Bunch stores after the element
+    p_over_q_ref_exit = convert(typeof(bunch.p_over_q_ref), p_over_q_ref(t_exit_design))
     beta_gamma_exit = R_to_beta_gamma(bunch.species, p_over_q_ref_exit)
   else
     # Don't ramp at end of element if !ramp_update_each_particle
@@ -292,22 +307,15 @@ function universal!(
     beta_gamma_exit = beta_gamma_enter
   end
 
-  # When preparing (rec is a Vector, see prepared_bl.jl), only bunch.t_ref may differ at the calls
-  ibs = !isnothing(ibsparams) && ibsparams.ibs_model != IBSModel.None && L_slice > 0
-  if !isnothing(rec) && (p_over_q_ref isa TimeDependentParam || ibs)
-    error("A time dependent reference energy and intra-beam scattering are not supported by " *
-          "prepared tracking yet")
-  end
-
   # Lower RefState values to coordinates number types. Only the RefState gets the lowered values:
   # everything else below is computed at full precision (e.g. differences of nearly equal times
   # and energies, and bunch.t_ref), and push lowers the kernel arguments itself
   T = eltype(bunch.coords.v)
   refstate = RefState{T}(;
-    t_enter = pre(rec, b -> BeamTracking.num_lower(eltype(b.coords.v), b.t_ref), bunch),
+    t_enter = PreParameter(b -> BeamTracking.num_lower(eltype(b.coords.v), b.t_ref), ()),
     beta_gamma_enter = BeamTracking.num_lower(T, beta_gamma_enter),
-    t_exit = pre(rec, (b, dt) -> BeamTracking.num_lower(eltype(b.coords.v), b.t_ref + dt),
-                 bunch, dt),
+    t_exit = PreParameter((b, dt) -> BeamTracking.num_lower(eltype(b.coords.v), b.t_ref + dt),
+                          (dt,)),
     beta_gamma_exit = BeamTracking.num_lower(T, beta_gamma_exit),
     L = BeamTracking.num_lower(T, L_slice),
     g = BeamTracking.num_lower(T, g),
@@ -322,7 +330,7 @@ function universal!(
   # and 1 to update the particles' reference time
   kc = KernelChain(Val{11}(), refstate, batch_start)
   
-  if !isnothing(ibsparams) && ibsparams.ibs_model != IBSModel.None && L_slice > 0
+  if ibs
     kc = @inline(ibs_kick(kc, bunch, ibsparams, bendparams, L_slice))
   end
 
@@ -338,8 +346,14 @@ function universal!(
   else
     # Make sure to evaluate p_over_q_ref if not ramp_update_each_particle
     p_over_q_ref = p_over_q_ref_enter
-    if !(BeamTracking.num_lower(typeof(bunch.p_over_q_ref), beta_gamma_enter) ≈ BeamTracking.num_lower(typeof(bunch.p_over_q_ref), bunch_beta_gamma))
-      kc = push(kc, make_kernel_call(BeamTracking.reference_momentum_shift!, (bunch_beta_gamma, beta_gamma_enter - bunch_beta_gamma, Val{!ramp_particle_energy_without_rf}())))
+    # bunch.p_over_q_ref becomes p_over_q_ref_enter in its own number type. The particles are shifted
+    # by exactly the change of that stored value, so that their coordinates are always relative to
+    # it: an approximate comparison here skipped slow ramps (below 1.5e-8 per element, 3.4e-4 with a
+    # Float32 reference) but stored them anyway, so they were lost
+    p_over_q_ref_new = convert(typeof(bunch.p_over_q_ref), p_over_q_ref_enter)
+    if p_over_q_ref_new != bunch.p_over_q_ref
+      dbeta_gamma = R_to_beta_gamma(bunch.species, p_over_q_ref_new) - bunch_beta_gamma
+      kc = push(kc, make_kernel_call(BeamTracking.reference_momentum_shift!, (bunch_beta_gamma, dbeta_gamma, Val{!ramp_particle_energy_without_rf}())))
     end
   end
 
@@ -397,22 +411,19 @@ function universal!(
   # If the Bunch species differs from the reference species, re-reference z to the design clock
   if shift_time
     # C_LIGHT*(t_exit_design - t_exit)
-    c_dt = pre(rec, (b, dt, dt_design) -> C_LIGHT*((b.t_ref + dt_design) - (b.t_ref + dt)),
-               bunch, dt, dt_design)
+    c_dt = PreParameter((b, dt, dt_design) -> C_LIGHT*((b.t_ref + dt_design) - (b.t_ref + dt)),
+                        (dt, dt_design))
     kc = push(kc, make_kernel_call(BeamTracking.reference_time_shift!, (1/beta_gamma_exit, c_dt)))
   end
   
-  if isnothing(rec)
-    # noinline necessary here for small binaries and faster execution
-    @noinline launch!(bunch.coords, kc; kwargs...)
-  else
-    t_ref_exit = pre(rec, (b, dt_design) -> b.t_ref + dt_design, bunch, dt_design)
-    push!(rec, PreKernelChain(kc, t_ref_exit, p_over_q_ref_exit))
+  # track! launches the chain at once, prepare stores it. The type of kc is often not inferred (it
+  # depends on values, e.g. whether the reference momentum changes): it is passed on alone, as a
+  # PreKernelChain it would be boxed again at every call (0.6 ms more per ESR turn)
+  if sink isa Bunch
+    @noinline run_chain!(sink, kc; kwargs...)
+    sink.t_ref = sink.t_ref + dt_design
+    sink.p_over_q_ref = p_over_q_ref_exit
+    return nothing
   end
-
-  # Update reference time
-  bunch.t_ref = t_exit_design
-  bunch.p_over_q_ref = p_over_q_ref_exit
-
-  return nothing
+  return push_chain!(sink, bunch, PreKernelChain(kc, dt_design, p_over_q_ref_exit))
 end
