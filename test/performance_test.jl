@@ -69,4 +69,20 @@ using Random
     @test min_time(ramp_ring) / t_static < 1.5
     @test min_time(ramp_ring; ramp_update_each_particle=true) / t_static < 4
   end
+
+  # Prepared tracking (the kernel chains built once): about one allocation per element (the
+  # dynamic call per chain; 4891 on ESR vs 81438 for track!), independent of the number of
+  # particles, and for one particle much faster than track! (0.14x on Apple M4)
+  chains = ext.prepare(bunch(ring, 1), ring; notify=false)
+  function prepared_allocations(N)
+    b = bunch(ring, N)
+    track!(b, chains)
+    return @allocations track!(b, chains)
+  end
+  @test prepared_allocations(100) == prepared_allocations(1)
+  instrumented || @test prepared_allocations(1) <= 2*length(chains)
+  if !instrumented
+    t = @benchmark(track!(bb, $chains), setup=(bb = $bunch($ring, 1)), evals=1, samples=20, seconds=10)
+    @test minimum(t).time / t_static < 0.4
+  end
 end

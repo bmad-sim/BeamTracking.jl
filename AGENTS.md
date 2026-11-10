@@ -308,9 +308,45 @@ touches both repositories; their versions are coupled (BeamTracking 0.9 needs Be
   (same polynomial instead of two math libraries). Without 64-byte lanes the gain is about half 
   of the first round's (-15%), where the per-lane functions cost more.
 - The series' branch on GPUs: a GPU group (warp) pays both paths only if its particles straddle 
-  the threshold. Measured on Metal (10^7 threads, `sincos_quaternion`): uniform small arguments 
-  2x faster, uniform large +4%, alternating per thread (worst case) +20%. ESR on Metal is 
-  dominated by the ~4900 kernel launches per turn (10^4 and 10^5 particles take about as long).
+  the threshold. The arguments are nearly the same for all particles: `k1 s^2/(4(1+δ))` in 
+  MatrixKick (differs by δ ~ 1e-3), and in the exact bend px/pt (asin), the bend angle per step 
+  plus ~px (sincos, spin) and ~x/L (atan2). A group splits only if `k1 s^2/4` is within ~0.1% of 
+  1, or the bend angle per step within ~1e-3 of 0.1 rad. Measured on Metal (10^7 threads x 100 
+  evaluations, Float32): `sincos_quaternion` uniform small arguments 2x faster, uniform large +4%, 
+  alternating per thread (worst case, every group split) +20%; bend series with uniform arguments 
+  10-20% faster than the functions (asin 13.8 vs 15.2 ms, sincos 14.8 vs 17.5, sin 12.9 vs 16.4, 
+  atan2 13.7 vs 16.3). ESR on Metal is dominated by the ~4900 kernel launches per turn (10^4 and 
+  10^5 particles take about as long): fusing launches would be a separate project.
+- Apply the series to all floats, not only to SIMD `Vec`s: they are faster on every path. Without 
+  explicit SIMD (`use_explicit_SIMD=false`, plain loop) ESR prepared 1000 particles 272-286 -> 
+  207 ms (-25%), one particle 0.61 -> 0.53 ms: the compiler did not vectorize these kernels before 
+  either (the calls to sin, asin, sqrt prevent it), and the series beats the scalar functions. With 
+  SIMD 221-228 -> 149 ms (-33%, both series). SIMD lanes and the scalar loop do not give bitwise 
+  equal results anyway (ESR 3 turns: 1.9e-13 Float64, 2.7e-5 Float32 without the series; the same 
+  with them), so restricting the series to `Vec`s would not make them consistent either.
+- Tried and rejected (no measurable gain, 2 A/B runs with and without SIMD): `sincu`/`sinhcu` 
+  returning the series without evaluating `sin(x)/x` when all arguments are small 
+  (`all(small) ? s : vifelse(...)`); the first round measured -3% before the bend series. TPS do 
+  not use this `sincu`: BeamTracking extends `GTPSA.sincu`, whose `TPS` method is more specific.
+- SIMD lane width (under evaluation, Nov 2026): 64-byte vectors (`max(native, 64 ÷ sizeof(T))`, 8 
+  Float64 / 16 Float32) instead of the native width. Apple M4 (native 2 Float64, 4 Float32), ESR 
+  prepared: Float64 1000 particles 146-151 -> 74 ms (2.0x), 100: 14.5-15.1 -> 8.2; Float32 1000: 
+  67-68 -> 36 ms (1.86x). Alone it is slower when many particles are left for the scalar remainder 
+  loop (Float32 4-15 and 31 particles up to 1.9x slower, Float64 2-7 up to 1.35x), so the remainder 
+  first goes through native-width vectors: then every count is at least as fast as the native 
+  width. Cost: a third compiled variant of every kernel chain (first `track!` on ESR 4.8-5.0 -> 
+  6.1 s). x86 not measured: x86 Julia under Rosetta cannot load the arm64 GTPSA_jll override, 
+  and Rosetta timings would not show native x86 anyway. Register budget: AVX2 holds as many 
+  64-byte vectors (16 x 32 B) as NEON (32 x 16 B), AVX-512 is unchanged (native 64 B), SSE-only 
+  CPUs hold half. Batching (`lane2vec`) works for any width.
+  A/B script for another machine: `~/scibmad-benchmarks/lane-width/` (`run_lanes.jl`; with 
+  `-C haswell` an AVX-512 machine runs AVX2 code, and HostCPUFeatures reports the AVX2 width 
+  because it follows Julia's CPU target). GitHub's ubuntu runners (Benchmark.yml) are x86 too.
+- `benchmark/benchmarks.jl` has prepared tracking (`SUITE["esr prepared"]`, Float64 and Float32, 
+  1/2/10/15/100/1000 particles; only on revisions that have `prepare`) and counts that do not 
+  fill the SIMD vectors (2, 10, 15; Float32 15). `test/performance_test.jl` checks that prepared 
+  tracking allocates about once per element independent of the particle count (4891 on ESR vs 
+  81438 for `track!`) and that one particle takes < 0.4x `track!` (0.14x on Apple M4).
 - `_track!` is dynamic; `universal!` is behind a `@noinline` function barrier. Anything fixed for 
   a whole `track!` call that changes types crosses the barrier as a `Val`, built once per call. 
   Never build `Val{runtime_bool}()`: use `cond ? Val{true}() : Val{false}()`.
