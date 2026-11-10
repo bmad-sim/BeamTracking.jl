@@ -1,4 +1,6 @@
-@inline function ibs_damping_and_diffusion!(i, coords::Coords, backend, tilde_m, gamma_0, ::Val{damping_on}, ::Val{fluctuations_on}, b_coeff, integrals, diffusion_lambdas, diffusion_P, P, sigma_inv, means, g, w, w_inv, L) where {damping_on, fluctuations_on}
+# stats: the statistics of the Bunch (one argument, so that prepared tracking computes them once per call)
+@inline function ibs_damping_and_diffusion!(i, coords::Coords, backend, ::Val{damping_on}, ::Val{fluctuations_on}, stats, g, w, w_inv, L) where {damping_on, fluctuations_on}
+  tilde_m, gamma_0, b_coeff, integrals, diffusion_lambdas, diffusion_P, P, sigma_inv, means = stats
   @inbounds begin
     if isprimitivetype(eltype(coords.v))
       v = coords.v

@@ -2,7 +2,23 @@
 This function computes sin(sqrt(x))/sqrt(x) and cos(sqrt(x)), which are both 
 necessary for exponentiating a rotation vector into a quaternion.
 """
-@generated function sincos_quaternion(x::T) where {T}
+@inline function sincos_quaternion(x)
+  # Taylor series in x when |x| < 1 for every particle (truncation error below 1e-21, also of the
+  # derivatives): only multiplies and adds, instead of sqrt, sin, cos, sinh and cosh per particle,
+  # which do not vectorize. The test is one compare (and one reduction for a SIMD vector)
+  if all(abs(x) < 1)
+    # one(x)/n is a constant of the number type of x: multiplies instead of divisions
+    s = 1 - x*(one(x)/6)*(1 - x*(one(x)/20)*(1 - x*(one(x)/42)*(1 - x*(one(x)/72)*(1 - x*(one(x)/110)*
+        (1 - x*(one(x)/156)*(1 - x*(one(x)/210)*(1 - x*(one(x)/272)*(1 - x*(one(x)/342)*(1 - x*(one(x)/420))))))))))
+    c = 1 - x*(one(x)/2)*(1 - x*(one(x)/12)*(1 - x*(one(x)/30)*(1 - x*(one(x)/56)*(1 - x*(one(x)/90)*
+        (1 - x*(one(x)/132)*(1 - x*(one(x)/182)*(1 - x*(one(x)/240)*(1 - x*(one(x)/306)*(1 - x*(one(x)/380))))))))))
+    return s, c
+  else
+    return _sincos_quaternion(x)
+  end
+end
+
+@generated function _sincos_quaternion(x::T) where {T}
   TS = ForwardDiff.valtype(T)
   if TS == Float16 || TS == Float32
     threshold = sqrt(24*eps(TS))

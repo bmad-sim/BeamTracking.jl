@@ -26,22 +26,42 @@ const elements = Dict(
 )
 
 # A Bunch with the reference species and energy of the Beamline (at t = 0) already set
-function make_bunch(bl, N)
+function make_bunch(bl, N, T=Float64)
   Random.seed!(1)
   p_over_q_ref = bl.p_over_q_ref
-  return Bunch(1e-4 .* randn(N, 6); species=e, p_over_q_ref=(p_over_q_ref isa Number ? p_over_q_ref : p_over_q_ref(0.0)))
+  return Bunch(T.(1e-4 .* randn(N, 6)); species=e, p_over_q_ref=(p_over_q_ref isa Number ? p_over_q_ref : p_over_q_ref(0.0)))
 end
 
 # track! modifies the Bunch, so each sample tracks a new one
-benchmark_track(bl, N; kw...) = @benchmarkable track!(b, $bl; $kw...) setup=(b = make_bunch($bl, $N)) evals=1
+benchmark_track(bl, N, T=Float64; kw...) = @benchmarkable track!(b, $bl; $kw...) setup=(b = make_bunch($bl, $N, $T)) evals=1
 
 SUITE["esr"] = BenchmarkGroup()
-for N in (1, 100, 1000)
+# 2, 10 and 15 particles: counts that do not fill the SIMD vectors
+for N in (1, 2, 10, 15, 100, 1000)
   SUITE["esr"]["static", N] = benchmark_track(esr, N)
+end
+for N in (15, 1000)
+  SUITE["esr"]["static Float32", N] = benchmark_track(esr, N, Float32)
 end
 for N in (1, 100)
   SUITE["esr"]["ramp", N] = benchmark_track(ramp_ring, N)
   SUITE["esr"]["ramp per particle", N] = benchmark_track(ramp_ring, N; ramp_update_each_particle=true)
+end
+
+# Prepared tracking (the kernel chains of the elements built once, as for the turns of a ring),
+# only on revisions that have it (the script also runs on the base branch)
+const BTBL = Base.get_extension(BeamTracking, :BeamTrackingBeamlinesExt)
+if isdefined(BTBL, :prepare) && isdefined(BTBL, :PreKernelChain)
+  SUITE["esr prepared"] = BenchmarkGroup()
+  for T in (Float64, Float32), N in (1, 2, 10, 15, 100, 1000)
+    chains = BTBL.prepare(make_bunch(esr, N, T), esr; notify=false)
+    SUITE["esr prepared"][string(T), N] = @benchmarkable track!(b, $chains) setup=(b = make_bunch($esr, $N, $T)) evals=1
+  end
+  # A time dependent reference energy (the reference at each element evaluated at the call)
+  for N in (1, 100), (name, upd) in (("ramp", false), ("ramp per particle", true))
+    chains = BTBL.prepare(make_bunch(ramp_ring, N), ramp_ring; notify=false, ramp_update_each_particle=upd)
+    SUITE["esr prepared"][name, N] = @benchmarkable track!(b, $chains) setup=(b = make_bunch($ramp_ring, $N)) evals=1
+  end
 end
 
 SUITE["elements"] = BenchmarkGroup()

@@ -1,5 +1,6 @@
 
-@inline function ibs_kick(kc, bunch, ibsparams, bendparams, L)
+# preparing: the statistics of the Bunch are a PreParameter, computed at the call
+@inline function ibs_kick(kc, bunch, ibsparams, bendparams, L, preparing)
   if !isnothing(bendparams)
     g = bendparams.g_ref
     tilt = bendparams.tilt_ref
@@ -11,6 +12,21 @@
     w_inv = nothing
   end
 
+  ibs_damping_on = (ibsparams.ibs_model != IBSModel.GaussianFluctuationsOnly)
+  ibs_fluctuations_on = (ibsparams.ibs_model != IBSModel.GaussianDampingOnly)
+  if preparing
+    stats = PreParameter((b, L) -> ibs_stats(b, L, Val{true}()), (L,))
+  else
+    stats = ibs_stats(bunch, L, Val{false}())
+    isnothing(stats) && return kc
+  end
+  params = (get_backend(bunch.coords.v), Val{ibs_damping_on}(), Val{ibs_fluctuations_on}(), stats, g, w, w_inv, L)
+  return push(kc, make_kernel_call(BeamTracking.ibs_damping_and_diffusion!, params))
+end
+
+# The statistics of the live particles of the Bunch for the IBS kick (nothing without live particles,
+# unless prepared)
+function ibs_stats(bunch, L, ::Val{prepared}) where {prepared}
   log_c_light = log(C_LIGHT)
   log_m = log(massof(bunch.species)) - 2*log_c_light
   log_q = log(abs(chargeof(bunch.species)))
@@ -20,7 +36,13 @@
   weights = (bunch.coords.state .== BeamTracking.STATE_ALIVE) .*
             (isnothing(bunch.coords.weight) ? one(T) : bunch.coords.weight isa Number ? T(bunch.coords.weight) : bunch.coords.weight)
   W = sum(weights)
-  iszero(W) && return kc
+  # No live particle: nothing to kick (when prepared, any finite statistics: the kernel only changes
+  # live particles)
+  if iszero(W)
+    prepared || return nothing
+    weights = one.(weights)
+    W = sum(weights)
+  end
   log_N = log(W)
   tilde_m, gamsqr_0, _ = drift_params(bunch.species, bunch.p_over_q_ref)
   log_p0 = log_m + log_c_light - log(tilde_m)
@@ -64,10 +86,7 @@
                                                                  sigma_inv[4,4], sigma_inv[4,5], sigma_inv[4,6],
                                                                                  sigma_inv[5,5], sigma_inv[5,6],
                                                                                                  sigma_inv[6,6])
-  ibs_damping_on = (ibsparams.ibs_model != IBSModel.GaussianFluctuationsOnly)
-  ibs_fluctuations_on = (ibsparams.ibs_model != IBSModel.GaussianDampingOnly)
-  params = (backend, tilde_m, gamma_0, Val{ibs_damping_on}(), Val{ibs_fluctuations_on}(), b_coeff, integrals, diffusion_lambdas, diffusion_P, P, sigma_inv_t, means, g, w, w_inv, L)
-  return push(kc, make_kernel_call(BeamTracking.ibs_damping_and_diffusion!, params))
+  return (tilde_m, gamma_0, b_coeff, integrals, diffusion_lambdas, diffusion_P, P, sigma_inv_t, means)
 end
 
 #---------------------------------------------------------------------------------------------------

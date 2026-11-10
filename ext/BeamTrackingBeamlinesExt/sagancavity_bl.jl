@@ -22,7 +22,8 @@ function universal!(
   ::Val{ramp_particle_energy_without_rf}, 
   ::Val{ramp_update_each_particle},
   ::Val{shift_time},
-  batch_start;
+  batch_start,
+  sink;
   kwargs...
 ) where {ramp_particle_energy_without_rf, ramp_update_each_particle, shift_time}
   ele = LoweredElement(universalparams, alignmentparams, bendparams, bmultipoleparams, patchparams, apertureparams, rfparams, 
@@ -38,6 +39,10 @@ function universal!(
   universalparams.n_steps == 1 || error("SaganCavity is not compatible with elements with n_steps > 1 (its kicks are set by n_cells). Try n_steps = 1 instead")
 
   p_over_q_ref = ref.p_over_q_ref
+  # A ramped reference is not supported by SaganCavity (see "Status" in AGENTS.md); when preparing it
+  # would also need the reference momentum at the call
+  !(sink isa Bunch) && p_over_q_ref isa TimeDependentParam &&
+    error("SaganCavity with a time dependent reference energy is not supported by prepared tracking")
   beta_gamma_ref = R_to_beta_gamma(bunch.species, bunch.p_over_q_ref)
 
   # Compute information about reference coordinate system:
@@ -87,27 +92,31 @@ function universal!(
       end
       return dt_ref
     end
-    t_exit = t_enter + reference_dt(species, E1_ref, dE_ref)
-    t_exit_design = shift_time ? t_enter + reference_dt(species_d, E1_d, dE_d) : t_exit
+    dt = reference_dt(species, E1_ref, dE_ref)
+    dt_design = shift_time ? reference_dt(species_d, E1_d, dE_d) : dt
   else
-    t_exit = t_enter
-    t_exit_design = t_enter
+    dt = dt_design = zero(L)
   end
+  t_exit = t_enter + dt
   if p_over_q_ref isa TimeDependentParam
     beta_gamma_exit = R_to_beta_gamma(bunch.species, p_over_q_ref(t_exit))
   else
     beta_gamma_exit = R_to_beta_gamma(bunch.species, p_over_q_ref)
   end
-  kc = KernelChain(Val{10}(), RefState{eltype(coords.v)}(; t_enter, beta_gamma_enter, t_exit, beta_gamma_exit, L, g, ds_step), batch_start)
+  refstate = RefState{eltype(coords.v)}(; t_enter=PreParameter(b -> b.t_ref, ()), beta_gamma_enter,
+                                          t_exit=PreParameter((b, dt) -> b.t_ref + dt, (dt,)),
+                                          beta_gamma_exit, L, g, ds_step)
+  kc = KernelChain(Val{10}(), refstate, batch_start)
 
   # Ramping
   if p_over_q_ref isa TimeDependentParam
     if ramp_update_each_particle
       error("ramp_update_each_particle = true not yet implemented for SaganCavity") # TODO
     end
+    # As in universal! in unpack_bl.jl: the shift is exactly the change of the stored value
     p_over_q_ref_initial = bunch.p_over_q_ref
-    p_over_q_ref_final = p_over_q_ref(bunch.t_ref)
-    if !(p_over_q_ref_initial ≈ p_over_q_ref_final)
+    p_over_q_ref_final = convert(typeof(bunch.p_over_q_ref), p_over_q_ref(bunch.t_ref))
+    if p_over_q_ref_final != p_over_q_ref_initial
       kc = push(kc, make_kernel_call(BeamTracking.reference_momentum_shift!, (p_over_q_ref_initial, 
                                        p_over_q_ref_final-p_over_q_ref_initial, Val{!ramp_particle_energy_without_rf}())))
       setfield!(bunch, :p_over_q_ref, p_over_q_ref_final)
@@ -153,19 +162,23 @@ function universal!(
 
   # If the Bunch species differs from the reference species, re-reference z to the design clock
   if shift_time
-    kc = push(kc, make_kernel_call(BeamTracking.reference_time_shift!, (1/beta_gamma_exit, C_LIGHT*(t_exit_design - t_exit))))
+    # C_LIGHT*(t_exit_design - t_exit)
+    c_dt = PreParameter((b, dt, dt_design) -> C_LIGHT*((b.t_ref + dt_design) - (b.t_ref + dt)),
+                        (dt, dt_design))
+    kc = push(kc, make_kernel_call(BeamTracking.reference_time_shift!, (1/beta_gamma_exit, c_dt)))
   end
 
-  # noinline necessary here for small binaries and faster execution
-  @noinline launch!(coords, kc; kwargs...)
-  
-  bunch.t_ref = t_exit_design
-  # The coordinates are now relative to this Beamline's reference (after the energy change dE_ref)
-  if !(p_over_q_ref isa TimeDependentParam)
-    bunch.p_over_q_ref = p_over_q_ref
+  # Launched by run!, which then increases bunch.t_ref by dt_design and sets bunch.p_over_q_ref: the
+  # coordinates are now relative to this Beamline's reference (after the energy change dE_ref)
+  p_over_q_ref_exit = p_over_q_ref isa TimeDependentParam ? bunch.p_over_q_ref : p_over_q_ref
+  # As in universal! in unpack_bl.jl
+  if sink isa Bunch
+    @noinline run_chain!(sink, kc; kwargs...)
+    sink.t_ref = sink.t_ref + dt_design
+    sink.p_over_q_ref = p_over_q_ref_exit
+    return nothing
   end
-  
-  return nothing
+  return push_chain!(sink, bunch, PreKernelChain(kc, dt_design, p_over_q_ref_exit))
 end
 
 #---------------------------------------------------------------------------------------------------

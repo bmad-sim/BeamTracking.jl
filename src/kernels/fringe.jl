@@ -115,7 +115,7 @@ function fringe!(i, coords::Coords, a, tilde_m, Ksol, Kn0, Ks0, Kn1, Ks1, Kn2, K
       if !isnothing(Kn2) & !isnothing(Ks2)
         x2 = v[i,XI]*v[i,XI]
         y2 = v[i,YI]*v[i,YI]
-        bz += sgn*v[i,YI]*(x2 - y2/3)*Kn2 + sgn*v[i,XI]*(x2/3 - y2)*Ks2
+        bz += sgn*v[i,YI]*(x2 - y2/3)*Kn2/2 + sgn*v[i,XI]*(x2/3 - y2)*Ks2/2
       end
       rotate_spin_field!(i, coords, a, 0, tilde_m, ax, ay, (0, 0, 0), (bx, by, bz), one_half(eltype(coords.v)))
     end
@@ -157,8 +157,9 @@ function fringe!(i, coords::Coords, a, tilde_m, Ksol, Kn0, Ks0, Kn1, Ks1, Kn2, K
         betax += v[i,XI]/2*(Ks1_over_rel_p*v[i,XI] + Kn1_over_rel_p*v[i,YI])
       end
       if !isnothing(Kn2) & !isnothing(Ks2)
-        Kn2_over_rel_p = sgn*Kn2/rel_p
-        Ks2_over_rel_p = sgn*Ks2/rel_p
+        # The fringe takes the field coefficients of (x + i*y)^2, i.e. Kn2/2! and Ks2/2!
+        Kn2_over_rel_p = sgn*Kn2/(2*rel_p)
+        Ks2_over_rel_p = sgn*Ks2/(2*rel_p)
 
         fx_over_rel_p += -Kn2_over_rel_p/48*(3*x4 + 6*x2*y2 - 5*y4) + Ks2_over_rel_p/12*xy*(x2 + 3*y2)
         fy_over_rel_p += Kn2_over_rel_p/12*xy*(3*x2 + y2) + Ks2_over_rel_p/48*(5*x4 - 6*x2*y2 - 3*y4)
@@ -219,7 +220,7 @@ function fringe!(i, coords::Coords, a, tilde_m, Ksol, Kn0, Ks0, Kn1, Ks1, Kn2, K
       if !isnothing(Kn2) & !isnothing(Ks2)
         x2 = v[i,XI]*v[i,XI]
         y2 = v[i,YI]*v[i,YI]
-        bz += sgn*v[i,YI]*(x2 - y2/3)*Kn2 + sgn*v[i,XI]*(x2/3 - y2)*Ks2
+        bz += sgn*v[i,YI]*(x2 - y2/3)*Kn2/2 + sgn*v[i,XI]*(x2/3 - y2)*Ks2/2
       end
       rotate_spin_field!(i, coords, a, 0, tilde_m, ax, ay, (0, 0, 0), (bx, by, bz), one_half(eltype(coords.v)))
     end

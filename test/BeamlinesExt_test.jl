@@ -10,6 +10,7 @@
   include("BeamlinesExt/beamlines_ignore_params_test.jl")
   include("BeamlinesExt/beamlines_slices_test.jl")
   include("BeamlinesExt/beamlines_effects_test.jl")
+  include("BeamlinesExt/beamlines_prepared_test.jl")
 
   #------------------------------------------------------------------------------------------------
 
