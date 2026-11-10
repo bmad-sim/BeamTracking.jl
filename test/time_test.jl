@@ -278,3 +278,27 @@ end
     @test maximum(abs.(b0.coords.v .- b.coords.v)) > 1e-4 # the time dependence matters
   end
 end
+
+@testset "Slow reference momentum ramp" begin
+  # A linear ramp of the reference momentum through drifts: a particle with pz = 0 keeps its
+  # momentum, so after the line pz = p_start/p_end - 1 with the reference momenta the Bunch stores.
+  # Steps below the tolerance of an approximate comparison (1.5e-8 per element, 3.4e-4 with a
+  # Float32 reference) were lost, and the Float32 per-particle ramp ended at an unrounded reference
+  e = Species("electron")
+  R = Beamlines.pc_to_R(e, 18e9)
+  bg(p) = Beamlines.R_to_beta_gamma(e, p)
+  for T in (Float64, Float32), upd in (false, true), (n, a) in ((1000, 1.0), (1000, 10.0), (10, 1.0))
+    bl = Beamline([LatElement(L=1000.0/n, tracking_method=DriftKick()) for i in 1:n];
+                  p_over_q_ref=R*(1 + a*Time()), species_ref=e)
+    b = Bunch(zeros(T, 1, 6))
+    track!(b, bl; notify=false, ramp_update_each_particle=upd)
+    expected = bg(T(R))/bg(b.p_over_q_ref) - 1
+    # Float64 to round-off. Float32 below its precision: the per-particle ramp evaluates p(t) in
+    # Float32 (2.3e-8 here, independent of the number of elements)
+    if T == Float64
+      @test b.coords.v[1,6] ≈ expected rtol=1e-9
+    else
+      @test abs(b.coords.v[1,6] - expected) < 5e-8
+    end
+  end
+end

@@ -291,7 +291,9 @@ end
 =#
   if !use_KA
     if use_explicit_SIMD && V <: SIMD.FastContiguousArray && eltype(V) <: SIMD.ScalarTypes && pick_vector_width(eltype(V)) > 1 # do SIMD
-      simd_lane_width = pick_vector_width(eltype(V))
+      # 64-byte vectors (8 Float64, 16 Float32) or the native width if wider. Longer than a NEON or
+      # AVX2 register: the CPU splits each operation into independent ones it can overlap
+      simd_lane_width = max(pick_vector_width(eltype(V)), 64 ÷ sizeof(eltype(V)))
       lane = SIMD.VecRange{Int(simd_lane_width)}(0)
       rmn = rem(N_particle, simd_lane_width)
       N_SIMD = N_particle - rmn
@@ -306,8 +308,19 @@ end
           _generic_kernel!(lane+i, coords, kc)
         end
       end
-      # Do the remainder
-      for i in N_SIMD+1:N_particle
+      # The remainder: native-width vectors, then one particle at a time (a remainder of up to 15
+      # Float32 particles one at a time was up to 1.9x slower than the native width)
+      native_lane_width = pick_vector_width(eltype(V))
+      N_native = N_SIMD
+      if native_lane_width < simd_lane_width
+        native_lane = SIMD.VecRange{Int(native_lane_width)}(0)
+        N_native = N_particle - rem(N_particle - N_SIMD, native_lane_width)
+        for i in N_SIMD+1:native_lane_width:N_native
+          @assert last(i) <= N_particle "Out of bounds!"
+          _generic_kernel!(native_lane+i, coords, kc)
+        end
+      end
+      for i in N_native+1:N_particle
         @assert last(i) <= N_particle "Out of bounds!"
         _generic_kernel!(i, coords, kc)
       end

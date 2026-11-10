@@ -27,14 +27,12 @@ isinf_imag(x::Number) = isfinite(real(x)) && isinf(imag(x))
 Compute the unnormalized sinc function ``\\operatorname{sincu}(x) = \\sin(x) / (x)`` 
 with accuracy near the origin.
 """
-@generated function sincu(x::T) where {T}
-  TS = ForwardDiff.valtype(T)
-  if TS == Float16 || TS == Float32
-    threshold = (120*eps(TS))^(1//4)
-  else
-    threshold = 0.004
-  end
-  return :(vifelse(abs(x) > $threshold, sin(x)/x, 1-x^2/6))
+function sincu(x)
+  # Taylor series through x^8 for |x| < 0.1: its error x^10/39916800 is below eps(Float64)/2,
+  # and its derivatives (ForwardDiff) stay accurate where those of sin(x)/x cancel
+  x2 = x*x
+  s = 1 - x2/6*(1 - x2/20*(1 - x2/42*(1 - x2/72)))
+  return vifelse(abs(x) < one(x)/10, s, sin(x)/x)
 end
 
 
@@ -44,14 +42,11 @@ end
 Compute the unnormalized sinhc function ``\\operatorname{sinhcu}(x) = \\sinh(x) / (x)`` 
 with accuracy near the origin.
 """
-@generated function sinhcu(x::T) where {T}
-  TS = ForwardDiff.valtype(T)
-  if TS == Float16 || TS == Float32
-    threshold = (120*eps(TS))^(1//4)
-  else
-    threshold = 0.004
-  end
-  return :(vifelse(abs(x) > $threshold, sinh(x)/x, 1+x^2/6))
+function sinhcu(x)
+  # Taylor series through x^8 for |x| < 0.1, as in sincu
+  x2 = x*x
+  s = 1 + x2/6*(1 + x2/20*(1 + x2/42*(1 + x2/72)))
+  return vifelse(abs(x) < one(x)/10, s, sinh(x)/x)
 end
 
 
@@ -74,6 +69,46 @@ end
            vifelse((x == 0) & (y == 0),  SIMD.Vec{N, T}(0), 
            SIMD.Vec{N, T}($n)))))))
   end
+end
+
+
+# The exact bend evaluates asin, sincos, atan2 and sin per particle step, which do not vectorize
+# (SIMD Vecs run them lane by lane). When the argument of every particle is small, a Taylor series
+# is used instead (truncation below 1e-16 relative; one compare, plus one reduction for a Vec).
+# Only for floats and Vecs of them: TPS and Duals keep the functions, whose derivatives of every
+# order are exact (a series truncated at x^11 gives wrong high-order TPS coefficients)
+const SeriesTypes = Union{AbstractFloat, SIMD.Vec{<:Any,<:AbstractFloat}}
+
+asin_s(x) = asin(x)
+function asin_s(x::SeriesTypes)
+  # Through x^11 for |x| < 0.05
+  all(abs(x) < one(x)/20) || return asin(x)
+  x2 = x*x
+  return x*(1 + x2*(one(x)/6 + x2*(3*one(x)/40 + x2*(5*one(x)/112 + x2*(35*one(x)/1152 +
+         x2*(63*one(x)/2816))))))
+end
+
+sincos_s(x) = sincos(x)
+function sincos_s(x::SeriesTypes)
+  # Through x^9 (sin) and x^10 (cos) for |x| < 0.1
+  all(abs(x) < one(x)/10) || return sincos(x)
+  x2 = x*x
+  s = x*(1 - x2*(one(x)/6)*(1 - x2*(one(x)/20)*(1 - x2*(one(x)/42)*(1 - x2*(one(x)/72)))))
+  c = 1 - x2*(one(x)/2)*(1 - x2*(one(x)/12)*(1 - x2*(one(x)/30)*(1 - x2*(one(x)/56)*
+      (1 - x2*(one(x)/90)))))
+  return s, c
+end
+
+sin_s(x) = sin(x)
+sin_s(x::SeriesTypes) = all(abs(x) < one(x)/10) ? first(sincos_s(x)) : sin(x)
+
+atan2_s(y, x) = atan2(y, x)
+function atan2_s(y::T, x::T) where {T<:SeriesTypes}
+  # atan(y/x) through (y/x)^11 for x > 0 and |y/x| < 0.05
+  r = y/x
+  all((x > 0) & (abs(r) < one(r)/20)) || return atan2(y, x)
+  r2 = r*r
+  return r*(1 - r2*(one(r)/3 - r2*(one(r)/5 - r2*(one(r)/7 - r2*(one(r)/9 - r2*(one(r)/11))))))
 end
 
 
