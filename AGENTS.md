@@ -228,7 +228,12 @@ touches both repositories; their versions are coupled (BeamTracking 0.9 needs Be
   the Bunch used for building gets `p_over_q_ref_exit` unless it is only known at the call). 
   `track!(bunch, chains)` runs the stored chains: `run!` evaluates the `PreParameter`s, launches, 
   then `t_ref += dt` and sets `p_over_q_ref`. `universal!` is never part of a chain: every element 
-  is lowered once, also with a time dependent reference energy and IBS.
+  is lowered once, also with a time dependent reference energy and IBS. 
+- `track!(bunch, bl)` deliberately does not go through `prepare` (the maintainer's decision): 
+  storing the chains boxes each one and adds a dynamic call per element (+0.6 ms per ESR turn for 
+  one particle). Code that tracks the same Beamline many times calls `prepare` itself (SciBmad's 
+  `track` and `dynamic_aperture`; not `find_closed_orbit`, which tracks each coordinate type 
+  about once).
 - What depends on the Bunch at the call is a `PreParameter` in the chain (only when preparing; 
   `track!` computes everything at once): `bunch.t_ref` (`RefState` `t_enter`/`t_exit`, the 
   `reference_time_shift!` argument); with a time dependent reference energy the reference momentum 
