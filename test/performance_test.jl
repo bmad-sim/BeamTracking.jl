@@ -54,8 +54,8 @@ using Random
   up = Beamlines.deval(ele.UniversalParams, bl.context)
   blp = Beamlines.deval(ele.BeamlineParams, bl.context)
   ref = ext.TrackReference(e, -10.0, 1)
-  @test_opt target_modules=(ext, BeamTracking) ext.universal!(b, ele.tracking_method, ele, ext._ConcreteUniversalParams(up), nothing, nothing, nothing,
-                                                               nothing, nothing, nothing, blp, nothing, nothing, nothing, nothing, nothing, ref, Val(false), Val(false), Val(false), 1)
+  @test_opt target_modules=(ext, BeamTracking) ext.universal!(b, ele.tracking_method, ele, ext._SliceUniversalParams(up, 1), nothing, nothing, nothing,
+                                                               nothing, nothing, nothing, blp, nothing, nothing, nothing, nothing, nothing, ref, Val(false), Val(false), Val(false), 1, b)
 
   # Timing ratios on the same machine (with generous margins): ramping the reference energy costs
   # about the same as tracking with a static reference (~1.0 on Julia 1.10 and 1.13), and the per
@@ -68,5 +68,37 @@ using Random
     t_static = min_time(ring)
     @test min_time(ramp_ring) / t_static < 1.5
     @test min_time(ramp_ring; ramp_update_each_particle=true) / t_static < 4
+  end
+
+  # Prepared tracking (the kernel chains built once): about one allocation per element (the
+  # dynamic call per chain; 4891 on ESR vs 81438 for track!), independent of the number of
+  # particles, and for one particle much faster than track! (0.14x on Apple M4)
+  chains = ext.prepare(bunch(ring, 1), ring; notify=false)
+  function prepared_allocations(N)
+    b = bunch(ring, N)
+    track!(b, chains)
+    return @allocations track!(b, chains)
+  end
+  @test prepared_allocations(100) == prepared_allocations(1)
+  instrumented || @test prepared_allocations(1) <= 2*length(chains)
+  if !instrumented
+    t = @benchmark(track!(bb, $chains), setup=(bb = $bunch($ring, 1)), evals=1, samples=20, seconds=10)
+    @test minimum(t).time / t_static < 0.4
+  end
+  # With a time dependent reference energy too (the reference at each element is evaluated at the
+  # call, the elements are lowered once): faster than track! of a static line for one particle
+  # (0.25x and 0.42x with the per-particle ramp on Apple M4)
+  for upd in (false, true)
+    rchains = ext.prepare(bunch(ramp_ring, 1), ramp_ring; notify=false, ramp_update_each_particle=upd)
+    function ramp_allocations(N)
+      b = bunch(ramp_ring, N)
+      track!(b, rchains)
+      return @allocations track!(b, rchains)
+    end
+    @test ramp_allocations(100) == ramp_allocations(1)
+    if !instrumented
+      t = @benchmark(track!(bb, $rchains), setup=(bb = $bunch($ramp_ring, 1)), evals=1, samples=20, seconds=10)
+      @test minimum(t).time / t_static < 0.8
+    end
   end
 end

@@ -324,6 +324,18 @@
     @test GTPSA.jacobian(b0.coords.v) ≈ v_expected
     @test GTPSA.jacobian(b0.coords.q) ≈ q_expected
 
+    # Pure quadrupole (MK), many short steps: rounding stays at the level of Float64 (the same
+    # tracking in BigFloat), as it did not when cos(sqrt(k1)*ds) rounded near 1 (5e-13 here)
+    R18 = Beamlines.pc_to_R(Species("electron"), 18e9)
+    vq = Matrix{Float64}[]
+    for T in (Float64, BigFloat)
+      ele = LatElement(L=0.4, Kn1=0.28, tracking_method=MatrixKick(order=8), n_steps=1024)
+      b0 = Bunch(T.([1e-3 1e-4 5e-4 -1e-4 0.0 5e-4]), p_over_q_ref=R18, species=Species("electron"))
+      track!(b0, Beamline([ele], p_over_q_ref=R18, species_ref=Species("electron")))
+      push!(vq, Float64.(b0.coords.v[:, 1:4]))
+    end
+    @test maximum(abs.(vq[1] .- vq[2]) ./ [1e-3 1e-4 5e-4 1e-4]) < 5e-14
+
     # Skew quadrupole (MK):
     ele = LatElement(L=2.0, Kn1=0.1, tilt1=pi/4, tracking_method=MatrixKick(order=6), n_steps=2, fringe_at=Fringe.NoEnd)
     v = [0.01 0.02 0.03 0.04 0.05 0.06] .+ collect(transpose(@vars(D1)))
@@ -767,29 +779,68 @@
     @test b0.coords.v ≈ v_expected
     @test b0.coords.q ≈ q_expected 
 
-    # Sextupole hard-edge fringe:
+    # Sextupole hard-edge fringe: v_expected from Xsuite 0.118.7 (converged, same in MAD-NG 1.1.15
+    # to 1e-16); q_expected from this code converged (order 8, 100 steps), as no other code tracks
+    # spin through the fringe (its edge term is checked against a soft edge in the next test)
     ele = LatElement(Kn2=0.5, L=1.0, tracking_method=DriftKick(order=6), n_steps=5, fringe_at=Fringe.BothEnds)
     v = [0.01 0.02 0.03 0.04 0.05 0.06]
     q = [1.0 0.0 0.0 0.0]
     b0 = Bunch(v, q, p_over_q_ref=p_over_q_ref, species=Species("electron"))
     bl = Beamline([ele], p_over_q_ref=p_over_q_ref, species_ref=Species("electron"))
     track!(b0, bl)
-    v_expected = [0.029075666880242136 0.020525099133765507 0.06794414674149704 0.04050540355923974 0.049241843719512624 0.06]
-    q_expected = [0.9999999375534044 -0.00024519551404647864 0.0002543141811614925 -9.830777449218975e-6]
+    v_expected = [0.029075256782446286 0.02052553672001775 0.06794380694377568 0.040506272502230496 0.049241864626511964 0.06]
+    q_expected = [0.9999999375900647 -0.0002451991212119748 0.0002543080077319691 -4.972187620139932e-6]
     @test b0.coords.v ≈ v_expected
     @test b0.coords.q ≈ q_expected 
 
-    # Rotated sextupole hard-edge fringe:
+    # Rotated sextupole hard-edge fringe (sources as above):
     ele = LatElement(Kn2=0.5, Ks2=-0.2, L=1.0, tracking_method=DriftKick(order=6), n_steps=5, fringe_at=Fringe.BothEnds)
     v = [0.01 0.02 0.03 0.04 0.05 0.06]
     q = [1.0 0.0 0.0 0.0]
     b0 = Bunch(v, q, p_over_q_ref=p_over_q_ref, species=Species("electron"))
     bl = Beamline([ele], p_over_q_ref=p_over_q_ref, species_ref=Species("electron"))
     track!(b0, bl)
-    v_expected = [0.02900599517398948 0.02032339692460833 0.06802053073622032 0.04071555997933849 0.049240267276727936 0.06]
-    q_expected = [0.9999999275329406 -0.00034694999341466025 0.00015671064047936356 1.2604038281466984e-6]
+    v_expected = [0.02900581093311708 0.020323758290367235 0.06802001724569114 0.04071657169152808 0.04924029050442339 0.06]
+    q_expected = [0.9999999275337219 -0.0003469493640866886 0.00015671087382109402 6.35910024374393e-7]
     @test b0.coords.v ≈ v_expected
-    @test b0.coords.q ≈ q_expected 
+    @test b0.coords.q ≈ q_expected
+
+    # Sextupole hard-edge fringe alone (BothEnds - NoEnd), normal and skew: it takes the field
+    # coefficients of (x + i*y)^2, Kn2/2! and Ks2/2! (it used Kn2 and Ks2, as Bmad does). Orbit
+    # from Xsuite 0.118.7 and MAD-NG 1.1.15 (PTC's multipole fringe, identical to 1e-18). Spin x->y
+    # from Thomas-BMT through a soft-edge sextupole with Maxwell-consistent fringe fields,
+    # extrapolated to zero edge length (to 1e-3), for a proton at pc = 1 GeV.
+    R_e = Beamlines.pc_to_R(Species("electron"), 1.784626263654482e10)
+    for (k, dv_expected) in (
+        ((Kn2=-5.695,), [1.531965e-13 -1.218299e-14 5.357574e-14 -1.705024e-14]),
+        ((Ks2=3.1,), [-2.721261e-14 1.403931e-14 8.600244e-14 3.894576e-15]))
+      vf = Matrix{Float64}[]
+      for fa in (Fringe.BothEnds, Fringe.NoEnd)
+        ele = LatElement(; L=0.57, k..., tracking_method=DriftKick(order=8), n_steps=20,
+                         fringe_at=fa)
+        b0 = Bunch([1e-3 1e-4 5e-4 -1e-4 0.0 1e-3], p_over_q_ref=R_e, species=Species("electron"))
+        track!(b0, Beamline([ele], p_over_q_ref=R_e, species_ref=Species("electron")))
+        push!(vf, b0.coords.v[:, 1:4])
+      end
+      @test vf[1] - vf[2] ≈ dv_expected rtol=1e-3
+    end
+    R_p = Beamlines.pc_to_R(Species("proton"), 1e9)
+    for (k, dsy_expected) in (((Kn2=1000.0,), -1.367040172562144e-7),
+                              ((Ks2=1000.0,), 4.708532469569922e-7))
+      sy = Float64[]
+      for fa in (Fringe.BothEnds, Fringe.NoEnd)
+        ele = LatElement(; L=0.3, k..., tracking_method=DriftKick(order=8), n_steps=200,
+                         fringe_at=fa)
+        bl = Beamline([Drift(L=0.5), ele, Drift(L=0.5)], p_over_q_ref=R_p,
+                      species_ref=Species("proton"))
+        b0 = Bunch([2e-3 1e-4 1e-3 -2e-4 0.0 0.0], [1.0 0.0 0.0 0.0], p_over_q_ref=R_p,
+                   species=Species("proton"))
+        track!(b0, bl)
+        q1 = b0.coords.q
+        push!(sy, 2*(q1[1,2]*q1[1,3] + q1[1,1]*q1[1,4]))
+      end
+      @test sy[1] - sy[2] ≈ dsy_expected rtol=1e-3
+    end
 
     # Normal dipole + sextupole hard-edge fringes, without and with RF: by mid-plane symmetry
     # a particle with y = py = 0 stays at y = py = 0

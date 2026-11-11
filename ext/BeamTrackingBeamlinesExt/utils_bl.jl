@@ -105,22 +105,25 @@ no loss in computing both but benefit of branchless.
   bmn = getfield(bm, :n)
   bms = getfield(bm, :s)
   bmtilt = getfield(bm, :tilt)
+  # A PreParameter reference momentum (prepared tracking with a time dependent reference energy)
+  # does not enter T: the strengths stay numbers, and only those divided by it are PreParameters
+  ptype = p_over_q_ref isa PreParameter ? typeof(L) : typeof(p_over_q_ref)
   if isconcretetype(eltype(bmn))
     T = promote_type(eltype(bmn),
-                    typeof(L), typeof(p_over_q_ref)
+                    typeof(L), ptype
     )
   else
     if bmn isa AbstractArray
       T = promote_type(reduce(promote_type, typeof.(bmn)), 
                       reduce(promote_type, typeof.(bms)),
                       reduce(promote_type, typeof.(bmtilt)),
-                      typeof(L), typeof(p_over_q_ref)
+                      typeof(L), ptype
       )
     else
       T = promote_type(typeof(bmn), 
                       typeof(bms),
                       typeof(bmtilt),
-                      typeof(L), typeof(p_over_q_ref)
+                      typeof(L), ptype
       )
     end
   end
@@ -130,25 +133,26 @@ no loss in computing both but benefit of branchless.
   order = getfield(bm, :order)
   normalized = getfield(bm, :normalized)
   integrated = getfield(bm, :integrated)
+  uniform = T <: TimeDependentParam || p_over_q_ref isa PreParameter
   np = @. n*cos(order*tilt) + s*sin(order*tilt)
   sp = @. -n*sin(order*tilt) + s*cos(order*tilt)
   # With TimeDependentParams the two sides of an ifelse have different types, so the broadcast would 
   # build its element type at runtime (slow, especially on Julia >= 1.11). When all orders agree, 
-  # do the same operations without the ifelse (T <: TimeDependentParam constant-folds for numbers)
-  if T <: TimeDependentParam && all(normalized)
+  # do the same operations without the ifelse (uniform constant-folds for numbers)
+  if uniform && all(normalized)
     np = @. np*field_scale
     sp = @. sp*field_scale
-  elseif T <: TimeDependentParam && !any(normalized)
+  elseif uniform && !any(normalized)
     np = @. np/p_over_q_ref
     sp = @. sp/p_over_q_ref
   else
     np = @. ifelse(!normalized, np/p_over_q_ref, np*field_scale)
     sp = @. ifelse(!normalized, sp/p_over_q_ref, sp*field_scale)
   end
-  if T <: TimeDependentParam && all(integrated)
+  if uniform && all(integrated)
     np = @. np/L
     sp = @. sp/L
-  elseif !(T <: TimeDependentParam && !any(integrated))
+  elseif !(uniform && !any(integrated))
     np = @. ifelse(integrated, np/L, np)
     sp = @. ifelse(integrated, sp/L, sp)
   end
@@ -159,22 +163,25 @@ end
   bmn = getfield(bm, :n)
   bms = getfield(bm, :s)
   bmtilt = getfield(bm, :tilt)
+  # A PreParameter reference momentum (prepared tracking with a time dependent reference energy)
+  # does not enter T: the strengths stay numbers, and only those divided by it are PreParameters
+  ptype = p_over_q_ref isa PreParameter ? typeof(L) : typeof(p_over_q_ref)
   if isconcretetype(eltype(bmn))
     T = promote_type(eltype(bmn),
-                    typeof(L), typeof(p_over_q_ref)
+                    typeof(L), ptype
     )
   else
     if bmn isa AbstractArray
       T = promote_type(reduce(promote_type, typeof.(bmn)), 
                       reduce(promote_type, typeof.(bms)),
                       reduce(promote_type, typeof.(bmtilt)),
-                      typeof(L), typeof(p_over_q_ref)
+                      typeof(L), ptype
       )
     else
       T = promote_type(typeof(bmn), 
                       typeof(bms),
                       typeof(bmtilt),
-                      typeof(L), typeof(p_over_q_ref)
+                      typeof(L), ptype
       )
     end
   end
@@ -184,25 +191,26 @@ end
   order = getfield(bm, :order)
   normalized = getfield(bm, :normalized)
   integrated = getfield(bm, :integrated)
+  uniform = T <: TimeDependentParam || p_over_q_ref isa PreParameter
   np = @. n*cos(order*tilt) + s*sin(order*tilt)
   sp = @. -n*sin(order*tilt) + s*cos(order*tilt)
   # With TimeDependentParams the two sides of an ifelse have different types, so the broadcast would 
   # build its element type at runtime (slow, especially on Julia >= 1.11). When all orders agree, 
-  # do the same operations without the ifelse (T <: TimeDependentParam constant-folds for numbers)
-  if T <: TimeDependentParam && all(normalized)
+  # do the same operations without the ifelse (uniform constant-folds for numbers)
+  if uniform && all(normalized)
     np = @. np*field_scale
     sp = @. sp*field_scale
-  elseif T <: TimeDependentParam && !any(normalized)
+  elseif uniform && !any(normalized)
     np = @. np/p_over_q_ref
     sp = @. sp/p_over_q_ref
   else
     np = @. ifelse(!normalized, np/p_over_q_ref, np*field_scale)
     sp = @. ifelse(!normalized, sp/p_over_q_ref, sp*field_scale)
   end
-  if T <: TimeDependentParam && !any(integrated)
+  if uniform && !any(integrated)
     np = @. np*L
     sp = @. sp*L
-  elseif !(T <: TimeDependentParam && all(integrated))
+  elseif !(uniform && all(integrated))
     np = @. ifelse(!integrated, np*L, np)
     sp = @. ifelse(!integrated, sp*L, sp)
   end

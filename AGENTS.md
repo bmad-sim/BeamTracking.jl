@@ -50,8 +50,11 @@ touches both repositories; their versions are coupled (BeamTracking 0.9 needs Be
   `track!(bunch, ::LatElement)`), includes.
 - `utils_bl.jl`: `TrackReference`, `resolve_reference!`, `get_strengths`/`get_integrated_strengths`/
   `get_e_strengths`, `rf_omega_calc`, `rf_phi0_calc`, `rf_step_calc`, `drift_params(species, p_over_q_ref) -> (tilde_m, gamsqr_0, beta_0)`.
-- `unpack_bl.jl`: `_ConcreteUniversalParams`, `_SliceUniversalParams`, `LoweredElement`, `_track!` 
+- `unpack_bl.jl`: `_SliceUniversalParams`, `LoweredElement`, `_track!` 
   (dynamic layer), `universal!` (after the function barrier).
+- `prepared_bl.jl`: kernel chains (see "Kernel chains and prepared tracking"): `PreParameter`, 
+  `PreKernelChain`, `process_preparameter(s)`, `run_chain!`, `run!`, `push_chain!`, `prepare`, 
+  `track!(bunch, ::Vector{PreKernelChain})`. Not exported.
 - `general_bl.jl`: `ibs_kick`, `alignment(kc, alignmentparams, bendparams, L, s, entering)`, `aperture`. 
   `ibs_kick` computes the bunch statistics and the number of particles from the live particles 
   only (`weights` zero for lost ones; `w`/`w_inv` there are the bend tilt rotations).
@@ -76,8 +79,9 @@ touches both repositories; their versions are coupled (BeamTracking 0.9 needs Be
      essential**, see "Performance rules"), `deval`s each group, replaces inactive groups and 
      `RFParams` with `rf_on = false` by `nothing`, optionally scalarizes (also `ref`).
    - `tm = universalparams.tracking_method` (error if `nothing`).
-   - With `n_slices == 1`, calls `@noinline universal!(bunch, tm, ele, _ConcreteUniversalParams(universalparams), <groups positionally>, ref, <Vals>, batch_start)`; 
-     otherwise calls it once per slice with `_SliceUniversalParams(universalparams, k)` (see "Slices").
+   - Calls `@noinline universal!(bunch, tm, ele, _SliceUniversalParams(universalparams, k), <groups 
+     positionally>, ref, <Vals>, batch_start, sink)` once per slice (k = 1 of 1 for a whole element, 
+     see "Slices").
 3. `universal!` (after the barrier, all types known):
    - Evaluates `p_over_q_ref` at `bunch.t_ref` (a number; time dependent references are only kept 
      as functions for the per-particle ramp) and computes the reference times and energies at full 
@@ -88,7 +92,9 @@ touches both repositories; their versions are coupled (BeamTracking 0.9 needs Be
      (`reference_momentum_shift!`), entrance aperture/alignment, `fringe_body_fringe`, exit 
      aperture/alignment, exit ramp (per-particle ramp only), `reference_time_shift!` (different 
      species only). The `LoweredElement` is built just before `fringe_body_fringe`.
-   - `@noinline launch!(bunch.coords, kc)`, then sets `bunch.t_ref` and `bunch.p_over_q_ref`.
+   - Tracking (`sink` is the Bunch): `@noinline run_chain!(bunch, kc)` (evaluates the `PreParameter`s, 
+     launches), then sets `bunch.t_ref` and `bunch.p_over_q_ref`. Otherwise `push_chain!(sink, …)` 
+     (see "Kernel chains and prepared tracking").
    - `ref` (`TrackReference`) is the only source of the tracking `p_over_q_ref`. In 
      `fringe_body_fringe`, `ele.ref.p_over_q_ref` is that value evaluated at the element entrance, 
      except with the per-particle ramp, where it is the `TimeDependentParam` (so everything derived 
@@ -106,6 +112,13 @@ touches both repositories; their versions are coupled (BeamTracking 0.9 needs Be
 - Straight `edge_params`: `(a, tilde_m, Ksol, Kn0, Ks0, Kn1, Ks1, Kn2, Ks2)` (absent entries 
   `nothing`). Bend `edge_params`: `(a, tilde_m, beta_0, Kn0, w, w_inv, e1, e2)`. Edge angles are 
   part of the fringe, so they follow `fringe_at`.
+- The straight hard-edge fringe (`fringe!` in `src/kernels/fringe.jl`, PTC's multipole fringe) 
+  takes the field coefficients of `(x + i*y)^n`, i.e. `Kn/n!`: `Kn2/2` for sextupoles, in the 
+  orbit and the spin (`bz` is the jump of the scalar potential, `(Kn/n!)/(n+1) Im[(x+i*y)^(n+1)]`). 
+  It used `Kn2` like Bmad (whose `hard_multipole_edge_kick` uses `k2` for sextupoles but `Kn/n!` 
+  for `sad_mult`): twice the fringe. Checked against Xsuite and MAD-NG (orbit, to 1e-18) and the 
+  zero-edge-length limit of a Maxwell-consistent soft-edge sextupole with Thomas-BMT (orbit, 
+  dominant spin rotation; tested in `BeamlinesExt_symplectic_test.jl`).
 - Strengths: `get_strengths(ele.bmultipoleparams, L, p_over_q_ref, ele.ref.field_scale)` with the 
   **element** length `L` (integrated strengths are per element length, also in a slice).
 - RF: `omega = rf_omega_calc(ele.rfparams, ele.beamlineparams, ele.ref)`, `t_ref = (rf_phi0_calc(ele.rfparams, ele.ref.species_ref) - 3pi/2)/omega` (see "RF phase"), 
@@ -140,6 +153,11 @@ touches both repositories; their versions are coupled (BeamTracking 0.9 needs Be
   particle at the kick (`t = t_ref - τ/c` after `bmad_to_mad!`).
 - `reference_momentum_shift!`/`reference_time_shift!` use `muladd` (never a local `fma` that 
   shadows `Base.fma`).
+- `sincu`/`sinhcu` (`src/utils/math_simd.jl`): Taylor series through `x^8` for `|x| < 0.1`, 
+  `sin(x)/x` above, for every float type; within 1 eps (Float64, Float32) and ForwardDiff 
+  derivatives to ~1e-14 (those of `sin(x)/x` cancel near 0). TPS arguments use GTPSA's own 
+  `sincu`. A series to `x^2` below 0.004 had been off by up to 2e-12 (bends and coordinate 
+  transforms with small angles; it made exact bends depend on `n_steps` at 1e-12).
 - `TimeDependentParam{F<:TimeFunction}` is parametric, so operations on it build closures of known 
   types and evaluation is type stable (see "Performance rules").
 - Float32/Float16 tracking: `num_lower(T, ::TimeFunction)` rebuilds the closure tree with the 
@@ -202,17 +220,95 @@ touches both repositories; their versions are coupled (BeamTracking 0.9 needs Be
   decelerated at `Accelerating`. The SaganCavity tests swap `AboveTransition`/`BelowTransition` 
   in their lattice instead, so they keep their numbers.
 
+### Kernel chains and prepared tracking
+
+- `universal!` builds the chain of an element (slice) and passes it to `sink`: the Bunch tracked 
+  (`track!`: launched at once with `run_chain!`, then the Bunch's `t_ref` and `p_over_q_ref` are 
+  set) or a `Vector` (`prepare`: stored as `PreKernelChain(kc, dt, p_over_q_ref_exit)`; the copy of 
+  the Bunch used for building gets `p_over_q_ref_exit` unless it is only known at the call). 
+  `track!(bunch, chains)` runs the stored chains: `run!` evaluates the `PreParameter`s, launches, 
+  then `t_ref += dt` and sets `p_over_q_ref`. `universal!` is never part of a chain: every element 
+  is lowered once, also with a time dependent reference energy and IBS. 
+- `track!(bunch, bl)` deliberately does not go through `prepare` (the maintainer's decision): 
+  storing the chains boxes each one and adds a dynamic call per element (+0.6 ms per ESR turn for 
+  one particle). Code that tracks the same Beamline many times calls `prepare` itself (SciBmad's 
+  `track` and `dynamic_aperture`; not `find_closed_orbit`, which tracks each coordinate type 
+  about once).
+- What depends on the Bunch at the call is a `PreParameter` in the chain (only when preparing; 
+  `track!` computes everything at once): `bunch.t_ref` (`RefState` `t_enter`/`t_exit`, the 
+  `reference_time_shift!` argument); with a time dependent reference energy the reference momentum 
+  at the element, `PreParameter(b -> p(b.t_ref))`, and everything computed from it (the `RefState` 
+  energies, `dt`, the exit reference, and without the per-particle ramp every strength computed in 
+  the lowering); the Bunch's reference momentum (the ramp shifts); the IBS statistics 
+  (`ibs_stats`, one `PreParameter`, so they are computed once per call: the IBS kernel takes them 
+  as one tuple argument).
+- `PreParameter` has arithmetic like `TimeDependentParam` (`+ - * / ^`, `literal_pow`, `sqrt`, 
+  `sin`, …, `atan2`), so the lowering code is unchanged; comparisons error (a decision that 
+  depends on the call cannot be made when preparing). `get_strengths`/`get_integrated_strengths` 
+  keep a `PreParameter` reference momentum out of the strengths' type (they stay numbers; only 
+  those divided by it are `PreParameter`s) and use the uniform branches as for 
+  `TimeDependentParam`. `num_lower` of a `PreParameter` lowers its value at the call to the 
+  coordinates' type; `process_preparameters` also looks inside tuples, named tuples and static 
+  arrays of kernel arguments (only if the type contains a `PreParameter`: `has_preparameter` is a 
+  `@generated` compile-time constant, else static prepared tracking was 12x slower).
+- A `PreParameter` is one closure `bunch -> value` that calls the closures of the `PreParameter`s it 
+  is computed from directly (like `TimeFunction`s). Evaluating nested `PreParameter`s through one 
+  recursive method defeated type inference: a prepared ramp took 23.6 ms per ESR turn for one 
+  particle (vs 2.2 ms rebuilding the chains) instead of 0.98 ms. Captured values must be concrete 
+  (a captured type is stored as a `DataType`: runtime dispatch, caught by the JET test of 
+  `universal!`).
+- With a time dependent reference energy (without the per-particle ramp) the 
+  `reference_momentum_shift!` is always in a prepared chain (whether the reference changes is only 
+  known at the call); the kernel skips a zero shift (`(bg*pz - 0)/bg` rounded pz: 1 ulp in one of 
+  the 38 bitwise cases, positrons through a SaganCavity, confirmed by removing the skip). 
+  SaganCavity with a time dependent reference is not supported (also not unprepared) and errors 
+  when preparing.
+- Results (ESR, Julia 1.10, Apple M4, one particle, per turn): prepared static 0.50 ms, ramp 
+  0.92-1.11 ms (2.17-2.21 rebuilding the chains at every call), per-particle ramp 1.63-1.70 ms 
+  (5.87-6.10); 1000 particles unchanged (kernel bound). Prepared tracking is bitwise equal to 
+  `track!` per turn for static lines, both ramp modes (Float64 and Float32), other species, 
+  SaganCavity, IBS (also with a ramp), slices, spin. Negative controls: the reference energy 
+  evaluated at preparation fails 10 checks, stale IBS statistics 1. Compile: first prepare + 
+  prepared track! of a ramped ESR 6.3 s, as before.
+- Decided against: the per-particle ramp's shift kernels reading the bunch reference and 
+  `beta_gamma_exit` from the `RefState` (a new field); the `PreParameter` arguments already prepare 
+  it fully. `ramp_update_each_particle` stays `false` by default (prepared per-particle ramp 1.7 vs 
+  1.0 ms for one particle, 2.3x at 1000: the time function is evaluated per particle in the 
+  kernels; the transforms for callbacks are disabled with it since d7d2882).
+- Benchmarks: `SUITE["esr prepared"]` has both ramp modes (1 and 100 particles); 
+  `test/performance_test.jl` checks prepared ramps allocate independently of the particle count 
+  and take < 0.8x a static `track!` for one particle (0.25x and 0.42x on Apple M4).
+- Reference momentum changes: the particles are shifted by exactly the change of the value the 
+  Bunch stores (`convert(typeof(bunch.p_over_q_ref), …)`; shifted iff it changes; the per-particle 
+  ramp ends at the stored value; SaganCavity's ramp the same). An approximate comparison 
+  (`≈`, 1.5e-8 per element, 3.4e-4 for a Float32 reference) used to skip slow ramp steps while 
+  storing them: a 3.3e-6 ramp over 1000 drifts was lost, every Float32 ramp below 3.4e-4 per 
+  element was lost, and the Float32 per-particle ramp drifted (26% there). Test "Slow reference 
+  momentum ramp" (`time_test.jl`; 6 of 12 fail without the fix); a Float32 ramp now agrees with 
+  Float64 to 1.6e-8 (8.3e-6 before); everything else is bitwise unchanged (38 cases).
+
 ### Slices (`n_slices > 1`)
 
 - Each slice is tracked like an element of length `L/n_slices` with its own `launch!`: the reference 
   is re-evaluated (ramped) and IBS recomputed at its start; the entrance fringe and aperture only 
   in the first slice, the exit ones only in the last; misalignments transform in at the slice 
   entrance and out at its exit, so the Bunch is in the lab frame between slices.
-- `_SliceUniversalParams{A,F,RD,RF,FIRST,LAST}` has the element `L`, per-slice `n_steps`/`ds_step`, 
-  `s0`, `L_slice`, `s_end` (exactly the next slice's `s0`, or `L`), `fringe_at` reduced to the element 
-  ends and the element's own `element_fringe_at`. `_ConcreteUniversalParams`'s `getproperty` returns 
-  the constants `s0 = 0`, `L_slice = s_end = L`, `first_slice = last_slice = true`, 
-  `element_fringe_at = fringe_at`, so the `n_slices = 1` code is unchanged.
+- `_SliceUniversalParams{A,F,RD,RF,FIRST,LAST}` (also for a whole element, k = 1 of 1; it replaced 
+  `_ConcreteUniversalParams`) has the element `L`, per-slice `n_steps`/`ds_step`, `s0`, `L_slice`, 
+  and `fringe_at` reduced to the element ends. Its `getproperty` returns `s0 = 0` (an `Int` 
+  constant) for a first slice and `L_slice = L` for a whole element, as `_ConcreteUniversalParams` 
+  did, so results and types are unchanged (38 tracking cases, ESR and sliced-FODO `twiss`/`track` 
+  bitwise). Write the conditions as nested ternaries on the type parameters 
+  (`key === :s0 ? (FIRST ? 0 : getfield(up, :s0)) : …`): with `key === :s0 && FIRST ? 0 : …` 
+  `s0` was inferred `Union{Int, Float64}` and the `KernelChain` was boxed (+0.7 MB per ESR turn). 
+  A whole element's struct is built by `_whole_element`, which branches on `fringe_at`, 
+  `rad_damping` and `rad_fluctuations` (16 cases) so that each branch builds a type known at 
+  compile time: built from those run-time values, the type is looked up in Julia's type cache at 
+  every element, and the lookup grows with the number of type parameters (`_ConcreteUniversalParams` 
+  124 ns per element, with `FIRST`/`LAST` 144-152 ns, `_whole_element` 24 ns). `track!` for one 
+  particle on ESR: 3.78-3.82 ms with `_ConcreteUniversalParams`, 3.89-4.36 with the run-time 
+  slice type, 3.16-3.20 ms now (allocations 3.36 -> 3.26 MB); compile time unchanged; results 
+  bitwise equal (38 cases, ESR and sliced-FODO `twiss`/`track`).
 - RF needs no `s0`: the kick phase is relative to the reference particle at the kick, and the 
   per-slice time shift re-aligns z with the design clock, so the slip restarts. Verified for all 
   `zero_phase`s, `phi0 ≠ 0`, DriftKick/SolenoidKick and a different species (sliced == pieces, 
@@ -227,7 +323,9 @@ touches both repositories; their versions are coupled (BeamTracking 0.9 needs Be
   kernels apply the reference energy steps of the kicks before the window to `P0c` only; 
   `sagan_window_ref` gives the reference time and energies of the window, and the Bunch leaves each 
   slice at the reference energy reached there. SaganCavity honors the element's `fringe_at` (its 
-  fringes are at the ends of the active region, which can be inside a slice). Not supported with a 
+  fringes are at the ends of the active region, which can be inside a slice, so its `universal!` 
+  reads `fringe_at` from the element, not the slice's) and computes the slice end as exactly the 
+  next slice's `s0`, so `_SliceUniversalParams` needs nothing for it. Not supported with a 
   time dependent reference.
 - Not supported: elements with `PatchParams` or `MapParams`.
 - The number of integrator steps (and of callbacks) of an element is always `n_slices*n_steps`: 
@@ -248,12 +346,83 @@ touches both repositories; their versions are coupled (BeamTracking 0.9 needs Be
 
 ## Performance rules
 
+- Transcendental functions (`sqrt`, `sin`, `cos`, `sinh`, `cosh`, …) of a SIMD `Vec` run lane by 
+  lane (not vectorized) and are slow per particle too. Where the argument is small, a Taylor series 
+  in Horner form (`x*(one(x)/n)` folds to a constant of the number type) behind `all(abs(x) < r)` 
+  (one compare, plus one reduction for a `Vec`; a plain branch per thread on GPUs) is faster and as 
+  accurate: `sincos_quaternion` (MatrixKick, spin) through x^10 for |x| < 1, 0.76 eps max vs 1.35 
+  for the functions, derivatives 3e-16 vs 1e-8 (the old small-x branch). Gain: ESR prepared 
+  1000 particles 217 -> 163 ms, the benchmark's 1-particle setting 1.80 -> 1.30 ms; compile time 
+  unchanged; Float32 and Metal errors statistically unchanged (RMS over 100 particles). Test the 
+  series against BigFloat with a negative control on a coefficient whose term is above round-off.
+- The exact bend (`bend_kick.jl`) uses `asin_s`, `sincos_s`, `sin_s`, `atan2_s` (`math_simd.jl`), 
+  series for floats and `Vec`s of them only (TPS and Duals keep the functions): ESR prepared 
+  10-1000 particles 8-10% faster, one particle unchanged within noise (A/B with a series for `Vec`s 
+  only: same); Float64 results change by 4e-15 after 2 ESR turns; Metal and CPU agree better 
+  (same polynomial instead of two math libraries). Without 64-byte lanes the gain is about half 
+  of the first round's (-15%), where the per-lane functions cost more.
+- The series' branch on GPUs: a GPU group (warp) pays both paths only if its particles straddle 
+  the threshold. The arguments are nearly the same for all particles: `k1 s^2/(4(1+δ))` in 
+  MatrixKick (differs by δ ~ 1e-3), and in the exact bend px/pt (asin), the bend angle per step 
+  plus ~px (sincos, spin) and ~x/L (atan2). A group splits only if `k1 s^2/4` is within ~0.1% of 
+  1, or the bend angle per step within ~1e-3 of 0.1 rad. Measured on Metal (10^7 threads x 100 
+  evaluations, Float32): `sincos_quaternion` uniform small arguments 2x faster, uniform large +4%, 
+  alternating per thread (worst case, every group split) +20%; bend series with uniform arguments 
+  10-20% faster than the functions (asin 13.8 vs 15.2 ms, sincos 14.8 vs 17.5, sin 12.9 vs 16.4, 
+  atan2 13.7 vs 16.3). ESR on Metal is dominated by the ~4900 kernel launches per turn (10^4 and 
+  10^5 particles take about as long): fusing launches would be a separate project.
+- Apply the series to all floats, not only to SIMD `Vec`s: they are faster on every path. Without 
+  explicit SIMD (`use_explicit_SIMD=false`, plain loop) ESR prepared 1000 particles 272-286 -> 
+  207 ms (-25%), one particle 0.61 -> 0.53 ms: the compiler did not vectorize these kernels before 
+  either (the calls to sin, asin, sqrt prevent it), and the series beats the scalar functions. With 
+  SIMD 221-228 -> 149 ms (-33%, both series). SIMD lanes and the scalar loop do not give bitwise 
+  equal results anyway (ESR 3 turns: 1.9e-13 Float64, 2.7e-5 Float32 without the series; the same 
+  with them), so restricting the series to `Vec`s would not make them consistent either.
+- Tried and rejected (no measurable gain, 2 A/B runs with and without SIMD): `sincu`/`sinhcu` 
+  returning the series without evaluating `sin(x)/x` when all arguments are small 
+  (`all(small) ? s : vifelse(...)`); the first round measured -3% before the bend series. TPS do 
+  not use this `sincu`: BeamTracking extends `GTPSA.sincu`, whose `TPS` method is more specific.
+- SIMD lane width (under evaluation, Nov 2026): 64-byte vectors (`max(native, 64 ÷ sizeof(T))`, 8 
+  Float64 / 16 Float32) instead of the native width. Apple M4 (native 2 Float64, 4 Float32), ESR 
+  prepared: Float64 1000 particles 146-151 -> 74 ms (2.0x), 100: 14.5-15.1 -> 8.2; Float32 1000: 
+  67-68 -> 36 ms (1.86x). Alone it is slower when many particles are left for the scalar remainder 
+  loop (Float32 4-15 and 31 particles up to 1.9x slower, Float64 2-7 up to 1.35x), so the remainder 
+  first goes through native-width vectors: then every count is at least as fast as the native 
+  width. Cost: a third compiled variant of every kernel chain (first `track!` on ESR 4.8-5.0 -> 
+  6.1 s). x86 not measured: x86 Julia under Rosetta cannot load the arm64 GTPSA_jll override, 
+  and Rosetta timings would not show native x86 anyway. Register budget: AVX2 holds as many 
+  64-byte vectors (16 x 32 B) as NEON (32 x 16 B), AVX-512 is unchanged (native 64 B), SSE-only 
+  CPUs hold half. Batching (`lane2vec`) works for any width.
+  A/B script for another machine: `~/scibmad-benchmarks/lane-width/` (`run_lanes.jl`; with 
+  `-C haswell` an AVX-512 machine runs AVX2 code, and HostCPUFeatures reports the AVX2 width 
+  because it follows Julia's CPU target). GitHub's ubuntu runners (Benchmark.yml) are x86 too.
+  Don't use `-C haswell` under WSL: it recompiles every package for that target and killed WSL 
+  (and HostCPUFeatures warned it kept stale feature flags).
+  Measured on x86 (the maintainer's laptop under WSL; Julia sees AVX2, native 4 Float64 / 8 
+  Float32), best of 2 runs: Float64 1000 particles 151 -> 122 ms (1.24x), 100: 16.0 -> 13.7; 
+  Float32 1000: 65 -> 48 ms (1.35x), 100: 9.8 -> 8.0; 1-31 particles equal within noise or faster 
+  (largest slowdown +5% at Float32 9 particles; the two native runs differed by up to 20%).
+  Further checks (Apple M4): results bitwise equal to the native width in all 38 bitwise cases 
+  (vectors of any width compute lane by lane the same; only the scalar loop differs, which the 
+  native-width remainder avoids); with 8 threads equal or faster at every count (10^4 particles 
+  261-271 -> 158-161 ms); both full test suites pass. SciBmad precompile workload: 153 -> 158 s, 
+  peak memory 10.7 -> 12.9 GB, binary 391 -> 459 MB (each kernel chain compiled for 3 variants). 
+  Unrelated finding: `use_cpu_multithreading=true` costs ~42 ms per ESR turn below ~256 particles 
+  (the `Threads.@threads` overhead per element; one particle single-threaded takes 0.5 ms).
+  Portability: AVX-512 and SVE-512 are unchanged by construction (native = 64 bytes); not 
+  measured: SVE-256 (Graviton 3, like AVX2), SSE-only x86 and the generic 16-byte targets (half the 
+  register budget of NEON/AVX2 for these vectors).
+- `benchmark/benchmarks.jl` has prepared tracking (`SUITE["esr prepared"]`, Float64 and Float32, 
+  1/2/10/15/100/1000 particles; only on revisions that have `prepare`) and counts that do not 
+  fill the SIMD vectors (2, 10, 15; Float32 15). `test/performance_test.jl` checks that prepared 
+  tracking allocates about once per element independent of the particle count (4891 on ESR vs 
+  81438 for `track!`) and that one particle takes < 0.4x `track!` (0.14x on Apple M4).
 - `_track!` is dynamic; `universal!` is behind a `@noinline` function barrier. Anything fixed for 
   a whole `track!` call that changes types crosses the barrier as a `Val`, built once per call. 
   Never build `Val{runtime_bool}()`: use `cond ? Val{true}() : Val{false}()`.
 - Per-element settings that change types cross the barrier as **type parameters of a struct that 
   already crosses it**, with a `getproperty` returning the type parameter, so call sites stay 
-  unchanged and constant-fold: `fringe_at`, `rad_damping`, `rad_fluctuations` (`_ConcreteUniversalParams`), 
+  unchanged and constant-fold: `fringe_at`, `rad_damping`, `rad_fluctuations` (`_SliceUniversalParams`), 
   `order`/`opt_scheme`/`use_newton` (the tracking methods in Beamlines), slice flags.
 - In the dynamic layer every call on an untyped value is a dynamic dispatch, and its cost depends 
   on the method table (`in(::Type, ::Any)` was extremely slow). Type-assert values of known type, 
@@ -401,8 +570,10 @@ and batches, also on Metal; Dual/TPS element lengths; one RF phase convention fo
 methods) are merged. Branch `noinline2`: integrators with one kernel call site (`integrate_steps!`, 
 see "Performance rules"); it replaces the old `noinline` branch (PR #365).
 
-ESR, Julia 1.10, Apple silicon, 1 particle: `main` 18.8 ms → 3.9 ms (81,438 allocations); ramped 
-reference 4.7 ms; per-particle ramp 1/100/1000 particles 9/57/483 ms (Julia 1.13: 9.5 ms for 1).
+ESR, Julia 1.10, Apple M4, per turn (Nov 2026, branch `prepare`): `track!` 1 particle 3.2 ms 
+(3.26 MB allocated); prepared (`prepare`, as SciBmad's `track`/`dynamic_aperture` use it) 1/10/
+100/1000 particles 0.50/1.3/8.0/75 ms (Float32 1000: 36 ms), ramp 1.0 ms, per-particle ramp 1.7 ms 
+for one particle. Older: `main` 18.8 ms → 3.9 ms (`noinline2`)
 
 Open items:
 - SaganCavity does not support a ramped reference (`rf_step_calc` rounds a time dependent 
@@ -413,7 +584,7 @@ Open items:
   it is 245 MB), the rest is SciBmad's own workload.
 - Radiation fluctuations (`rad_fluctuations`) allocate 4 times per particle without explicit SIMD 
   (also on `main` before `noinline2`).
-- Remaining unpacking costs (ESR profile): the `_ConcreteUniversalParams` construction (dynamic 
+- Remaining unpacking costs (ESR profile, before `_whole_element`, which removed most of the first): the `_SliceUniversalParams` construction (dynamic 
   type with runtime type parameters) ~11%, data-dependent unions after the barrier ~6% (fixing 
   them must not slow down general multipoles), the barrier dispatch ~5%. `deval` of a parameter 
   group without any `DefExpr` returns the group itself (~4 ns; it used to rebuild it, 50 ns for 
