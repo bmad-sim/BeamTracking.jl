@@ -327,7 +327,6 @@ touches both repositories; their versions are coupled (BeamTracking 0.9 needs Be
   reads `fringe_at` from the element, not the slice's) and computes the slice end as exactly the 
   next slice's `s0`, so `_SliceUniversalParams` needs nothing for it. Not supported with a 
   time dependent reference.
-- Not supported: elements with `PatchParams` or `MapParams`.
 - The number of integrator steps (and of callbacks) of an element is always `n_slices*n_steps`: 
   elements tracked in one step (patches, maps, SaganCavity, whose kicks are set by `n_cells`) 
   error for `n_steps > 1`, and Beamlines forces `n_steps = n_slices = 1` for zero length. SciBmad's 
