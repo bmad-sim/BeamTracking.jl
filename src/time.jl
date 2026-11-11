@@ -133,7 +133,7 @@ end
 end
 # === END CLAUDE ===
 
-time_lower(tp::TimeDependentParam) = tp.f
+time_lower(tp::TimeDependentParam) = lower_time_batches(tp.f) # (batch.jl)
 time_lower(tp) = tp
 # We can use map on the CPU, but not the GPU. This step of time_lower-ing is on
 # the CPU and we are already type unstable here anyways, so we should do this.

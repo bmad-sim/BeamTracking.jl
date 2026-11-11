@@ -302,3 +302,37 @@ end
     end
   end
 end
+
+@testset "BatchParam in a time-dependent parameter" begin
+  # An AC kicker with a different frequency for each particle: particle i sees element i of the
+  # batch (wrapping around, as for other BatchParams), exactly as if it were tracked alone with that
+  # frequency (bitwise without explicit SIMD; the SIMD lanes evaluate sin in vector form, which
+  # rounds differently)
+  e = Species("electron")
+  N = 37 # 64-byte lanes and a remainder
+  f = collect(range(1e6, 3e6, length=N))
+  t = Time()
+  line(Ks0) = (k = VKicker(L=0.5, Ks0=Ks0);
+    Beamline([Drift(L=1.0), k, Quadrupole(L=0.5, Kn1=0.3), k, Drift(L=2.0)];
+             species_ref=e, E_ref=18e9))
+  v0 = 1e-4 .* [sin(i + 3j) for i in 1:N, j in 1:6]
+  function run(T, bl, v; kw...)
+    b = Bunch(v=T.(v), species=e, p_over_q_ref=bl.p_over_q_ref)
+    for _ in 1:3; track!(b, bl; kw...); end
+    return b.coords.v
+  end
+  for T in (Float64, Float32)
+    bl = line(1e-4*sin(2pi*BatchParam(f)*t + 0.3))
+    alone = reduce(vcat, [run(T, line(1e-4*sin(2pi*f[i]*t + 0.3)), v0[i:i, :]) for i in 1:N])
+    @test run(T, bl, v0; use_explicit_SIMD=false) == alone
+    @test maximum(abs.(run(T, bl, v0) .- alone)) < 100*eps(T)*1e-3
+    # negative control: the frequencies in reverse order
+    reversed = reduce(vcat, [run(T, line(1e-4*sin(2pi*f[N+1-i]*t + 0.3)), v0[i:i, :]) for i in 1:N])
+    @test maximum(abs.(reversed .- alone)) > 1e-5
+  end
+  # A shorter batch wraps around: particle i sees element mod1(i, 10)
+  bl = line(1e-4*sin(2pi*BatchParam(f[1:10])*t + 0.3))
+  alone = reduce(vcat, [run(Float64, line(1e-4*sin(2pi*f[mod1(i, 10)]*t + 0.3)), v0[i:i, :])
+                        for i in 1:N])
+  @test run(Float64, bl, v0; use_explicit_SIMD=false) == alone
+end
