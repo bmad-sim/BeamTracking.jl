@@ -45,6 +45,12 @@ using Random
   bl6 = lat2.beamlines[4]
   R6 = bl6.p_over_q_ref
   test_prepared(bl6, () -> Bunch(copy(v0), copy(q0); species=species, p_over_q_ref=R6))
+  # A sliced SaganCavity (cuts inside cells, a fringe inside the first slice)
+  sc_sliced = Branch([Marker(p_over_q_ref=R, species_ref=e),
+                      RFCavity(L=2.0, voltage=1e6, rf_frequency=5e8, dE_ref=0.0, n_slices=3,
+                               tracking_method=SaganCavity(n_cells=4, L_active=1.6))]).beamlines[2]
+  @test length(test_prepared(sc_sliced, () -> Bunch(copy(v0), copy(q0); p_over_q_ref=R, species=e))) == 3
+  test_prepared(sc_sliced, () -> Bunch(copy(v0); p_over_q_ref=R, species=Species("muon")))
   # A time dependent reference energy: its value at each element is evaluated at the call, and
   # everything computed from it (every strength without the per-particle ramp)
   ramp = ring(R*(1 + 1e3*Time()))

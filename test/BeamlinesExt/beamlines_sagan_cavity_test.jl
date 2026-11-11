@@ -255,3 +255,103 @@ end
     @test b.p_over_q_ref == cav_bl.p_over_q_ref
   end
 end
+
+# A slice of a SaganCavity tracks the part of the one cavity between two cuts (equal length slices): 
+# the kicks (set by n_cells), fringes and drifts stay where they are, a drift that crosses a cut is 
+# split, and its half kicks stay at its ends. So slicing never changes the cavity: n_slices > 1 tracks
+# like n_slices = 1 up to round-off, and bitwise if every cut is on a kick.
+@testset "SaganCavitySlices" begin
+  ext = Base.get_extension(BeamTracking, :BeamTrackingBeamlinesExt)
+  e = Species("electron")
+  E = 1e10
+  vs0 = [1e-3 1e-4 -1e-3 2e-4 1e-3 1e-4; -2e-3 0 1e-3 -1e-4 0 -2e-4]
+  qs0 = [1.0 0 0 0; 1.0 0 0 0]
+  sliced_cavity(n_slices; kw...) = Branch([Marker(E_ref = E, species_ref = e), RFCavity(; L = 2.0, voltage = 0.2*E, 
+                    rf_frequency = 1e9, dE_ref = 0.1*E, n_slices, kw...)]).beamlines[2].line[1]
+  function track_sliced(n_slices, sp; callbacks = (), trackkw = (;), kw...)
+    c = sliced_cavity(n_slices; kw...)
+    R = (sp == e ? 1 : -1)*Beamlines.E_to_R(e, c.E_ref - c.dE_ref)
+    b = Bunch(copy(vs0), copy(qs0); species = sp, p_over_q_ref = R, callbacks)
+    track!(b, c; notify = false, trackkw...)
+    return b
+  end
+  slice_cases = [
+    (; tracking_method = SaganCavity(n_cells = 4)),
+    (; tracking_method = SaganCavity(n_cells = 3, L_active = 1.0), Ksol = 0.01, Kn1L = 0.001, x_offset = 1e-3, y_rot = 1e-3, tilt = 0.1),
+    (; tracking_method = SaganCavity(n_cells = 0, L_active = 1.2), traveling_wave = false, phi0 = 0.1),
+    (; tracking_method = SaganCavity(n_cells = 3, L_active = 0.0), zero_phase = PhaseRef.AboveTransition, Kn2L = 0.1),
+    (; tracking_method = SaganCavity(), Ks0 = 0.001, traveling_wave = true),
+    (; tracking_method = SaganCavity(n_cells = 5, L_active = 1.9), fringe_at = Fringe.EntranceEnd),
+  ]
+  for kw in slice_cases, sp in (e, Species("positron"))
+    b1 = track_sliced(1, sp; kw...)
+    for n_slices in (2, 3, 4, 7)
+      b = track_sliced(n_slices, sp; kw...)
+      @test maximum(abs.(b.coords.v .- b1.coords.v)) < 1e-14
+      @test maximum(abs.(b.coords.q .- b1.coords.q)) < 1e-14
+      @test b.t_ref ≈ b1.t_ref rtol = 1e-15
+      @test b.p_over_q_ref == b1.p_over_q_ref
+      @test all(b.coords.state .== b1.coords.state)
+    end
+  end
+
+  # Kicks at L_active/4 steps: every cut is on a kick for n_slices = 2 and 4
+  for n_slices in (2, 4), sp in (e, Species("positron"))
+    b1 = track_sliced(1, sp; slice_cases[1]...)
+    b = track_sliced(n_slices, sp; slice_cases[1]...)
+    @test b.coords.v == b1.coords.v
+    @test b.coords.q == b1.coords.q
+    @test b.t_ref == b1.t_ref
+  end
+
+  # Negative controls: one more cell, or no fringes, changes the result far more than the tolerance
+  b1 = track_sliced(1, e; slice_cases[2]...)
+  @test maximum(abs.(track_sliced(3, e; slice_cases[2]..., tracking_method = SaganCavity(n_cells = 4, L_active = 1.0)).coords.v .- b1.coords.v)) > 1e-8
+  @test maximum(abs.(track_sliced(3, e; slice_cases[2]..., fringe_at = Fringe.NoEnd).coords.v .- b1.coords.v)) > 1e-8
+  # fringe_at is honored, also when the fringes are inside a slice
+  for fa in (Fringe.NoEnd, Fringe.EntranceEnd, Fringe.ExitEnd)
+    @test maximum(abs.(track_sliced(3, e; slice_cases[2]..., fringe_at = fa).coords.v .- track_sliced(1, e; slice_cases[2]..., fringe_at = fa).coords.v)) < 1e-14
+  end
+  @test track_sliced(1, e; slice_cases[2]..., fringe_at = Fringe.EntranceEnd).coords.v != b1.coords.v
+  @test track_sliced(1, e; slice_cases[2]..., fringe_at = Fringe.ExitEnd).coords.v != b1.coords.v
+
+  # The windows of the slices partition the cavity: each kick and fringe once, the drift lengths add 
+  # up to L, the reference energy at a slice exit is that at the next slice entrance, and the 
+  # reference times add up to that of the whole cavity
+  for (n_cells, L_active) in ((4, 2.0), (3, 1.0), (0, 1.2), (0, 0.0), (7, 1.9), (1, 2.0)), n_slices in (1, 2, 3, 5, 8)
+    L = 2.0
+    s_cut(k) = k == n_slices ? L : k*(L/n_slices)
+    ws = [ext.sagan_window(n_cells, L_active, L, (k-1)*(L/n_slices), s_cut(k), k == 1, k == n_slices, true, true) for k in 1:n_slices]
+    n_kicks = (L_active == 0 || n_cells == 0) ? 1 : n_cells + 1
+    @test ws[1].ka == 0
+    @test ws[end].kb == n_kicks - 1
+    @test all(ws[k+1].ka == ws[k].kb + 1 for k in 1:n_slices-1)
+    @test count(w -> w.fringe_in, ws) == (L_active == 0 ? 0 : 1)
+    @test count(w -> w.fringe_out, ws) == (L_active == 0 ? 0 : 1)
+    L_outer = L_active == 0 ? L/2 : (L - L_active)/2
+    L_cell = n_cells == 0 ? L_active/2 : L_active/n_cells
+    drift_len(on, full, len, nominal) = on ? (full ? nominal : len) : 0.0
+    total = sum(ws) do w
+      drift_len(w.outer_in, w.outer_in_full, w.outer_in_len, L_outer) + drift_len(w.outer_out, w.outer_out_full, w.outer_out_len, L_outer) +
+      drift_len(w.pre, w.pre_full, w.pre_len, L_cell) + drift_len(w.post, w.post_full, w.post_len, L_cell) + 
+      (L_active == 0 || n_cells == 0 ? 0.0 : max(w.kb - w.ka, 0)*L_cell)
+    end
+    @test total ≈ L rtol = 1e-14
+    # Each half kick of a drift is in exactly one slice
+    n_end_kicks = sum(w -> w.outer_in_kick_in + w.outer_in_kick_out + w.outer_out_kick_in + w.outer_out_kick_out + 
+                           w.pre_kick_in + w.pre_kick_out + w.post_kick_in + w.post_kick_out + 2*max(w.kb - w.ka, 0)*(n_cells > 0), ws)
+    @test n_end_kicks == 4 + (L_active == 0 ? 0 : (n_cells == 0 ? 4 : 2*n_cells))
+    refs = [ext.sagan_window_ref(e, E, 0.1*E, n_cells, L_active, L, w) for w in ws]
+    @test refs[1][2] == E - 0.1*E
+    @test refs[end][3] == E
+    @test all(refs[k+1][2] == refs[k][3] for k in 1:n_slices-1)
+    w1 = ext.sagan_window(n_cells, L_active, L, 0.0, L, true, true, true, true)
+    @test sum(r -> r[1], refs) ≈ ext.sagan_window_ref(e, E, 0.1*E, n_cells, L_active, L, w1)[1] rtol = 1e-14
+  end
+
+  # Callbacks: one per slice and particle (n_slices*n_steps, see beamlines_slices_test.jl)
+  n_cb = Ref(0)
+  cb = ((i, coords, s, t, bg, ds, g, o!, in!) -> (n_cb[] += 1; nothing),)
+  track_sliced(3, e; callbacks = cb, trackkw = (; use_explicit_SIMD = false), slice_cases[1]...)
+  @test n_cb[] == 3*size(vs0, 1)
+end

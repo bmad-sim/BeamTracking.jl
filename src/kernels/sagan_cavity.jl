@@ -30,123 +30,177 @@ end
 end
 
 #---------------------------------------------------------------------------------------------------
-# Here L_active is zero and L is nonzero. Note: The case L_active > L is not allowed.
+# A slice of a SaganCavity (n_slices > 1) tracks the part of the one cavity between two cuts: the 
+# kicks, fringes and drifts of the whole cavity stay where they are, and a drift that crosses a cut 
+# is split. `window` (see sagan_window in the Beamlines extension) says which parts are tracked:
+#
+#   ka:kb                       the kicks in the window (0-based; empty if kb < ka). The reference 
+#                               energy steps of the kicks before it are applied to P0c (and P0c_d) only.
+#   outer_in, outer_out         whether the drifts outside the active region are (partly) in the window;
+#   pre, post                   whether the inside drift before kick ka and after kick kb are;
+#   fringe_in, fringe_out       whether the fringe kicks are;
+#   *_full                      whether that drift is entirely in the window: its nominal length is then 
+#                               computed here (bitwise as without slices), otherwise *_len is its length;
+#   *_kick_in, *_kick_out       whether the half kicks at the start and end of that drift are in the window 
+#                               (they keep the strength of the whole drift, see sagan_cavity_outside_drift!).
+#
+# For n_slices = 1 the window is the whole cavity. For a Bunch species other than the reference species 
+# (design_params = (mass, P0c, dE_ref) of the reference species, else nothing), the RF phase is relative 
+# to the design particle: t_ref includes the lag of the Bunch reference particle behind it since the 
+# start of the window (the time shift at the end of each slice re-references z to the design particle).
+
+@inline sagan_lag(t_ref, L, P0c, mass, P0c_d, mass_d, c) = t_ref + L*(sqrt(P0c^2 + mass^2)/P0c - sqrt(P0c_d^2 + mass_d^2)/P0c_d)/c
+
+#---------------------------------------------------------------------------------------------------
+# Here L_active is zero and L is nonzero: one kick at L/2. Note: The case L_active > L is not allowed.
 
 @makekernel fastgtpsa=true function sagan_cavity_zero_L_active!(i, coords::Coords, 
                         val_rad_damping_on, val_rad_fluctuations_on,
                         mass, q, P0c, dE_ref, t_ref, 
-                        val_has_mult, val_has_sol, m_order, Bn, Bs, a, q_voltage, rf_omega, t_phi0, L, design_params=nothing)
-
-  # Outside Drift
-  f = q * c_light(eltype(coords.v)) / P0c    # q_over_p_ref
-  sagan_cavity_outside_drift!(i, coords, val_rad_damping_on, val_rad_fluctuations_on,
-                    val_has_mult, val_has_sol, m_order, Bn .* f, Bs .* f, q, a, mass, P0c, L/2)
-
-  # For a Bunch species other than the reference species, the RF phase is relative to the design 
-  # particle (reference species): t_ref includes the lag of the Bunch reference particle behind it
+                        val_has_mult, val_has_sol, m_order, Bn, Bs, a, q_voltage, rf_omega, t_phi0, L, window, design_params=nothing)
+  c = c_light(eltype(coords.v))
   if !isnothing(design_params)
-    mass_d, P0c_d, _ = design_params
-    t_ref = t_ref + L/2*(sqrt(P0c^2 + mass^2)/P0c - sqrt(P0c_d^2 + mass_d^2)/P0c_d)/c_light(eltype(coords.v))
+    mass_d, P0c_d, dE_d = design_params
   end
 
-  # Energy kick
-  sagan_cavity_kick!(i, coords, a, q_voltage, rf_omega, t_phi0, t_ref, mass, P0c)
-
-  # Reference energy shift
-  dP0c = dpc_given_dE(P0c, dE_ref, mass)
-  reference_momentum_shift!(i, coords, P0c, dP0c, Val{true}())
-  P0c += dP0c
+  # The kick is before the window
+  if window.ka > 0
+    P0c += dpc_given_dE(P0c, dE_ref, mass)
+  end
 
   # Outside Drift
-  f = q * c_light(eltype(coords.v)) / P0c    # q_over_p_ref
-  sagan_cavity_outside_drift!(i, coords, val_rad_damping_on, val_rad_fluctuations_on,
-                    val_has_mult, val_has_sol, m_order, Bn .* f, Bs .* f, q, a, mass, P0c, L/2)
+  if window.outer_in
+    d = window.outer_in_full ? L/2 : window.outer_in_len
+    f = q * c / P0c    # q_over_p_ref
+    sagan_cavity_outside_drift!(i, coords, val_rad_damping_on, val_rad_fluctuations_on,
+                      val_has_mult, val_has_sol, m_order, Bn .* f, Bs .* f, q, a, mass, P0c, d, 
+                      window.outer_in_kick_in, window.outer_in_kick_out, L/2)
+    if !isnothing(design_params)
+      t_ref = sagan_lag(t_ref, d, P0c, mass, P0c_d, mass_d, c)
+    end
+  end
+
+  if window.kb >= window.ka
+    # Energy kick
+    sagan_cavity_kick!(i, coords, a, q_voltage, rf_omega, t_phi0, t_ref, mass, P0c)
+
+    # Reference energy shift
+    dP0c = dpc_given_dE(P0c, dE_ref, mass)
+    reference_momentum_shift!(i, coords, P0c, dP0c, Val{true}())
+    P0c += dP0c
+  end
+
+  # Outside Drift
+  if window.outer_out
+    d = window.outer_out_full ? L/2 : window.outer_out_len
+    f = q * c / P0c    # q_over_p_ref
+    sagan_cavity_outside_drift!(i, coords, val_rad_damping_on, val_rad_fluctuations_on,
+                      val_has_mult, val_has_sol, m_order, Bn .* f, Bs .* f, q, a, mass, P0c, d, 
+                      window.outer_out_kick_in, window.outer_out_kick_out, L/2)
+  end
 end
 
 #---------------------------------------------------------------------------------------------------
-# Here both L_active and L are non-zero
+# Here both L_active and L are non-zero. n_cells == 0 => single kick in the center of the active region, 
+# else n_cells + 1 kicks (half kicks at the ends of the active region).
 
 @makekernel fastgtpsa=true function sagan_cavity_thick!(i, coords::Coords, 
               val_rad_damping_on, val_rad_fluctuations_on, val_traveling_wave, 
               mass, q, P0c, dE_ref, t_ref, n_cells, 
               val_has_mult, val_has_sol, m_order, Bn, Bs, 
-              a, q_gradient, rf_omega, t_phi0, L_active, L, design_params=nothing)
-
-  # Outside Drift
-  q_over_p_ref = q * c_light(eltype(coords.v)) / P0c
-  sagan_cavity_outside_drift!(i, coords, val_rad_damping_on, val_rad_fluctuations_on,
-          val_has_mult, val_has_sol, m_order, Bn .* q_over_p_ref, Bs .* q_over_p_ref, 
-          q, a, mass, P0c, (L-L_active)/2)
-
-  # For a Bunch species other than the reference species (design_params = (mass, P0c, dE_ref) of 
-  # the reference species), the RF phase is relative to the design particle: t_ref includes the lag 
-  # of the Bunch reference particle behind it, accumulated over each drift before a kick
+              a, q_gradient, rf_omega, t_phi0, L_active, L, window, design_params=nothing)
+  c = c_light(eltype(coords.v))
   if !isnothing(design_params)
     mass_d, P0c_d, dE_d = design_params
-    t_ref = t_ref + (L-L_active)/2*(sqrt(P0c^2 + mass^2)/P0c - sqrt(P0c_d^2 + mass_d^2)/P0c_d)/c_light(eltype(coords.v))
+  end
+  # Length of the inside drifts (between kicks; on either side of the kick for n_cells == 0)
+  L_cell = n_cells == 0 ? L_active/2 : L_active/n_cells
+
+  # The reference energy steps of the kicks before the window
+  for i_step = 0:window.ka-1
+    kick_div = n_cells == 0 ? 1 : (i_step == 0 || i_step == n_cells ? 2*n_cells : n_cells)
+    P0c += dpc_given_dE(P0c, dE_ref/kick_div, mass)
+    if !isnothing(design_params)
+      P0c_d += dpc_given_dE(P0c_d, dE_d/kick_div, mass_d)
+    end
+  end
+  q_over_p_ref = q * c / P0c
+
+  # Outside Drift
+  if window.outer_in
+    d = window.outer_in_full ? (L-L_active)/2 : window.outer_in_len
+    sagan_cavity_outside_drift!(i, coords, val_rad_damping_on, val_rad_fluctuations_on,
+            val_has_mult, val_has_sol, m_order, Bn .* q_over_p_ref, Bs .* q_over_p_ref, 
+            q, a, mass, P0c, d, window.outer_in_kick_in, window.outer_in_kick_out, (L-L_active)/2)
+    if !isnothing(design_params)
+      t_ref = sagan_lag(t_ref, d, P0c, mass, P0c_d, mass_d, c)
+    end
   end
 
   # Fringe kick at beginning. 
-  sagan_cavity_fringe!(i, coords, a, q_gradient, rf_omega, t_phi0, t_ref, mass, P0c, +1)
+  if window.fringe_in
+    sagan_cavity_fringe!(i, coords, a, q_gradient, rf_omega, t_phi0, t_ref, mass, P0c, +1)
+  end
 
-  # Body Loop
-  # n_cells == 0 => single kick in center
-
-  if n_cells == 0
+  # Body: the inside drift before the first kick of the window, the kicks with the drifts between them, 
+  # and the inside drift after the last kick
+  if window.pre
+    d = window.pre_full ? L_cell : window.pre_len
     sagan_cavity_inside_drift!(i, coords, val_rad_damping_on, val_rad_fluctuations_on, val_traveling_wave,
-              val_has_mult, val_has_sol, m_order, Bn .* q_over_p_ref, Bs .* q_over_p_ref, 
-              q, q_gradient, a, mass, P0c, L_active/2)
+         val_has_mult, val_has_sol, m_order, Bn .* q_over_p_ref, Bs .* q_over_p_ref, 
+         q, q_gradient, a, mass, P0c, d, window.pre_kick_in, window.pre_kick_out, L_cell)
     if !isnothing(design_params)
-      t_ref += L_active/2*(sqrt(P0c^2 + mass^2)/P0c - sqrt(P0c_d^2 + mass_d^2)/P0c_d)/c_light(eltype(coords.v))
+      t_ref = sagan_lag(t_ref, d, P0c, mass, P0c_d, mass_d, c)
     end
-    sagan_cavity_kick!(i, coords, a, q_gradient*L_active, rf_omega, t_phi0, t_ref, mass, P0c)
-    dP0c = dpc_given_dE(P0c, dE_ref, mass)
+  end
+
+  for i_step = window.ka:window.kb
+    kick_div = n_cells == 0 ? 1 : (i_step == 0 || i_step == n_cells ? 2*n_cells : n_cells)
+
+    # Longitudinal kick
+    sagan_cavity_kick!(i, coords, a, q_gradient*L_active/kick_div, rf_omega, t_phi0, t_ref, mass, P0c)
+
+    # Reference energy shift
+    dP0c = dpc_given_dE(P0c, dE_ref/kick_div, mass)
     reference_momentum_shift!(i, coords, P0c, dP0c, Val{true}())
     P0c += dP0c
-    q_over_p_ref = q * c_light(eltype(coords.v)) / P0c
-
-    sagan_cavity_inside_drift!(i, coords, val_rad_damping_on, val_rad_fluctuations_on, val_traveling_wave,
-                val_has_mult, val_has_sol, m_order, Bn .* q_over_p_ref, Bs .* q_over_p_ref, 
-                q, q_gradient, a, mass, P0c, L_active/2)
+    q_over_p_ref = q * c / P0c
     if !isnothing(design_params)
-      P0c_d += dpc_given_dE(P0c_d, dE_d, mass_d)
-      t_ref += L_active/2*(sqrt(P0c^2 + mass^2)/P0c - sqrt(P0c_d^2 + mass_d^2)/P0c_d)/c_light(eltype(coords.v))
+      P0c_d += dpc_given_dE(P0c_d, dE_d/kick_div, mass_d)
     end
 
-  else
-    for i_step = 0:n_cells
-      i_step == 0 || i_step == n_cells ? kick_factor = 2 : kick_factor = 1
+    # Drift
+    if i_step == window.kb; break; end
+    sagan_cavity_inside_drift!(i, coords, val_rad_damping_on, val_rad_fluctuations_on, val_traveling_wave,
+         val_has_mult, val_has_sol, m_order, Bn .* q_over_p_ref, Bs .* q_over_p_ref, 
+         q, q_gradient, a, mass, P0c, L_cell)
+    if !isnothing(design_params)
+      t_ref = sagan_lag(t_ref, L_cell, P0c, mass, P0c_d, mass_d, c)
+    end
+  end
 
-      # Longitudinal kick
-      sagan_cavity_kick!(i, coords, a, q_gradient*L_active/(n_cells*kick_factor), rf_omega, t_phi0, t_ref, mass, P0c)
-
-      # Reference energy shift
-      dP0c = dpc_given_dE(P0c, dE_ref/(n_cells*kick_factor), mass)
-      reference_momentum_shift!(i, coords, P0c, dP0c, Val{true}())
-      P0c += dP0c
-      q_over_p_ref = q * c_light(eltype(coords.v)) / P0c
-      if !isnothing(design_params)
-        P0c_d += dpc_given_dE(P0c_d, dE_d/(n_cells*kick_factor), mass_d)
-      end
-
-      # Drift
-      if i_step == n_cells; break; end
-      sagan_cavity_inside_drift!(i, coords, val_rad_damping_on, val_rad_fluctuations_on, val_traveling_wave,
-           val_has_mult, val_has_sol, m_order, Bn .* q_over_p_ref, Bs .* q_over_p_ref, 
-           q, q_gradient, a, mass, P0c, L_active/n_cells)
-      if !isnothing(design_params)
-        t_ref += L_active/n_cells*(sqrt(P0c^2 + mass^2)/P0c - sqrt(P0c_d^2 + mass_d^2)/P0c_d)/c_light(eltype(coords.v))
-      end
+  if window.post
+    d = window.post_full ? L_cell : window.post_len
+    sagan_cavity_inside_drift!(i, coords, val_rad_damping_on, val_rad_fluctuations_on, val_traveling_wave,
+         val_has_mult, val_has_sol, m_order, Bn .* q_over_p_ref, Bs .* q_over_p_ref, 
+         q, q_gradient, a, mass, P0c, d, window.post_kick_in, window.post_kick_out, L_cell)
+    if !isnothing(design_params)
+      t_ref = sagan_lag(t_ref, d, P0c, mass, P0c_d, mass_d, c)
     end
   end
 
   # Fringe kick at end
-  sagan_cavity_fringe!(i, coords, a, q_gradient, rf_omega, t_phi0, t_ref, mass, P0c, -1)
+  if window.fringe_out
+    sagan_cavity_fringe!(i, coords, a, q_gradient, rf_omega, t_phi0, t_ref, mass, P0c, -1)
+  end
 
   # Outside Drift
-  sagan_cavity_outside_drift!(i, coords, val_rad_damping_on, val_rad_fluctuations_on,
-              val_has_mult, val_has_sol, m_order, Bn .* q_over_p_ref, Bs .* q_over_p_ref, 
-              q, a, mass, P0c, (L-L_active)/2)
+  if window.outer_out
+    d = window.outer_out_full ? (L-L_active)/2 : window.outer_out_len
+    sagan_cavity_outside_drift!(i, coords, val_rad_damping_on, val_rad_fluctuations_on,
+                val_has_mult, val_has_sol, m_order, Bn .* q_over_p_ref, Bs .* q_over_p_ref, 
+                q, a, mass, P0c, d, window.outer_out_kick_in, window.outer_out_kick_out, (L-L_active)/2)
+  end
 end
 
 #---------------------------------------------------------------------------------------------------
@@ -155,37 +209,39 @@ end
 function sagan_cavity_inside_drift!(i, coords::Coords, 
                         val_rad_damping_on, val_rad_fluctuations_on, ::Val{traveling_wave}, 
                         val_has_mult, val_has_sol, m_order, Kn, Ks, 
-                        q, q_gradient, a, mass, P0c, L) where {traveling_wave}
+                        q, q_gradient, a, mass, P0c, L, kick_in=true, kick_out=true, L_kick=L) where {traveling_wave}
   # 1/2 pondermotive kick
-  if !traveling_wave
-    rf_pondermotive_kick!(i, coords, q_gradient, a, mass, P0c, L/2)
+  if !traveling_wave && kick_in
+    rf_pondermotive_kick!(i, coords, q_gradient, a, mass, P0c, L_kick/2)
   end
 
   # Drift
   sagan_cavity_outside_drift!(i, coords, val_rad_damping_on, val_rad_fluctuations_on, 
-                                    val_has_mult, val_has_sol, m_order, Kn, Ks, q, a, mass, P0c, L)
+                                    val_has_mult, val_has_sol, m_order, Kn, Ks, q, a, mass, P0c, L, kick_in, kick_out, L_kick)
 
   # 1/2 pondermotive kick
   # The pondermotive force only occurs if there is a EM wave in the opposite direction from the direction of travel.
-  if !traveling_wave
-    rf_pondermotive_kick!(i, coords, q_gradient, a, mass, P0c, L/2)
+  if !traveling_wave && kick_out
+    rf_pondermotive_kick!(i, coords, q_gradient, a, mass, P0c, L_kick/2)
   end
 end
 
 #---------------------------------------------------------------------------------------------------
 # The "outside" drift does not have the pondermotive kick that the "inside" drift does.
+# The drift of length L is a part of a drift of length L_kick (split by a slice cut): the half kicks 
+# at its ends keep their strength and are applied by the slice that has that end (kick_in, kick_out).
 
 function sagan_cavity_outside_drift!(i, coords::Coords, 
                         val_rad_damping_on, val_rad_fluctuations_on, 
                         ::Val{has_mult}, ::Val{has_sol}, m_order, Kn, Ks, 
-                        q, a, mass, P0c, L) where {has_mult, has_sol}
+                        q, a, mass, P0c, L, kick_in=true, kick_out=true, L_kick=L) where {has_mult, has_sol}
   beta0 = P0c / sqrt(P0c^2 + mass^2)
   gamma0 = P0c / (mass * beta0)
 
   # 1/2 Multipole kick
-  if has_mult
+  if has_mult && kick_in
     multipole_kick_with_rad!(i, coords, val_rad_damping_on, val_rad_fluctuations_on, 
-                                  q, m_order, Kn, Ks, a, mass, P0c, beta0, L/2)
+                                  q, m_order, Kn, Ks, a, mass, P0c, beta0, L_kick/2)
   end
 
   # Solenoid or Drift
@@ -196,9 +252,9 @@ function sagan_cavity_outside_drift!(i, coords::Coords,
   end
 
   # 1/2 Multipole kick
-  if has_mult
+  if has_mult && kick_out
     multipole_kick_with_rad!(i, coords, val_rad_damping_on, val_rad_fluctuations_on, 
-                                  q, m_order, Kn, Ks, a, mass, P0c, beta0, L/2)
+                                  q, m_order, Kn, Ks, a, mass, P0c, beta0, L_kick/2)
   end
 end
 

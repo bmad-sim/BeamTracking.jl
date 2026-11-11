@@ -57,6 +57,10 @@ a = 0.1
 
 #
 
+# Window covering the whole cavity, with both fringes (see sagan_window in the Beamlines extension)
+full_window(n_cells, L_active, L) = Base.get_extension(BeamTracking, :BeamTrackingBeamlinesExt).sagan_window(
+  n_cells, L_active, L, zero(L), L, true, true, true, true)
+
 @testset "SaganCavityKernel" begin
   args = (Val{true}(), Val{false}(), mass, q, P0c, dE, t_ref, Val{true}(), order, Bn, Bs, a, q*voltage, rf_omega, t_phi0)
   bunch = Bunch(copy(vb1), deepcopy(quat1))
@@ -65,14 +69,14 @@ a = 0.1
   @test bunch.coords.q ≈ qout1
   test_matrix(m1out, make_kernel_call(BT.sagan_cavity_zero_L!, args), printit = printit)
 
-  args = (Val{true}(), Val{false}(), mass, q, P0c, dE, t_ref, Val{true}(), Val{true}(), order, Bn, Bs, a, q*voltage, rf_omega, t_phi0, L)
+  args = (Val{true}(), Val{false}(), mass, q, P0c, dE, t_ref, Val{true}(), Val{true}(), order, Bn, Bs, a, q*voltage, rf_omega, t_phi0, L, full_window(0, 0.0, L))
   bunch = Bunch(copy(vb1), deepcopy(quat1))
   BT.launch!(bunch.coords, make_kernel_call(BT.sagan_cavity_zero_L_active!, args))
   @test bunch.coords.v ≈ out2
   @test bunch.coords.q ≈ qout2
   test_matrix(m2out, make_kernel_call(BT.sagan_cavity_zero_L_active!, args))
 
-  args = (Val{true}(), Val{false}(), Val{false}(), mass, q, P0c, dE, t_ref, 2.0, Val{true}(), Val{true}(), order, Bn, Bs, a, q*gradient, rf_omega, t_phi0, L_active, L)
+  args = (Val{true}(), Val{false}(), Val{false}(), mass, q, P0c, dE, t_ref, 2.0, Val{true}(), Val{true}(), order, Bn, Bs, a, q*gradient, rf_omega, t_phi0, L_active, L, full_window(2, L_active, L))
   bunch = Bunch(copy(vb1), deepcopy(quat1))
   BT.launch!(bunch.coords, make_kernel_call(BT.sagan_cavity_thick!, args))
   if printit; println(bunch.coords.v); end

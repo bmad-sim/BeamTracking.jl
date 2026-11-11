@@ -209,7 +209,6 @@ function _track!(
   # Each slice is tracked separately (see _SliceUniversalParams)
   n_slices = (universalparams::UniversalParams).n_slices
   if n_slices > 1
-    !(tm isa SaganCavity) || error("SaganCavity is not compatible with elements with n_slices > 1. Try n_slices = 1 instead")
     isnothing(patchparams) || error("Elements with n_slices > 1 are not compatible with PatchParams. Try n_slices = 1 instead")
     isnothing(mapparams) || error("Elements with n_slices > 1 are not compatible with MapParams. Try n_slices = 1 instead")
   end
