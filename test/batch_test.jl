@@ -351,4 +351,17 @@ end
     end
   end
   =#
+
+  @testset "Integer BatchParams" begin
+    # Lowered as floats (an integer batch failed on the CPU's SIMD path)
+    e = Species("electron")
+    v0 = 1e-3 .* [sin(i + 3j) for i in 1:19, j in 1:6] # SIMD lanes and a remainder
+    for (ki, kf) in ((VKicker(Ks0L=BatchParam([1, 2])), VKicker(Ks0L=BatchParam([1.0, 2.0]))),
+                     (Quadrupole(L=0.5, Kn1=BatchParam([1, 2])),
+                      Quadrupole(L=0.5, Kn1=BatchParam([1.0, 2.0]))))
+      run(ele) = (b = Bunch(copy(v0));
+                  track!(b, Beamline([ele], E_ref=18e9, species_ref=e)); b.coords.v)
+      @test run(ki) == run(kf)
+    end
+  end
 end

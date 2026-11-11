@@ -330,6 +330,12 @@ end
     reversed = reduce(vcat, [run(T, line(1e-4*sin(2pi*f[N+1-i]*t + 0.3)), v0[i:i, :]) for i in 1:N])
     @test maximum(abs.(reversed .- alone)) > 1e-5
   end
+  # Integer batches, e.g. to select a different time function for each particle
+  sel = 1e-4*(BatchParam([1, 0])*sin(2pi*f[1]*t) + BatchParam([0, 1])*cos(2pi*f[2]*t))
+  each = vcat(run(Float64, line(1e-4*sin(2pi*f[1]*t)), v0[1:1, :]),
+              run(Float64, line(1e-4*cos(2pi*f[2]*t)), v0[2:2, :]))
+  @test run(Float64, line(sel), v0[1:2, :]; use_explicit_SIMD=false) == each
+  @test maximum(abs.(run(Float64, line(sel), v0[1:2, :]) .- each)) < 100*eps()*1e-3 # SIMD vectors
   # A shorter batch wraps around: particle i sees element mod1(i, 10)
   bl = line(1e-4*sin(2pi*BatchParam(f[1:10])*t + 0.3))
   alone = reduce(vcat, [run(Float64, line(1e-4*sin(2pi*f[mod1(i, 10)]*t + 0.3)), v0[i:i, :])

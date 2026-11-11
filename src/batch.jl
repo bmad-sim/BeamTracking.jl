@@ -303,9 +303,11 @@ end
 batch_lower(bp) = bp
 
 # Batch lowering should convert types to _LoweredBatchParam
+# Integer batches are lowered as floats: in the kernels they meet floats, and SIMD vectors of
+# different element types cannot be combined (BatchParam([1, 2]) failed on the CPU's SIMD path)
 function batch_lower(b::BatchParam)
   if b.batch isa AbstractArray
-    return _LoweredBatchParam(b.batch) # Only arrays are lowered to batchparams
+    return _LoweredBatchParam(float(b.batch)) # Only arrays are lowered to batchparams
   else
     return b.batch
   end

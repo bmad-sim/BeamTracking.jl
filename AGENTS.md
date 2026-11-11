@@ -183,6 +183,10 @@ touches both repositories; their versions are coupled (BeamTracking 0.9 needs Be
   a constant (multiply and shift); on GPUs consecutive threads still read consecutive elements 
   (coalesced); the CPU kernels are compute bound, so the SIMD gather does not show. Kept: 
   batches shorter than the bunch stay usable.
+- `batch_lower` lowers integer batches as floats (`float(b.batch)`): SIMD.jl has no arithmetic 
+  between vectors of different element types, so `BatchParam([1, 2])` as a strength failed on 
+  the CPU's explicit-SIMD path (`Vec{Int64} * Vec{Float64}`) since before batches in time 
+  functions (tested in batch_test.jl, "Integer BatchParams").
 
 ## Physics conventions
 
