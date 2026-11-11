@@ -373,3 +373,45 @@ end
 # === END CLAUDE ===
 
 @inline beval(b, i, batch_start) = _reg(b) # see `_reg` in time.jl
+
+# A BatchParam inside a time-dependent expression (e.g. an AC kicker whose frequency differs
+# between particles, `A*sin(2pi*BatchParam(f)*Time())`) is captured by the time function. It is
+# lowered there as other BatchParams, and in the kernel each particle sees its element as for
+# other BatchParams. `map_batches(g, f)` rebuilds the time function with g applied to each captured
+# batch, as `lower_captured` does for the captured numbers
+map_batches(g, b::Union{BatchParam,_LoweredBatchParam}) = g(b)
+map_batches(g, tf::TimeFunction) = TimeFunction(map_batches(g, tf.f))
+map_batches(g, t::Tuple) = map(x -> map_batches(g, x), t)
+map_batches(g, x) = x
+@generated function map_batches(g, f::F) where {F<:Function}
+  _captures(Union{BatchParam,_LoweredBatchParam}, F) || return :f
+  # a closure's type parameters are its static parameters, then the types of its captures
+  nsp = length(F.parameters) - fieldcount(F)
+  xs = [Symbol(:x, i) for i in 1:fieldcount(F)]
+  return quote
+    $((:($(xs[i]) = map_batches(g, getfield(f, $i))) for i in 1:fieldcount(F))...)
+    G = $(F.name.wrapper){$(map(QuoteNode, F.parameters[1:nsp])...),
+                          $((:(Core.Typeof($x)) for x in xs)...)}
+    $(Expr(:new, :G, xs...))
+  end
+end
+Adapt.@adapt_structure TimeFunction
+
+_time_batch(b::BatchParam) = (let b = b; TimeDependentParam(t -> b, false) end)
+for op in (:+, :-, :*, :/, :^)
+  @eval Base.$op(b::BatchParam, d::TimeDependentParam) = $op(_time_batch(b), d)
+  @eval Base.$op(d::TimeDependentParam, b::BatchParam) = $op(d, _time_batch(b))
+end
+
+# Whether a (closure) type captures a B, known when compiling
+_captures(::Type{B}, ::Type{T}) where {B,T} = T <: B ||
+  ((T <: Function || T <: TimeFunction || T <: Tuple) && isconcretetype(T) &&
+   any(F -> _captures(B, F), fieldtypes(T)))
+@generated captures_batch(::F) where {F} = _captures(BatchParam, F)
+@generated captures_lowered_batch(::F) where {F} = _captures(_LoweredBatchParam, F)
+
+lower_time_batches(f) = captures_batch(f) ? map_batches(batch_lower, f) : f
+
+static_batchcheck(tf::TimeFunction) = captures_lowered_batch(tf)
+@inline beval(tf::TimeFunction, i, batch_start) = captures_lowered_batch(tf) ?
+  map_batches(b -> beval(b, i, batch_start), tf) : tf

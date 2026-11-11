@@ -26,8 +26,12 @@ end
 @inline num_lower(::Type{T}, nt::NamedTuple{names}) where {T<:Union{Float32,Float16},names} =
   NamedTuple{names}(num_lower(T, Tuple(nt)))
 function num_lower(::Type{T}, tf::TimeFunction) where {T<:Union{Float32,Float16}}
+  if captures_lowered_batch(tf) # (batch.jl)
+    tf = map_batches(b -> num_lower(T, b), tf)
+  end
   tf = lower_captured(T, tf)
-  S = typeof(tf(zero(T))) # the kernels evaluate it at times of type T
+  # the kernels evaluate it at times of type T (with a particle's values of captured batches)
+  S = typeof(map_batches(b -> zero(eltype(b.batch)), tf)(zero(T)))
   if S != T
     error("
       Failure to lower TimeFunction with output type $S to $T: if you are ramping
