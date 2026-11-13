@@ -40,8 +40,13 @@ mutable struct Bunch{B,T,C<:Coords}
   species::Species # Species
   p_over_q_ref::B         # Defines normalization of phase space coordinates
   t_ref::T         # Reference time
+  s::T             # s from the beginning of the Beamline (0 at the start of each track! of a Beamline)
+  step::Int        # Integration steps from the beginning of the Beamline (as s)
   const coords::C  # GPU compatible structure of particles
 end
+
+# At the beginning of a Beamline
+Bunch(species, p_over_q_ref, t_ref, coords) = Bunch(species, p_over_q_ref, t_ref, zero(t_ref), 0, coords)
 
 function Base.getproperty(b0::Bunch, key::Symbol)
   if key in (:state, :v, :q, :weight, :callbacks)
@@ -51,7 +56,7 @@ function Base.getproperty(b0::Bunch, key::Symbol)
   end
 end
 
-Base.propertynames(b0::Bunch) = (:state, :v, :q, :weight, :callbacks, :species, :p_over_q_ref, :t_ref, :coords)
+Base.propertynames(b0::Bunch) = (:state, :v, :q, :weight, :callbacks, :species, :p_over_q_ref, :t_ref, :s, :step, :coords)
 
 # Necessary for GPU compatibility:
 Adapt.@adapt_structure Coords
@@ -92,6 +97,10 @@ callback(i, coords, cur_s, cur_t_ref, cur_step, cur_beta_gamma_ref, last_ds_step
   of the phase space coordinates.
 - `t_ref=0.`: Reference time.
 - `species=Species()`: Particle species.
+
+The `Bunch` also holds the position of its reference particle in the `Beamline`, `s` and `step` 
+(as the callbacks get them). Tracking a `Beamline` starts them at 0, tracking a single element 
+continues from them.
 
 # Example
 ```julia

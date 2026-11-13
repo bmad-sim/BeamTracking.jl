@@ -64,12 +64,14 @@ end
 BeamTracking.num_lower(::Type, a::PreParameter) = (let ga = a.g; PreParameter(b -> num_lower(eltype(b.coords.v), ga(b))) end)
 
 # kc is the KernelChain, or a PreParameter whose value is the PreKernelChain (a chain built at the
-# call, see universal!). After the launch, bunch.t_ref increases by dt and bunch.p_over_q_ref is
-# p_over_q_ref_exit
-struct PreKernelChain{K,D,P}
+# call, see universal!). After the launch, bunch.t_ref increases by dt, bunch.p_over_q_ref is
+# p_over_q_ref_exit, and the position of the Bunch is s_exit and step_exit
+struct PreKernelChain{K,D,P,S}
   kc::K
   dt::D
   p_over_q_ref_exit::P
+  s_exit::S
+  step_exit::Int
 end
 
 # The PreParameters are lowered as the RefState constructor, and make_kernel_call and push, lower
@@ -107,6 +109,8 @@ function run!(bunch::Bunch, p::PreKernelChain; kwargs...)
   @noinline launch!(bunch.coords, kc; kwargs...)
   bunch.t_ref = bunch.t_ref + dt
   bunch.p_over_q_ref = p_over_q_ref_exit
+  bunch.s = p.s_exit
+  bunch.step = p.step_exit
   return nothing
 end
 
@@ -114,9 +118,10 @@ end
 # prepare: the chain is stored, and the next element is built for the reference momentum after
 # this one, unless that is only known at the call (with a time dependent reference energy, where
 # the next element only uses it at the call too)
-function push_chain!(chains::Vector, bunch, pc)
-  push!(chains, pc)
-  pc.p_over_q_ref_exit isa PreParameter || (bunch.p_over_q_ref = pc.p_over_q_ref_exit)
+# (with the position of bunch after the chain, which universal! has set)
+function push_chain!(chains::Vector, bunch, kc, dt, p_over_q_ref_exit)
+  push!(chains, PreKernelChain(kc, dt, p_over_q_ref_exit, bunch.s, bunch.step))
+  p_over_q_ref_exit isa PreParameter || (bunch.p_over_q_ref = p_over_q_ref_exit)
   return nothing
 end
 
@@ -142,12 +147,12 @@ function prepare(
   v_ramp_particle_energy_without_rf = Val(ramp_particle_energy_without_rf)
   v_ramp_update_each_particle = Val(ramp_update_each_particle)
   v_shift_time = Val(bunch.species != ref.species_ref)
-  # Built with a copy, whose reference momentum push_chain! changes as the elements do
+  # Built with a copy (at the beginning of the Beamline), whose reference momentum and position
+  # push_chain! changes as the elements do
   b = Bunch(bunch.species, bunch.p_over_q_ref, bunch.t_ref, bunch.coords)
-  pos = Ref((step = 0, s = zero(bunch.t_ref))) # see universal!
   for ele in bl.line
     @noinline _track!(b, ele, context, ref, scalar_params, v_ramp_particle_energy_without_rf,
-                      v_ramp_update_each_particle, v_shift_time, rf_on, batch_start, pos, chains)
+                      v_ramp_update_each_particle, v_shift_time, rf_on, batch_start, chains)
   end
   return chains
 end

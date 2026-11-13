@@ -195,18 +195,27 @@ end
   n = sum(e -> e.n_slices*e.n_steps, bl.line)
   steps = Int[]
   cb = (i, coords, cur_s, cur_t_ref, cur_step, cur_beta_gamma_ref, last_ds_step, last_g, out!, in!) -> (push!(steps, cur_step); nothing)
+  L = sum(e -> e.L, bl.line)
   b = Bunch(v=[1e-3 0 0 0 0 0], callbacks=(cb,))
   track!(b, bl; notify=false)
-  @test steps == 1:n
+  @test steps == 1:n && b.step == n && b.s ≈ L
+  empty!(steps)
+  track!(b, bl; notify=false) # starts at the beginning of the Beamline again
+  @test steps == 1:n && b.step == n && b.s ≈ L
   empty!(steps)
   ext = Base.get_extension(BeamTracking, :BeamTrackingBeamlinesExt)
   b = Bunch(v=[1e-3 0 0 0 0 0], callbacks=(cb,))
   chains = ext.prepare(b, bl; notify=false)
   track!(b, chains)
-  @test steps == 1:n
+  @test steps == 1:n && b.step == n && b.s ≈ L
   empty!(steps)
+  # A single element continues from the position of the Bunch
   track!(b, bl.line[1]; notify=false)
-  @test steps == 1:6
+  @test steps == n+1:n+6 && b.step == n+6 && b.s ≈ L + 0.5
+  empty!(steps)
+  b.s = 0.0; b.step = 0
+  track!(b, bl.line[1]; notify=false)
+  @test steps == 1:6 && b.step == 6 && b.s ≈ 0.5
 
   # cur_s is the s from the Beamline entrance: at step j of an element of n steps, s_e + j*L/n
   s_expected = Float64[]
@@ -225,7 +234,8 @@ end
   track!(b, ext.prepare(b, bl; notify=false))
   @test ss ≈ s_expected atol=1e-14
   empty!(ss)
-  track!(b, bl.line[2]; notify=false) # a single element: from its entrance
+  b.s = 0.0; b.step = 0
+  track!(b, bl.line[2]; notify=false) # a single element from the position of the Bunch
   @test ss ≈ [j*1.0/5 for j in 1:5] atol=1e-14
 
   # The transforms are at the s within the element: a misaligned drift after a drift that does not

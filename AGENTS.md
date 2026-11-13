@@ -146,10 +146,13 @@ touches both repositories; their versions are coupled (BeamTracking 0.9 needs Be
   for each substep `w`, with `s` from the launch entrance. 
   Callbacks get `s_enter + s` and `step0 + step` (`construct_main_callback`), i.e. from the 
   Beamline entrance: `RefState` has the chain's entrance `s_enter`, `step0` (steps before it) and 
-  `n_steps`, set in `universal!` from `pos = Ref((step, s))`, which `track!`/`prepare` pass through 
-  `_track!` and each slice advances (in a `Ref`: numbers passed to or returned from these dynamic 
-  calls are allocated, +17000 allocations and 0.4 ms in `prepare` on ESR). The transforms get `s0 + s` 
-  (from the element entrance) and the time, which they capture: `transforms_out!(i, coords)`.
+  `n_steps`, set in `universal!` from the position of the Bunch (`bunch.s`, `bunch.step`, of the 
+  types of `t_ref` and `Int`), which it advances past the slice like `t_ref` (prepared: `run!` sets 
+  the `PreKernelChain`'s `s_exit`/`step_exit`). `track!(bunch, bl)` and `prepare` start them at 0, 
+  `track!(bunch, ele)` continues from them. (Passed as numbers through the dynamic `_track!`/
+  `universal!` calls they were allocated: +17000 allocations and 0.4 ms in `prepare` on ESR.) The 
+  transforms get `s0 + s` (from the element entrance) and the time, which they capture: 
+  `transforms_out!(i, coords)`.
 - `compute_dt_ref` uses `find_tilde_m(ker)`, the position of the argument named `tilde_m`.
 - Field kernels that depend on `s` take the element-relative offset: `rk4_kernel!(…, s0=0)` and 
   `implicit_integrator!(…, s0, L)`; their field time (`t = (s/beta_0 - z…)/c`) is computed from 
