@@ -140,7 +140,7 @@ using Random
 
   # Callbacks get s from the element entrance
   ss = Float64[]
-  cb = (i, coords, cur_s, cur_t_ref, cur_beta_gamma_ref, last_ds_step, last_g, transforms_out!, transforms_in!) -> (i == 1 && push!(ss, cur_s); nothing)
+  cb = (i, coords, cur_s, cur_t_ref, cur_step, cur_beta_gamma_ref, last_ds_step, last_g, transforms_out!, transforms_in!) -> (i == 1 && push!(ss, cur_s); nothing)
   track_ele(quad, 3, 2; trackkw=(; use_explicit_SIMD=false), callbacks=(cb,))
   ss_sliced = copy(ss)
   empty!(ss)
@@ -194,11 +194,11 @@ using Random
   # element see the same global coordinates with and without slices
   function global_callback_coords(ele)
     rec = Vector{Float64}[]
-    cb = (i, coords, cur_s, cur_t_ref, bg, ds, g, transforms_out!, transforms_in!) -> begin
+    cb = (i, coords, cur_s, cur_t_ref, step, bg, ds, g, transforms_out!, transforms_in!) -> begin
       if i == 1
-        transforms_out!(i, coords, cur_s, cur_t_ref)
+        transforms_out!(i, coords)
         push!(rec, [cur_s, coords.v[i,1], coords.v[i,2], coords.v[i,5], coords.v[i,6]])
-        transforms_in!(i, coords, cur_s, cur_t_ref)
+        transforms_in!(i, coords)
       end
       nothing
     end
@@ -214,11 +214,11 @@ using Random
   rotated(v, a) = (c = cos(a); sn = sin(a); [c*v[1]-sn*v[3]  c*v[2]-sn*v[4]  sn*v[1]+c*v[3]  sn*v[2]+c*v[4]  v[5]  v[6]])
   function elsep_midpoint_pz(kw, v0, k, n)
     pz = Float64[]
-    cb = (i, coords, cur_s, cur_t_ref, bg, ds, g, transforms_out!, transforms_in!) -> begin
+    cb = (i, coords, cur_s, cur_t_ref, step, bg, ds, g, transforms_out!, transforms_in!) -> begin
       if abs(cur_s - 1.0) < 1e-12
-        transforms_out!(i, coords, cur_s, cur_t_ref)
+        transforms_out!(i, coords)
         push!(pz, coords.v[i,6])
-        transforms_in!(i, coords, cur_s, cur_t_ref)
+        transforms_in!(i, coords)
       end
       nothing
     end
@@ -241,7 +241,7 @@ using Random
   @test_throws ErrorException track_ele((; L=2.0, dx=1e-3), 2, 1; tm=Exact())
   # Elements tracked in one step error for n_steps > 1, so n_slices*n_steps is always the number of
   # steps (and of callbacks, which e.g. SciBmad's twiss relies on)
-  count_cb(n) = ((i, coords, s, t, bg, ds, g, o!, in!) -> (n[] += 1; nothing),)
+  count_cb(n) = ((i, coords, s, t, step, bg, ds, g, o!, in!) -> (n[] += 1; nothing),)
   for kw in ((; L=2.0, dx=1e-3), (; L=2.0, transport_map=(v, q) -> (v, q)))
     @test_throws "n_steps > 1" track_ele(kw, 1, 2; tm=Exact())
     ncb = Ref(0)

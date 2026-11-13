@@ -55,7 +55,7 @@ using Random
   blp = Beamlines.deval(ele.BeamlineParams, bl.context)
   ref = ext.TrackReference(e, -10.0, 1)
   @test_opt target_modules=(ext, BeamTracking) ext.universal!(b, ele.tracking_method, ele, ext._SliceUniversalParams(up, 1), nothing, nothing, nothing,
-                                                               nothing, nothing, nothing, blp, nothing, nothing, nothing, nothing, nothing, ref, Val(false), Val(false), Val(false), 1, b)
+                                                               nothing, nothing, nothing, blp, nothing, nothing, nothing, nothing, nothing, ref, Val(false), Val(false), Val(false), 1, Ref((step = 0, s = 0.0)), b)
 
   # Timing ratios on the same machine (with generous margins): ramping the reference energy costs
   # about the same as tracking with a static reference (~1.0 on Julia 1.10 and 1.13), and the per

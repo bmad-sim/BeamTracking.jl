@@ -26,7 +26,7 @@ function integrate_steps!(i, coords::Coords, ker::K, params, photon_params, ds_s
           stochastic_radiation!(i, coords, s, photon_params..., ds_step)
         end
         dt_ref = compute_dt_ref(s, ker, params)
-        execute_callbacks(i, coords, s, dt_ref)
+        execute_callbacks(i, coords, s, dt_ref, step)
       end
     end
     if !isnothing(photon_params)

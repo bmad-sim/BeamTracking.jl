@@ -280,7 +280,7 @@ Compatible with @makekernel and the package's kernel architecture.
 
     # The common path performs the final callback after exit processing.
     if step != n_steps
-      execute_callbacks(i, coords, s, s / (beta_0 * c_light(typeof(ds_step))))
+      execute_callbacks(i, coords, s, s / (beta_0 * c_light(typeof(ds_step))), step)
     end
   end
 end

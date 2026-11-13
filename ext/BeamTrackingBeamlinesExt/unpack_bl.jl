@@ -85,6 +85,7 @@ function _track!(
   shift_time::Val,
   rf_on,
   batch_start,
+  pos::Base.RefValue, # position of the element in the Beamline (see universal!)
   sink;
   kwargs...
 )
@@ -217,7 +218,7 @@ function _track!(
     @noinline universal!(bunch, tm, ele, _SliceUniversalParams(universalparams, k), alignmentparams, bendparams, bmultipoleparams,
                          patchparams, apertureparams, rfparams, beamlineparams, mapparams, fourpotentialparams, emultipoleparams,
                          emfieldparams, ibsparams, ref, ramp_particle_energy_without_rf, ramp_update_each_particle,
-                         shift_time, batch_start, sink; kwargs...)
+                         shift_time, batch_start, pos, sink; kwargs...)
   end
 end
 
@@ -244,6 +245,9 @@ function universal!(
   ::Val{ramp_update_each_particle},
   ::Val{shift_time},
   batch_start,
+  pos, # Ref of the position of the slice in the Beamline (step = steps before it, s = its s), 
+       # advanced past it (in a Ref: numbers passed to or returned from these dynamic calls would be
+       # allocated; s has the type of bunch.t_ref, which holds the type of the lengths)
   sink;
   kwargs...
 ) where {ramp_particle_energy_without_rf, ramp_update_each_particle, shift_time}
@@ -316,7 +320,11 @@ function universal!(
     g = BeamTracking.num_lower(T, g),
     ds_step = BeamTracking.num_lower(T, ds_step),
     s0 = BeamTracking.num_lower(T, s0),
+    s_enter = BeamTracking.num_lower(T, pos[].s),
+    step0 = pos[].step,
+    n_steps = universalparams.n_steps,
   )
+  pos[] = (step = pos[].step + universalparams.n_steps, s = oftype(pos[].s, pos[].s + L_slice))
 
   # Current KernelChain length is 11 because we have up to
   # 2 aperture, 2 alignment, 1 body kernel, 1 IBS kernel,

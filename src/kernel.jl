@@ -108,7 +108,7 @@ end
 Adapt.@adapt_structure KernelCall
 
 # Store the state of the reference coordinate system
-struct RefState{R,S,T,U,V,W,X,Y,Z}
+struct RefState{R,S,T,U,V,W,X,Y,Z,A}
   t_enter::S          # Reference time at entrance
   beta_gamma_enter::T # Reference energy at entrance
   t_exit::U           # Reference time at exit
@@ -116,14 +116,17 @@ struct RefState{R,S,T,U,V,W,X,Y,Z}
   L::W                
   g::X                
   ds_step::Y    
-  s0::Z               # s of the entrance within the element (nonzero for a slice of an element), added to the callbacks' s
-  function RefState{R}(t_enter::S, beta_gamma_enter::T, t_exit::U, beta_gamma_exit::V, L::W, g::X, ds_step::Y, s0::Z) where {R,S,T,U,V,W,X,Y,Z}
-    return new{R,S,T,U,V,W,X,Y,Z}(t_enter, beta_gamma_enter, t_exit, beta_gamma_exit, L, g, ds_step, s0)
+  s0::Z               # s of the entrance within the element (nonzero for a slice of an element), added to the transforms' s
+  s_enter::A          # s of the entrance in the Beamline, added to the callbacks' s
+  step0::Int          # Steps before the entrance in the Beamline, added to the callbacks' step
+  n_steps::Int        # Steps of the chain (the step of the exit callback)
+  function RefState{R}(t_enter::S, beta_gamma_enter::T, t_exit::U, beta_gamma_exit::V, L::W, g::X, ds_step::Y, s0::Z, s_enter::A, step0, n_steps) where {R,S,T,U,V,W,X,Y,Z,A}
+    return new{R,S,T,U,V,W,X,Y,Z,A}(t_enter, beta_gamma_enter, t_exit, beta_gamma_exit, L, g, ds_step, s0, s_enter, step0, n_steps)
   end
 end
 
-function RefState{T}(; t_enter, beta_gamma_enter, t_exit=t_enter, beta_gamma_exit=beta_gamma_enter, L=0, g=(0,0), ds_step=0, s0=0) where {T}
-  return RefState{T}(batch_lower(t_enter), batch_lower(beta_gamma_enter), batch_lower(t_exit), batch_lower(beta_gamma_exit), batch_lower(L), batch_lower(g), batch_lower(ds_step), batch_lower(s0))
+function RefState{T}(; t_enter, beta_gamma_enter, t_exit=t_enter, beta_gamma_exit=beta_gamma_enter, L=0, g=(0,0), ds_step=0, s0=0, s_enter=s0, step0=0, n_steps=1) where {T}
+  return RefState{T}(batch_lower(t_enter), batch_lower(beta_gamma_enter), batch_lower(t_exit), batch_lower(beta_gamma_exit), batch_lower(L), batch_lower(g), batch_lower(ds_step), batch_lower(s0), batch_lower(s_enter), step0, n_steps)
 end
 
 coordstype(::RefState{T}) where {T} = T
@@ -137,7 +140,10 @@ coordstype(::RefState{T}) where {T} = T
     beval(ref.L, i, batch_start), 
     beval(ref.g, i, batch_start), 
     beval(ref.ds_step, i, batch_start),
-    beval(ref.s0, i, batch_start)
+    beval(ref.s0, i, batch_start),
+    beval(ref.s_enter, i, batch_start),
+    ref.step0,
+    ref.n_steps
   )
 end
 
@@ -215,13 +221,13 @@ _generic_kernel!(i, coords, kc) = __generic_kernel!(i, coords, kc.chain, beval(k
 end
 
 function __generic_kernel_noramp!(i, coords::Coords, chain, ref, batch_start, transforms_out, transforms_in)
-  body_callback = construct_main_callback(coords, batch_start, transforms_out, transforms_in, ref.t_enter, ref.beta_gamma_enter, ref.ds_step, ref.g, ref.s0)
+  body_callback = construct_main_callback(coords, batch_start, transforms_out, transforms_in, ref.t_enter, ref.beta_gamma_enter, ref.ds_step, ref.g, ref.s0, ref.s_enter, ref.step0)
   body_coords = Coords(coords.state, coords.v, coords.q, coords.weight, body_callback)
   __generic_kernel_noramp_body!(i, body_coords, chain, batch_start, ref.t_enter, ref.beta_gamma_enter)
   # note: t_ref only used by transforms, can pass 0 for t_ref_transform 
   # beta_gamma is like ds_step and g, passed to callback, so that can't be 0
-  exit_callback = construct_main_callback(coords, batch_start, (), (), 0, ref.beta_gamma_exit, ref.ds_step, ref.g, ref.s0)
-  _execute_callbacks(i, coords, exit_callback, ref.L, ref.t_exit)
+  exit_callback = construct_main_callback(coords, batch_start, (), (), 0, ref.beta_gamma_exit, ref.ds_step, ref.g, ref.s0, ref.s_enter, ref.step0)
+  _execute_callbacks(i, coords, exit_callback, ref.L, ref.t_exit, ref.n_steps)
   return nothing
 end
 
@@ -249,8 +255,8 @@ function __generic_kernel_ramp!(i, coords::Coords, chain, ref, batch_start, tran
   # note: can pass 0 for t_ref_transform because that is not used now 
   # since transforms are empty tuples at the end (back in global frame)
   # However we do now give the user access to reference energy
-  exit_callback = construct_main_callback(coords, batch_start, (), (), 0, ref.beta_gamma_exit, ref.ds_step, ref.g, ref.s0)
-  _execute_callbacks(i, coords, exit_callback, ref.L, ref.t_exit)
+  exit_callback = construct_main_callback(coords, batch_start, (), (), 0, ref.beta_gamma_exit, ref.ds_step, ref.g, ref.s0, ref.s_enter, ref.step0)
+  _execute_callbacks(i, coords, exit_callback, ref.L, ref.t_exit, ref.n_steps)
   return nothing
 end
 
@@ -372,7 +378,7 @@ function check_kwargs(mac, kwargs...)
 end
 
 # Also allow launch! on single KernelCalls
-@inline launch!(coords::Coords, kcall::KernelCall; kwargs...) = launch!(coords, KernelChain((kcall,), RefState{eltype(coords.v)}(0,0,0,0,0,0,0,0)); kwargs...)
+@inline launch!(coords::Coords, kcall::KernelCall; kwargs...) = launch!(coords, KernelChain((kcall,), RefState{eltype(coords.v)}(0,0,0,0,0,0,0,0,0,0,1)); kwargs...)
 
 macro makekernel(args...)
   kwargs = args[1:length(args)-1]

@@ -23,6 +23,7 @@ function universal!(
   ::Val{ramp_update_each_particle},
   ::Val{shift_time},
   batch_start,
+  pos, # as in the general universal!
   sink;
   kwargs...
 ) where {ramp_particle_energy_without_rf, ramp_update_each_particle, shift_time}
@@ -105,7 +106,10 @@ function universal!(
   end
   refstate = RefState{eltype(coords.v)}(; t_enter=PreParameter(b -> b.t_ref, ()), beta_gamma_enter,
                                           t_exit=PreParameter((b, dt) -> b.t_ref + dt, (dt,)),
-                                          beta_gamma_exit, L, g, ds_step)
+                                          beta_gamma_exit, L, g, ds_step,
+                                          s_enter=BeamTracking.num_lower(eltype(coords.v), pos[].s),
+                                          step0=pos[].step, n_steps=universalparams.n_steps)
+  pos[] = (step = pos[].step + universalparams.n_steps, s = oftype(pos[].s, pos[].s + L))
   kc = KernelChain(Val{10}(), refstate, batch_start)
 
   # Ramping

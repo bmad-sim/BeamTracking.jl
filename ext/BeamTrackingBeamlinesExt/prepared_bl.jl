@@ -84,8 +84,8 @@ function process_preparameters(kc::KernelChain, bunch)
   T = BeamTracking.coordstype(kc.ref)
   call(c) = BeamTracking.KernelCall(c.kernel, map(a -> process_arg(a, bunch), c.args))
   r = kc.ref
-  fields = (r.t_enter, r.beta_gamma_enter, r.t_exit, r.beta_gamma_exit, r.L, r.g, r.ds_step, r.s0)
-  ref = RefState{T}(map(a -> process_field(a, bunch), fields)...)
+  fields = (r.t_enter, r.beta_gamma_enter, r.t_exit, r.beta_gamma_exit, r.L, r.g, r.ds_step, r.s0, r.s_enter)
+  ref = RefState{T}(map(a -> process_field(a, bunch), fields)..., r.step0, r.n_steps)
   return KernelChain(map(call, kc.chain), ref, kc.batch_start, map(call, kc.transforms_out),
                      map(call, kc.transforms_in))
 end
@@ -144,9 +144,10 @@ function prepare(
   v_shift_time = Val(bunch.species != ref.species_ref)
   # Built with a copy, whose reference momentum push_chain! changes as the elements do
   b = Bunch(bunch.species, bunch.p_over_q_ref, bunch.t_ref, bunch.coords)
+  pos = Ref((step = 0, s = zero(bunch.t_ref))) # see universal!
   for ele in bl.line
     @noinline _track!(b, ele, context, ref, scalar_params, v_ramp_particle_energy_without_rf,
-                      v_ramp_update_each_particle, v_shift_time, rf_on, batch_start, chains)
+                      v_ramp_update_each_particle, v_shift_time, rf_on, batch_start, pos, chains)
   end
   return chains
 end
