@@ -100,17 +100,19 @@ function run_chain!(bunch::Bunch, kc::KernelChain; kwargs...)
 end
 
 # Not with run_chain!: a call with keyword arguments is not inlined, and p.kc passed to a call is
-# copied out of p, which is boxed in the Vector of chains (each 8% slower for one particle on ESR)
-function run!(bunch::Bunch, p::PreKernelChain; kwargs...)
+# copied out of p, which is boxed in the Vector of chains (each 8% slower for one particle on ESR).
+# The launch! options come as LaunchOptions in a Ref: passed to this dynamic call as keyword
+# arguments (or by value) they were allocated for each chain, and as values (not type parameters)
+# they made the launches slower (together 10% of an ESR turn for one particle). The position of the
+# Bunch is set by track! after the last chain
+function run!(bunch::Bunch, p::PreKernelChain, opts::Base.RefValue)
   kc = process_preparameters(p.kc, bunch)
   dt = process_preparameter(p.dt, bunch)
   p_over_q_ref_exit = process_preparameter(p.p_over_q_ref_exit, bunch)
   # noinline necessary here for small binaries and faster execution
-  @noinline launch!(bunch.coords, kc; kwargs...)
+  @noinline launch!(bunch.coords, kc, opts[])
   bunch.t_ref = bunch.t_ref + dt
   bunch.p_over_q_ref = p_over_q_ref_exit
-  bunch.s = p.s_exit
-  bunch.step = p.step_exit
   return nothing
 end
 
@@ -158,8 +160,15 @@ function prepare(
 end
 
 function track!(bunch::Bunch, chains::Vector{PreKernelChain}; kwargs...)
+  opts = Ref(BeamTracking.LaunchOptions(bunch.coords; kwargs...)) # (see run!)
   for pc in chains
-    @noinline run!(bunch, pc; kwargs...)
+    @noinline run!(bunch, pc, opts)
+  end
+  # The position of the Bunch after the last chain (set once, not per chain: 1 ns per element)
+  if !isempty(chains)
+    pc = last(chains)
+    bunch.s = pc.s_exit
+    bunch.step = pc.step_exit
   end
   return bunch
 end

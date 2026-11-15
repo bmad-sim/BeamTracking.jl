@@ -7,9 +7,9 @@
   # One before everything
   s_pos = zeros(1 + 10*n_thickeles + n_thineles)
   cur_idx = 1
-  function s_in_ele(i, coords, cur_s, cur_t_ref, cur_step, cur_beta_gamma_ref, ds_step, g, transforms_out!, transforms_in!)
+  function s_in_ele(i, coords, p)
     cur_idx += 1
-    s_pos[cur_idx] = s_pos[cur_idx-1] + ds_step
+    s_pos[cur_idx] = s_pos[cur_idx-1] + p.last_ds_step
   end
   b0 = Bunch(v=zeros(1,6), callbacks=(s_in_ele,))
   track!(b0, ring)
@@ -31,21 +31,23 @@
   quatsx = zeros(n_steps, 4)
   sx = zeros(n_steps)
   tx = zeros(n_steps)
-  function savestuff!(i, coords, cur_s, cur_t_ref, cur_step, cur_beta_gamma_ref, ds_step, g, transforms_out!, transforms_in!)
+  function savestuff!(i, coords, p)
+    cur_s, cur_t_ref, ds_step = p.s, p.t_ref, p.last_ds_step
     i_step = round(Int, cur_s/ds_step)
     orbits[i_step, :] = coords.v[1,:]
     quats[i_step, :] = coords.q[1,:]
     s[i_step] = cur_s
     t[i_step] = cur_t_ref
   end
-  function savestuffx!(i, coords, cur_s, cur_t_ref,  cur_step, cur_beta_gamma_ref, ds_step, g, transforms_out!, transforms_in!)
+  function savestuffx!(i, coords, p)
+    cur_s, cur_t_ref, ds_step = p.s, p.t_ref, p.last_ds_step
     i_step = round(Int, cur_s/ds_step)
-    transforms_out!(i, coords)
+    transforms_out!(i, coords, p)
     orbitsx[i_step, :] = coords.v[1,:]
     quatsx[i_step, :] = coords.q[1,:]
     sx[i_step] = cur_s
     tx[i_step] = cur_t_ref
-    transforms_in!(i, coords)
+    transforms_in!(i, coords, p)
   end
   b0 = Bunch(v=[0.01 0.02 0.03 0.04 0.05 0.06], q=[1.0 0.0 0.0 0.0], callbacks=(savestuff!,))
   b0x = Bunch(v=[0.01 0.02 0.03 0.04 0.05 0.06], q=[1.0 0.0 0.0 0.0], callbacks=(savestuffx!,))
@@ -149,11 +151,11 @@
             -a0*c0*cosh(s)*sin(t)*sin(x)*sinh(y), a0*c0*cos(x)*cosh(s)*cosh(y)*sin(t), a0*c0*cos(x)*sin(t)*sinh(s)*sinh(y), a0*c0*cos(t)*cos(x)*cosh(s)*sinh(y))
     return potential, jac
   end
-  function cusayhi(i, coords, cur_s, cur_t_ref,  cur_step, cur_beta_gamma_ref, ds_step, g, transforms_out!, transforms_in!)
-    transforms_out!(i, coords)
+  function cusayhi(i, coords, p)
+    transforms_out!(i, coords, p)
     @cuprintln("hello! orbit:", coords.v[i,1], " ", coords.v[i,2], " ", coords.v[i,3], " ", coords.v[i,4], " ", coords.v[i,5], " ", coords.v[i,6], " ")
     @cuprintln("hello! quat:", coords.q[i,1], " ", coords.q[i,2], " ", coords.q[i,3], " ", coords.q[i,4])
-    transforms_in!(i, coords)
+    transforms_in!(i, coords, p)
   end
   crazyelex = Marker(four_potential=crazy, four_potential_params=(1.0, 1.0), four_potential_normalized=true, L=1.2, x_offset=0.1, y_offset=0.2, z_offset=0.3, x_rot=0.4, y_rot=0.5, tilt=0.6, tracking_method=Implicit(), n_steps=n_steps)
   bx = Beamline([crazyelex], species_ref=Species("electron"), E_ref=1.1*Beamlines.massof(Species("electron")))
@@ -173,10 +175,10 @@
             -a0*c0*cosh(s)*sin(t)*sin(x)*sinh(y), a0*c0*cos(x)*cosh(s)*cosh(y)*sin(t), a0*c0*cos(x)*sin(t)*sinh(s)*sinh(y), a0*c0*cos(t)*cos(x)*cosh(s)*sinh(y))
     return potential, jac
   end
-  function mtladd(i, coords, cur_s, cur_t_ref,  cur_step, cur_beta_gamma_ref, ds_step, g, transforms_out!, transforms_in!)
-    transforms_out!(i, coords)
+  function mtladd(i, coords, p)
+    transforms_out!(i, coords, p)
     coords.v[i,1] = 1000
-    transforms_in!(i, coords)
+    transforms_in!(i, coords, p)
   end
   crazyelex = Marker(four_potential=crazy, four_potential_params=(1.0, 1.0), four_potential_normalized=true, L=1.2, x_offset=0.1, y_offset=0.2, z_offset=0.3, x_rot=0.4, y_rot=0.5, tilt=0.6, tracking_method=Implicit(), n_steps=n_steps)
   bx = Beamline([crazyelex], species_ref=Species("electron"), E_ref=1.1*Beamlines.massof(Species("electron")))
@@ -194,7 +196,7 @@ end
   bl = Beamline(eles; species_ref=Species("electron"), E_ref=1e9)
   n = sum(e -> e.n_slices*e.n_steps, bl.line)
   steps = Int[]
-  cb = (i, coords, cur_s, cur_t_ref, cur_step, cur_beta_gamma_ref, last_ds_step, last_g, out!, in!) -> (push!(steps, cur_step); nothing)
+  cb = (i, coords, p) -> (push!(steps, p.step); nothing)
   L = sum(e -> e.L, bl.line)
   b = Bunch(v=[1e-3 0 0 0 0 0], callbacks=(cb,))
   track!(b, bl; notify=false)
@@ -225,7 +227,7 @@ end
     append!(s_expected, [s_e + j*e.L/n_e for j in 1:n_e])
   end
   ss = Float64[]
-  cbs = (i, coords, cur_s, cur_t_ref, cur_step, cur_beta_gamma_ref, last_ds_step, last_g, out!, in!) -> (push!(ss, cur_s); nothing)
+  cbs = (i, coords, p) -> (push!(ss, p.s); nothing)
   b = Bunch(v=[1e-3 0 0 0 0 0], callbacks=(cbs,))
   track!(b, bl; notify=false)
   @test ss ≈ s_expected atol=1e-14
@@ -241,9 +243,9 @@ end
   # The transforms are at the s within the element: a misaligned drift after a drift that does not
   # change the particle gives the same lab coordinates as alone
   lab = Vector{Float64}[]
-  cbt = (i, coords, cur_s, cur_t_ref, cur_step, cur_beta_gamma_ref, last_ds_step, last_g, out!, in!) -> begin
+  cbt = (i, coords, p) -> begin
     vs = coords.v[i,:]
-    out!(i, coords)
+    transforms_out!(i, coords, p)
     push!(lab, coords.v[i,:])
     coords.v[i,:] .= vs
     nothing

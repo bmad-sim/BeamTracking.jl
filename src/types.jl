@@ -86,12 +86,10 @@ Construct a `Bunch` of particles for tracking.
   step (defaults to `()`), where each callback should be of the form 
 
 ```julia
-callback(i, coords, cur_s, cur_t_ref, cur_step, cur_beta_gamma_ref, last_ds_step, last_g, transforms_out!, transforms_in!)
+callback(i, coords, p::TrackPoint)
 ``` 
-  where `cur_s` is the s and `cur_step` the number of integration steps from the `Beamline` 
-  entrance (`n_slices*n_steps` per element, the last one at the element exit; from the element 
-  entrance when tracking a single element). `transforms_out!(i, coords)` and 
-  `transforms_in!(i, coords)` transform the particle out of and back into the element body frame.
+  where `i` is the particle index, `coords` the `Coords` and `p` the point of the tracking (its s,
+  reference time, step, ...; see `TrackPoint`).
 
 - `p_over_q_ref`: Reference momentum-over-charge defining the normalization 
   of the phase space coordinates.

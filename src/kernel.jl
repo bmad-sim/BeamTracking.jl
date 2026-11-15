@@ -280,6 +280,24 @@ end
 
 # Generic function to launch a kernel on the bunch coordinates matrix
 # Matrix v should ALWAYS be in SoA whether for real or as a view via tranpose(v)
+# The keyword arguments of launch! as type parameters, so that they are constants in the launches
+# (as launch!'s defaults are): built once for many launches, e.g. for the chains of a Beamline. With
+# the values passed to each launch, ESR tracking of one particle was 7% slower than with the defaults
+struct LaunchOptions{KA,ES,MT,G}
+  groupsize::G
+end
+
+# With the defaults of launch!
+function LaunchOptions(coords::Coords; groupsize::Union{Nothing,Integer}=nothing,
+                       use_cpu_multithreading::Bool=false,
+                       use_KA::Bool=!(get_backend(coords.v) isa CPU && isnothing(groupsize)),
+                       use_explicit_SIMD::Bool=!use_KA)
+  return LaunchOptions{use_KA,use_explicit_SIMD,use_cpu_multithreading,typeof(groupsize)}(groupsize)
+end
+
+@inline launch!(coords::Coords, kc::KernelChain, o::LaunchOptions{KA,ES,MT}) where {KA,ES,MT} =
+  launch!(coords, kc; groupsize=o.groupsize, use_KA=KA, use_explicit_SIMD=ES, use_cpu_multithreading=MT)
+
 @inline function launch!(
   coords::Coords{<:Any,V},
   kc::KernelChain;
