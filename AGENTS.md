@@ -166,6 +166,23 @@ touches both repositories; their versions are coupled (BeamTracking 0.9 needs Be
   `literal_pow`'s `N`), so time functions are evaluated in `T` (Metal has no Float64). It is never 
   called for Float64, and converting at evaluation instead (in the closures) would still put 
   Float64 constants into GPU kernels. `num_lower` probes the output type at `zero(T)`.
+- A `BatchParam` inside a time-dependent parameter (`A*sin(2pi*BatchParam(f)*Time())`, e.g. an AC 
+  kicker with a frequency per particle) is captured by the closure like a number. `map_batches` 
+  (batch.jl) rebuilds the closure tree with a function applied to each captured batch, as 
+  `lower_captured` does for numbers: `time_lower` lowers them to `_LoweredBatchParam`s, Float32 
+  `num_lower` converts them, and `beval` replaces them by the particle's value before `teval`. 
+  Each particle sees its element as for any other `BatchParam` (`beval`, wrapping around). No new 
+  type: an earlier version had its own lowered type and Adapt adaptors, which were not needed. 
+  Tested in time_test.jl ("BatchParam in a time-dependent parameter"): bitwise equal to tracking 
+  each particle alone with its scalar frequency (scalar loop), a shorter batch wrapping around, 
+  reversed frequencies as control.
+- Wrap-around of `BatchParam`s (`mod1(i+batch_start-1, B)`) costs nothing measurable (Nov 2026, 
+  ESR with all 494 quadrupole strengths batched, alternating A/B against direct indexing): CPU 
+  1-10,000 particles within 1% (75.5 vs 75.6 ms at 1,000), Metal 1,000,000 particles 2737 vs 
+  2694 ms (run-to-run spread 6%), results bitwise equal. B is a type parameter, so `mod1` is by 
+  a constant (multiply and shift); on GPUs consecutive threads still read consecutive elements 
+  (coalesced); the CPU kernels are compute bound, so the SIMD gather does not show. Kept: 
+  batches shorter than the bunch stay usable.
 
 ## Physics conventions
 
