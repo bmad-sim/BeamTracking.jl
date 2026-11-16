@@ -104,13 +104,15 @@ end
 # The launch! options come as LaunchOptions in a Ref: passed to this dynamic call as keyword
 # arguments (or by value) they were allocated for each chain, and as values (not type parameters)
 # they made the launches slower (together 10% of an ESR turn for one particle). The position of the
-# Bunch is set by track! after the last chain
+# Bunch is set by track! after the last chain. The coordinates are read with getfield: through the
+# getproperty of Bunch (not constant-folded here) they were boxed for every chain (an allocation
+# per element, larger with the callbacks, which are part of them)
 function run!(bunch::Bunch, p::PreKernelChain, opts::Base.RefValue)
   kc = process_preparameters(p.kc, bunch)
   dt = process_preparameter(p.dt, bunch)
   p_over_q_ref_exit = process_preparameter(p.p_over_q_ref_exit, bunch)
   # noinline necessary here for small binaries and faster execution
-  @noinline launch!(bunch.coords, kc, opts[])
+  @noinline launch!(getfield(bunch, :coords), kc, opts[])
   bunch.t_ref = bunch.t_ref + dt
   bunch.p_over_q_ref = p_over_q_ref_exit
   return nothing
