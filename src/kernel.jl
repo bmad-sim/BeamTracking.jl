@@ -224,7 +224,10 @@ function __generic_kernel_noramp!(i, coords::Coords, chain, ref, batch_start, tr
   body_callback = construct_main_callback(coords, batch_start, transforms_out, transforms_in, ref.t_enter, ref.beta_gamma_enter, ref.ds_step, ref.g, ref.s0, ref.s_enter, ref.step0)
   body_coords = Coords(coords.state, coords.v, coords.q, coords.weight, body_callback)
   __generic_kernel_noramp_body!(i, body_coords, chain, batch_start, ref.t_enter, ref.beta_gamma_enter)
-  # (the callbacks at the exit: _exit_callbacks!)
+  # note: t_ref only used by transforms, can pass 0 for t_ref_transform 
+  # beta_gamma is like ds_step and g, passed to callback, so that can't be 0
+  exit_callback = construct_main_callback(coords, batch_start, (), (), 0, ref.beta_gamma_exit, ref.ds_step, ref.g, ref.s0, ref.s_enter, ref.step0)
+  _execute_callbacks(i, coords, exit_callback, ref.L, ref.t_exit, ref.n_steps)
   return nothing
 end
 
@@ -249,50 +252,11 @@ function __generic_kernel_ramp!(i, coords::Coords, chain, ref, batch_start, tran
   beta_gamma_in_ele = teval(last(chain).args[1], t_initial)
   dbeta_gamma_in_ele = teval(last(chain).args[2], t_initial)
   reference_momentum_shift!(i, coords, beta_gamma_in_ele, dbeta_gamma_in_ele, last(chain).args[3])
-  # (the callbacks at the exit: _exit_callbacks!)
-  return nothing
-end
-
-# The callbacks at the exit of a chain (reference ref), run by launch! after the chain. They get ref
-# and not the chain, so that they are compiled once per type of ref, not for every chain
-function _exit_callbacks!(i, coords, ref0, batch_start)
-  ref = beval(ref0, i, batch_start)
   # note: can pass 0 for t_ref_transform because that is not used now 
   # since transforms are empty tuples at the end (back in global frame)
-  # beta_gamma is like ds_step and g, passed to callback, so that can't be 0
+  # However we do now give the user access to reference energy
   exit_callback = construct_main_callback(coords, batch_start, (), (), 0, ref.beta_gamma_exit, ref.ds_step, ref.g, ref.s0, ref.s_enter, ref.step0)
   _execute_callbacks(i, coords, exit_callback, ref.L, ref.t_exit, ref.n_steps)
-  return nothing
-end
-
-@kernel function exit_callbacks_kernel!(coords::Coords, @Const(ref), batch_start)
-  i = @index(Global, Linear)
-  @inline _exit_callbacks!(i, coords, ref, batch_start)
-end
-
-# For all particles, one at a time (the exit callbacks of a chain run only at its locations, if they
-# say so with runs_at: then the kernels have no code for them, which cost in every element, 3% on
-# ESR with 1 particle, even where they did not run)
-@noinline function _launch_exit_callbacks!(coords, ref, batch_start, groupsize, use_cpu_multithreading, use_KA)
-  N_particle = size(coords.v, 1)
-  if use_KA
-    backend = get_backend(coords.v)
-    if isnothing(groupsize)
-      kernel! = exit_callbacks_kernel!(backend)
-    else
-      kernel! = exit_callbacks_kernel!(backend, groupsize)
-    end
-    kernel!(coords, ref, batch_start; ndrange=N_particle)
-    KernelAbstractions.synchronize(backend)
-  elseif use_cpu_multithreading
-    Threads.@threads for i in 1:N_particle
-      _exit_callbacks!(i, coords, ref, batch_start)
-    end
-  else
-    for i in 1:N_particle
-      _exit_callbacks!(i, coords, ref, batch_start)
-    end
-  end
   return nothing
 end
 
@@ -410,9 +374,6 @@ end
     end
     kernel!(coords, kc; ndrange=N_particle)
     KernelAbstractions.synchronize(backend)
-  end
-  if runs_at(coords.callbacks, kc.ref.step0 + kc.ref.n_steps)
-    _launch_exit_callbacks!(coords, kc.ref, kc.batch_start, groupsize, use_cpu_multithreading, use_KA)
   end
   return nothing
 end

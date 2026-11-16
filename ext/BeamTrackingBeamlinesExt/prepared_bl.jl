@@ -104,9 +104,7 @@ end
 # The launch! options come as LaunchOptions in a Ref: passed to this dynamic call as keyword
 # arguments (or by value) they were allocated for each chain, and as values (not type parameters)
 # they made the launches slower (together 10% of an ESR turn for one particle). The position of the
-# Bunch is set by track! after the last chain. The coordinates are read with getfield: through the
-# getproperty of Bunch (not constant-folded here) they were boxed for every chain (an allocation
-# per element, larger with the callbacks, which are part of them)
+# Bunch is set by track! after the last chain
 function run!(bunch::Bunch, p::PreKernelChain, opts::Base.RefValue)
   kc = process_preparameters(p.kc, bunch)
   dt = process_preparameter(p.dt, bunch)
@@ -122,10 +120,9 @@ end
 # prepare: the chain is stored, and the next element is built for the reference momentum after
 # this one, unless that is only known at the call (with a time dependent reference energy, where
 # the next element only uses it at the call too)
-# (with the position of bunch after the chain, which universal! has set)
-function push_chain!(chains::Vector, bunch, kc, dt, p_over_q_ref_exit)
-  push!(chains, PreKernelChain(kc, dt, p_over_q_ref_exit, bunch.s, bunch.step))
-  p_over_q_ref_exit isa PreParameter || (bunch.p_over_q_ref = p_over_q_ref_exit)
+function push_chain!(chains::Vector, bunch, pc)
+  push!(chains, pc)
+  pc.p_over_q_ref_exit isa PreParameter || (bunch.p_over_q_ref = pc.p_over_q_ref_exit)
   return nothing
 end
 
@@ -151,8 +148,8 @@ function prepare(
   v_ramp_particle_energy_without_rf = Val(ramp_particle_energy_without_rf)
   v_ramp_update_each_particle = Val(ramp_update_each_particle)
   v_shift_time = Val(bunch.species != ref.species_ref)
-  # Built with a copy (at the beginning of the Beamline), whose reference momentum and position
-  # push_chain! changes as the elements do
+  # Built with a copy (at the beginning of the Beamline), whose reference momentum push_chain! and
+  # position universal! change as the elements do
   b = Bunch(bunch.species, bunch.p_over_q_ref, bunch.t_ref, bunch.coords)
   for ele in bl.line
     @noinline _track!(b, ele, context, ref, scalar_params, v_ramp_particle_energy_without_rf,

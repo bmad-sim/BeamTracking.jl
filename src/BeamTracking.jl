@@ -24,7 +24,7 @@ import GTPSA: sincu, sinhcu
 
 export Species
 export Bunch, State, ParticleView, Time, TimeDependentParam, BatchParam
-export TrackPoint, transforms_out!, transforms_in!, has_transforms
+export TrackPoint, transforms_out!, transforms_in!
 export track!
 
 include("utils/float32.jl")

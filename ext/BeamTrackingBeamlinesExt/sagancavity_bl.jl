@@ -183,7 +183,8 @@ function universal!(
     sink.p_over_q_ref = p_over_q_ref_exit
     return nothing
   end
-  return push_chain!(sink, bunch, kc, dt_design, p_over_q_ref_exit)
+  return push_chain!(sink, bunch, PreKernelChain(kc, dt_design, p_over_q_ref_exit, bunch.s,
+                                                 bunch.step))
 end
 
 #---------------------------------------------------------------------------------------------------

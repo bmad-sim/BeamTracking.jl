@@ -321,8 +321,8 @@ function universal!(
     n_steps = universalparams.n_steps,
   )
   # The position of the Bunch after the slice (s has the type of bunch.t_ref, which holds the type
-  # of the lengths). Set here, where its type is known (also for prepare, whose push_chain! stores
-  # it in the PreKernelChain): passed on, it would be allocated by the dynamic calls
+  # of the lengths). Set here, where its type is known (also for prepare, whose PreKernelChain
+  # stores it): passed on, it would be allocated by the dynamic calls
   bunch.s = oftype(bunch.s, bunch.s + L_slice)
   bunch.step = bunch.step + universalparams.n_steps
 
@@ -444,5 +444,6 @@ function universal!(
     sink.p_over_q_ref = p_over_q_ref_now
     return nothing
   end
-  return push_chain!(sink, bunch, kc, dt_design, p_over_q_ref_exit)
+  return push_chain!(sink, bunch, PreKernelChain(kc, dt_design, p_over_q_ref_exit, bunch.s,
+                                                 bunch.step))
 end
