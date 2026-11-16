@@ -3,45 +3,20 @@
 #
 
 # Tracks n_steps integration steps, each made of the substeps of lengths ws (the scheme of the
-# integrator), with the fringes, radiation and callbacks. The steps are integrated by
-# _integrate_steps!, which stops after a step at which a callback runs (runs_at), and
-# _integrate_resume! runs the callbacks and resumes. Neither the steps nor the kernel have code for
-# the callbacks, which cost in every element even where they did not run (registers saved and
-# coordinates spilled for the calls, and the arguments kept for resuming: 2-10% on ESR)
-@inline function integrate_steps!(i, coords::Coords, ker::K, params, photon_params, ds_step, n_steps, edge_params, fringe_in::Val, fringe_out::Val, ws) where {K}
-  step, s = _integrate_steps!(i, coords, ker, params, photon_params, ds_step, n_steps, edge_params, fringe_in, fringe_out, ws, 0, zero(first(ws)))
-  if step < n_steps
-    _integrate_resume!(i, coords, ker, params, photon_params, ds_step, n_steps, edge_params, fringe_in, fringe_out, ws, step, s)
-  end
-  return nothing
-end
-
-@noinline function _integrate_resume!(i, coords::Coords, ker::K, params, photon_params, ds_step, n_steps, edge_params, fringe_in::Val, fringe_out::Val, ws, step, s) where {K}
-  while true
-    # (the reference time is only computed if a callback uses it, see TrackPoint)
-    execute_callbacks(i, coords, s, _DtRef(s, ker, params), step)
-    step, s = _integrate_steps!(i, coords, ker, params, photon_params, ds_step, n_steps, edge_params, fringe_in, fringe_out, ws, step, s)
-    step < n_steps || return nothing
-  end
-end
-
-# The steps after step (s after it), until the end or a step at which a callback runs: returns the
-# last step and s. `ker` has a single call site, so it is inlined once: written out per substep it
-# was inlined at every substep (up to 70 copies of the kernel for order 10), which multiplied the
-# compile time and the size of the compiled code. `ker::K` forces specialization on the kernel (it
-# is not called directly, only splatted)
-@noinline function _integrate_steps!(i, coords::Coords, ker::K, params, photon_params, ds_step, n_steps, edge_params, ::Val{fringe_in}, ::Val{fringe_out}, ws, step, s) where {K, fringe_in, fringe_out}
+# integrator), with the fringes, radiation and callbacks. `ker` has a single call site, so it is
+# inlined once: written out per substep it was inlined at every substep (up to 70 copies of the
+# kernel for order 10), which multiplied the compile time and the size of the compiled code.
+# `ker::K` forces specialization on the kernel (it is not called directly, only splatted)
+function integrate_steps!(i, coords::Coords, ker::K, params, photon_params, ds_step, n_steps, edge_params, ::Val{fringe_in}, ::Val{fringe_out}, ws) where {K, fringe_in, fringe_out}
   @inbounds begin
-    if step == 0
-      if !isnothing(edge_params) && fringe_in
-        fringe!(i, coords, edge_params..., Val{1}())
-      end
-      if !isnothing(photon_params)
-        stochastic_radiation!(i, coords, s, photon_params..., ds_step / 2)
-      end
+    if !isnothing(edge_params) && fringe_in
+      fringe!(i, coords, edge_params..., Val{1}())
     end
-    while step < n_steps
-      step += 1
+    s = zero(first(ws))
+    if !isnothing(photon_params)
+      stochastic_radiation!(i, coords, s, photon_params..., ds_step / 2)
+    end
+    for step in 1:n_steps
       for w in ws
         ker(i, coords, s, params..., w)
         s += w
@@ -50,9 +25,8 @@ end
         if !isnothing(photon_params)
           stochastic_radiation!(i, coords, s, photon_params..., ds_step)
         end
-        if runs_at(coords.callbacks, step)
-          return step, s
-        end
+        # (the reference time is only computed if a callback uses it, see TrackPoint)
+        execute_callbacks(i, coords, s, _DtRef(s, ker, params), step)
       end
     end
     if !isnothing(photon_params)
@@ -62,7 +36,7 @@ end
       fringe!(i, coords, edge_params..., Val{-1}())
     end
   end
-  return step, s
+  return nothing
 end
 
 @inline function order_two_integrator!(i, coords::Coords, ker, params, photon_params, ds_step, n_steps, edge_params, fringe_in, fringe_out, use_optimized_schemes, L)

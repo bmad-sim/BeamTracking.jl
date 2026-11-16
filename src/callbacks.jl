@@ -96,46 +96,30 @@ end
     runs_at(callback, step) -> Bool
 
 `false` if `callback` does nothing at the integration step `step` (counted as `p.step` of the 
-`TrackPoint`), so that it does not need to be called there. Defaults to `true`. A callback that runs 
-only at some steps can define a method: the integration then only stops at the steps where it runs 
-(and elements where it does not run at the exit skip it altogether), instead of keeping the code to 
-call it in every integration step. It must be cheap, and the same for all particles.
+`TrackPoint`). Defaults to `true`. A callback that runs only at some steps can define a method: the 
+callbacks at the exit of an element are then only run if one of them runs there (see `launch!`). It
+must be cheap, and the same for all particles.
 """
 runs_at(callback, step) = true
 @inline runs_at(callbacks::Tuple{}, step) = false
 @inline runs_at(callbacks::Tuple, step) =
   runs_at(first(callbacks), step) || runs_at(Base.tail(callbacks), step)
 
-# A single callback with signature (i, coords, cur_s, cur_dt_ref, cur_step) that executes all
-# callbacks in the callbacks tuple with the TrackPoint. cur_s and cur_step are from the launch 
+# Constructs a single callback with signature (i, coords, cur_s, cur_dt_ref, cur_step) that executes 
+# all callbacks in the callbacks tuple with the TrackPoint. cur_s and cur_step are from the launch 
 # entrance: the callbacks get them from the Beamline entrance (s_enter, the s of the launch 
 # entrance, and step0, the steps before it, are added), and the transforms get s from the element 
 # entrance (s0, the s of the launch entrance within the element, nonzero for a slice of an element, 
 # is added). cur_dt_ref is the reference time from the launch entrance (or a _DtRef).
-struct MainCallback{C,TOUT,TIN,T,B,D,G,S0,SE}
-  callbacks::C
-  batch_start::Int
-  transforms_out::TOUT
-  transforms_in::TIN
-  t_ref_transform::T
-  beta_gamma_ref_transform::B
-  ds_step::D
-  g::G
-  s0::S0
-  s_enter::SE
-  step0::Int
+function construct_main_callback(coords, batch_start, _transforms_out, _transforms_in, t_ref_transform, beta_gamma_ref_transform, ds_step, g, s0=0, s_enter=s0, step0=0)
+  let batch_start = batch_start, _transforms_in = _transforms_in, _transforms_out = _transforms_out, t_ref_transform=t_ref_transform, beta_gamma_ref_transform=beta_gamma_ref_transform, callbacks=coords.callbacks, ds_step=ds_step, g=g, s0=s0, s_enter=s_enter, step0=step0
+    return ((i, coords, cur_s, cur_dt_ref, cur_step) -> begin
+      p = TrackPoint(s_enter+cur_s, s0+cur_s, t_ref_transform, cur_dt_ref, step0+cur_step, beta_gamma_ref_transform, ds_step, g, batch_start, _transforms_out, _transforms_in)
+      _execute_callbacks_with_point(i, callbacks, coords, p)
+      return nothing
+    end,)
+  end
 end
-
-function (m::MainCallback)(i, coords, cur_s, cur_dt_ref, cur_step)
-  p = TrackPoint(m.s_enter+cur_s, m.s0+cur_s, m.t_ref_transform, cur_dt_ref, m.step0+cur_step, m.beta_gamma_ref_transform, m.ds_step, m.g, m.batch_start, m.transforms_out, m.transforms_in)
-  _execute_callbacks_with_point(i, m.callbacks, coords, p)
-  return nothing
-end
-
-@inline runs_at(m::MainCallback, cur_step) = runs_at(m.callbacks, m.step0 + cur_step)
-
-construct_main_callback(coords, batch_start, _transforms_out, _transforms_in, t_ref_transform, beta_gamma_ref_transform, ds_step, g, s0=0, s_enter=s0, step0=0) =
-  (MainCallback(coords.callbacks, batch_start, _transforms_out, _transforms_in, t_ref_transform, beta_gamma_ref_transform, ds_step, g, s0, s_enter, step0),)
 
 @unroll function _evaluate_transforms_args(i, coords, batch_start, transforms, t_ref_transform, beta_gamma_ref_transform)
   idx = 1

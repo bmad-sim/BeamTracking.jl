@@ -274,30 +274,13 @@ Compatible with @makekernel and the package's kernel architecture.
   magnetic_scale = electric_scale * c_light(typeof(p0c))
   reference = _rk_reference_factors(beta_0, tilde_m)
 
-  # The steps until one at which a callback runs, and the rest after the callbacks (see
-  # integrate_steps!). The common path performs the final callback after exit processing.
-  step, s = _rk4_steps!(coords, i, s0, s, 0, ds_step, n_steps, field_function, field_parameters, field_normalized, tilde_m, beta_0, gx, gy, magnetic_scale, reference)
-  if step != n_steps
-    _rk4_resume!(coords, i, s0, s, step, ds_step, n_steps, field_function, field_parameters, field_normalized, tilde_m, beta_0, gx, gy, magnetic_scale, reference)
-  end
-end
-
-@noinline function _rk4_resume!(coords, i, s0, s, step, ds_step, n_steps, field_function, field_parameters, field_normalized, tilde_m, beta_0, gx, gy, magnetic_scale, reference)
-  while true
-    execute_callbacks(i, coords, s, s / (beta_0 * c_light(typeof(ds_step))), step)
-    step, s = _rk4_steps!(coords, i, s0, s, step, ds_step, n_steps, field_function, field_parameters, field_normalized, tilde_m, beta_0, gx, gy, magnetic_scale, reference)
-    step != n_steps || return nothing
-  end
-end
-
-@noinline function _rk4_steps!(coords, i, s0, s, step, ds_step, n_steps, field_function, field_parameters, field_normalized, tilde_m, beta_0, gx, gy, magnetic_scale, reference)
-  @inbounds while step < n_steps
-    step += 1
+  for step in 1:n_steps
     _rk4_step!(coords, i, s0 + s, ds_step, field_function, field_parameters, field_normalized, tilde_m, beta_0, gx, gy, magnetic_scale, reference)
     s += ds_step
-    if step != n_steps && runs_at(coords.callbacks, step)
-      return step, s
+
+    # The common path performs the final callback after exit processing.
+    if step != n_steps
+      execute_callbacks(i, coords, s, s / (beta_0 * c_light(typeof(ds_step))), step)
     end
   end
-  return step, s
 end

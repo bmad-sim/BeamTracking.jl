@@ -199,11 +199,6 @@ end
   @inline _generic_kernel!(i, coords, kc)
 end
 
-@kernel function exit_callbacks_kernel!(coords::Coords, @Const(kc::KernelChain))
-  i = @index(Global, Linear)
-  @inline _exit_callbacks!(i, coords, kc)
-end
-
 _generic_kernel!(i, coords, kc) = __generic_kernel!(i, coords, kc.chain, beval(kc.ref, i, kc.batch_start), kc.batch_start, kc.transforms_out, kc.transforms_in)
 
 @generated function __generic_kernel!(i, coords, chain::T, ref, batch_start, transforms_out, transforms_in) where {T}
@@ -258,14 +253,46 @@ function __generic_kernel_ramp!(i, coords::Coords, chain, ref, batch_start, tran
   return nothing
 end
 
-# The callbacks at the exit of the chain, run by launch! for all particles after the chain
-function _exit_callbacks!(i, coords, kc)
-  ref = beval(kc.ref, i, kc.batch_start)
+# The callbacks at the exit of a chain (reference ref), run by launch! after the chain. They get ref
+# and not the chain, so that they are compiled once per type of ref, not for every chain
+function _exit_callbacks!(i, coords, ref0, batch_start)
+  ref = beval(ref0, i, batch_start)
   # note: can pass 0 for t_ref_transform because that is not used now 
   # since transforms are empty tuples at the end (back in global frame)
   # beta_gamma is like ds_step and g, passed to callback, so that can't be 0
-  exit_callback = construct_main_callback(coords, kc.batch_start, (), (), 0, ref.beta_gamma_exit, ref.ds_step, ref.g, ref.s0, ref.s_enter, ref.step0)
+  exit_callback = construct_main_callback(coords, batch_start, (), (), 0, ref.beta_gamma_exit, ref.ds_step, ref.g, ref.s0, ref.s_enter, ref.step0)
   _execute_callbacks(i, coords, exit_callback, ref.L, ref.t_exit, ref.n_steps)
+  return nothing
+end
+
+@kernel function exit_callbacks_kernel!(coords::Coords, @Const(ref), batch_start)
+  i = @index(Global, Linear)
+  @inline _exit_callbacks!(i, coords, ref, batch_start)
+end
+
+# For all particles, one at a time (the exit callbacks of a chain run only at its locations, if they
+# say so with runs_at: then the kernels have no code for them, which cost in every element, 3% on
+# ESR with 1 particle, even where they did not run)
+@noinline function _launch_exit_callbacks!(coords, ref, batch_start, groupsize, use_cpu_multithreading, use_KA)
+  N_particle = size(coords.v, 1)
+  if use_KA
+    backend = get_backend(coords.v)
+    if isnothing(groupsize)
+      kernel! = exit_callbacks_kernel!(backend)
+    else
+      kernel! = exit_callbacks_kernel!(backend, groupsize)
+    end
+    kernel!(coords, ref, batch_start; ndrange=N_particle)
+    KernelAbstractions.synchronize(backend)
+  elseif use_cpu_multithreading
+    Threads.@threads for i in 1:N_particle
+      _exit_callbacks!(i, coords, ref, batch_start)
+    end
+  else
+    for i in 1:N_particle
+      _exit_callbacks!(i, coords, ref, batch_start)
+    end
+  end
   return nothing
 end
 
@@ -308,25 +335,13 @@ end
   launch!(coords, kc; groupsize=o.groupsize, use_KA=KA, use_explicit_SIMD=ES, use_cpu_multithreading=MT)
 
 @inline function launch!(
-  coords::Coords,
+  coords::Coords{<:Any,V},
   kc::KernelChain;
   groupsize::Union{Nothing,Integer}=nothing, #backend isa CPU ? floor(Int,REGISTER_SIZE/sizeof(eltype(v))) : 256 
   use_cpu_multithreading::Bool=false,
   use_KA::Bool=!(get_backend(coords.v) isa CPU && isnothing(groupsize)),
   use_explicit_SIMD::Bool=!use_KA #&& (@static VERSION < v"1.11" || Sys.ARCH != :aarch64) # Default to use explicit SIMD on CPU, excepts for Macs above LTS bc SIMD.jl bug
-)
-  _launch!(_generic_kernel!, generic_kernel!, coords, kc, groupsize, use_cpu_multithreading, use_KA, use_explicit_SIMD)
-  # The callbacks at the exit of the chain in a separate loop over the particles, and only if they
-  # run at its last step: the kernel then has no code for them, which cost in every element (3% on
-  # ESR with 1 particle) even where they did not run
-  if runs_at(coords.callbacks, kc.ref.step0 + kc.ref.n_steps)
-    @noinline _launch!(_exit_callbacks!, exit_callbacks_kernel!, coords, kc, groupsize, use_cpu_multithreading, use_KA, use_explicit_SIMD)
-  end
-  return nothing
-end
-
-# Calls f(i, coords, kc) for all particles i (or SIMD lanes of them), or launches the KA kernel kaf
-@inline function _launch!(f::F, kaf::KF, coords::Coords{<:Any,V}, kc, groupsize, use_cpu_multithreading, use_KA, use_explicit_SIMD) where {F,KF,V}
+) where {V}
   v = coords.v
   N_particle = size(v, 1)
 
@@ -349,12 +364,12 @@ end
       if use_cpu_multithreading
         Threads.@threads for i in 1:simd_lane_width:N_SIMD
           @assert last(i) <= N_particle "Out of bounds!"  # Use last because SIMD.VecRange SIMD
-          f(lane+i, coords, kc)
+          _generic_kernel!(lane+i, coords, kc)
         end
       else
         for i in 1:simd_lane_width:N_SIMD
           @assert last(i) <= N_particle "Out of bounds!"  # Use last because SIMD.VecRange SIMD
-          f(lane+i, coords, kc)
+          _generic_kernel!(lane+i, coords, kc)
         end
       end
       # The remainder: native-width vectors, then one particle at a time (a remainder of up to 15
@@ -366,35 +381,38 @@ end
         N_native = N_particle - rem(N_particle - N_SIMD, native_lane_width)
         for i in N_SIMD+1:native_lane_width:N_native
           @assert last(i) <= N_particle "Out of bounds!"
-          f(native_lane+i, coords, kc)
+          _generic_kernel!(native_lane+i, coords, kc)
         end
       end
       for i in N_native+1:N_particle
         @assert last(i) <= N_particle "Out of bounds!"
-        f(i, coords, kc)
+        _generic_kernel!(i, coords, kc)
       end
     else
       if use_cpu_multithreading
         Threads.@threads for i in 1:N_particle
           @assert last(i) <= N_particle "Out of bounds!"
-          f(i, coords, kc)
+          _generic_kernel!(i, coords, kc)
         end
       else
         @simd for i in 1:N_particle
           @assert last(i) <= N_particle "Out of bounds!"
-          f(i, coords, kc)
+          _generic_kernel!(i, coords, kc)
         end
       end
     end
   else
     backend = get_backend(v)
     if isnothing(groupsize)
-      kernel! = kaf(backend)
+      kernel! = generic_kernel!(backend)
     else
-      kernel! = kaf(backend, groupsize)
+      kernel! = generic_kernel!(backend, groupsize)
     end
     kernel!(coords, kc; ndrange=N_particle)
     KernelAbstractions.synchronize(backend)
+  end
+  if runs_at(coords.callbacks, kc.ref.step0 + kc.ref.n_steps)
+    _launch_exit_callbacks!(coords, kc.ref, kc.batch_start, groupsize, use_cpu_multithreading, use_KA)
   end
   return nothing
 end
