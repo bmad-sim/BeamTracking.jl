@@ -29,6 +29,10 @@ touches both repositories; their versions are coupled (BeamTracking 0.9 needs Be
   src = replace(src, "foreach(include, TEST_FILES)" => "foreach(f->include(joinpath(@__DIR__, f)), $(repr(ARGS)))")
   include_string(Main, src, joinpath(pwd(), "runtests.jl"))
   ```
+- GPU launches are asynchronous: `launch!` does not wait for the kernel; `track!` (all three methods)
+  waits once at its end with `synchronize_launches` (only when KernelAbstractions launched). A wait
+  per kernel made Metal tracking host-bound (ESR: ~1 s per turn for 2,000 or 20,000 particles, now
+  0.15 s); kernels on one queue run in order, and Metal waits before host access (IBS statistics).
 - GPU (Apple silicon): an environment with Metal.jl; track a Float32 `Bunch(MtlArray(v))` and compare 
   with the same Bunch on the CPU; both should be about equally far from a Float64 run (Float32 
   rounding, e.g. ~1e-8 for one pass, ~1e-6 in z after 10 turns with RF). Test with `spin=true` too. 
@@ -144,7 +148,16 @@ touches both repositories; their versions are coupled (BeamTracking 0.9 needs Be
 - The `order_*_integrator!`s only build the tuple of substep lengths of their scheme; 
   `integrate_steps!` (fringes, steps, radiation, callbacks) calls `ker(i, coords, s, params..., w)` 
   for each substep `w`, with `s` from the launch entrance. 
-  Callbacks get `s0 + s` (`construct_main_callback`), i.e. from the element entrance.
+  Callbacks get `s_enter + s` and `step0 + step` (`construct_main_callback`), i.e. from the 
+  Beamline entrance: `RefState` has the chain's entrance `s_enter`, `step0` (steps before it) and 
+  `n_steps`, set in `universal!` from the position of the Bunch (`bunch.s`, `bunch.step`, of the 
+  types of `t_ref` and `Int`), which it advances past the slice like `t_ref` (prepared: the 
+  `PreKernelChain` stores `s_exit`/`step_exit`, set by `track!` after the last chain). 
+  `track!(bunch, bl)` and `prepare` start them at 0, `track!(bunch, ele)` continues from them. 
+  (Passed as numbers through the dynamic `_track!`/`universal!` calls they were allocated: +17000 
+  allocations and 0.4 ms in `prepare` on ESR.) The callbacks get them in a `TrackPoint` `p`; 
+  `transforms_out!(i, coords, p)`/`transforms_in!(i, coords, p)` use `s0 + s` (from the element 
+  entrance) and the time.
 - `compute_dt_ref` uses `find_tilde_m(ker)`, the position of the argument named `tilde_m`.
 - Field kernels that depend on `s` take the element-relative offset: `rk4_kernel!(…, s0=0)` and 
   `implicit_integrator!(…, s0, L)`; their field time (`t = (s/beta_0 - z…)/c`) is computed from 
@@ -349,6 +362,22 @@ touches both repositories; their versions are coupled (BeamTracking 0.9 needs Be
 
 ## Performance rules
 
+- `run!` reads the coordinates with `getfield(bunch, :coords)`: through `Bunch`'s `getproperty` 
+  (not constant-folded there) the `Coords`, with the callbacks in it, were boxed for every chain, 
+  one allocation per element (6,276 per ESR turn; removing it made the prepared `track!` of one 
+  particle 16% faster, SciBmad's `track` 19%). A prepared turn allocates a few times, independent 
+  of the number of elements: check `@allocated` after changes on that path.
+- A callback costs in every kernel, also where it does nothing, because its code is part of every 
+  element's kernel: the exit callback runs after `integrate_steps!` returns, so what it is passed 
+  (the fields of the `TrackPoint`) is kept in callee-saved registers across that call, and the 
+  callback object is copied into the body `Coords` (captured Arrays also add GC roots to the 
+  kernels and `launch!`). SciBmad's `track` callback keeps this small: pointer arrays 
+  (`_PtrArray`, 4 fewer GC-frame slots per kernel, 16 in `launch!`) and the save out of line 
+  without `p` (`transforms_out!` inline, nothing where the transforms are blank); ESR, one 
+  particle: `track` over the bare loop ~12% -> ~3%. Check with `code_native` of 
+  `_generic_kernel!`/`integrate_steps!` with and without the callback (instructions, stack 
+  accesses, callee-saved register saves).
+
 - Transcendental functions (`sqrt`, `sin`, `cos`, `sinh`, `cosh`, …) of a SIMD `Vec` run lane by 
   lane (not vectorized) and are slow per particle too. Where the argument is small, a Taylor series 
   in Horner form (`x*(one(x)/n)` folds to a constant of the number type) behind `all(abs(x) < r)` 
@@ -514,6 +543,13 @@ touches both repositories; their versions are coupled (BeamTracking 0.9 needs Be
 - Benchmark: ESR (`include("test/lattices/esr.jl")`, `ring`, 4,891 elements), 1 and 10 particles, 
   after a first `track!` so the Bunch has its reference. Timings drift ±0.5 ms between processes: 
   alternate A/B runs (`git stash`/file swaps) at least twice, use the minimum.
+- Identical code compiled as separate types differs by up to 7-10% (code placement), and absolute 
+  times of the same code drift 5-8% between sessions: compare only runs alternated within one 
+  session, report mean ± standard error (8 fresh processes per side resolve ~1%), and call 
+  differences under 2σ not established. Variants that can be loaded together (e.g. callbacks) 
+  are compared in one process with several copies each (distinct wrapper types, interleaved in 
+  random order): about a minute instead of 20 for fresh processes. Check that no other process 
+  uses a core (a hung process once ran through a day of benchmarks).
 - Tools: split the cost into unpacking ("front") and chain building plus kernels ("back") by 
   redefining `universal!` with the same signature as a no-op; `Profile` flat output with `C=true`, 
   attributing `ijl_apply_generic` samples to the first Julia caller to find dynamic dispatch; JET 

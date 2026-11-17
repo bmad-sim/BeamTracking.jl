@@ -825,10 +825,9 @@ end
     species, p_over_q_ref, _, _, _, _, _, _ = setup_particle()
     s_values = Float64[]
     ds_values = Float64[]
-    function save_position!(i, coords, cur_s, cur_t_ref, cur_beta_gamma_ref,
-                            last_ds_step, last_g, transforms_out!, transforms_in!)
-      push!(s_values, cur_s)
-      push!(ds_values, last_ds_step)
+    function save_position!(i, coords, p)
+      push!(s_values, p.s)
+      push!(ds_values, p.last_ds_step)
     end
 
     ele = Drift(L=1.0, tracking_method=RK4(), n_steps=4)

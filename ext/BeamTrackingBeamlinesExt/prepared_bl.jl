@@ -64,12 +64,14 @@ end
 BeamTracking.num_lower(::Type, a::PreParameter) = (let ga = a.g; PreParameter(b -> num_lower(eltype(b.coords.v), ga(b))) end)
 
 # kc is the KernelChain, or a PreParameter whose value is the PreKernelChain (a chain built at the
-# call, see universal!). After the launch, bunch.t_ref increases by dt and bunch.p_over_q_ref is
-# p_over_q_ref_exit
-struct PreKernelChain{K,D,P}
+# call, see universal!). After the launch, bunch.t_ref increases by dt, bunch.p_over_q_ref is
+# p_over_q_ref_exit, and the position of the Bunch is s_exit and step_exit
+struct PreKernelChain{K,D,P,S}
   kc::K
   dt::D
   p_over_q_ref_exit::P
+  s_exit::S
+  step_exit::Int
 end
 
 # The PreParameters are lowered as the RefState constructor, and make_kernel_call and push, lower
@@ -84,8 +86,8 @@ function process_preparameters(kc::KernelChain, bunch)
   T = BeamTracking.coordstype(kc.ref)
   call(c) = BeamTracking.KernelCall(c.kernel, map(a -> process_arg(a, bunch), c.args))
   r = kc.ref
-  fields = (r.t_enter, r.beta_gamma_enter, r.t_exit, r.beta_gamma_exit, r.L, r.g, r.ds_step, r.s0)
-  ref = RefState{T}(map(a -> process_field(a, bunch), fields)...)
+  fields = (r.t_enter, r.beta_gamma_enter, r.t_exit, r.beta_gamma_exit, r.L, r.g, r.ds_step, r.s0, r.s_enter)
+  ref = RefState{T}(map(a -> process_field(a, bunch), fields)..., r.step0, r.n_steps)
   return KernelChain(map(call, kc.chain), ref, kc.batch_start, map(call, kc.transforms_out),
                      map(call, kc.transforms_in))
 end
@@ -98,13 +100,17 @@ function run_chain!(bunch::Bunch, kc::KernelChain; kwargs...)
 end
 
 # Not with run_chain!: a call with keyword arguments is not inlined, and p.kc passed to a call is
-# copied out of p, which is boxed in the Vector of chains (each 8% slower for one particle on ESR)
-function run!(bunch::Bunch, p::PreKernelChain; kwargs...)
+# copied out of p, which is boxed in the Vector of chains (each 8% slower for one particle on ESR).
+# The launch! options come as LaunchOptions in a Ref: passed to this dynamic call as keyword
+# arguments (or by value) they were allocated for each chain, and as values (not type parameters)
+# they made the launches slower (together 10% of an ESR turn for one particle). The position of the
+# Bunch is set by track! after the last chain
+function run!(bunch::Bunch, p::PreKernelChain, opts::Base.RefValue)
   kc = process_preparameters(p.kc, bunch)
   dt = process_preparameter(p.dt, bunch)
   p_over_q_ref_exit = process_preparameter(p.p_over_q_ref_exit, bunch)
   # noinline necessary here for small binaries and faster execution
-  @noinline launch!(bunch.coords, kc; kwargs...)
+  @noinline launch!(getfield(bunch, :coords), kc, opts[])
   bunch.t_ref = bunch.t_ref + dt
   bunch.p_over_q_ref = p_over_q_ref_exit
   return nothing
@@ -142,7 +148,8 @@ function prepare(
   v_ramp_particle_energy_without_rf = Val(ramp_particle_energy_without_rf)
   v_ramp_update_each_particle = Val(ramp_update_each_particle)
   v_shift_time = Val(bunch.species != ref.species_ref)
-  # Built with a copy, whose reference momentum push_chain! changes as the elements do
+  # Built with a copy (at the beginning of the Beamline), whose reference momentum push_chain! and
+  # position universal! change as the elements do
   b = Bunch(bunch.species, bunch.p_over_q_ref, bunch.t_ref, bunch.coords)
   for ele in bl.line
     @noinline _track!(b, ele, context, ref, scalar_params, v_ramp_particle_energy_without_rf,
@@ -152,8 +159,16 @@ function prepare(
 end
 
 function track!(bunch::Bunch, chains::Vector{PreKernelChain}; kwargs...)
+  opts = Ref(BeamTracking.LaunchOptions(bunch.coords; kwargs...)) # (see run!)
   for pc in chains
-    @noinline run!(bunch, pc; kwargs...)
+    @noinline run!(bunch, pc, opts)
   end
+  # The position of the Bunch after the last chain (set once, not per chain: 1 ns per element)
+  if !isempty(chains)
+    pc = last(chains)
+    bunch.s = pc.s_exit
+    bunch.step = pc.step_exit
+  end
+  BeamTracking.synchronize_launches(bunch.coords, opts[])
   return bunch
 end

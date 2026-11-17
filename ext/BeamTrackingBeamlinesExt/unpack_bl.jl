@@ -316,7 +316,15 @@ function universal!(
     g = BeamTracking.num_lower(T, g),
     ds_step = BeamTracking.num_lower(T, ds_step),
     s0 = BeamTracking.num_lower(T, s0),
+    s_enter = BeamTracking.num_lower(T, bunch.s),
+    step0 = bunch.step,
+    n_steps = universalparams.n_steps,
   )
+  # The position of the Bunch after the slice (s has the type of bunch.t_ref, which holds the type
+  # of the lengths). Set here, where its type is known (also for prepare, whose PreKernelChain
+  # stores it): passed on, it would be allocated by the dynamic calls
+  bunch.s = oftype(bunch.s, bunch.s + L_slice)
+  bunch.step = bunch.step + universalparams.n_steps
 
   # Current KernelChain length is 11 because we have up to
   # 2 aperture, 2 alignment, 1 body kernel, 1 IBS kernel,
@@ -436,5 +444,6 @@ function universal!(
     sink.p_over_q_ref = p_over_q_ref_now
     return nothing
   end
-  return push_chain!(sink, bunch, PreKernelChain(kc, dt_design, p_over_q_ref_exit))
+  return push_chain!(sink, bunch, PreKernelChain(kc, dt_design, p_over_q_ref_exit, bunch.s,
+                                                 bunch.step))
 end

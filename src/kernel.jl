@@ -108,7 +108,7 @@ end
 Adapt.@adapt_structure KernelCall
 
 # Store the state of the reference coordinate system
-struct RefState{R,S,T,U,V,W,X,Y,Z}
+struct RefState{R,S,T,U,V,W,X,Y,Z,A}
   t_enter::S          # Reference time at entrance
   beta_gamma_enter::T # Reference energy at entrance
   t_exit::U           # Reference time at exit
@@ -116,14 +116,17 @@ struct RefState{R,S,T,U,V,W,X,Y,Z}
   L::W                
   g::X                
   ds_step::Y    
-  s0::Z               # s of the entrance within the element (nonzero for a slice of an element), added to the callbacks' s
-  function RefState{R}(t_enter::S, beta_gamma_enter::T, t_exit::U, beta_gamma_exit::V, L::W, g::X, ds_step::Y, s0::Z) where {R,S,T,U,V,W,X,Y,Z}
-    return new{R,S,T,U,V,W,X,Y,Z}(t_enter, beta_gamma_enter, t_exit, beta_gamma_exit, L, g, ds_step, s0)
+  s0::Z               # s of the entrance within the element (nonzero for a slice of an element), added to the transforms' s
+  s_enter::A          # s of the entrance in the Beamline, added to the callbacks' s
+  step0::Int          # Steps before the entrance in the Beamline, added to the callbacks' step
+  n_steps::Int        # Steps of the chain (the step of the exit callback)
+  function RefState{R}(t_enter::S, beta_gamma_enter::T, t_exit::U, beta_gamma_exit::V, L::W, g::X, ds_step::Y, s0::Z, s_enter::A, step0, n_steps) where {R,S,T,U,V,W,X,Y,Z,A}
+    return new{R,S,T,U,V,W,X,Y,Z,A}(t_enter, beta_gamma_enter, t_exit, beta_gamma_exit, L, g, ds_step, s0, s_enter, step0, n_steps)
   end
 end
 
-function RefState{T}(; t_enter, beta_gamma_enter, t_exit=t_enter, beta_gamma_exit=beta_gamma_enter, L=0, g=(0,0), ds_step=0, s0=0) where {T}
-  return RefState{T}(batch_lower(t_enter), batch_lower(beta_gamma_enter), batch_lower(t_exit), batch_lower(beta_gamma_exit), batch_lower(L), batch_lower(g), batch_lower(ds_step), batch_lower(s0))
+function RefState{T}(; t_enter, beta_gamma_enter, t_exit=t_enter, beta_gamma_exit=beta_gamma_enter, L=0, g=(0,0), ds_step=0, s0=0, s_enter=s0, step0=0, n_steps=1) where {T}
+  return RefState{T}(batch_lower(t_enter), batch_lower(beta_gamma_enter), batch_lower(t_exit), batch_lower(beta_gamma_exit), batch_lower(L), batch_lower(g), batch_lower(ds_step), batch_lower(s0), batch_lower(s_enter), step0, n_steps)
 end
 
 coordstype(::RefState{T}) where {T} = T
@@ -137,7 +140,10 @@ coordstype(::RefState{T}) where {T} = T
     beval(ref.L, i, batch_start), 
     beval(ref.g, i, batch_start), 
     beval(ref.ds_step, i, batch_start),
-    beval(ref.s0, i, batch_start)
+    beval(ref.s0, i, batch_start),
+    beval(ref.s_enter, i, batch_start),
+    ref.step0,
+    ref.n_steps
   )
 end
 
@@ -215,13 +221,13 @@ _generic_kernel!(i, coords, kc) = __generic_kernel!(i, coords, kc.chain, beval(k
 end
 
 function __generic_kernel_noramp!(i, coords::Coords, chain, ref, batch_start, transforms_out, transforms_in)
-  body_callback = construct_main_callback(coords, batch_start, transforms_out, transforms_in, ref.t_enter, ref.beta_gamma_enter, ref.ds_step, ref.g, ref.s0)
+  body_callback = construct_main_callback(coords, batch_start, transforms_out, transforms_in, ref.t_enter, ref.beta_gamma_enter, ref.ds_step, ref.g, ref.s0, ref.s_enter, ref.step0)
   body_coords = Coords(coords.state, coords.v, coords.q, coords.weight, body_callback)
   __generic_kernel_noramp_body!(i, body_coords, chain, batch_start, ref.t_enter, ref.beta_gamma_enter)
   # note: t_ref only used by transforms, can pass 0 for t_ref_transform 
   # beta_gamma is like ds_step and g, passed to callback, so that can't be 0
-  exit_callback = construct_main_callback(coords, batch_start, (), (), 0, ref.beta_gamma_exit, ref.ds_step, ref.g, ref.s0)
-  _execute_callbacks(i, coords, exit_callback, ref.L, ref.t_exit)
+  exit_callback = construct_main_callback(coords, batch_start, (), (), 0, ref.beta_gamma_exit, ref.ds_step, ref.g, ref.s0, ref.s_enter, ref.step0)
+  _execute_callbacks(i, coords, exit_callback, ref.L, ref.t_exit, ref.n_steps)
   return nothing
 end
 
@@ -249,8 +255,8 @@ function __generic_kernel_ramp!(i, coords::Coords, chain, ref, batch_start, tran
   # note: can pass 0 for t_ref_transform because that is not used now 
   # since transforms are empty tuples at the end (back in global frame)
   # However we do now give the user access to reference energy
-  exit_callback = construct_main_callback(coords, batch_start, (), (), 0, ref.beta_gamma_exit, ref.ds_step, ref.g, ref.s0)
-  _execute_callbacks(i, coords, exit_callback, ref.L, ref.t_exit)
+  exit_callback = construct_main_callback(coords, batch_start, (), (), 0, ref.beta_gamma_exit, ref.ds_step, ref.g, ref.s0, ref.s_enter, ref.step0)
+  _execute_callbacks(i, coords, exit_callback, ref.L, ref.t_exit, ref.n_steps)
   return nothing
 end
 
@@ -274,6 +280,24 @@ end
 
 # Generic function to launch a kernel on the bunch coordinates matrix
 # Matrix v should ALWAYS be in SoA whether for real or as a view via tranpose(v)
+# The keyword arguments of launch! as type parameters, so that they are constants in the launches
+# (as launch!'s defaults are): built once for many launches, e.g. for the chains of a Beamline. With
+# the values passed to each launch, ESR tracking of one particle was 7% slower than with the defaults
+struct LaunchOptions{KA,ES,MT,G}
+  groupsize::G
+end
+
+# With the defaults of launch!
+function LaunchOptions(coords::Coords; groupsize::Union{Nothing,Integer}=nothing,
+                       use_cpu_multithreading::Bool=false,
+                       use_KA::Bool=!(get_backend(coords.v) isa CPU && isnothing(groupsize)),
+                       use_explicit_SIMD::Bool=!use_KA)
+  return LaunchOptions{use_KA,use_explicit_SIMD,use_cpu_multithreading,typeof(groupsize)}(groupsize)
+end
+
+@inline launch!(coords::Coords, kc::KernelChain, o::LaunchOptions{KA,ES,MT}) where {KA,ES,MT} =
+  launch!(coords, kc; groupsize=o.groupsize, use_KA=KA, use_explicit_SIMD=ES, use_cpu_multithreading=MT)
+
 @inline function launch!(
   coords::Coords{<:Any,V},
   kc::KernelChain;
@@ -349,8 +373,19 @@ end
       kernel! = generic_kernel!(backend, groupsize)
     end
     kernel!(coords, kc; ndrange=N_particle)
-    KernelAbstractions.synchronize(backend)
   end
+  return nothing
+end
+
+# Kernels launched with KernelAbstractions run asynchronously on a GPU: track! waits for them once
+# at its end, not launch! after each kernel (ESR on Metal: 1.0 -> 0.15 s per turn, the GPU waited
+# for the host between the kernels). Kernels on one queue run in order
+synchronize_launches(coords, ::LaunchOptions{KA}) where {KA} =
+  synchronize_launches(coords; use_KA=KA)
+function synchronize_launches(coords; groupsize::Union{Nothing,Integer}=nothing,
+                              use_KA::Bool=!(get_backend(coords.v) isa CPU && isnothing(groupsize)),
+                              kwargs...)
+  use_KA && KernelAbstractions.synchronize(get_backend(coords.v))
   return nothing
 end
 
@@ -372,7 +407,7 @@ function check_kwargs(mac, kwargs...)
 end
 
 # Also allow launch! on single KernelCalls
-@inline launch!(coords::Coords, kcall::KernelCall; kwargs...) = launch!(coords, KernelChain((kcall,), RefState{eltype(coords.v)}(0,0,0,0,0,0,0,0)); kwargs...)
+@inline launch!(coords::Coords, kcall::KernelCall; kwargs...) = launch!(coords, KernelChain((kcall,), RefState{eltype(coords.v)}(0,0,0,0,0,0,0,0,0,0,1)); kwargs...)
 
 macro makekernel(args...)
   kwargs = args[1:length(args)-1]
