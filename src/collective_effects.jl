@@ -29,13 +29,20 @@ struct SlicePoint{T,S}
 end
 
 """
-    effect_setup(effect, bunch, bl) -> state
+    effect_setup(effect, bunch, bl; kwargs...) -> state
 
 Called once per `track!(bunch, bl; effects)` for each effect, before
 the first element is tracked, with the bunch's species and reference
 already resolved. The returned `state` is passed to every
 `effect_kick!` call of that effect. Packages add methods for their
 own effect types; there is no default method.
+
+The keywords are those of the `track!` call except `notify` and
+`effects` (`scalar_params`, `ramp_particle_energy_without_rf`,
+`ramp_update_each_particle`, `rf_on`, `batch_start` and any other
+keyword given to it), so that an effect that tracks particles itself
+(e.g. a reference orbit) can track them as the call does. Methods
+must accept them (`; kwargs...`).
 """
 function effect_setup end
 

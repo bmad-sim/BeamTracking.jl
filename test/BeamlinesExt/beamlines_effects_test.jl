@@ -6,8 +6,10 @@ struct RecordingEffect
   log::Vector{Any}
 end
 
-function BeamTracking.effect_setup(e::RecordingEffect, bunch, bl)
-  push!(e.log, (:setup, e.id, length(bl.line), bunch.p_over_q_ref))
+function BeamTracking.effect_setup(e::RecordingEffect, bunch, bl;
+                                   kwargs...)
+  push!(e.log, (:setup, e.id, length(bl.line), bunch.p_over_q_ref,
+                values(kwargs)))
   return 10*e.id
 end
 
@@ -38,8 +40,11 @@ end
   # Slice points, setup and tuple order
   log = Any[]
   b = run(RecordingEffect(1, 0.0, log), RecordingEffect(2, 0.0, log))
-  @test log[1] == (:setup, 1, 4, R0)
-  @test log[2] == (:setup, 2, 4, R0)
+  # The setup gets the call's keywords (here the defaults)
+  kw0 = (scalar_params=false, ramp_particle_energy_without_rf=false,
+         ramp_update_each_particle=false, rf_on=true, batch_start=1)
+  @test log[1] == (:setup, 1, 4, R0, kw0)
+  @test log[2] == (:setup, 2, 4, R0, kw0)
   kicks = log[3:end]
   @test length(kicks) == 2*7
   @test all(k -> k[1] === :kick, kicks)
@@ -64,6 +69,18 @@ end
   t = [k[6] for k in kicks[1:2:end]]
   @test t[1] == 0 && issorted(t) && t[5] == t[6] && t[7] > t[6]
   @test t[7] < b.t_ref
+
+  # Keywords given to track! reach the setup, other ones included
+  # (use_explicit_SIMD is passed on to the kernel launch)
+  log3 = Any[]
+  track!(Bunch(copy(v0); p_over_q_ref=R0, species=e),
+         Beamline(mkline(); p_over_q_ref=R0, species_ref=e);
+         notify=false, rf_on=false, scalar_params=true, batch_start=2,
+         use_explicit_SIMD=false, effects=(RecordingEffect(1, 0.0, log3),))
+  @test log3[1][5] == (scalar_params=true,
+                       ramp_particle_energy_without_rf=false,
+                       ramp_update_each_particle=false, rf_on=false,
+                       batch_start=2, use_explicit_SIMD=false)
 
   # A second track! of the same Bunch starts s again at 0
   log2 = Any[]
