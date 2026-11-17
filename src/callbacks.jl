@@ -19,12 +19,12 @@ end
 The point of the tracking at which the callbacks are executed, passed to each callback as
 `callback(i, coords, p::TrackPoint)`. Its properties are:
 
-- `s`: s from the beginning of the `Beamline` (from the beginning of the element when tracking a
-  single element)
+- `s`: s from the beginning of the `Beamline` (when tracking a single element, continued from the
+  position of the `Bunch`: from the beginning of the element for a new `Bunch`)
 - `t_ref`: reference time
 - `step`: integration steps from the beginning of the `Beamline` (`n_slices*n_steps` per element,
-  the last one at the exit of the element; from the beginning of the element when tracking a single
-  element)
+  the last one at the exit of the element; when tracking a single element, continued from the
+  position of the `Bunch` as `s`)
 - `beta_gamma_ref`: reference energy (beta*gamma)
 - `last_ds_step`: length of the last integration step
 - `last_g`: curvature `(gx, gy)` of the last integration step
