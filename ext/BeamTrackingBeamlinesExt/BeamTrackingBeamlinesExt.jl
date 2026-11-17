@@ -42,6 +42,7 @@ function track!(
   rf_on::Bool=true,
   batch_start=1,
   notify::Bool=true,
+  effects::Tuple=(),
   kwargs...
 )
   if length(bl.line) == 0
@@ -59,8 +60,12 @@ function track!(
   # The position of the Bunch starts at the beginning of the Beamline
   bunch.s = zero(bunch.s)
   bunch.step = 0
-  for ele in bl.line
-    @noinline _track!(bunch, ele, context, ref, scalar_params, v_ramp_particle_energy_without_rf, v_ramp_update_each_particle, v_shift_time, rf_on, batch_start, bunch; kwargs...)
+  # Effects applied at the entrance of each slice (see
+  # BeamTracking.effect_setup and BeamTracking.effect_kick!)
+  states = map(e -> BeamTracking.effect_setup(e, bunch, bl), effects)
+
+  for (ix, ele) in enumerate(bl.line)
+    @noinline _track!(bunch, ele, context, ref, scalar_params, v_ramp_particle_energy_without_rf, v_ramp_update_each_particle, v_shift_time, rf_on, batch_start, bunch, effects, states, ix; kwargs...)
   end
 
   return bunch
