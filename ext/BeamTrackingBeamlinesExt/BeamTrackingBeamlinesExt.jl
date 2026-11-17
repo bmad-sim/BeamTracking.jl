@@ -29,6 +29,7 @@ function track!(
   # The Bunch species differing from the reference species is static for the whole track! call
   shift_time = bunch.species != ref.species_ref
   @noinline _track!(bunch, ele, context, ref, scalar_params, Val(ramp_particle_energy_without_rf), Val(ramp_update_each_particle), Val(shift_time), rf_on, batch_start, bunch; kwargs...)
+  BeamTracking.synchronize_launches(bunch.coords; kwargs...)
   return bunch
 end
 
@@ -62,6 +63,7 @@ function track!(
   for ele in bl.line
     @noinline _track!(bunch, ele, context, ref, scalar_params, v_ramp_particle_energy_without_rf, v_ramp_update_each_particle, v_shift_time, rf_on, batch_start, bunch; kwargs...)
   end
+  BeamTracking.synchronize_launches(bunch.coords; kwargs...)
 
   return bunch
 end

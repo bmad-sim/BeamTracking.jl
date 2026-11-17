@@ -169,5 +169,6 @@ function track!(bunch::Bunch, chains::Vector{PreKernelChain}; kwargs...)
     bunch.s = pc.s_exit
     bunch.step = pc.step_exit
   end
+  BeamTracking.synchronize_launches(bunch.coords, opts[])
   return bunch
 end

@@ -373,8 +373,19 @@ end
       kernel! = generic_kernel!(backend, groupsize)
     end
     kernel!(coords, kc; ndrange=N_particle)
-    KernelAbstractions.synchronize(backend)
   end
+  return nothing
+end
+
+# Kernels launched with KernelAbstractions run asynchronously on a GPU: track! waits for them once
+# at its end, not launch! after each kernel (ESR on Metal: 1.0 -> 0.15 s per turn, the GPU waited
+# for the host between the kernels). Kernels on one queue run in order
+synchronize_launches(coords, ::LaunchOptions{KA}) where {KA} =
+  synchronize_launches(coords; use_KA=KA)
+function synchronize_launches(coords; groupsize::Union{Nothing,Integer}=nothing,
+                              use_KA::Bool=!(get_backend(coords.v) isa CPU && isnothing(groupsize)),
+                              kwargs...)
+  use_KA && KernelAbstractions.synchronize(get_backend(coords.v))
   return nothing
 end
 

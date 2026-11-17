@@ -29,6 +29,10 @@ touches both repositories; their versions are coupled (BeamTracking 0.9 needs Be
   src = replace(src, "foreach(include, TEST_FILES)" => "foreach(f->include(joinpath(@__DIR__, f)), $(repr(ARGS)))")
   include_string(Main, src, joinpath(pwd(), "runtests.jl"))
   ```
+- GPU launches are asynchronous: `launch!` does not wait for the kernel; `track!` (all three methods)
+  waits once at its end with `synchronize_launches` (only when KernelAbstractions launched). A wait
+  per kernel made Metal tracking host-bound (ESR: ~1 s per turn for 2,000 or 20,000 particles, now
+  0.15 s); kernels on one queue run in order, and Metal waits before host access (IBS statistics).
 - GPU (Apple silicon): an environment with Metal.jl; track a Float32 `Bunch(MtlArray(v))` and compare 
   with the same Bunch on the CPU; both should be about equally far from a Float64 run (Float32 
   rounding, e.g. ~1e-8 for one pass, ~1e-6 in z after 10 turns with RF). Test with `spin=true` too. 
