@@ -3,7 +3,7 @@
 # Used through `track!(bunch, bl; effects = (effect, ...))`.
 
 """
-    SlicePoint{T}
+    SlicePoint{T,S}
 
 Entrance of one slice of an element, where the `effects` of `track!`
 are applied (see `effect_kick!`).
@@ -15,14 +15,17 @@ are applied (see `effect_kick!`).
 - `s0`: slice entrance from the element entrance [m].
 - `L_slice`: slice length [m].
 - `L`: element length [m].
+- `s`: slice entrance from the `Beamline` entrance [m] (`bunch.s`
+  there, of the type of `bunch.t_ref`).
 """
-struct SlicePoint{T}
+struct SlicePoint{T,S}
   ix::Int
   k::Int
   n_slices::Int
   s0::T
   L_slice::T
   L::T
+  s::S
 end
 
 """

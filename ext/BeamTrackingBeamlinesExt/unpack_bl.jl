@@ -223,7 +223,7 @@ function _track!(
       BeamTracking.apply_effects!(effects, states, bunch, ele,
         BeamTracking.SlicePoint(ix, k, n_slices, getfield(up_k, :s0),
                                 getfield(up_k, :L_slice),
-                                getfield(up_k, :L)))
+                                getfield(up_k, :L), bunch.s))
     end
     @noinline universal!(bunch, tm, ele, up_k, alignmentparams, bendparams, bmultipoleparams,
                          patchparams, apertureparams, rfparams, beamlineparams, mapparams, fourpotentialparams, emultipoleparams,

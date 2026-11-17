@@ -49,18 +49,27 @@ end
   SP = BeamTracking.SlicePoint
   Lq = 1.2/3
   Ld = 0.5/2
-  @test sps == [SP(1, 1, 1, 0.0, 1.0, 1.0),
-                SP(2, 1, 3, 0*Lq, Lq, 1.2),
-                SP(2, 2, 3, 1*Lq, Lq, 1.2),
-                SP(2, 3, 3, 2*Lq, Lq, 1.2),
-                SP(3, 1, 1, 0.0, 0.0, 0.0),
-                SP(4, 1, 2, 0*Ld, Ld, 0.5),
-                SP(4, 2, 2, 1*Ld, Ld, 0.5)]
+  # s from the Beamline entrance, summed slice by slice as bunch.s
+  s = accumulate(+, [0.0, 1.0, Lq, Lq, Lq, 0.0, Ld])
+  @test sps == [SP(1, 1, 1, 0.0, 1.0, 1.0, s[1]),
+                SP(2, 1, 3, 0*Lq, Lq, 1.2, s[2]),
+                SP(2, 2, 3, 1*Lq, Lq, 1.2, s[3]),
+                SP(2, 3, 3, 2*Lq, Lq, 1.2, s[4]),
+                SP(3, 1, 1, 0.0, 0.0, 0.0, s[5]),
+                SP(4, 1, 2, 0*Ld, Ld, 0.5, s[6]),
+                SP(4, 2, 2, 1*Ld, Ld, 0.5, s[7])]
+  @test b.s == s[7] + Ld
   @test [k[5] for k in kicks[1:2:end]] == [1.0, 1.2, 1.2, 1.2, 0, 0.5, 0.5]
   # The reference time is the one left by the previous slice
   t = [k[6] for k in kicks[1:2:end]]
   @test t[1] == 0 && issorted(t) && t[5] == t[6] && t[7] > t[6]
   @test t[7] < b.t_ref
+
+  # A second track! of the same Bunch starts s again at 0
+  log2 = Any[]
+  track!(b, Beamline(mkline(); p_over_q_ref=R0, species_ref=e);
+         notify=false, effects=(RecordingEffect(1, 0.0, log2),))
+  @test [k[4].s for k in log2[2:end]] == s
 
   # Effects that do nothing, and no effects, are the plain track!
   plain = run()
