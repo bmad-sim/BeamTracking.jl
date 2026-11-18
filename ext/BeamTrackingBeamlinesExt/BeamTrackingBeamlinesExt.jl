@@ -14,7 +14,7 @@ function track!(
   ramp_particle_energy_without_rf::Bool=false,
   ramp_update_each_particle::Bool=false,
   rf_on::Bool=true,
-  context=(haskey(getfield(ele, :pdict), BeamlineParams) ? ele.beamline.context : Beamlines.NULL_CONTEXT),
+  context=(haskey(getfield(ele, :pdict), BeamlineParams) ? ele.beamline.context : Beamlines.DEFAULT_CONTEXT),
   batch_start=1,
   notify::Bool=true,
   kwargs...
