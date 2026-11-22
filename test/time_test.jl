@@ -336,3 +336,36 @@ end
                         for i in 1:N])
   @test run(Float64, bl, v0; use_explicit_SIMD=false) == alone
 end
+
+@testset "SolenoidKick without a solenoid, time dependent strengths" begin
+  # SolenoidKick prepends a zero solenoid component when the element has none: with time
+  # dependent or prepared strengths the zero is of another type than them. Tracked like the same
+  # element with an explicit zero solenoid (the same inputs; Bsol for unnormalized strengths), and
+  # unlike a small one (control)
+  ext = Base.get_extension(BeamTracking, :BeamTrackingBeamlinesExt)
+  t = Time()
+  v0 = [1e-3 2e-4 -1e-3 1e-4 1e-3 1e-4; 2e-3 0 1e-3 0 -1e-3 -1e-4]
+  q0 = [1.0 0 0 0; 0.8 0.6 0 0]
+  function run(kw, ramp, each, prepared)
+    bl = Beamline([Quadrupole(; L=0.4, tracking_method=SolenoidKick(), kw...), Drift(L=0.1)],
+                  species_ref=Species("electron"), E_ref=5e9)
+    ramp && (bl.E_ref = 5e9*(1 + 10*Time()))
+    b = Bunch(copy(v0), copy(q0))
+    if prepared
+      track!(b, ext.prepare(b, bl; notify=false, ramp_update_each_particle=each))
+    else
+      track!(b, bl; notify=false, ramp_update_each_particle=each)
+    end
+    return b.coords.v, b.coords.q
+  end
+  for (kw, ramp, each, prepared) in (((; Kn1=0.2 + 1e4*t), false, false, false),
+                                     ((; Kn1=0.2 + 1e4*t, Ks2=0.3*cos(1e5*t)), false, false, false),
+                                     ((; Kn1=0.2, Ks2=0.3), true, true, false),
+                                     ((; Bn1=1.0, Bs2=2.0), true, false, true),
+                                     ((; Bn1=1.0, Bs2=2.0), true, true, true))
+    sol = haskey(kw, :Bn1) ? :Bsol : :Ksol
+    r = run(kw, ramp, each, prepared)
+    @test isequal(r, run((; sol => 0.0, kw...), ramp, each, prepared))
+    @test !isequal(r, run((; sol => 1e-3, kw...), ramp, each, prepared))
+  end
+end

@@ -207,10 +207,43 @@ touches both repositories; their versions are coupled (BeamTracking 0.9 needs Be
   lengths: no `extractelement`, all products on `<8 x double>`; SIMD, KA and the scalar loop
   bitwise equal; Metal Float32 equal to the CPU to a few ulps for every kind. Tests:
   `batch_test.jl` batched `L` for every integrator, with explicit SIMD and `use_KA=true` (KA 0.10
-  compiles CPU kernels like GPU ones); all 11 error before the fix. Still open: a batched `E_ref`
-  on Metal fails in Beamlines' `E_to_R` (`E < massof(species)` on the GPU batch with a Float64
-  mass); the per-particle ramp fails for `SolenoidKick` on an element without a solenoid
-  (`Cannot convert TimeDependentParam`, unrelated to batches, not investigated).
+  compiles CPU kernels like GPU ones); all 11 error before the fix.
+- `BatchParam` comparisons with a float (`<`, `<=`, `isless`, `==`) convert it to the batch's
+  element type first (Nov 22 2026): a Float64 constant can't be used with a Float32 GPU batch
+  (Beamlines' `E_to_R` checks `E < massof(species)`: every batched `E_ref` on Metal failed). For a
+  Float32 batch the comparison is in Float32 (`BatchParam(Float32[0.1]) == 0.1` is now true), as
+  the kernels use lattice numbers in the coordinate type; Float64 batches are unchanged. Metal:
+  a batched `E_ref`, 2 turns, bitwise equal to the CPU in Float32. Tested in `batch_test.jl`.
+- `SolenoidKick` on an element without a solenoid prepends a zero component to the strengths. With
+  time dependent strengths of one closure type (e.g. a single `Kn1(t)`), the per-particle ramp, or
+  prepared unnormalized strengths under a ramp (`PreParameter`s, which have no `zero`), the zero
+  is another type: `SVector` conversion failed. Those strengths now become a tuple with a literal
+  0 (what `zero(::TimeDependentParam)` evaluates to); numbers and `BatchParam`s take the old code.
+  Tested against the same element with an explicit zero solenoid (bitwise) and a small one
+  (control) in `time_test.jl`; the bitwise suite is unchanged (59 cases).
+- **Prepared tracking with a ramped reference and unnormalized strengths** (fixed fields; Nov 22
+  2026). Without the per-particle ramp the reference momentum at an element is only known at the
+  call, so unnormalized strengths (`Kn = Bn/p`) are `PreParameter`s when preparing, while
+  normalized ones stay numbers. The lowering failed for them: MatrixKick (`zero(::PreParameter)`;
+  `atan2` of two was ambiguous), bends with an unnormalized dipole (comparing a `PreParameter`
+  errored), and every element mixing normalized and unnormalized strengths (the strength array
+  has a non-concrete element type, so `has_preparameter`, which looks at the element type, did not
+  find its `PreParameter`s: `normalized_field`'s assertion). `track!` and the per-particle ramp
+  (strengths are `TimeDependentParam`s, which the lowering handles) worked. SciBmad's `track`
+  prepares since 0.8, so ramped lattices with `Bn` magnets failed there. Fix: `PreParameter`s
+  follow the `TimeDependentParam` conventions: `zero` (of the value's type), two-argument
+  `atan`/`atan2`, MatrixKick's locals of the abstract type, and `==`/`isapprox` with anything are
+  `false` (the lowering then takes its general branch: every such comparison on strengths only
+  skips work, e.g. no rotation kernels for a zero tilt, and `no_skew_dipole` decides from the
+  stored values; audited); `<`, `<=`, `isless` still error, so no ordering decision is guessed.
+  `push_chain!` stores a chain with a static array of non-concrete element type with that array as
+  a tuple (`_concrete_args`, checked at compile time: other chains are stored unchanged; none on
+  the ramped ESR). Tested in `beamlines_prepared_test.jl` (a ramped line with unnormalized and
+  mixed MatrixKick, DriftKick, BendKick, SolenoidKick, RF and thin elements, both ramp modes,
+  Float64 with spin and Float32: bitwise equal to `track!` over 20 turns; errors without the fix,
+  and without only the tuple conversion 10 of 12 mixed cases fail). Bitwise suite unchanged (63);
+  ESR prepared without ramp unchanged; ramped ESR 0.751 ± 0.004 -> 0.765 ± 0.002 ms (8 pairs) with
+  the compiled `run!` identical for all chain types (code placement).
 - Wrap-around of `BatchParam`s (`mod1(i+batch_start-1, B)`) costs nothing measurable (Nov 2026, 
   ESR with all 494 quadrupole strengths batched, alternating A/B against direct indexing): CPU 
   1-10,000 particles within 1% (75.5 vs 75.6 ms at 1,000), Metal 1,000,000 particles 2737 vs 
@@ -295,8 +328,8 @@ touches both repositories; their versions are coupled (BeamTracking 0.9 needs Be
   (`ibs_stats`, one `PreParameter`, so they are computed once per call: the IBS kernel takes them 
   as one tuple argument).
 - `PreParameter` has arithmetic like `TimeDependentParam` (`+ - * / ^`, `literal_pow`, `sqrt`, 
-  `sin`, …, `atan2`), so the lowering code is unchanged; comparisons error (a decision that 
-  depends on the call cannot be made when preparing). `get_strengths`/`get_integrated_strengths` 
+  `sin`, …, `atan2`), so the lowering code is unchanged; `==`/`isapprox` are false and orderings
+  error (see "Prepared tracking with a ramped reference and unnormalized strengths"). `get_strengths`/`get_integrated_strengths` 
   keep a `PreParameter` reference momentum out of the strengths' type (they stay numbers; only 
   those divided by it are `PreParameter`s) and use the uniform branches as for 
   `TimeDependentParam`. `num_lower` of a `PreParameter` lowers its value at the call to the 

@@ -52,6 +52,25 @@ using Random
   test_prepared(ramp, () -> Bunch(Float32.(v0)))
   test_prepared(ramp, () -> Bunch(copy(v0)); ramp_update_each_particle=true)
   test_prepared(ramp, () -> Bunch(Float32.(v0)); ramp_update_each_particle=true)
+  # Unnormalized strengths (fixed fields) under a ramp: divided by the reference momentum at the
+  # call, they are PreParameters when preparing (without the per-particle ramp). Unnormalized only,
+  # and mixed with normalized ones, for every integrator
+  fixed = Beamline([
+    LatElement(L=0.5, Bn1=1.0, Bs2=2.0, tracking_method=MatrixKick(order=4)),
+    LatElement(L=0.5, Kn1=-0.3, Bs2=2.0, tracking_method=MatrixKick(order=4)),
+    LatElement(L=0.2, Kn2=1.2, Bn3=5.0, tracking_method=DriftKick(order=4)),
+    LatElement(L=1.0, angle=0.05, Bn1=0.5, tracking_method=BendKick(order=4)),
+    LatElement(L=1.0, g_ref=0.05, Bn0=0.05*R, tracking_method=BendKick(order=4)),
+    LatElement(L=0.4, Ksol=0.3, Bn1=1.0, tracking_method=SolenoidKick(order=4)),
+    LatElement(L=0.4, Bn1=1.0, tracking_method=SolenoidKick(order=4)),
+    LatElement(L=0.5, voltage=1e6, rf_frequency=5e8, zero_phase=PhaseRef.AboveTransition, Bn1=0.5,
+               tracking_method=SolenoidKick(order=4)),
+    LatElement(L=0.0, Bn2L=1.0),
+  ]; p_over_q_ref=R*(1 + 1e3*Time()), species_ref=e)
+  for each in (false, true)
+    test_prepared(fixed, () -> Bunch(copy(v0), copy(q0)); ramp_update_each_particle=each)
+    test_prepared(fixed, () -> Bunch(Float32.(v0)); ramp_update_each_particle=each)
+  end
   ibs = Beamline([LatElement(L=1.0, Kn1=0.3, tracking_method=MatrixKick(order=4)),
                   LatElement(L=2.0, tracking_method=DriftKick(),
                              ibs_model=IBSModel.GaussianDampingOnly),

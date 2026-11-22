@@ -30,9 +30,11 @@
   kn, ks = get_strengths(ele.bmultipoleparams, L, p_over_q_ref, ele.ref.field_scale)
   Kn0::Union{Nothing,eltype(kn)} = nothing
   Ks0::Union{Nothing,eltype(ks)} = nothing
-  # The type of a TimeDependentParam changes with every operation (zero, sqrt, ...)
-  TN = eltype(kn) <: TimeDependentParam ? TimeDependentParam : eltype(kn)
-  TS = eltype(ks) <: TimeDependentParam ? TimeDependentParam : eltype(ks)
+  # The type of a TimeDependentParam or PreParameter changes with every operation (zero, sqrt, ...)
+  TN = eltype(kn) <: TimeDependentParam ? TimeDependentParam :
+       eltype(kn) <: PreParameter ? PreParameter : eltype(kn)
+  TS = eltype(ks) <: TimeDependentParam ? TimeDependentParam :
+       eltype(ks) <: PreParameter ? PreParameter : eltype(ks)
   Kn1::TN = zero(kn[1])
   Ks1::TS = zero(ks[1])
   k1::TN = zero(kn[1])

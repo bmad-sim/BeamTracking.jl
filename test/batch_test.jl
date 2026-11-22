@@ -178,6 +178,12 @@ end
   test_batch((;L=0.6), (;Kn1=0.36, Ks2=-1.2, x_offset=1e-4, tilt=0.1, n_slices=2,
              rad_damping=true); factors=Lf, paths=Lp)
 
+  # A float is compared with a batch in the batch's precision (a Float64 constant can't be used
+  # with a Float32 GPU batch); a Float64 batch exactly
+  @test BatchParam(Float32[0.1, 0.1]) == 0.1 && 0.1 == BatchParam(Float32[0.1])
+  @test !(BatchParam(Float32[0.1]) < 0.1) && BatchParam(Float32[0.1]) <= 0.1
+  @test !(BatchParam([Float64(0.1f0)]) == 0.1) && BatchParam([0.1]) == 0.1
+
   # Subtracting a batch from scalar zero negates every lane:
   @test (0 - BatchParam([1.0, -2.0])).batch ≈ [-1.0, 2.0]
 
