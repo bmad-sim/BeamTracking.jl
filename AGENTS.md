@@ -9,7 +9,7 @@ strictly. Read both before changing code, and keep this file up to date.
 BeamTracking.jl contains the tracking kernels and, in `ext/BeamTrackingBeamlinesExt/`, the code that 
 tracks a `Bunch` through a [Beamlines.jl](https://github.com/bmad-sim/Beamlines.jl) `Beamline` or 
 `LatElement`. Both packages are part of [SciBmad](https://github.com/bmad-sim/SciBmad.jl). Most work 
-touches both repositories; their versions are coupled (BeamTracking 0.9 needs Beamlines 0.12).
+touches both repositories; their versions are coupled (BeamTracking 0.10 works with Beamlines 0.13 and 0.14).
 
 ## Environment
 
