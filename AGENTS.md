@@ -189,6 +189,28 @@ touches both repositories; their versions are coupled (BeamTracking 0.9 needs Be
   Tested in time_test.jl ("BatchParam in a time-dependent parameter"): bitwise equal to tracking 
   each particle alone with its scalar frequency (scalar loop), a shorter batch wrapping around, 
   reversed frequencies as control.
+- **Batched lengths** (`L = BatchParam(...)`, since 57c48c3, 0.8.3): the whole `RefState` is
+  `beval`ed per particle, so `L`, `ds_step` and the reference times are per-lane `SIMD.Vec`s with
+  explicit SIMD, and the `RefState` holds batch arrays. Until Nov 22 2026 this never worked by
+  default (checked on 0.8.3, 0.8.7, 0.9.2): (1) explicit SIMD, every element with multipoles:
+  `kn .* L ./ 2` broadcasts a tuple with a `Vec`, which is not iterable (`MethodError: iterate(::
+  SIMD.Vec)`; drifts and one particle escaped); (2) KernelAbstractions/GPUs, every element:
+  `RefState` had no Adapt rule, so its batch arrays reached the kernel unconverted ("passing
+  non-bitstype argument"; also batched energies). Only `use_explicit_SIMD=false` worked, and no test
+  batched `L` (`batch_test.jl` batched strengths only). Fixed: products of strength tuples with a
+  length are `map(k -> k*L/2, kn)` (same operations and order; `@generated` bodies, e.g.
+  `quadrupole_magnus6!`, can't have closures: tuples written out), and `RefState` has an
+  `Adapt.adapt_structure`. Plain lengths: the explicit-SIMD LLVM IR of every kind (with and
+  without spin, including the non-inlined `integrate_steps!`) is identical (the quadrupole spin
+  kernel's instructions are reordered, same 5821), the bitwise suite unchanged (47 cases), ESR first
+  `track!` 7.84/8.05 -> 7.79/7.72 s and prepared 1/100 particles equal within noise; batched
+  lengths: no `extractelement`, all products on `<8 x double>`; SIMD, KA and the scalar loop
+  bitwise equal; Metal Float32 equal to the CPU to a few ulps for every kind. Tests:
+  `batch_test.jl` batched `L` for every integrator, with explicit SIMD and `use_KA=true` (KA 0.10
+  compiles CPU kernels like GPU ones); all 11 error before the fix. Still open: a batched `E_ref`
+  on Metal fails in Beamlines' `E_to_R` (`E < massof(species)` on the GPU batch with a Float64
+  mass); the per-particle ramp fails for `SolenoidKick` on an element without a solenoid
+  (`Cannot convert TimeDependentParam`, unrelated to batches, not investigated).
 - Wrap-around of `BatchParam`s (`mod1(i+batch_start-1, B)`) costs nothing measurable (Nov 2026, 
   ESR with all 494 quadrupole strengths batched, alternating A/B against direct indexing): CPU 
   1-10,000 particles within 1% (75.5 vs 75.6 ms at 1,000), Metal 1,000,000 particles 2737 vs 

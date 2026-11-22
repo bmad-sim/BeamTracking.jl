@@ -17,8 +17,9 @@ L: element length
 """
 @makekernel fastgtpsa=true function mkm_quadrupole!(i, coords::Coords, s, radiation_params, beta_0, gamsqr_0, tilde_m, a, w, w_inv, k1, mm, kn, ks, L)
   other_multipoles = (length(mm) > 1)
-  knl = kn .* L ./ 2
-  ksl = ks .* L ./ 2
+  # (map: a batched length is a SIMD Vec, which can't be broadcast with a tuple)
+  knl = map(k -> k*L/2, kn)
+  ksl = map(k -> k*L/2, ks)
   
   rel_p = 1 + coords.v[i,PZI]
   px = coords.v[i,PXI]
@@ -258,9 +259,15 @@ end
     a2 = (coeff1_2*y_2 + coeff2_2*px_2, coeff1_2*x_2 + coeff2_2*py_2, coeff2_2*ps_2)
     a3 = (coeff1_3*y_3 + coeff2_3*px_3, coeff1_3*x_3 + coeff2_3*py_3, coeff2_3*ps_3)
 
-    alpha1 = L .* a2
-    alpha2 = (10*eta/3) .* (a3 .- a1)
-    alpha3 = (10*L/3) .* (a3 .- (2 .* a2) .+ a1)
+    # (L and eta are SIMD Vecs with batched lengths, which can't be broadcast with tuples; and
+    # the body of a generated function can't have closures)
+    alpha1 = (L*a2[1], L*a2[2], L*a2[3])
+    f2 = 10*eta/3
+    d2 = a3 .- a1
+    alpha2 = (f2*d2[1], f2*d2[2], f2*d2[3])
+    f3 = 10*L/3
+    d3 = a3 .- (2 .* a2) .+ a1
+    alpha3 = (f3*d3[1], f3*d3[2], f3*d3[3])
 
     c1 = cross(alpha1, alpha2)
     c2 = cross(alpha1, (2 .* alpha3) .+ c1) ./ (-60)

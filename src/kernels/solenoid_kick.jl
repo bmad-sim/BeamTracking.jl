@@ -21,8 +21,9 @@ L:  element length
 """
 @makekernel fastgtpsa=true function sks_multipole!(i, coords::Coords, s, radiation_params, beta_0, gamsqr_0, tilde_m, a, Ksol, mm, kn, ks, L)
   other_multipoles = (length(mm) > 1)
-  knL = kn .* (L / 2)
-  ksL = ks .* (L / 2)
+  # (map: a batched length is a SIMD Vec, which can't be broadcast with a tuple)
+  knL = map(k -> k*(L / 2), kn)
+  ksL = map(k -> k*(L / 2), ks)
 
   if !isnothing(radiation_params)
     q, mc2, E_ref = radiation_params
