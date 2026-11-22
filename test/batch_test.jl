@@ -290,6 +290,20 @@ end
   @test b01_batch.coords.v[3,:]' ≈ b0_batch.coords.v[1,:]'
   @test b01_batch.coords.v[4,:]' ≈ b0_batch.coords.v[2,:]'
 
+  # BatchParams of different lengths each wrap around on their own: particle i sees entry mod1(i, 2)
+  # of one and mod1(i, 3) of the other, as when tracked alone through the element with those values
+  kn1s, offs = [0.3, 0.36], [0.0, 1e-4, 2e-4]
+  mixed(k, x) = Beamline([Quadrupole(L=0.4, Kn1=k, x_offset=x), Drift(L=0.5)];
+                         species_ref=Species("electron"), E_ref=5e9)
+  vw = repeat([1e-3 0 2e-4 0 0 1e-4], 6, 1)
+  bw = Bunch(copy(vw); p_over_q_ref=mixed(0.3, 0.0).p_over_q_ref, species=Species("electron"))
+  track!(bw, mixed(BatchParam(kn1s), BatchParam(offs)); use_explicit_SIMD=true)
+  for i in 1:6
+    bi = Bunch(vw[i:i, :]; p_over_q_ref=bw.p_over_q_ref, species=Species("electron"))
+    track!(bi, mixed(kn1s[mod1(i, 2)], offs[mod1(i, 3)]))
+    @test bw.coords.v[i, :]' ≈ bi.coords.v
+  end
+
   #=
   # Aperture:
   # let's make a time-dependent aperture which oscillates but will allow both
