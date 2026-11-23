@@ -42,7 +42,7 @@
   end
 
   mm = ele.bmultipoleparams.order
-  first(mm) != 0 || error("DriftKick is not compatible in element with solenoidal multipole component. Try SolenoidKick instead")
+  first(mm) != 0 || error("DriftKick is not compatible with elements with a solenoid field. Try SolenoidKick instead")
   kn, ks = get_strengths(ele.bmultipoleparams, L, p_over_q_ref, ele.ref.field_scale)
   Kn0::Union{Nothing,eltype(kn)} = nothing
   Ks0::Union{Nothing,eltype(ks)} = nothing

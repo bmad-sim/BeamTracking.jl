@@ -131,6 +131,13 @@ end
 
 coordstype(::RefState{T}) where {T} = T
 
+# In case RefState contains batch GPU arrays (batched lengths or reference energies)
+Adapt.adapt_structure(to, ref::RefState{T}) where {T} = RefState{T}(
+  Adapt.adapt(to, ref.t_enter), Adapt.adapt(to, ref.beta_gamma_enter), Adapt.adapt(to, ref.t_exit),
+  Adapt.adapt(to, ref.beta_gamma_exit), Adapt.adapt(to, ref.L), Adapt.adapt(to, ref.g),
+  Adapt.adapt(to, ref.ds_step), Adapt.adapt(to, ref.s0), Adapt.adapt(to, ref.s_enter), ref.step0,
+  ref.n_steps)
+
 @inline function beval(ref::RefState{T}, i, batch_start) where {T}
   return RefState{T}(
     beval(ref.t_enter, i, batch_start), 

@@ -289,12 +289,16 @@ function Base.$t(b1::BatchParam, b2::BatchParam)
   return all(($t).(b1.batch, b2.batch))
 end
 
+# (a float is compared in the precision of the batch, as numbers in the kernels are: a Float64
+# constant can't be used with a Float32 GPU batch, e.g. on Metal)
 function Base.$t(b1::BatchParam, a::Number)
-  return all(x->($t)(x, a), b1.batch)
+  a1 = a isa AbstractFloat && eltype(b1.batch) <: AbstractFloat ? convert(eltype(b1.batch), a) : a
+  return all(x->($t)(x, a1), b1.batch)
 end
 
 function Base.$t(a::Number, b1::BatchParam)
-  return all(x->($t)(a, x), b1.batch)
+  a1 = a isa AbstractFloat && eltype(b1.batch) <: AbstractFloat ? convert(eltype(b1.batch), a) : a
+  return all(x->($t)(a1, x), b1.batch)
 end
 
 end

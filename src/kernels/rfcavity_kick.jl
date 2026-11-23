@@ -13,8 +13,9 @@
     end
 
     if multipoles
-      knl = kn .* L ./ 2
-      ksl = ks .* L ./ 2
+      # (map: a batched length is a SIMD Vec, which can't be broadcast with a tuple)
+      knl = map(k -> k*L/2, kn)
+      ksl = map(k -> k*L/2, ks)
       multipole_kick!(i, coords, mm, knl, ksl, -1)
     end
 

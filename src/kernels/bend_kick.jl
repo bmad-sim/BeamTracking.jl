@@ -23,8 +23,9 @@ Arguments
 """
 @makekernel fastgtpsa=true function bkb_multipole!(i, coords::Coords, s, radiation_params, tilde_m, beta_0, a, g, w, w_inv, k0, mm, kn, ks, L)
   other_multipoles = (length(mm) > 1)
-  knl = kn .* L ./ 2
-  ksl = ks .* L ./ 2
+  # (map: a batched length is a SIMD Vec, which can't be broadcast with a tuple)
+  knl = map(k -> k*L/2, kn)
+  ksl = map(k -> k*L/2, ks)
 
   rel_p = 1 + coords.v[i,PZI]
   px = coords.v[i,PXI]

@@ -28,6 +28,21 @@ process_preparameter(a::Union{Tuple,NamedTuple,StaticArray}, bunch) =
   has_preparameter(typeof(a)) ? map(x -> process_preparameter(x, bunch), a) : a
 process_preparameter(a, bunch) = a
 
+# A static array of kernel arguments whose element type is not concrete (e.g. strengths of which
+# some are PreParameters: normalized and unnormalized ones under a ramp) becomes a tuple when the
+# chain is stored, so that its PreParameters are found (has_preparameter looks at the element type
+# of an array) and evaluated type stably at every call. Other chains are stored as they are
+_concrete_args(kc::KernelChain) = KernelChain(map(_concrete_args, kc.chain), kc.ref, kc.batch_start,
+  map(_concrete_args, kc.transforms_out), map(_concrete_args, kc.transforms_in))
+_concrete_args(c::BeamTracking.KernelCall) = BeamTracking.KernelCall(c.kernel, _concrete_args(c.args))
+_concrete_args(a::Tuple) = map(_concrete_args, a)
+_concrete_args(a::StaticArray) = isconcretetype(eltype(a)) ? a : map(_concrete_args, Tuple(a))
+_concrete_args(a) = a
+@generated _has_abstract_array(::Type{T}) where {T} = __has_abstract_array(T)
+__has_abstract_array(T) = (T <: StaticArray && !isconcretetype(eltype(T))) ||
+  (T <: Tuple && isconcretetype(T) && any(__has_abstract_array, fieldtypes(T))) ||
+  (T <: Union{BeamTracking.KernelCall,KernelChain} && isconcretetype(T) && any(__has_abstract_array, fieldtypes(T)))
+
 # A compile-time constant (otherwise every argument of every chain is inspected at every call)
 @generated has_preparameter(::Type{T}) where {T} = _has_preparameter(T)
 _has_preparameter(T) = T <: PreParameter ||
@@ -36,8 +51,7 @@ _has_preparameter(T) = T <: PreParameter ||
 
 # Arithmetic as for TimeDependentParam: a value computed from a PreParameter is one, e.g. every
 # strength computed from the reference momentum at the element when it is time dependent (without
-# the per-particle ramp). Comparisons are errors: a decision that depends on the call cannot be
-# made when preparing
+# the per-particle ramp). Comparisons: see below
 for op in (:+, :-, :*, :/, :^)
   @eval begin
     Base.$op(a::PreParameter, b::PreParameter) = (let ga = a.g, gb = b.g; PreParameter(bunch -> $op(ga(bunch), gb(bunch))) end)
@@ -53,10 +67,27 @@ for f in (:+, :-, :sqrt, :exp, :log, :sin, :cos, :tan, :sinh, :cosh, :tanh, :inv
           :float, :abs, :sign, :conj)
   @eval Base.$f(a::PreParameter) = (let ga = a.g; PreParameter(bunch -> $f(ga(bunch))) end)
 end
-BeamTracking.atan2(a::PreParameter, b) = (let ga = a.g, b = b; PreParameter(bunch -> BeamTracking.atan2(ga(bunch), b)) end)
-BeamTracking.atan2(a, b::PreParameter) = (let a = a, gb = b.g; PreParameter(bunch -> BeamTracking.atan2(a, gb(bunch))) end)
+for f in (:(Base.atan), :(BeamTracking.atan2))
+  @eval begin
+    $f(a::PreParameter, b::PreParameter) = (let ga = a.g, gb = b.g; PreParameter(bunch -> $f(ga(bunch), gb(bunch))) end)
+    $f(a::PreParameter, b) = (let ga = a.g, b = b; PreParameter(bunch -> $f(ga(bunch), b)) end)
+    $f(a, b::PreParameter) = (let a = a, gb = b.g; PreParameter(bunch -> $f(a, gb(bunch))) end)
+  end
+end
+# (the zero of the value's type, e.g. Float32 for Float32 coordinates)
+Base.zero(a::PreParameter) = (let ga = a.g; PreParameter(bunch -> zero(ga(bunch))) end)
 Base.broadcastable(a::PreParameter) = Ref(a)
-for op in (:(<), :(<=), :isless, :(==), :isapprox)
+# Comparisons as for a TimeDependentParam that is not constant: == and isapprox are false, so the
+# lowering takes its general branch, which is right for any value at the call (the strength
+# checks only skip work: e.g. no rotation kernels for a zero tilt; no_skew_dipole then decides from
+# the stored values). Orderings are errors: a decision that depends on the call cannot be made
+# when preparing
+for op in (:(==), :isapprox)
+  @eval Base.$op(::PreParameter, ::PreParameter; kw...) = false
+  @eval Base.$op(::PreParameter, ::Any; kw...) = false
+  @eval Base.$op(::Any, ::PreParameter; kw...) = false
+end
+for op in (:(<), :(<=), :isless)
   @eval Base.$op(::PreParameter, ::Any; kw...) = error("A value that depends on the call cannot be compared when preparing")
   @eval Base.$op(::Any, ::PreParameter; kw...) = error("A value that depends on the call cannot be compared when preparing")
 end
@@ -73,6 +104,10 @@ struct PreKernelChain{K,D,P,S}
   s_exit::S
   step_exit::Int
 end
+
+# (see _concrete_args above)
+_concrete_args(pc::PreKernelChain) = _has_abstract_array(typeof(pc.kc)) ?
+  PreKernelChain(_concrete_args(pc.kc), pc.dt, pc.p_over_q_ref_exit, pc.s_exit, pc.step_exit) : pc
 
 # The PreParameters are lowered as the RefState constructor, and make_kernel_call and push, lower
 # what universal! passes there
@@ -121,7 +156,7 @@ end
 # this one, unless that is only known at the call (with a time dependent reference energy, where
 # the next element only uses it at the call too)
 function push_chain!(chains::Vector, bunch, pc)
-  push!(chains, pc)
+  push!(chains, _concrete_args(pc))
   pc.p_over_q_ref_exit isa PreParameter || (bunch.p_over_q_ref = pc.p_over_q_ref_exit)
   return nothing
 end

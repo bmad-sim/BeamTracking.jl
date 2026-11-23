@@ -26,13 +26,15 @@
   radiation_params = ele.universalparams.rad_damping ? (q, mc2, E_ref) : nothing
 
   mm = ele.bmultipoleparams.order
-  first(mm) != 0 || error("MatrixKick is not compatible in element with solenoidal multipole component. Try SolenoidKick instead")
+  first(mm) != 0 || error("MatrixKick is not compatible with elements with a solenoid field. Try SolenoidKick instead")
   kn, ks = get_strengths(ele.bmultipoleparams, L, p_over_q_ref, ele.ref.field_scale)
   Kn0::Union{Nothing,eltype(kn)} = nothing
   Ks0::Union{Nothing,eltype(ks)} = nothing
-  # The type of a TimeDependentParam changes with every operation (zero, sqrt, ...)
-  TN = eltype(kn) <: TimeDependentParam ? TimeDependentParam : eltype(kn)
-  TS = eltype(ks) <: TimeDependentParam ? TimeDependentParam : eltype(ks)
+  # The type of a TimeDependentParam or PreParameter changes with every operation (zero, sqrt, ...)
+  TN = eltype(kn) <: TimeDependentParam ? TimeDependentParam :
+       eltype(kn) <: PreParameter ? PreParameter : eltype(kn)
+  TS = eltype(ks) <: TimeDependentParam ? TimeDependentParam :
+       eltype(ks) <: PreParameter ? PreParameter : eltype(ks)
   Kn1::TN = zero(kn[1])
   Ks1::TS = zero(ks[1])
   k1::TN = zero(kn[1])

@@ -14,14 +14,16 @@ function default_tracking_method(ele)
   return o == 0 ? SolenoidKick() : o == 2 ? MatrixKick() : DriftKick()
 end
 
-# Pushes 4 equal particles with 4 batched parameters
-# compares when particle is pushed through 4 different elements
+# Pushes 4 equal particles with 4 batched parameters (val times each of factors)
+# compares when particle is pushed through 4 different elements, for each keyword set of paths
 function test_batch(
-  batch_params, 
-  nonbatch_params=(;); 
-  v=nothing, 
-  q=nothing, 
+  batch_params,
+  nonbatch_params=(;);
+  v=nothing,
+  q=nothing,
   extra_tests=(),
+  factors=(-1, -0.5, 0.5, 1),
+  paths=((; use_explicit_SIMD=true),),
 )
 
   if isnothing(v)
@@ -40,10 +42,7 @@ function test_batch(
   ele_4 = LatElement()
   ele_batch = LatElement()
   for (k,val) in pairs(batch_params)
-    val_1 = -val
-    val_2 = -0.5*val
-    val_3 = 0.5*val
-    val_4 = val
+    val_1, val_2, val_3, val_4 = factors .* val
     setproperty!(ele_1, k, val_1)
     setproperty!(ele_2, k, val_2)
     setproperty!(ele_3, k, val_3)
@@ -75,27 +74,30 @@ function test_batch(
   b0_3 = Bunch(v[1,:]', q[1,:]'; p_over_q_ref=bl_3.p_over_q_ref, species=bl_3.species_ref)
   b0_4 = Bunch(v[1,:]', q[1,:]'; p_over_q_ref=bl_4.p_over_q_ref, species=bl_4.species_ref)
 
-  b0_batch = Bunch(v, q; p_over_q_ref=bl_batch.p_over_q_ref, species=bl_batch.species_ref)
-
   track!(b0_1, bl_1)
   track!(b0_2, bl_2)
   track!(b0_3, bl_3)
   track!(b0_4, bl_4)
 
-  # Ensure branchlessness of parameters with explicit SIMD
-  use_explicit_SIMD=true
-  track!(b0_batch, bl_batch; use_explicit_SIMD) 
-  
-  @test b0_batch.coords.v[1,:]' ≈ b0_1.coords.v
-  @test b0_batch.coords.v[2,:]' ≈ b0_2.coords.v
-  @test b0_batch.coords.v[3,:]' ≈ b0_3.coords.v
-  @test b0_batch.coords.v[4,:]' ≈ b0_4.coords.v
+  # (batched lengths need a batched reference time)
+  t_ref = haskey(batch_params, :L) ? BatchParam(zeros(4)) : 0.0
+  for path in paths
+    b0_batch = Bunch(copy(v), copy(q); p_over_q_ref=bl_batch.p_over_q_ref, species=bl_batch.species_ref, t_ref)
 
-  @test b0_batch.coords.q[1,:]' ≈ b0_1.coords.q
-  @test b0_batch.coords.q[2,:]' ≈ b0_2.coords.q
-  @test b0_batch.coords.q[3,:]' ≈ b0_3.coords.q
-  @test b0_batch.coords.q[4,:]' ≈ b0_4.coords.q
-  
+    # Ensure branchlessness of parameters with explicit SIMD
+    track!(b0_batch, bl_batch; path...)
+
+    @test b0_batch.coords.v[1,:]' ≈ b0_1.coords.v
+    @test b0_batch.coords.v[2,:]' ≈ b0_2.coords.v
+    @test b0_batch.coords.v[3,:]' ≈ b0_3.coords.v
+    @test b0_batch.coords.v[4,:]' ≈ b0_4.coords.v
+
+    @test b0_batch.coords.q[1,:]' ≈ b0_1.coords.q
+    @test b0_batch.coords.q[2,:]' ≈ b0_2.coords.q
+    @test b0_batch.coords.q[3,:]' ≈ b0_3.coords.q
+    @test b0_batch.coords.q[4,:]' ≈ b0_4.coords.q
+  end
+
   for extra_test in extra_tests
     @test extra_test(b0_plus, b0_minus, b0_time)
   end
@@ -152,6 +154,35 @@ end
   test_batch((;Bn0L=Kn0, Kn1L=Kn1, Bn3=Kn3), (;L=L))
   test_batch((;Bn0L=Kn0, Kn1L=Kn1, Bn3=Kn3), (;L=0))
   test_batch((;Bn0L=Kn0, Kn1L=Kn1, Bn3=Kn3), (;L=0))
+
+  # Batched lengths: each particle has its own steps and reference times. With explicit SIMD
+  # these are Vecs in the kernels, and through KernelAbstractions (which compiles its CPU kernels
+  # as for a GPU in KA 0.10) the RefState holding them is adapted to the device
+  Lf = (0.5, 0.75, 1, 1.25)
+  Lp = ((; use_explicit_SIMD=true), (; use_KA=true, use_explicit_SIMD=false))
+  test_batch((;L=0.6), (;); factors=Lf, paths=Lp)                                  # drift
+  test_batch((;L=0.6), (;tracking_method=Exact()); factors=Lf, paths=Lp)
+  test_batch((;L=0.6), (;Kn1=0.36); factors=Lf, paths=Lp)                          # MKM
+  test_batch((;L=0.6), (;Kn1=0.36, Ks2=-1.2, Kn12=105.); factors=Lf, paths=Lp)
+  test_batch((;L=0.6), (;Ksol=0.23, Kn1=0.36, Ks2=-1.2); factors=Lf, paths=Lp)     # SKS
+  test_batch((;L=0.6), (;Kn1=0.36, Ks2=-1.2, tracking_method=SolenoidKick()); factors=Lf,
+             paths=Lp)
+  test_batch((;L=0.6), (;Kn0=1e-2, Kn1=-2, Kn3=14); factors=Lf, paths=Lp)          # DKD
+  test_batch((;L=0.6), (;g_ref=0.05, Kn0=0.05, Kn2=0.2, tracking_method=BendKick()); # BKB
+             factors=Lf, paths=Lp)
+  test_batch((;L=0.6), (;voltage=1e6, rf_frequency=5e8, Kn1=0.01,                  # RF
+             tracking_method=SolenoidKick()); factors=Lf, paths=Lp)
+  test_batch((;L=0.6), (;voltage=1e6, rf_frequency=5e8, tracking_method=DriftKick()); factors=Lf,
+             paths=Lp)
+  # misaligned, sliced, with radiation damping
+  test_batch((;L=0.6), (;Kn1=0.36, Ks2=-1.2, x_offset=1e-4, tilt=0.1, n_slices=2,
+             rad_damping=true); factors=Lf, paths=Lp)
+
+  # A float is compared with a batch in the batch's precision (a Float64 constant can't be used
+  # with a Float32 GPU batch); a Float64 batch exactly
+  @test BatchParam(Float32[0.1, 0.1]) == 0.1 && 0.1 == BatchParam(Float32[0.1])
+  @test !(BatchParam(Float32[0.1]) < 0.1) && BatchParam(Float32[0.1]) <= 0.1
+  @test !(BatchParam([Float64(0.1f0)]) == 0.1) && BatchParam([0.1]) == 0.1
 
   # Subtracting a batch from scalar zero negates every lane:
   @test (0 - BatchParam([1.0, -2.0])).batch ≈ [-1.0, 2.0]
@@ -258,6 +289,20 @@ end
   @test b01_batch.coords.v[2,:]' ≈ b0_batch.coords.v[4,:]'
   @test b01_batch.coords.v[3,:]' ≈ b0_batch.coords.v[1,:]'
   @test b01_batch.coords.v[4,:]' ≈ b0_batch.coords.v[2,:]'
+
+  # BatchParams of different lengths each wrap around on their own: particle i sees entry mod1(i, 2)
+  # of one and mod1(i, 3) of the other, as when tracked alone through the element with those values
+  kn1s, offs = [0.3, 0.36], [0.0, 1e-4, 2e-4]
+  mixed(k, x) = Beamline([Quadrupole(L=0.4, Kn1=k, x_offset=x), Drift(L=0.5)];
+                         species_ref=Species("electron"), E_ref=5e9)
+  vw = repeat([1e-3 0 2e-4 0 0 1e-4], 6, 1)
+  bw = Bunch(copy(vw); p_over_q_ref=mixed(0.3, 0.0).p_over_q_ref, species=Species("electron"))
+  track!(bw, mixed(BatchParam(kn1s), BatchParam(offs)); use_explicit_SIMD=true)
+  for i in 1:6
+    bi = Bunch(vw[i:i, :]; p_over_q_ref=bw.p_over_q_ref, species=Species("electron"))
+    track!(bi, mixed(kn1s[mod1(i, 2)], offs[mod1(i, 3)]))
+    @test bw.coords.v[i, :]' ≈ bi.coords.v
+  end
 
   #=
   # Aperture:
