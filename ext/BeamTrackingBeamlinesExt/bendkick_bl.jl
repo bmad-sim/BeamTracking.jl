@@ -77,7 +77,9 @@
     g = ele.bendparams.g_ref
     ntilt = -ele.bendparams.tilt_ref
     !has_dipole || no_skew_dipole(ele.bmultipoleparams, ks) || error("BendKick is not currently compatible in an element with both BendParams and a skew dipole multipole")
-    has_dipole && length(mm) == 1 || @warn "Straight multipoles are being used in a curved reference system. Maxwell's equations in free space are not satisfied." maxlog=1
+    # With g_ref = 0 the reference frame is straight (e.g. a rectangular bend between patches),
+    # so straight multipoles are Maxwellian: only warn for a curved frame
+    _straight_frame(g) || (has_dipole && length(mm) == 1) || @warn "Straight multipoles are being used in a curved reference system. Maxwell's equations in free space are not satisfied." maxlog=1
     Kn0 = has_dipole ? kn[1] : zero(kn[1])
     w = ntilt == 0 ? nothing : rot_quaternion(0, 0, ntilt)
     w_inv = ntilt == 0 ? nothing : inv_rot_quaternion(0, 0, ntilt)
@@ -87,3 +89,6 @@
     return push(kc, integration_launcher(BeamTracking.bkb_multipole!, params, photon_params, edge_params, tm_new, ele.universalparams))
   end
 end
+
+# g_ref is exactly zero (a straight reference frame). Not a plain number (e.g. batched): curved.
+_straight_frame(g) = g isa Number && iszero(g)
